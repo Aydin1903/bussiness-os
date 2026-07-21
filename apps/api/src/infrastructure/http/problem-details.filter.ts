@@ -17,6 +17,28 @@ const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 /** ProblemDetails.status duz bir sayidir; enum ile karsilastirma yapilmaz. */
 const SERVER_ERROR_THRESHOLD = 500;
 
+/**
+ * 5xx maskesinden MUAF tutulmak isteyen hatalarin tasidigi isaret.
+ *
+ * VARSAYILAN DEGISMEDI: sunucu hatalarinin govdesi hala gizlenir. Bu isaret
+ * yalnizca govdesi ELLE YAZILMIS, ic detay icermeyen 5xx'ler icindir —
+ * ornegin "bu ozellik henuz devrede degil" gibi bilincli bir bildirim.
+ *
+ * Neden gerekli: maskeleme olmadan `new InternalServerErrorException(err.message)`
+ * baglanti dizesini cevaba tasir. Ama maskeleme MUTLAK olursa, kasitli ve
+ * guvenli bir 503 bildirimi de anlamsiz bir "Beklenmeyen bir hata olustu"
+ * cevabina doner ve istemci ne yapacagini bilemez.
+ *
+ * Isaret ACIKCA konur; hicbir hata bunu kazara kazanmaz.
+ */
+export interface DisclosableProblem {
+  readonly disclosable: true;
+}
+
+function isDisclosable(exception: HttpException): boolean {
+  return 'disclosable' in exception && exception.disclosable === true;
+}
+
 /** ProblemDetails'in her varyantinda tekrar eden baglam alanlari. */
 interface ProblemContext {
   readonly instance: string;
@@ -94,7 +116,7 @@ function httpProblem(exception: HttpException, context: ProblemContext): Problem
   // `new InternalServerErrorException(err.message)` gibi bir cagri, baglanti
   // dizesini, host adini veya sema detayini oldugu gibi cevaba tasir. Istemci
   // acisindan 5xx'in tek anlamli bilgisi "bizde bir sey bozuldu" ve traceId'dir.
-  if (status >= SERVER_ERROR_THRESHOLD) {
+  if (status >= SERVER_ERROR_THRESHOLD && !isDisclosable(exception)) {
     return serverErrorProblem(status, context);
   }
 
