@@ -15,6 +15,9 @@
  * kendi value object'ine sarar — `TenantId.create(idGenerator.nextId())`.
  * Boylece uretilen id, kullanildigi yerde ayrica DOGRULANMIS olur.
  */
+/** DI token'i. */
+export const ID_GENERATOR = Symbol('ID_GENERATOR');
+
 export interface IdGenerator {
   /** Yeni bir UUIDv7 uretir. */
   nextId(): string;

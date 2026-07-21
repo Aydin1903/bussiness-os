@@ -17,6 +17,9 @@
  * CLAUDE.md: `shared/` framework'suzdur. Bu dosya bir INTERFACE'tir; NestJS
  * `@Injectable()` isaretlemesi adapter tarafinda, infrastructure'da yapilir.
  */
+/** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
+export const CLOCK = Symbol('CLOCK');
+
 export interface Clock {
   /** Su anki zamani UTC olarak dondurur. */
   now(): Date;

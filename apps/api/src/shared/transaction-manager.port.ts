@@ -8,6 +8,9 @@
  * `shared/` altinda yasar cunku tenant'a ozgu degildir; her modulun use
  * case'leri ayni sozlesmeye ihtiyac duyar.
  */
+/** DI token'i. */
+export const TRANSACTION_MANAGER = Symbol('TRANSACTION_MANAGER');
+
 export interface TransactionManager {
   /**
    * Verilen isi tek bir transaction icinde calistirir.
