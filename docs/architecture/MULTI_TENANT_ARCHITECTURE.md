@@ -469,6 +469,17 @@ Global `User` tablosu, tasarımın en dikkat isteyen noktasıdır: kimlik global
 
 **Bir token, bir tenant.** Bir access token tam olarak tek bir `tenant_id` claim'i taşır. Tenant değiştirmek, yeni bir token almaktır.
 
+Bunun doğrudan sonucu **iki aşamalı token modelidir** ([`AUTH_ARCHITECTURE.md` §10.1](AUTH_ARCHITECTURE.md), ADR-0020):
+
+| Aşama | Token | `tenant` claim'i | Ne yapabilir |
+|---|---|:---:|---|
+| 1 — giriş | **Kimlik token'ı** | ❌ yok | Yalnızca "hangi tenant'lara üyeyim" ve tenant seçimi |
+| 2 — seçim | **Tenant-scoped access token** | ✅ var | Tenant verisine erişim |
+
+**Neden iki aşama:** Kullanıcı birden fazla tenant'a üye olabilir ([ADR-0014](../adr/0014-global-user-membership.md)) ve giriş anında hangisini istediği **bilinmez**. Tek aşama olsaydı ya giriş bir tenant *tahmin etmek* zorunda kalırdı ya da tenant kimliği token dışından — yani `Host` başlığından — gelirdi. İkincisi [P1](#p1--tenant-kimliğinin-tek-meşru-kaynağı-doğrulanmış-jwt-claimidir)'in doğrudan ihlalidir.
+
+> Model, "token tenant **seçmez**" ile "token tenant **taşır**" ifadelerini uzlaştırır: seçimi yapan token değil, **membership doğrulamasıdır**; token yalnızca doğrulanmış sonucu taşır.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -675,16 +686,22 @@ sequenceDiagram
     ID-->>API: 201
     API-->>V: 201 "Doğrulama e-postası gönderildi"
     Note right of API: Yanıt, e-postanın kayıtlı<br/>olup olmadığını sızdırmaz
-    OB->>MAIL: doğrulama bağlantısı gönder
+    OB->>MAIL: 6 haneli doğrulama kodu gönder
     end
 
     rect rgb(28,52,40)
-    Note over V,ID: AŞAMA 2 — E-posta doğrulama
-    V->>API: GET /api/v1/auth/verify?token=...
-    API->>ID: token doğrula (tek kullanımlık · süreli)
-    ID->>ID: emailVerified=true · status=active
-    ID->>OB: UserEmailVerified
-    ID-->>V: 200 → tenant oluşturma ekranı
+    Note over V,ID: AŞAMA 2 — E-posta doğrulama (6 haneli KOD)
+    V->>API: POST /api/v1/auth/verify-email { email, code }
+    API->>ID: kodu doğrula
+    ID->>ID: attempt_count += 1 (ATOMİK)
+    alt 5 yanlış denemede
+        ID->>ID: kodu geçersizleştir
+        ID-->>V: 400 — yeni kod istenmeli
+    else kod doğru (HMAC eşleşti · süresi dolmamış)
+        ID->>ID: emailVerified=true · status=active
+        ID->>OB: UserEmailVerified
+        ID-->>V: 200 → tenant oluşturma ekranı
+    end
     end
 
     rect rgb(48,38,20)
@@ -725,6 +742,8 @@ sequenceDiagram
     end
     end
 ```
+
+> **Doğrulama neden bağlantı değil kod:** Bağlantı, e-posta istemcisinin tarayıcısında açılır ve kullanıcının oturumunu böler; ayrıca kurumsal e-posta tarayıcıları tek kullanımlık bağlantıları **kullanıcıdan önce tıklayarak** tüketebilir. Kodun bedeli kaba kuvvete açık olmasıdır — bu yüzden deneme sınırı opsiyonel değil **zorunludur**. Ayrıntı: [`AUTH_ARCHITECTURE.md` §7](AUTH_ARCHITECTURE.md), [ADR-0019](../adr/0019-email-verification-code.md).
 
 ### 9.3 Transaction sınırları
 
@@ -989,7 +1008,12 @@ Bazı tablolar doğaları gereği tenant-scoped değildir. Bu liste **kapalıdı
 | Tablo | Neden tenant-scoped değil | Telafi edici kontrol |
 |---|---|---|
 | `platform.tenants` | Tenant'ın kendisi | Yalnızca kendi tenant satırını gösteren RLS politikası (`id = current_setting(...)`); listeleme endpoint'i yok. **`FORCE` yoktur** — gerekçe [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
-| `platform.users` | Kimlik globaldir | **Doğrudan sorgulanmaz.** Erişim daima `memberships` (RLS korumalı) üzerinden `JOIN` ile. Repository seviyesinde zorlanır |
+| `platform.users` | Kimlik globaldir ([ADR-0014](../adr/0014-global-user-membership.md)) | **İki ayrı erişim yolu** — bkz. [§12.4.3](#1243-identity-tabloları) |
+| `platform.credentials` | `users` ile 1:1; parola hash'i | Yalnızca Identity modülünün kimlik doğrulama repository'sinden erişilir; hiçbir DTO/event/log'a girmez |
+| `platform.email_verification_codes` | Kullanıcı henüz hiçbir tenant'a ait olmayabilir | Kod HMAC+pepper ile saklanır; deneme sayacı atomik artar |
+| `platform.token_families` · `platform.refresh_tokens` | Oturum, tenant seçiminden **önce** başlar | Token SHA-256 hash'iyle saklanır; iptal sunucu tarafında |
+| `platform.login_attempts` | Başarısız giriş var olmayan bir kullanıcıya ait olabilir | Yalnızca kilit kararında okunur; kullanıcıya yansıtılmaz |
+| `platform.identity_outbox` | Identity event'leri `tenantId: null` taşır ([§15.1](#151-ortak-sözleşme)) | Ayrı tablo — `platform.outbox`'ın `NOT NULL` kısıtı ve RLS politikası **gevşetilmedi** |
 | `platform.memberships` | Tenant ↔ user köprüsü | `tenant_id` taşır → **standart RLS uygulanır** |
 | `platform.tenant_domains` | Resolution, auth'tan önce çalışır | Yalnızca `domain → tenant_id` çözümü için okunur; başka alan dönmez |
 | `platform.outbox` | Publisher tenant'lar arası okur | `tenant_id` taşır → **standart RLS uygulanır** (`ENABLE` + `FORCE`). Yazma tarafı tenant context'i altında çalışır. Okuma tarafı için bkz. [§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) |
@@ -1057,6 +1081,27 @@ Bu, RLS'in doğrudan bir sonucudur ama **sezgiye aykırıdır**: tenant izolasyo
 > **Üçüncü bir veritabanı rolü eklenmeyecektir.** Bu bölümün önceki hâli "publisher ayrı ve kısıtlı bir rolle çalışır" diyordu; o yaklaşım docker init script'leri, README, `.env` ve config'e yayılan bir değişiklik demektir. Kontrollü aşım deseni zaten kurulu ve test edilmiş durumdadır ve aşımı **tek bir fonksiyon imzasında** toplar.
 
 Bugün yazılmamasının sebebi: tüketen bir süreç yok. **Test edilemeyecek bir aşım yüzeyi açmak, açmamaktan kötüdür** — kullanılmayan bir `SECURITY DEFINER` fonksiyonu, kimsenin doğrulamadığı bir RLS deliğidir.
+
+#### 12.4.3 Identity tabloları
+
+Faz 3 ile gelen Identity tabloları **tenant-scoped değildir** ve olamaz: kimlik, tenant'ların *üstünde* yaşar ([ADR-0014](../adr/0014-global-user-membership.md)). Tam tasarım [`AUTH_ARCHITECTURE.md` §13](AUTH_ARCHITECTURE.md)'tedir; burada yalnızca **izolasyon modelini ilgilendiren** kısım vardır.
+
+**`platform.users` iki farklı amaçla sorgulanır ve ikisi aynı kural altında değildir:**
+
+| Erişim | Tenant context | Kural |
+|---|---|---|
+| **Kimlik doğrulama** (login, kayıt, doğrulama, sıfırlama) | **Yok — olamaz** | Identity repository'si `users`'ı **doğrudan** sorgular |
+| **Tenant içi kullanıcı listeleme** | Var | Önceki kural aynen geçerli: `memberships` üzerinden `JOIN`, RLS korumalı |
+
+Ayrım şudur: birincisi **kimlik** sorgusudur ve tenant'tan **öncedir**; ikincisi **tenant verisi** sorgusudur.
+
+Bu, [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı)'deki `resolve_tenant` ile **aynı problem sınıfıdır**: context'i kuracak olan sorgu context'e dayanamaz. Ve aynı desenle çözülür — **gevşetme ile değil, daraltma ile**:
+
+- `users` üzerinde **listeleme metodu yazılmaz**. Yalnızca `findByEmail` ve `findById`; `findAll` benzeri bir metot tüm platformun kullanıcı listesini döndüren tek satırlık bir sızıntı kapısıdır (Faz 2'de `TenantRepository` için uygulanan aynı disiplin).
+- E-posta araması sonucu **hiçbir zaman** istemciye "bulundu/bulunamadı" olarak yansıtılmaz — kayıt, giriş ve sıfırlama yanıtları hesabın varlığından bağımsız olarak **aynıdır**.
+- Identity tablolarına **yalnızca Identity modülü** dokunur; başka hiçbir modül `users`'ı sorgulamaz (`ARCHITECTURE.md` §6.1).
+
+> **`platform.identity_outbox` neden ayrı:** `platform.outbox` `tenant_id NOT NULL` taşır ve standart RLS politikasına tabidir. Identity event'leri (`UserRegistered`, `UserEmailVerified`) tanımı gereği tenant'sızdır ([§15.1](#151-ortak-sözleşme)). Mevcut tabloyu `tenant_id IS NULL OR …` diye gevşetmek, **herkesin** tenant'sız satır yazabilmesi demekti — yani izolasyon garantisinin zayıflatılması. Ayrı tablo, iki farklı tehdit modelini ayrı tutar.
 
 ### 12.5 RLS'in koruyamadığı yollar
 
@@ -1449,3 +1494,4 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 | 1.6 | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar. |
 | 1.7 | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi). |
 | 1.8 | 2026-07-21 | §6.3 erisim tablosuna `failed` satiri eklendi — kod bes durumluydu, tablo dordunu listeliyordu. Faz 2 kapanis denetiminde bulundu. |
+| 1.9 | 2026-07-21 | Faz 3 (Identity) kararlarıyla hizalandı: §7.4'e **iki aşamalı token modeli**, §9.2'ye **6 haneli kod** akışı (bağlantı yerine), §12.4'e Identity tabloları ve **§12.4.3** eklendi. Kaynak: `AUTH_ARCHITECTURE.md` v1.0, ADR-0019/0020. |

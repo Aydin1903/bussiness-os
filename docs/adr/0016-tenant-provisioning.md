@@ -26,8 +26,9 @@ Akis:
 
 ```
 1. Sign Up          → User(status=pending, emailVerified=false)
-                      Tenant YOK
-2. Email Verification → User(status=active, emailVerified=true)
+                      Tenant YOK · 6 haneli kod e-posta ile gonderilir
+2. Email Verification → kod dogrulanir (ADR-0019)
+                      User(status=active, emailVerified=true)
 3. Tenant Provisioning
    ┌── TEK TRANSACTION ──────────────────────────┐
    │  Tenant(status=provisioning)                │
@@ -46,6 +47,27 @@ Slug tekilligi **veritabani unique index'i** ile saglanir; kisit ihlali yakalani
 `409`'a cevrilir.
 
 Ayrinti: MULTI_TENANT_ARCHITECTURE.md §9.
+
+## Ek: dogrulama BAGLANTI ile degil KOD ile yapilir
+
+- **Tarih:** 2026-07-21 · **Karar veren:** Product Owner
+
+Bu ADR ilk yazildiginda dogrulama akisi bir BAGLANTI (`/auth/verify?token=...`)
+olarak tarif edilmisti. Faz 3 tasariminda 6 HANELI KOD'a cevrildi (ADR-0019).
+
+**Gerekce.** Baglanti, e-posta istemcisinin tarayicisinda acilir ve kullanicinin
+oturumunu boler — mobil uygulamada baslayan kayit, tarayicida biter ve geri
+donus akisi kirilir. Ayrica kurumsal e-posta tarayicilari tek kullanimlik
+baglantilari kullanicidan ONCE tiklayarak tuketebilir; kullanici "baglanti
+gecersiz" hatasi alir ve sebebini anlayamaz.
+
+**Bedeli.** Kod kaba kuvvete acik bir arama uzayina sahiptir (10^6). Bu yuzden
+deneme siniri OPSIYONEL DEGIL ZORUNLUDUR: 5 yanlis denemede kod gecersizlesir
+ve yeniden gonderme de oranlanir. Ayrinti ADR-0019 ve
+AUTH_ARCHITECTURE 7'de.
+
+Bu ADR'nin geri kalani (dogrulanmamis e-posta ile tenant acilmamasi, tek
+transaction siniri, asenkron tamamlama) DEGISMEDI.
 
 ## Gerekce
 
