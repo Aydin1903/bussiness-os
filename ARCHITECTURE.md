@@ -42,6 +42,7 @@ Modular monolith olarak başlıyoruz çünkü mikroservis erken aşamada gereksi
 | Repo | Turborepo monorepo | Tip paylaşımı, atomik commit, tek CI |
 | Tenant kimliği | JWT claim + subdomain | Güvenlik sınırı token'da, subdomain sadece routing |
 | API versioning | URI path `/api/v1` | Okunabilir, test edilebilir, NestJS native |
+| E-posta gönderimi | `EmailPort` + **Resend** adapter | Sağlayıcı bağımsız; Resend ücretsiz kotası bu aşama için yeterli ve Node.js ekosistemine uygun |
 
 ### ⏳ Karara bağlanmamış
 
@@ -344,14 +345,14 @@ AI katmanındaki ilke tüm altyapı bağımlılıkları için geçerlidir:
 ```
 Use Case
    ↓ (sadece port'u bilir)
-StoragePort · CachePort · SearchPort
+StoragePort · CachePort · EmailPort · SearchPort
    ↓
 Adapter'lar (değiştirilebilir)
 ```
 
-**Kabul testi (üçü için de aynı):** Sağlayıcı değiştirmek yalnızca yeni adapter yazmayı gerektirmeli. Business logic'te tek satır değişmemeli. Değişiyorsa soyutlama yanlıştır.
+**Kabul testi (dördü için de aynı):** Sağlayıcı değiştirmek yalnızca yeni adapter yazmayı gerektirmeli. Business logic'te tek satır değişmemeli. Değişiyorsa soyutlama yanlıştır.
 
-> ⚠️ Bu bölüm **soyutlamayı** tanımlar, sağlayıcıyı **seçmez**. Hangi adapter'ın production'da kullanılacağı Faz 3'te Product Owner'a ayrıca sorulur.
+> ⚠️ Bu bölüm **soyutlamayı** tanımlar. Sağlayıcı seçimi ayrı bir karardır ve port'un tasarımını etkilemez: bugün yalnızca **EmailPort** için sağlayıcı seçilmiştir (Resend, §9.3). Storage, Cache ve Search sağlayıcıları hâlâ karara bağlanmamıştır.
 
 ### 9.1 StoragePort — dosya/nesne depolama
 
@@ -405,7 +406,30 @@ interface CachePort {
 - Invalidation stratejisi yazının yanında değil, **domain event'te** yaşar: `InvoiceIssued` → ilgili cache prefix'i temizlenir.
 - Cache'de PII veya token tutulmaz.
 
-### 9.3 SearchPort — arama
+### 9.3 EmailPort — e-posta gönderimi
+
+```typescript
+interface EmailPort {
+  send(message: EmailMessage): Promise<void>;
+}
+```
+
+| Adapter | Kullanım |
+|---|---|
+| **Resend** | ✅ **Seçildi** — Faz 3 ve sonrası |
+| Konsol/dosya | Lokal geliştirme ve CI: e-posta gönderilmez, içerik loglanır |
+| SES · Postmark · SMTP | Gerekirse; yalnızca yeni adapter |
+
+**Kurallar**
+
+- Gönderim **domain event üzerinden**, outbox akışıyla tetiklenir. Use case doğrudan `send()` çağırmaz — aksi hâlde DB commit olur, e-posta gönderilmez (veya tersi: e-posta gider, transaction geri alınır ve kullanıcı olmayan bir kod alır).
+- **Doğrulama kodu, sıfırlama kodu ve token'lar loglanmaz.** E-posta gövdesi PII ve sır taşır; log maskeleme zorunludur (`DEVELOPMENT_RULES.md` §8).
+- Gönderim hatası **kullanıcıya sızdırılmaz**: "kod gönderildi" yanıtı, teslimatın başarısından bağımsız olarak aynıdır (hesap varlığı sızmasın diye — `AUTH_ARCHITECTURE.md` P2).
+- Teslimat başarısızlığı **yeniden denenebilir** olmalıdır; outbox handler'ı idempotenttir.
+
+> Sağlayıcı seçimi bir **adapter detayıdır**. Resend'in kotası yetmez veya fiyatlandırması değişirse, yeni bir adapter yazmak dışında hiçbir yerde değişiklik gerekmemelidir — `LLMPort`'takiyle aynı kabul testi.
+
+### 9.4 SearchPort — arama
 
 ```typescript
 interface SearchPort {
@@ -447,6 +471,13 @@ interface SearchPort {
 | Input | Sınırda Zod doğrulaması, istisnasız |
 | Audit | Güvenlik açısından anlamlı her işlem denetim kaydına yazılır |
 | Rate limit | Tenant + IP bazlı |
+| Kimlik doğrulama | İki aşamalı token (kimlik → tenant-scoped), EdDSA imza, refresh rotation + yeniden kullanım tespiti |
+| Kaba kuvvet | Katmanlı kilit: `(e-posta, IP)` · e-posta · IP |
+
+> **Kimlik doğrulamanın tamamı** — parola saklama, e-posta doğrulama, JWT içeriği,
+> oturum iptali, kilit modeli — [`docs/architecture/AUTH_ARCHITECTURE.md`](docs/architecture/AUTH_ARCHITECTURE.md)'dedir
+> ve o doküman bu konuda **Single Source of Truth**'tur. Buradaki tablo yalnızca
+> özettir; çelişki halinde AUTH dokümanı geçerlidir.
 
 ### 10.1 Yetkilendirme modeli — Role · Permission · Resource · Action
 
@@ -521,10 +552,19 @@ Format: `NNNN-kisa-baslik.md` → Bağlam · Karar · Gerekçe · Sonuçlar · A
 | 0014 | Global User & Membership (+ Role Value Object) |
 | 0015 | Tenant Resolution: Hybrid — Custom Domain → Subdomain → JWT |
 | 0016 | Tenant Provisioning: Email verification önce |
+| 0017 | Parola saklama: Argon2id parametreleri |
+| 0018 | Parola politikası |
+| 0019 | E-posta doğrulama: 6 haneli kod |
+| 0020 | JWT yapısı ve imzalama: iki aşamalı token, EdDSA |
+| 0021 | Refresh token rotation + yeniden kullanım tespiti |
+| 0022 | Kaba kuvvet koruması: katmanlı kilit |
+| 0023 | Oturum sonlandırma ve iptal |
+| 0024 | Parola sıfırlama |
 
-0012–0016 multi-tenancy kararlarının bütünsel anlatımı için:
-[`docs/architecture/MULTI_TENANT_ARCHITECTURE.md`](docs/architecture/MULTI_TENANT_ARCHITECTURE.md) —
-multi-tenancy konusunda **Single Source of Truth**'tur.
+Bütünsel anlatımlar — her biri kendi alanında **Single Source of Truth**'tur:
+
+- **0012–0016** → [`docs/architecture/MULTI_TENANT_ARCHITECTURE.md`](docs/architecture/MULTI_TENANT_ARCHITECTURE.md)
+- **0017–0024** → [`docs/architecture/AUTH_ARCHITECTURE.md`](docs/architecture/AUTH_ARCHITECTURE.md)
 
 ---
 

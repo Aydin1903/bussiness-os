@@ -160,7 +160,8 @@ business-os/
 ├── docs/
 │   ├── adr/                    # Architecture Decision Records
 │   └── architecture/           # derinlemesine mimari dokümanlar
-│       └── MULTI_TENANT_ARCHITECTURE.md   # multi-tenancy — SSOT
+│       ├── MULTI_TENANT_ARCHITECTURE.md   # multi-tenancy — SSOT
+│       └── AUTH_ARCHITECTURE.md           # kimlik doğrulama — SSOT
 ├── CLAUDE.md
 ├── ARCHITECTURE.md
 └── DEVELOPMENT_RULES.md
@@ -270,6 +271,22 @@ Swagger · Vitest + Testcontainers · ESLint/Prettier · GitHub Actions CI.
 **Multi-tenancy'de tek doğruluk kaynağı** `docs/architecture/MULTI_TENANT_ARCHITECTURE.md`'dir.
 Önce oraya bakılır; kod ile doküman çelişirse doküman değil **kod yanlıştır**.
 
+### Faz 3 — tasarım tamamlandı, **kod yazımı başlamadı**
+
+Kimlik doğrulama mimarisi karara bağlandı ve ADR'leri yazıldı:
+ADR-0017 (Argon2id parametreleri) · ADR-0018 (parola politikası) ·
+ADR-0019 (6 haneli e-posta doğrulama kodu) · ADR-0020 (iki aşamalı token, EdDSA) ·
+ADR-0021 (refresh rotation + yeniden kullanım tespiti) · ADR-0022 (katmanlı kilit) ·
+ADR-0023 (oturum sonlandırma) · ADR-0024 (parola sıfırlama).
+
+**Kimlik doğrulamada tek doğruluk kaynağı** `docs/architecture/AUTH_ARCHITECTURE.md`'dir.
+
+Bu kararlar `MULTI_TENANT_ARCHITECTURE.md`'yi de etkiledi (sürüm 1.9): §7.4 iki
+aşamalı token modeli, §9.2 kod tabanlı doğrulama akışı, §12.4 Identity tabloları.
+
+E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
+(`ARCHITECTURE.md` §9.3).
+
 ### Bilinçli olarak kapalı olanlar
 
 `POST /api/v1/tenants` bugün **her isteğe 503 döner**. İki kapı Identity
@@ -283,9 +300,11 @@ Bu ikisi Faz 3'te **değiştirilecek, genişletilmeyecek**.
 
 ### Henüz yok
 
-Authentication · Authorization (RBAC) · tam tenant context (`userId`/`role` —
-§11.2) · çözüm zincirinin JWT gerektiren 5 adımı · outbox publisher süreci ·
-`tenant.public.ts` · iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları.
+Authentication **kodu** (tasarımı hazır) · Authorization (RBAC) · tam tenant
+context (`userId`/`role` — §11.2) · çözüm zincirinin JWT gerektiren 5 adımı ·
+outbox publisher süreci · `tenant.public.ts` · iş modülleri · AI katmanı ·
+Storage/Cache/Search adapter'ları.
 
-Sıradaki adım: **Faz 3 — Identity** (User domain'i, kayıt + e-posta doğrulama,
-JWT, ve yukarıdaki iki geçici kapının gerçekleriyle değiştirilmesi).
+Sıradaki adım: **Faz 3 implementasyonu.** İlk iş `tenant.public.ts` — Identity,
+Tenant modülünü tüketecek ve public arayüz önce tanımlanmazsa ilk import
+doğrudan `application/`e gider (`ARCHITECTURE.md` §6.1).
