@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 
+import { PG_UNIQUE_VIOLATION, isPgError } from '../../../infrastructure/database/pg-error';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { tenants } from '../../../infrastructure/database/schema';
 import type { TenantRef, TenantRepository } from '../application/tenant.repository.port';
@@ -11,8 +12,6 @@ import type { TenantSlug } from '../domain/tenant-slug.value-object';
 import { TenantSlugAlreadyTakenError } from '../domain/tenant.error';
 import { toTenant, toTenantRow } from './tenant.mapper';
 
-/** PostgreSQL unique_violation. */
-const UNIQUE_VIOLATION = '23505';
 const SLUG_UNIQUE_CONSTRAINT = 'tenants_slug_key';
 
 @Injectable()
@@ -107,35 +106,7 @@ export class DrizzleTenantRepository implements TenantRepository {
  * hataya donusur — ham bir PostgreSQL hatasi olarak yukari sizmaz.
  */
 function translateSlugConflict(error: unknown, slug: string): unknown {
-  return isSlugUniqueViolation(error) ? new TenantSlugAlreadyTakenError(slug) : error;
-}
-
-/**
- * Drizzle, pg hatasini KENDI hata nesnesine sarar ve orijinali `cause`
- * altinda tasir. Yalnizca ust seviyeye bakan bir kontrol, kisit ihlalini
- * SESSIZCE kaciririr ve ham veritabani hatasi cagirana kadar sizar.
- *
- * Bu, entegrasyon testi olmadan fark edilmeyecek bir ayrintiydi: birim
- * testindeki fake repository dogru domain hatasini firlattigi icin her sey
- * calisiyor gorunurdu.
- */
-function isSlugUniqueViolation(error: unknown): boolean {
-  for (let current = error; current !== null && current !== undefined; ) {
-    if (typeof current !== 'object') {
-      return false;
-    }
-
-    if (
-      'code' in current &&
-      current.code === UNIQUE_VIOLATION &&
-      'constraint' in current &&
-      current.constraint === SLUG_UNIQUE_CONSTRAINT
-    ) {
-      return true;
-    }
-
-    current = 'cause' in current ? current.cause : null;
-  }
-
-  return false;
+  return isPgError(error, PG_UNIQUE_VIOLATION, SLUG_UNIQUE_CONSTRAINT)
+    ? new TenantSlugAlreadyTakenError(slug)
+    : error;
 }

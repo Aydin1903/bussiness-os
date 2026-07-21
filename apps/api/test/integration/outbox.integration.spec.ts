@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { DrizzleTransactionManager } from '../../src/infrastructure/database/drizzle-transaction-manager.adapter';
+import { pgErrorMatches } from '../../src/infrastructure/database/pg-error';
 import { OutboxEventPublisher } from '../../src/infrastructure/events/outbox-event-publisher.adapter';
 import { DrizzleTenantRepository } from '../../src/modules/tenant/infrastructure/drizzle-tenant.repository';
 import { Tenant } from '../../src/modules/tenant/domain/tenant.entity';
@@ -37,11 +38,11 @@ function eventFor(tenantId: string, eventId: string): DomainEvent {
 }
 
 /**
- * RLS ihlalini `cause` zincirinde arar.
+ * RLS ihlalini hata zincirinde arar.
  *
- * Drizzle pg hatasini KENDI nesnesine sarar ve mesaji "Failed query: ..."
- * olarak degistirir; orijinal PostgreSQL mesaji `cause` altinda kalir. Ust
- * seviye mesaja bakan bir iddia, RLS ihlalini baska bir hatadan ayirt EDEMEZ.
+ * Ust seviye mesaja bakan bir iddia bunu goremez: Drizzle mesaji
+ * "Failed query: ..." olarak degistirir ve orijinal PostgreSQL mesaji `cause`
+ * altinda kalir (bkz. `infrastructure/database/pg-error.ts`).
  */
 async function expectRlsViolation(operation: Promise<unknown>): Promise<void> {
   let thrown: unknown = null;
@@ -52,17 +53,7 @@ async function expectRlsViolation(operation: Promise<unknown>): Promise<void> {
   }
 
   expect(thrown).not.toBeNull();
-
-  const messages: string[] = [];
-  for (let current = thrown; current !== null && current !== undefined; ) {
-    if (typeof current !== 'object') break;
-    if ('message' in current && typeof current.message === 'string') {
-      messages.push(current.message);
-    }
-    current = 'cause' in current ? current.cause : null;
-  }
-
-  expect(messages.join(' | ')).toMatch(/row-level security/i);
+  expect(pgErrorMatches(thrown, /row-level security/i)).toBe(true);
 }
 
 describe('transactional outbox (gercek PostgreSQL)', () => {
