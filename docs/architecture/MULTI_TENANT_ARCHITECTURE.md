@@ -989,7 +989,7 @@ Bazı tablolar doğaları gereği tenant-scoped değildir. Bu liste **kapalıdı
 | `platform.users` | Kimlik globaldir | **Doğrudan sorgulanmaz.** Erişim daima `memberships` (RLS korumalı) üzerinden `JOIN` ile. Repository seviyesinde zorlanır |
 | `platform.memberships` | Tenant ↔ user köprüsü | `tenant_id` taşır → **standart RLS uygulanır** |
 | `platform.tenant_domains` | Resolution, auth'tan önce çalışır | Yalnızca `domain → tenant_id` çözümü için okunur; başka alan dönmez |
-| `platform.outbox` | Publisher tenant'lar arası okur | `tenant_id` taşır; publisher ayrı ve kısıtlı bir rolle çalışır, HTTP yolundan erişilemez |
+| `platform.outbox` | Publisher tenant'lar arası okur | `tenant_id` taşır → **standart RLS uygulanır** (`ENABLE` + `FORCE`). Yazma tarafı tenant context'i altında çalışır. Okuma tarafı için bkz. [§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) |
 | `platform.audit_log` | Değişmez denetim kaydı | `tenant_id` taşır → **standart RLS uygulanır**; `UPDATE`/`DELETE` yetkisi hiçbir role verilmez |
 
 > Bu tablo, dokümanın en dikkatle okunması gereken yeridir. RLS'in kapsamadığı her satır, savunmanın delik olduğu yerdir — ve her deliğin adı burada yazılıdır.
@@ -1040,6 +1040,20 @@ Kaybın sınırı: uygulama zaten tablo sahibi **olmayan** `businessos_app` rol�
 Bu, RLS'in doğrudan bir sonucudur ama **sezgiye aykırıdır**: tenant izolasyonu, "global tekil bir alan kullanımda mı?" sorusunu normal yoldan yanıtlanamaz hâle getirir. Aynı durum ileride eklenecek her global-tekil alan için geçerli olacaktır (örneğin custom domain).
 
 > Testi olmadan bu hata **fark edilmez**: kontrol her zaman "boş" dediği için akış normal görünür, çakışma yalnızca veritabanı kısıtına çarptığında ortaya çıkar. Bir entegrasyon testi, başka bir tenant'ın slug'ının **kullanımda** olarak raporlandığını doğrular.
+
+#### 12.4.2 Outbox publisher için planlanan aşım
+
+`platform.outbox` **standart RLS şablonunu** kullanır (`ENABLE` + `FORCE` + `USING` + `WITH CHECK`) — `platform.tenants`'tan farklı olarak burada sapma **yoktur**.
+
+**Yazma tarafı** sorunsuzdur: event, use case'in tenant transaction'ı içinde yazılır ve context zaten kuruludur.
+
+**Okuma tarafı henüz yoktur** ve aynı çelişkiyi doğuracaktır: publisher süreci tenant'lar **arası** okumak zorundadır, `FORCE RLS` ile bu imkânsızdır.
+
+**Karar (bugün alındı, bugün uygulanmadı):** çözüm, [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı)'deki desenin aynısı olacaktır — `SECURITY DEFINER` bir `platform.claim_outbox_batch(...)` fonksiyonu, `FOR UPDATE SKIP LOCKED` ile.
+
+> **Üçüncü bir veritabanı rolü eklenmeyecektir.** Bu bölümün önceki hâli "publisher ayrı ve kısıtlı bir rolle çalışır" diyordu; o yaklaşım docker init script'leri, README, `.env` ve config'e yayılan bir değişiklik demektir. Kontrollü aşım deseni zaten kurulu ve test edilmiş durumdadır ve aşımı **tek bir fonksiyon imzasında** toplar.
+
+Bugün yazılmamasının sebebi: tüketen bir süreç yok. **Test edilemeyecek bir aşım yüzeyi açmak, açmamaktan kötüdür** — kullanılmayan bir `SECURITY DEFINER` fonksiyonu, kimsenin doğrulamadığı bir RLS deliğidir.
 
 ### 12.5 RLS'in koruyamadığı yollar
 
@@ -1430,3 +1444,4 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 | 1.4 | 2026-07-21 | §17.5 eklendi — agent ekosisteminin tenant sınırı kısıtı. Vizyonun kendisi `ARCHITECTURE.md` §13'te. |
 | 1.5 | 2026-07-21 | §12.4.1 eklendi — tenant resolution ile `platform.tenants` RLS politikası arasındaki çelişki çözüldü: `SECURITY DEFINER` çözüm fonksiyonu ve `FORCE`'un neden bu tabloda bulunmadığı. İlk implementasyonda ortaya çıkan gerçek bir boşluktu. |
 | 1.6 | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar. |
+| 1.7 | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi). |
