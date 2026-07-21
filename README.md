@@ -19,8 +19,16 @@ yanitlar. Hedef bir chatbot degil, bir **dijital yonetici asistanidir**.
 Urun AI merkezlidir ama **hicbir LLM saglayicisina bagimli degildir**: erisim
 daima `LLMPort` arkasindadir (ADR-0007, ARCHITECTURE 8).
 
-> **Durum:** Faz 1 tamamlandi — altyapi iskeleti calisir durumda.
-> Is modulleri, kimlik dogrulama ve multi-tenancy henuz YOKTUR (Faz 2+).
+> **Durum:** Faz 1 (altyapi) ve Faz 2 (multi-tenancy cekirdegi) tamamlandi.
+> Tenant + Membership domain'i, RLS politikalari, transactional outbox ve
+> `POST /api/v1/tenants` ucu calisir ve test edilmis durumda.
+>
+> **Kimlik dogrulama henuz YOKTUR (Faz 3).** Bu yuzden tenant acma ucu bugun
+> her istege `503` doner: kullanici kimligi ve e-posta dogrulama onkosulu
+> Identity modulunu bekliyor. Ikisi de ACIKCA reddeder — sessizce izin veren
+> gecici bir implementasyon konmadi.
+>
+> Is modulleri (CRM, Finance, HR...) ve AI katmani Faz 5+.
 
 Yonetisim dokumanlari baglayicidir:
 [CLAUDE.md](./CLAUDE.md) · [ARCHITECTURE.md](./ARCHITECTURE.md) · [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md)
@@ -76,6 +84,7 @@ curl http://localhost:3001/api/v1/health
 | Yol              | Aciklama                  |
 | ---------------- | ------------------------- |
 | `/api/v1/health` | Saglik durumu (200 / 503) |
+| `POST /api/v1/tenants` | Yeni tenant acar (202). **Faz 3'e kadar 503 doner** |
 | `/api/docs`      | Swagger UI                |
 | `/api/docs/json` | OpenAPI spec              |
 

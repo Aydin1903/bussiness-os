@@ -359,6 +359,9 @@ stateDiagram-v2
 | `active` | ✅ | ✅ | ✅ | ✅ |
 | `suspended` | ❌ | ⚠️ yalnız dışa aktarım | ❌ | ❌ |
 | `archived` | ❌ | ❌ | ❌ | ❌ |
+| `failed` | ❌ | ❌ | ❌ | ❌ |
+
+`failed`, provisioning'in asenkron tamamlama adımı başarısız olduğunda oluşur ([ADR-0016](../adr/0016-tenant-provisioning.md)) ve **terminaldir**: oradan çıkış yoktur, kayıt bir telafi işiyle silinir ve slug serbest bırakılır. Erişim açısından `archived` ile aynıdır — hiçbir yol açık değildir.
 
 Durum kontrolü **tenant context kurulurken** yapılır ([§10](#10-request-lifecycle) adım 4). Her use case'in ayrıca kontrol etmesi gerekmez — bu, unutulabilecek bir disiplin olurdu.
 
@@ -1445,3 +1448,4 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 | 1.5 | 2026-07-21 | §12.4.1 eklendi — tenant resolution ile `platform.tenants` RLS politikası arasındaki çelişki çözüldü: `SECURITY DEFINER` çözüm fonksiyonu ve `FORCE`'un neden bu tabloda bulunmadığı. İlk implementasyonda ortaya çıkan gerçek bir boşluktu. |
 | 1.6 | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar. |
 | 1.7 | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi). |
+| 1.8 | 2026-07-21 | §6.3 erisim tablosuna `failed` satiri eklendi — kod bes durumluydu, tablo dordunu listeliyordu. Faz 2 kapanis denetiminde bulundu. |

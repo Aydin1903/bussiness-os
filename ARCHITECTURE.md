@@ -122,6 +122,15 @@ CREATE POLICY tenant_isolation ON <schema>.<table>
 - Uygulama, tablo sahibi olmayan ayrı bir DB rolü ile bağlanır.
 - `USING` okumayı, `WITH CHECK` yazmayı korur. İkisi de zorunlu.
 
+> ⚠️ **`FORCE` kuralının tek gerekçeli istisnası: `platform.tenants`.**
+> Tenant resolution, context **kurulmadan önce** slug'ı çözmek zorundadır;
+> `FORCE` uygulansaydı bunu yapan `SECURITY DEFINER` fonksiyonu da kendi
+> politikasına takılırdı. Kayıp sınırlıdır (uygulama zaten sahip olmayan bir
+> rolle bağlanır) ve sapma bir entegrasyon testiyle sabitlenmiştir.
+> Gerekçenin tamamı:
+> [`MULTI_TENANT_ARCHITECTURE.md` §12.4.1](docs/architecture/MULTI_TENANT_ARCHITECTURE.md#1241-tenant-resolution-i%CC%87%C3%A7in-kontroll%C3%BC-rls-a%C5%9F%C4%B1m%C4%B1).
+> **Diğer her tenant-scoped tabloda `FORCE` zorunludur.**
+
 ### 3.4 Zorunlu güvenlik testi
 
 Her tenant-scoped tablo için, tenant A'nın tenant B'nin kaydını **okuyamadığını ve yazamadığını** kanıtlayan entegrasyon testi yazılır. Bu test olmadan modül merge edilmez. Pazarlık konusu değildir.

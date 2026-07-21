@@ -244,28 +244,48 @@ Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
 ## Mevcut Durum
 
-**Faz 1 tamamlandı — altyapı iskeleti çalışır durumda.**
-**Faz 2 tasarımı tamamlandı — kod yazımı henüz başlamadı.**
+**Faz 1 tamamlandı** — altyapı iskeleti.
+**Faz 2 tamamlandı** — multi-tenancy çekirdeği kod olarak çalışıyor.
 
-Hazır: Turborepo monorepo · NestJS API · Next.js web · PostgreSQL (rol ayrımı ile) ·
+### Faz 1 — altyapı
+
+Turborepo monorepo · NestJS API · Next.js web · PostgreSQL (rol ayrımı ile) ·
 Redis container (uygulama bağlanmıyor) · Drizzle + migration hattı · Zod ile
 doğrulanan config · Pino logging + correlation ID · RFC 7807 hata formatı ·
 Swagger · Vitest + Testcontainers · ESLint/Prettier · GitHub Actions CI.
 
-**Faz 2 — karara bağlanmış tasarım (kod yok):**
-Multi-tenancy mimarisi tasarlandı ve ADR'leri yazıldı — ADR-0012 (One Company =
-One Tenant) · ADR-0013 (V1'de Organization entity yok) · ADR-0014 (Global User +
-Membership, Role Value Object) · ADR-0015 (Hybrid tenant resolution) ·
-ADR-0016 (Email verification önce).
+### Faz 2 — multi-tenancy çekirdeği (kod **var ve test edilmiş**)
 
-Bütünsel anlatım ve **multi-tenancy için Single Source of Truth**:
-`docs/architecture/MULTI_TENANT_ARCHITECTURE.md`.
-Multi-tenancy ile ilgili bir soruda önce oraya bakılır; kod ile doküman
-çelişirse doküman değil kod yanlıştır.
+| Katman | Ne var |
+|---|---|
+| Kararlar | ADR-0012…0016 + `docs/architecture/MULTI_TENANT_ARCHITECTURE.md` (SSOT) |
+| Domain | `Tenant` · `Membership` · `TenantId`/`UserId`/`MembershipId`/`Slug`/`Role`/durum makineleri |
+| Application | `TenantRepository` · `MembershipRepository` port'ları · `ProvisionTenantUseCase` |
+| Kernel (`shared/`) | `Clock` · `IdGenerator` · `TransactionManager` · `DomainEvent(Publisher)` · `CurrentUserProvider` |
+| Veritabanı | `platform.tenants` · `platform.memberships` · `platform.outbox` · **RLS politikaları** · `resolve_tenant` |
+| Infrastructure | Drizzle repository'leri · `SET LOCAL` yapan transaction manager · outbox publisher |
+| Presentation | `POST /api/v1/tenants` · Zod DTO · domain hata → RFC 7807 filtresi |
+| Testler | ~340 birim + ~77 entegrasyon · **§12.6'nın 6 zorunlu izolasyon testi yeşil** |
 
-**Henüz yok (kod olarak):** Tenant modülü · tenant context · RLS politikaları ·
-izolasyon testleri · Authentication · Authorization · iş modülleri · AI katmanı ·
-Storage/Cache/Search adapter'ları.
+**Multi-tenancy'de tek doğruluk kaynağı** `docs/architecture/MULTI_TENANT_ARCHITECTURE.md`'dir.
+Önce oraya bakılır; kod ile doküman çelişirse doküman değil **kod yanlıştır**.
 
-Sıradaki adım: **Faz 2 implementasyonu** — Tenant modülü, `AsyncLocalStorage`
-tenant context'i, RLS politikaları ve zorunlu izolasyon testleri.
+### Bilinçli olarak kapalı olanlar
+
+`POST /api/v1/tenants` bugün **her isteğe 503 döner**. İki kapı Identity
+modülünü bekliyor ve ikisi de **açıkça reddeder** — sessizce izin veren sahte
+implementasyon konmadı:
+
+- `CurrentUserProvider` → kimlik yalnızca doğrulanmış token'dan gelebilir
+- `TenantProvisioningPolicy` → ADR-0016'nın `emailVerified` önkoşulu doğrulanamıyor
+
+Bu ikisi Faz 3'te **değiştirilecek, genişletilmeyecek**.
+
+### Henüz yok
+
+Authentication · Authorization (RBAC) · tam tenant context (`userId`/`role` —
+§11.2) · çözüm zincirinin JWT gerektiren 5 adımı · outbox publisher süreci ·
+`tenant.public.ts` · iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları.
+
+Sıradaki adım: **Faz 3 — Identity** (User domain'i, kayıt + e-posta doğrulama,
+JWT, ve yukarıdaki iki geçici kapının gerçekleriyle değiştirilmesi).
