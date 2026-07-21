@@ -1,0 +1,27 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 10+ postinstall script'lerini varsayilan olarak bloklar.
+# Her paket icin izin bilincli verilir: yalnizca calismasi icin native binary
+# derlemesi ZORUNLU olanlara izin verilir. Telemetri ve kullanilmayan opsiyonel
+# native eklentiler reddedilir (tedarik zinciri yuzeyini daraltir).
+allowBuilds:
+  # Vitest'in decorator/TypeScript donusumu icin zorunlu.
+  '@swc/core': true
+  # Vitest ve drizzle-kit'in bundler'i.
+  esbuild: true
+  # Telemetri toplayicisi — urun icin gereksiz.
+  '@scarf/scarf': false
+  # testcontainers -> ssh2 opsiyonel native hizlandirmalari.
+  # Docker'a TCP/named pipe uzerinden baglaniyoruz, SSH tuneli kullanmiyoruz.
+  cpu-features: false
+  ssh2: false
+  # testcontainers'in protobuf runtime'i saf JS fallback ile calisir.
+  protobufjs: false
+  # Next.js gorsel optimizasyonu icin native kutuphane. Faz 1'de next/image
+  # kullanilmiyor, bu yuzden derlenmiyor. Ilk gorsel eklendiginde true yapilmali.
+  sharp: false
+  # eslint-import-resolver-typescript'in native yol cozucusu. Modul sinir
+  # kuralinin calismasi icin ZORUNLU: cozulemeyen import sessizce denetlenmez.
+  unrs-resolver: true

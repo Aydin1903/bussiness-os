@@ -1,0 +1,34 @@
+{
+  "name": "business-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI destekli, cok kiracili SaaS Business Operating System",
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
+    "format": "prettier --write \"**/*.{ts,mts,tsx,js,mjs,cjs,json,md,yml,yaml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,mts,tsx,js,mjs,cjs,json,md,yml,yaml,css}\"",
+    "db:generate": "pnpm --filter @business-os/api run db:generate",
+    "db:migrate": "pnpm --filter @business-os/api run db:migrate",
+    "db:rollback": "pnpm --filter @business-os/api run db:rollback",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up -d"
+  },
+  "devDependencies": {
+    "@business-os/config": "workspace:*",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
+  }
+}

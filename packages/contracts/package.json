@@ -1,0 +1,30 @@
+{
+  "name": "@business-os/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API sozlesmeleri — api ile web arasinda paylasilan Zod semalari ve tipler",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@business-os/config": "workspace:*",
+    "eslint": "^9.39.0",
+    "typescript": "^5.9.3"
+  }
+}

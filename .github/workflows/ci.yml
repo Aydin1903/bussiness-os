@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Ayni dal icin yeni push geldiginde eski calismayi iptal et — runner dakikasi
+# ve geri bildirim suresi bosa harcanmasin.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  verify:
+    name: Lint · Typecheck · Build · Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      # --frozen-lockfile: lockfile ile package.json uyusmuyorsa CI KIRILIR.
+      # Aksi halde lockfile sessizce guncellenir ve "bende calisiyordu" baslar.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test
+
+  integration:
+    name: Integration tests (real PostgreSQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Testcontainers, runner uzerindeki Docker daemon'ini kullanir.
+      # Mock veritabani RLS'i test etmez — ki Faz 2'den itibaren test etmek
+      # istedigimiz tam olarak odur (DEVELOPMENT_RULES 5.3).
+      - name: Integration tests
+        run: pnpm test:integration
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # DEVELOPMENT_RULES 8: bagimliliklar CI'da taranir.
+      # Esik "high": dusuk seviyeli bulgular pipeline'i durdurup gercek
+      # bulgularin gorulmesini engellememeli.
+      - name: Audit
+        run: pnpm audit --audit-level=high

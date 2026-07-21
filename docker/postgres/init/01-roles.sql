@@ -1,0 +1,37 @@
+-- Business OS — veritabani rolleri
+--
+-- ARCHITECTURE 3.3'un en kritik on kosulu: uygulama, tablo sahibi OLMAYAN bir
+-- rol ile baglanir. Aksi halde ALTER TABLE ... FORCE ROW LEVEL SECURITY edilmis
+-- olsa bile tablo sahibi politikalari bypass eder ve RLS'in tamami sessizce
+-- devre disi kalir. Bu ayrimi Faz 2'de yapmaya kalkmak, o gune kadar yazilmis
+-- her seyi yanlis rolle test etmis olmak demektir.
+--
+-- Buradaki parolalar YALNIZCA lokal gelistirme icindir. Production'da roller
+-- secret manager'dan gelen parolalarla saglanir (DEVELOPMENT_RULES 8).
+
+-- Migration'lari calistiran rol: DDL yetkisi var, superuser DEGIL.
+CREATE ROLE businessos_owner
+  LOGIN
+  PASSWORD 'businessos_owner_dev'
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOBYPASSRLS;
+
+-- Uygulamanin runtime rolu: yalnizca DML. Hicbir tablonun sahibi degildir.
+CREATE ROLE businessos_app
+  LOGIN
+  PASSWORD 'businessos_app_dev'
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOBYPASSRLS;
+
+-- Varsayilan genis yetkiler kaldirilir: erisim acikca verilir (deny by default).
+REVOKE ALL ON DATABASE business_os FROM PUBLIC;
+
+GRANT CONNECT ON DATABASE business_os TO businessos_owner;
+GRANT CONNECT ON DATABASE business_os TO businessos_app;
+
+-- Owner'in schema ve drizzle migration tablosunu olusturabilmesi icin gerekli.
+GRANT CREATE ON DATABASE business_os TO businessos_owner;

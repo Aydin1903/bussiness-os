@@ -1,0 +1,18 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+.turbo/
+pnpm-lock.yaml
+
+# Uretilen dosyalar
+next-env.d.ts
+apps/api/drizzle/meta/
+
+# Yonetisim dokumanlari elle bakiliyor; bicimlendirici bunlari yeniden
+# duzenleyip anlamli diff'leri gurultuye bogmasin.
+ARCHITECTURE.md
+CLAUDE.md
+DEVELOPMENT_RULES.md
