@@ -72,21 +72,30 @@ export class ProvisionTenantUseCase {
     //    Policy hata firlatir; buraya donmusse kullanici uygundur.
     await this.deps.provisioningPolicy.assertCanProvision(command.ownerUserId);
 
-    // 2. Nezaket kontrolu. TEKILLIGI GARANTI ETMEZ — iki es zamanli istek bu
-    //    kontrolden birlikte gecebilir. Gercek garanti veritabani unique
-    //    index'idir ve adapter kisit ihlalini ayni hataya cevirir.
-    if (await this.deps.tenantRepository.existsBySlug(command.slug)) {
-      throw new TenantSlugAlreadyTakenError(command.slug.value);
-    }
-
-    // 3. Nesneler transaction'dan ONCE kurulur: hepsi saf, I/O yok. Gecersiz
+    // 2. Nesneler transaction'dan ONCE kurulur: hepsi saf, I/O yok. Gecersiz
     //    girdi varsa transaction hic acilmadan burada patlar ve veritabani
     //    baglantisi bos yere tutulmaz.
     const { tenant, ownerMembership, event } = this.#build(command);
 
-    // 4. Uc yazma da ayni transaction'da. Biri basarisiz olursa hicbiri
-    //    kalmaz — yarim kurulmus, sahipsiz veya event'siz tenant olusamaz.
+    // 3. Tum veritabani erisimi TEK transaction'da.
+    //
+    //    Slug kontrolu de ICERIDEDIR: repository cagrilari aktif bir
+    //    transaction gerektirir (MULTI_TENANT_ARCHITECTURE 11.4 kural 2) —
+    //    `SET LOCAL`'siz bir baglantida calisan sorgu ya RLS'e takilir ya da
+    //    filtresiz calisir, ve ikincisi tum veritabanini acar.
+    //
+    //    Kontrol TEKILLIGI GARANTI ETMEZ; iki es zamanli istek onu birlikte
+    //    gecebilir. Amaci kullaniciya erken ve anlamli geri bildirim vermektir.
+    //    Gercek garanti veritabani unique index'idir ve adapter kisit
+    //    ihlalini AYNI domain hatasina cevirir (ADR-0016).
+    //
+    //    Biri basarisiz olursa hicbiri kalmaz — yarim kurulmus, sahipsiz veya
+    //    event'siz tenant olusamaz.
     await this.deps.transactionManager.runInTenantTransaction(tenant.id.value, async () => {
+      if (await this.deps.tenantRepository.existsBySlug(command.slug)) {
+        throw new TenantSlugAlreadyTakenError(command.slug.value);
+      }
+
       await this.deps.tenantRepository.save(tenant);
       await this.deps.membershipRepository.save(ownerMembership);
       await this.deps.eventPublisher.publish(event);

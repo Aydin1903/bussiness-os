@@ -402,9 +402,13 @@ describe('ProvisionTenantUseCase — onkosullar', () => {
 
     await expect(harness.useCase.execute(command())).rejects.toThrow();
 
+    // Transaction ACILIR ama GERI ALINIR. Slug kontrolu transaction'in
+    // ICINDEDIR cunku repository cagrilari aktif transaction gerektirir
+    // (11.4 kural 2) — bu, entegrasyon testinin ortaya cikardigi bir
+    // etkilesimdi: fake'ler transaction zorunlulugunu taklit etmiyordu.
     expect(harness.tenantRepository.saved).toHaveLength(0);
     expect(harness.membershipRepository.saved).toHaveLength(0);
-    expect(harness.transactionManager.tenantContexts).toHaveLength(0);
+    expect(harness.transactionManager.rolledBack).toBe(true);
   });
 
   it('onkosulu slug kontrolunden ONCE dogrular', async () => {
