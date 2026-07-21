@@ -730,6 +730,13 @@ sequenceDiagram
 | Tenant + owner Membership + outbox kaydı | **Tek transaction** | Sahipsiz tenant asla var olamaz. Bu atomiklik pazarlık konusu değildir. |
 | Storage/search/örnek veri hazırlığı | Ayrı, asenkron, idempotent | Dış sistem çağrısı DB transaction'ını uzatamaz. |
 | Slug tekilliği | **Veritabanı unique index** | Uygulama seviyesinde "önce kontrol et sonra yaz" bir yarış koşuludur. Kısıt ihlali yakalanıp 409'a çevrilir. |
+| Slug nezaket kontrolü (`existsBySlug`) | **Aynı transaction'ın içinde** | Repository çağrıları aktif transaction gerektirir ([§11.4](#114-zorunlu-kurallar) kural 2). Ayrıntı: [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
+
+> **Nezaket kontrolü neden transaction'ın içinde.** İlk implementasyonda kontrol transaction'dan **önce** yapılıyordu; bu, [§11.4](#114-zorunlu-kurallar) kural 2 ile çelişti: `SET LOCAL`'sız bir bağlantıda çalışan sorgu ya RLS'e takılır ya da filtresiz çalışır, ve ikincisi tüm veritabanını açar. Bu yüzden repository havuza düşmez, **hata fırlatır**.
+>
+> Kontrolü transaction'ın içine almak ek bir maliyet getirmez: `resolve_tenant` `SECURITY DEFINER` olduğu için tenant context'i altında da çalışır ve ikinci bir transaction gerekmez.
+>
+> Kontrolün transaction içinde olması onu bir **garanti** hâline **getirmez** — iki eşzamanlı istek onu hâlâ birlikte geçebilir. Tekilliğin tek gerçek kaynağı unique index'tir.
 
 ### 9.4 Idempotency
 
@@ -1021,6 +1028,19 @@ Kaybın sınırı: uygulama zaten tablo sahibi **olmayan** `businessos_app` rol�
 
 > ⚠️ Bu sapma **yalnızca `platform.tenants` içindir.** `platform.memberships` dâhil diğer tüm tablolarda `FORCE` zorunludur. Sapmanın kendisi bir entegrasyon testiyle sabitlenmiştir: biri "FORCE eksik" diye ekleyecek olursa test kırmızı yanar ve gerekçeyi okur.
 
+**Beklenmedik sonuç: "bu slug kullanımda mı?" sorusu da bu fonksiyondan geçmek zorundadır.**
+
+İlk bakışta `existsBySlug`, `platform.tenants` üzerinde basit bir `SELECT` gibi görünür. Değildir — ve yanlış yazılırsa **sessizce yanlış cevap verir**:
+
+| Yaklaşım | Sonuç |
+|---|---|
+| Tabloyu doğrudan sorgula | Başka bir tenant'ın satırı RLS yüzünden **görünmez**. Sorgu daima "slug boş" der. Kontrol hiçbir şey yakalamaz |
+| `resolve_tenant` üzerinden sor | Doğru cevap. Fonksiyon RLS'i kontrollü biçimde aştığı için tüm slug'ları görür |
+
+Bu, RLS'in doğrudan bir sonucudur ama **sezgiye aykırıdır**: tenant izolasyonu, "global tekil bir alan kullanımda mı?" sorusunu normal yoldan yanıtlanamaz hâle getirir. Aynı durum ileride eklenecek her global-tekil alan için geçerli olacaktır (örneğin custom domain).
+
+> Testi olmadan bu hata **fark edilmez**: kontrol her zaman "boş" dediği için akış normal görünür, çakışma yalnızca veritabanı kısıtına çarptığında ortaya çıkar. Bir entegrasyon testi, başka bir tenant'ın slug'ının **kullanımda** olarak raporlandığını doğrular.
+
 ### 12.5 RLS'in koruyamadığı yollar
 
 RLS yalnızca PostgreSQL'i korur. Tenant verisi başka yerlere de gider:
@@ -1113,7 +1133,7 @@ Bağımlılık yönü **içeri doğrudur**: `infrastructure` → `application`. 
 |---|---|
 | `findBySlug(slug)` | Tenant resolution sırasında çalışır ([§8.2](#82-çözüm-zinciri)) — context henüz kurulmadı |
 | `save(tenant)` | Provisioning sırasında çalışır ([ADR-0016](../adr/0016-tenant-provisioning.md)) — tenant'ın kendi context'i yok |
-| `existsBySlug(slug)` | Kayıt akışında, kullanıcının hiçbir tenant'ı yokken çalışır |
+| `existsBySlug(slug)` | Tenant sınırının **dışını** sorar: "bu slug başka birinde var mı?" RLS altında bu soru normal sorguyla yanıtlanamaz ([§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı)) |
 
 Bu bir kural ihlali **değildir**; kuralın kapsamadığı bir alandır. Ancak istisna sessiz kalmamalıdır:
 
@@ -1409,3 +1429,4 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 | 1.3 | 2026-07-21 | §13.3'e "Kural 1'in istisnası: platform repository'leri" alt bölümü eklendi. §7.2 düzeltmesi: `revoked → active` yerine `revoked → invited` — diyagramın etiketi ("yeniden davet edildi") ile hedefi çelişiyordu. |
 | 1.4 | 2026-07-21 | §17.5 eklendi — agent ekosisteminin tenant sınırı kısıtı. Vizyonun kendisi `ARCHITECTURE.md` §13'te. |
 | 1.5 | 2026-07-21 | §12.4.1 eklendi — tenant resolution ile `platform.tenants` RLS politikası arasındaki çelişki çözüldü: `SECURITY DEFINER` çözüm fonksiyonu ve `FORCE`'un neden bu tabloda bulunmadığı. İlk implementasyonda ortaya çıkan gerçek bir boşluktu. |
+| 1.6 | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar. |
