@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@business-os/config": "workspace:*",
-    "prettier": "^3.6.2",
+    "prettier": "^3.9.6",
     "turbo": "^2.5.8",
     "typescript": "^5.9.3"
   }
