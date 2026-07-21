@@ -10,6 +10,7 @@ import { AppModule } from './app.module';
 import { APP_CONFIG, type AppConfig } from './infrastructure/config/app.config';
 import { ProblemDetailsFilter } from './infrastructure/http/problem-details.filter';
 import { SWAGGER_PATH, setupSwagger } from './infrastructure/http/swagger';
+import { tenantResolutionMiddleware } from './infrastructure/http/tenant-resolution.middleware';
 import { correlationIdMiddleware } from './infrastructure/logging/correlation-id.middleware';
 
 async function bootstrap(): Promise<void> {
@@ -24,6 +25,11 @@ async function bootstrap(): Promise<void> {
   // hata cevabi ayni kimligi tasir.
   app.use(correlationIdMiddleware);
   app.use(securityHeaders());
+
+  // Host'tan tenant IPUCUSU cikarir. Tenant context KURMAZ ve hicbir erisim
+  // acmaz — Host istemci kontrolundedir (MULTI_TENANT_ARCHITECTURE P1).
+  // Zincirin yetkili adimlari kimlik dogrulamayla birlikte gelecek.
+  app.use(tenantResolutionMiddleware);
 
   if (config.http.corsOrigins.length > 0) {
     app.enableCors({
