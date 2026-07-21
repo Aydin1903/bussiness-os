@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { OutboxEventPublisher } from '../../infrastructure/events/outbox-event-publisher.adapter';
+import { CURRENT_USER_PROVIDER } from '../../shared/current-user.port';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
@@ -23,33 +24,30 @@ import {
 import { TENANT_REPOSITORY, type TenantRepository } from './application/tenant.repository.port';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
+import { TemporaryDenyProvisioningPolicy } from './infrastructure/temporary-deny-provisioning.policy';
+import { UnavailableCurrentUserProvider } from './infrastructure/unavailable-current-user.adapter';
+import { TenantController } from './presentation/tenant.controller';
 
 /**
  * Tenant modulu — platform cekirdeginin ilk halkasi (ARCHITECTURE 6.2).
  *
- * ============================================================================
- * BU MODUL HENUZ app.module.ts'e BAGLI DEGILDIR — BILINCLI
- * ============================================================================
- * HTTP yuzeyi (controller, DTO, Zod semalari) ve tenant context middleware'i
- * henuz yazilmadi. Modulu simdiden koke baglamak hicbir sey kazandirmaz ama
- * baglanamayan bir provider varsa uygulama acilisini dusurur. Baglama, ilk
- * dikey dilimle (POST /api/v1/tenants) birlikte yapilacaktir.
+ * Modul artik app.module.ts'e BAGLIDIR ve POST /api/v1/tenants uc noktasini
+ * sunar. Ancak uc nokta BUGUN HER ISTEGE 503 doner:
  *
- * Modul yine de BUGUN yazildi: wiring'in dogru oldugunu entegrasyon testleri
- * kaniti ile bilmek, controller yazarken tahmin etmekten iyidir.
- * ============================================================================
+ *   - CurrentUserProvider: kullanici kimligi yalnizca dogrulanmis token'dan
+ *     gelebilir (ADR-0004); Identity modulu Faz 3.
+ *   - TenantProvisioningPolicy: ADR-0016'nin emailVerified onkosulu ayni
+ *     modulu bekliyor.
  *
- * EKSIK TEK SAGLAYICI: TenantProvisioningPolicy — ADR-0016'nin emailVerified
- * onkosulu Identity modulunu (Faz 3) gerektirir. O gelene kadar bu modul TEK
- * BASINA ayaga kalkmaz.
+ * Ikisi de ACIKCA reddeder. "Her zaman izin ver" diyen sahte implementasyonlar
+ * KONMADI: konsaydi her sey saglikli GORUNUR, ADR-0016'nin onkosulu sessizce
+ * devre disi kalir ve dogrulanmamis e-postayla tenant acilabilirdi. Kapali
+ * oldugunu soyleyen bir ozellik, sessizce yanlis calisan bir ozellikten iyidir.
  *
- * "Her zaman izin ver" diyen bir sahte implementasyon KONMADI. Konsaydi modul
- * ayaga kalkar ama ADR-0016'nin onkosulu SESSIZCE devre disi kalirdi —
- * dogrulanmamis e-postayla tenant acilabilirdi ve bunu fark ettirecek hicbir
- * sey olmazdi. Ayaga kalkmayan bir modul, sessizce yanlis calisan bir modulden
- * iyidir.
+ * Bu iki saglayici Identity geldiginde DEGISTIRILECEK — genisletilmeyecek.
  */
 @Module({
+  controllers: [TenantController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -57,6 +55,11 @@ import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.reposit
     { provide: TENANT_REPOSITORY, useClass: DrizzleTenantRepository },
     { provide: MEMBERSHIP_REPOSITORY, useClass: DrizzleMembershipRepository },
     { provide: DOMAIN_EVENT_PUBLISHER, useClass: OutboxEventPublisher },
+
+    // GECICI saglayicilar — ikisi de acikca REDDEDER, sessizce izin VERMEZ.
+    // Identity modulu (Faz 3) geldiginde gercekleriyle DEGISTIRILECEKLER.
+    { provide: TENANT_PROVISIONING_POLICY, useClass: TemporaryDenyProvisioningPolicy },
+    { provide: CURRENT_USER_PROVIDER, useClass: UnavailableCurrentUserProvider },
     {
       provide: ProvisionTenantUseCase,
       // Use case saf TypeScript'tir — @Injectable() TASIMAZ ve NestJS'i bilmez

@@ -70,6 +70,25 @@ export class TenantSlugAlreadyTakenError extends TenantDomainError {
   }
 }
 
+/**
+ * Tenant provisioning onkosulu DOGRULANAMIYOR.
+ *
+ * ADR-0016 onkosulu `User.emailVerified === true`; bu bilgi Identity
+ * modulundedir ve Identity Faz 3'te gelecektir. O zamana kadar onkosul
+ * dogrulanamaz — ve dogrulanamayan bir onkosul, KARSILANMIS SAYILMAZ.
+ *
+ * Bu bir kullanici hatasi DEGILDIR: istemci dogru davranmis olabilir, ozellik
+ * henuz devrede degildir. 403 yerine 503'e eslenir; 403 "senin yetkin yok"
+ * der ve ileride gercek yetki hatalariyla karisir.
+ */
+export class TenantProvisioningUnavailableError extends TenantDomainError {
+  readonly code = 'TENANT_PROVISIONING_UNAVAILABLE';
+
+  constructor(reason: string) {
+    super(`Tenant provisioning su anda kullanilamiyor: ${reason}`);
+  }
+}
+
 export class InvalidTenantNameError extends TenantDomainError {
   readonly code = 'TENANT_NAME_INVALID';
 
