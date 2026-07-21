@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SystemClock } from '../../src/infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../src/infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../src/infrastructure/id/uuid-v7-id-generator.adapter';
-import type { DomainEventPublisher } from '../../src/modules/tenant/application/domain-event-publisher.port';
+import type { DomainEventPublisher } from '../../src/shared/domain-event-publisher.port';
 import { ProvisionTenantUseCase } from '../../src/modules/tenant/application/provision-tenant.use-case';
 import type { TenantProvisioningPolicy } from '../../src/modules/tenant/application/tenant-provisioning-policy.port';
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';

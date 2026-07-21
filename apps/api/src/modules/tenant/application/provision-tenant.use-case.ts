@@ -9,7 +9,7 @@ import { TenantProvisioningRequested } from '../domain/tenant-provisioning-reque
 import { Tenant } from '../domain/tenant.entity';
 import { TenantSlugAlreadyTakenError } from '../domain/tenant.error';
 import { type UserId } from '../domain/user-id.value-object';
-import { type DomainEventPublisher } from './domain-event-publisher.port';
+import { type DomainEventPublisher } from '../../../shared/domain-event-publisher.port';
 import { type MembershipRepository } from './membership.repository.port';
 import { type TenantProvisioningPolicy } from './tenant-provisioning-policy.port';
 import { type TenantRepository } from './tenant.repository.port';

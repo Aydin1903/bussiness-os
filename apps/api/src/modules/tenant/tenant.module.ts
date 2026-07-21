@@ -9,7 +9,7 @@ import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/trans
 import {
   DOMAIN_EVENT_PUBLISHER,
   type DomainEventPublisher,
-} from './application/domain-event-publisher.port';
+} from '../../shared/domain-event-publisher.port';
 import {
   MEMBERSHIP_REPOSITORY,
   type MembershipRepository,

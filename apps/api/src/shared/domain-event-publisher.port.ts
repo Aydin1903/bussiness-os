@@ -1,4 +1,4 @@
-import type { DomainEvent } from '../../../shared/domain-event';
+import type { DomainEvent } from './domain-event';
 
 /**
  * Domain event yayin port'u.
