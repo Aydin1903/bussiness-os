@@ -13,3 +13,4 @@
 export { platformSchema } from './platform.schema';
 export { tenants } from './tenants.schema';
 export { memberships } from './memberships.schema';
+export { outbox } from './outbox.schema';

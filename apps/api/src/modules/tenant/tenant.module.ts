@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
+import { OutboxEventPublisher } from '../../infrastructure/events/outbox-event-publisher.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
@@ -38,11 +39,15 @@ import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.reposit
  * kaniti ile bilmek, controller yazarken tahmin etmekten iyidir.
  * ============================================================================
  *
- * EKSIK IKI SAGLAYICI: DomainEventPublisher (outbox) ve TenantProvisioningPolicy
- * (Identity'nin emailVerified kontrolu). Ikisi de kendi modulleri geldiginde
- * baglanacaktir; o zamana kadar bu modul TEK BASINA ayaga kalkmaz. Sahte bir
- * implementasyon KONMADI — sessizce hicbir sey yapmayan bir publisher, event'in
- * kayboldugunu uretimde fark ettirirdi.
+ * EKSIK TEK SAGLAYICI: TenantProvisioningPolicy — ADR-0016'nin emailVerified
+ * onkosulu Identity modulunu (Faz 3) gerektirir. O gelene kadar bu modul TEK
+ * BASINA ayaga kalkmaz.
+ *
+ * "Her zaman izin ver" diyen bir sahte implementasyon KONMADI. Konsaydi modul
+ * ayaga kalkar ama ADR-0016'nin onkosulu SESSIZCE devre disi kalirdi —
+ * dogrulanmamis e-postayla tenant acilabilirdi ve bunu fark ettirecek hicbir
+ * sey olmazdi. Ayaga kalkmayan bir modul, sessizce yanlis calisan bir modulden
+ * iyidir.
  */
 @Module({
   providers: [
@@ -51,6 +56,7 @@ import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.reposit
     { provide: TRANSACTION_MANAGER, useClass: DrizzleTransactionManager },
     { provide: TENANT_REPOSITORY, useClass: DrizzleTenantRepository },
     { provide: MEMBERSHIP_REPOSITORY, useClass: DrizzleMembershipRepository },
+    { provide: DOMAIN_EVENT_PUBLISHER, useClass: OutboxEventPublisher },
     {
       provide: ProvisionTenantUseCase,
       // Use case saf TypeScript'tir — @Injectable() TASIMAZ ve NestJS'i bilmez

@@ -60,7 +60,11 @@ describe('veritabani migration hatti', () => {
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
 
-    expect(result.rows.map((row) => row.table_name)).toEqual(['memberships', 'tenants']);
+    expect(result.rows.map((row) => row.table_name)).toEqual([
+      'memberships',
+      'outbox',
+      'tenants',
+    ]);
   });
 
   it('tenant cozumleme fonksiyonunu olusturur', async () => {
@@ -90,17 +94,24 @@ describe('veritabani migration hatti', () => {
    *
    * Dosya sonunda durur: onceki testlerin kurdugu semayi bozdugu icin.
    */
-  it('0001 migration i geri alinabilir ve yeniden uygulanabilir', async () => {
-    const downSql = readFileSync(join('drizzle', '0001_tenant_tables.down.sql'), 'utf8');
+  it('tum migration lar geri alinabilir ve yeniden uygulanabilir', async () => {
+    // Sira TERSTIR: 0002 once, cunku outbox tenants'a FK veriyor. Ileri yonun
+    // tersini uygulamayan bir geri alma, bagimlilik yuzunden hata verir —
+    // bu testin yakaladigi ilk sey tam olarak buydu.
+    const downFiles = ['0002_outbox.down.sql', '0001_tenant_tables.down.sql'];
 
-    // rollback.mts ile AYNI ayirici — konvansiyon tek yerde bozulmamali.
-    const statements = downSql
-      .split('--> statement-breakpoint')
-      .map((statement) => statement.trim())
-      .filter((statement) => statement.length > 0);
+    for (const file of downFiles) {
+      const downSql = readFileSync(join('drizzle', file), 'utf8');
 
-    for (const statement of statements) {
-      await pool.query(statement);
+      // rollback.mts ile AYNI ayirici — konvansiyon tek yerde bozulmamali.
+      const statements = downSql
+        .split('--> statement-breakpoint')
+        .map((statement) => statement.trim())
+        .filter((statement) => statement.length > 0);
+
+      for (const statement of statements) {
+        await pool.query(statement);
+      }
     }
 
     const afterRollback = await pool.query(
@@ -122,6 +133,10 @@ describe('veritabani migration hatti', () => {
     const afterReapply = await pool.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
-    expect(afterReapply.rows.map((row) => row.table_name)).toEqual(['memberships', 'tenants']);
+    expect(afterReapply.rows.map((row) => row.table_name)).toEqual([
+      'memberships',
+      'outbox',
+      'tenants',
+    ]);
   });
 });

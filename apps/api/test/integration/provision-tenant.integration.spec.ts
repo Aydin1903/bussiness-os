@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { SystemClock } from '../../src/infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../src/infrastructure/database/drizzle-transaction-manager.adapter';
+import { OutboxEventPublisher } from '../../src/infrastructure/events/outbox-event-publisher.adapter';
 import { UuidV7IdGenerator } from '../../src/infrastructure/id/uuid-v7-id-generator.adapter';
-import type { DomainEventPublisher } from '../../src/shared/domain-event-publisher.port';
 import { ProvisionTenantUseCase } from '../../src/modules/tenant/application/provision-tenant.use-case';
 import type { TenantProvisioningPolicy } from '../../src/modules/tenant/application/tenant-provisioning-policy.port';
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
@@ -11,7 +11,6 @@ import { TenantSlugAlreadyTakenError } from '../../src/modules/tenant/domain/ten
 import { UserId } from '../../src/modules/tenant/domain/user-id.value-object';
 import { DrizzleMembershipRepository } from '../../src/modules/tenant/infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from '../../src/modules/tenant/infrastructure/drizzle-tenant.repository';
-import type { DomainEvent } from '../../src/shared/domain-event';
 import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
 
 /**
@@ -31,20 +30,6 @@ import { startTestDatabase, truncateTenantTables, type TestDatabase } from './su
 const OWNER_USER_ID = UserId.create('018f3a2b-7c4d-7e1f-9b3c-00000000000a');
 const CORRELATION_ID = 'corr-integration';
 
-/** Bu adapter henuz yok (outbox Faz 3); test icin kaydedici bir sahte. */
-class RecordingEventPublisher implements DomainEventPublisher {
-  readonly published: DomainEvent[] = [];
-  failOnPublish = false;
-
-  publish(event: DomainEvent): Promise<void> {
-    if (this.failOnPublish) {
-      return Promise.reject(new Error('outbox yazilamadi'));
-    }
-    this.published.push(event);
-    return Promise.resolve();
-  }
-}
-
 /** Identity modulu Faz 3'te gelecek; onkosul burada yapilandirilabilir. */
 class ConfigurablePolicy implements TenantProvisioningPolicy {
   rejection: Error | null = null;
@@ -57,20 +42,18 @@ class ConfigurablePolicy implements TenantProvisioningPolicy {
 describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
   let database: TestDatabase;
   let useCase: ProvisionTenantUseCase;
-  let eventPublisher: RecordingEventPublisher;
   let policy: ConfigurablePolicy;
 
   beforeAll(async () => {
     database = await startTestDatabase();
 
-    eventPublisher = new RecordingEventPublisher();
     policy = new ConfigurablePolicy();
 
     useCase = new ProvisionTenantUseCase({
       tenantRepository: new DrizzleTenantRepository(),
       membershipRepository: new DrizzleMembershipRepository(),
       provisioningPolicy: policy,
-      eventPublisher,
+      eventPublisher: new OutboxEventPublisher(),
       transactionManager: new DrizzleTransactionManager(database.appPool),
       idGenerator: new UuidV7IdGenerator(),
       clock: new SystemClock(),
@@ -83,8 +66,7 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
 
   beforeEach(async () => {
     await truncateTenantTables(database.ownerPool);
-    eventPublisher.published.length = 0;
-    eventPublisher.failOnPublish = false;
+    await database.ownerPool.query('TRUNCATE platform.outbox CASCADE');
     policy.rejection = null;
   });
 
@@ -127,12 +109,25 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
     expect(rows.rows[0]?.status).toBe('active');
   });
 
-  it('event i yayina kaydeder', async () => {
+  it('event i outbox a yazar', async () => {
+    // Sahte publisher DEGIL, gercek outbox adapter'i. Event artik gercekten
+    // veritabanina yaziliyor ve ayni transaction'da commit ediliyor.
     const tenant = await useCase.execute(command('acme'));
 
-    expect(eventPublisher.published).toHaveLength(1);
-    expect(eventPublisher.published[0]?.tenantId).toBe(tenant.id.value);
-    expect(eventPublisher.published[0]?.correlationId).toBe(CORRELATION_ID);
+    const rows = await database.ownerPool.query<{
+      tenant_id: string;
+      event_type: string;
+      correlation_id: string;
+      published_at: Date | null;
+      payload: Record<string, unknown>;
+    }>('SELECT tenant_id, event_type, correlation_id, published_at, payload FROM platform.outbox');
+
+    expect(rows.rowCount).toBe(1);
+    expect(rows.rows[0]?.tenant_id).toBe(tenant.id.value);
+    expect(rows.rows[0]?.event_type).toBe('tenant.provisioning_requested');
+    expect(rows.rows[0]?.correlation_id).toBe(CORRELATION_ID);
+    expect(rows.rows[0]?.published_at).toBeNull();
+    expect(rows.rows[0]?.payload).toMatchObject({ slug: 'acme', ownerUserId: OWNER_USER_ID.value });
   });
 
   it('uretilen tenant kendi context inde okunabilir', async () => {
@@ -157,19 +152,38 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
 
   // --- Atomiklik ----------------------------------------------------------
 
-  it('event yayini basarisiz olursa TENANT DE UYELIK DE kalmaz', async () => {
-    // ADR-0016 + ADR-0006: event, veri degisikligiyle ayni transaction'da
-    // kaydedilir. Outbox yazilamiyorsa tenant da olusmamalidir — aksi halde
-    // "tenant var ama provisioning hic baslamadi" durumu olusur.
-    eventPublisher.failOnPublish = true;
+  it('provisioning basarisiz olursa TENANT, UYELIK ve EVENT birlikte geri gider', async () => {
+    // ADR-0016 + ADR-0006: uc yazma da ayni transaction'da. Slug catismasi
+    // gercek bir basarisizlik yolu — sahte bir hata enjekte etmeye gerek yok.
+    await useCase.execute(command('acme'));
 
-    await expect(useCase.execute(command('acme'))).rejects.toThrow('outbox yazilamadi');
+    await expect(useCase.execute(command('acme'))).rejects.toThrow(TenantSlugAlreadyTakenError);
 
+    // Ilk cagrinin urettikleri duruyor, ikincininkiler HIC olusmadi.
     const tenants = await database.ownerPool.query('SELECT id FROM platform.tenants');
     const memberships = await database.ownerPool.query('SELECT id FROM platform.memberships');
+    const events = await database.ownerPool.query('SELECT id FROM platform.outbox');
 
-    expect(tenants.rowCount).toBe(0);
-    expect(memberships.rowCount).toBe(0);
+    expect(tenants.rowCount).toBe(1);
+    expect(memberships.rowCount).toBe(1);
+    expect(events.rowCount).toBe(1);
+  });
+
+  it('her tenant satirinin bir outbox event i vardir', async () => {
+    // "Tenant var ama provisioning hic baslamadi" durumunun olusamayacaginin
+    // dogrudan ifadesi.
+    await useCase.execute(command('acme'));
+    await useCase.execute(command('globex'));
+
+    const eventsiz = await database.ownerPool.query(
+      `SELECT t.id FROM platform.tenants t
+       WHERE NOT EXISTS (
+         SELECT 1 FROM platform.outbox o
+         WHERE o.tenant_id = t.id AND o.event_type = 'tenant.provisioning_requested'
+       )`,
+    );
+
+    expect(eventsiz.rowCount).toBe(0);
   });
 
   it('sahipsiz tenant olusturmaz', async () => {
@@ -196,8 +210,9 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
     await expect(useCase.execute(command('acme'))).rejects.toThrow('Once e-postanizi dogrulayin');
 
     const tenants = await database.ownerPool.query('SELECT id FROM platform.tenants');
+    const events = await database.ownerPool.query('SELECT id FROM platform.outbox');
     expect(tenants.rowCount).toBe(0);
-    expect(eventPublisher.published).toHaveLength(0);
+    expect(events.rowCount).toBe(0);
   });
 
   it('alinmis slug ile ikinci tenant olusturmaz', async () => {

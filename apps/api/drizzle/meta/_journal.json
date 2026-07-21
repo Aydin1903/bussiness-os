@@ -15,6 +15,13 @@
       "when": 1784650000000,
       "tag": "0001_tenant_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784660000000,
+      "tag": "0002_outbox",
+      "breakpoints": true
     }
   ]
 }
