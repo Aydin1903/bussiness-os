@@ -1,6 +1,26 @@
+import type { TenantStatus } from '../domain/tenant-status.value-object';
 import type { Tenant } from '../domain/tenant.entity';
 import type { TenantId } from '../domain/tenant-id.value-object';
 import type { TenantSlug } from '../domain/tenant-slug.value-object';
+
+/** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
+export const TENANT_REPOSITORY = Symbol('TENANT_REPOSITORY');
+
+/**
+ * Tenant resolution'in dondurdugu DAR kayit.
+ *
+ * Neden tam `Tenant` degil: cozumleme, tenant context'i KURULMADAN once
+ * calisir ve `platform.resolve_tenant` fonksiyonu bilincli olarak yalnizca iki
+ * alan dondurur (MULTI_TENANT_ARCHITECTURE 12.4.1). Ad, sahip veya olusturulma
+ * zamani bu asamada OKUNAMAZ — okunabilseydi RLS asimi genislemis olurdu.
+ *
+ * Zaten resolution'in ihtiyaci da bu ikisidir: hangi tenant (8.2 capraz
+ * kontrol) ve tenant aktif mi (8.2 adim 7).
+ */
+export interface TenantRef {
+  readonly id: TenantId;
+  readonly status: TenantStatus;
+}
 
 /**
  * Tenant kaliciligi icin application port'u.
@@ -53,13 +73,16 @@ export interface TenantRepository {
   findById(id: TenantId): Promise<Tenant | null>;
 
   /**
-   * Slug'a gore tenant getirir; yoksa `null`.
+   * Slug'i tenant kimligine cevirir; yoksa `null`.
    *
-   * Tenant resolution'in ilk adimidir (MULTI_TENANT_ARCHITECTURE 8.2). Donen
-   * tenant bir IPUCUDUR, yetki kaynagi DEGILDIR: erisim karari daima
+   * Tenant resolution'in ilk adimidir (MULTI_TENANT_ARCHITECTURE 8.2) ve
+   * TENANT CONTEXT'I OLMADAN calisir — context'i kuracak olan cagri budur.
+   * Bu yuzden tam bir `Tenant` DEGIL, dar bir `TenantRef` doner (12.4.1).
+   *
+   * Donen kayit bir IPUCUDUR, yetki kaynagi DEGILDIR: erisim karari daima
    * dogrulanmis JWT claim'i ile verilir (ADR-0015).
    */
-  findBySlug(slug: TenantSlug): Promise<Tenant | null>;
+  resolveBySlug(slug: TenantSlug): Promise<TenantRef | null>;
 
   /**
    * Slug kullanimda mi?
@@ -67,7 +90,11 @@ export interface TenantRepository {
    * Bu, provisioning oncesi bir NEZAKET kontroludur — kullaniciya erken ve
    * anlamli geri bildirim vermek icindir. TEKILLIGI GARANTI ETMEZ: "once
    * kontrol et sonra yaz" bir yaris kosuludur. Gercek garanti veritabani
-   * unique index'idir ve kisit ihlali 409'a cevrilir (ADR-0016).
+   * unique index'idir ve kisit ihlali ayni domain hatasina cevrilir (ADR-0016).
+   *
+   * NOT: bu kontrol RLS uzerinden YAPILAMAZ — baska bir tenant'in satiri zaten
+   * gorunmez ve sorgu daima "kullanilmiyor" derdi. Bu yuzden resolveBySlug ile
+   * ayni cozumleme fonksiyonu uzerinden calisir.
    */
   existsBySlug(slug: TenantSlug): Promise<boolean>;
 

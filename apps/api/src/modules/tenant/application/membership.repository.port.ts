@@ -30,6 +30,9 @@ import type { UserId } from '../domain/user-id.value-object';
  * (DEVELOPMENT_RULES 7.1: sinirsiz liste yasak).
  * ============================================================================
  */
+/** DI token'i. */
+export const MEMBERSHIP_REPOSITORY = Symbol('MEMBERSHIP_REPOSITORY');
+
 export interface MembershipRepository {
   findById(id: MembershipId): Promise<Membership | null>;
 

@@ -26,6 +26,9 @@ import type { UserId } from '../domain/user-id.value-object';
  * public interface'i uzerinden sorar.
  * ============================================================================
  */
+/** DI token'i. */
+export const TENANT_PROVISIONING_POLICY = Symbol('TENANT_PROVISIONING_POLICY');
+
 export interface TenantProvisioningPolicy {
   /**
    * Kullanici tenant acamiyorsa HATA FIRLATIR; acabiliyorsa sessizce doner.

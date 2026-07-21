@@ -26,6 +26,9 @@ import type { DomainEvent } from '../../../shared/domain-event';
  * (ARCHITECTURE 7.2).
  * ============================================================================
  */
+/** DI token'i. */
+export const DOMAIN_EVENT_PUBLISHER = Symbol('DOMAIN_EVENT_PUBLISHER');
+
 export interface DomainEventPublisher {
   /**
    * Event'i, cagiran transaction'in icinde yayina kaydeder.

@@ -6,6 +6,7 @@ import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { type MembershipId } from '../domain/membership-id.value-object';
 import { type Membership } from '../domain/membership.entity';
+import { TenantId } from '../domain/tenant-id.value-object';
 import { TenantSlug } from '../domain/tenant-slug.value-object';
 import { TenantProvisioningRequested } from '../domain/tenant-provisioning-requested.event';
 import { type Tenant } from '../domain/tenant.entity';
@@ -18,7 +19,7 @@ import {
   type ProvisionTenantDependencies,
 } from './provision-tenant.use-case';
 import { type TenantProvisioningPolicy } from './tenant-provisioning-policy.port';
-import { type TenantRepository } from './tenant.repository.port';
+import { type TenantRef, type TenantRepository } from './tenant.repository.port';
 
 /**
  * Bu testler MOCK KUTUPHANESI kullanmaz — elle yazilmis FAKE'ler kullanir.
@@ -42,8 +43,12 @@ class FakeTenantRepository implements TenantRepository {
     return Promise.resolve(null);
   }
 
-  findBySlug(): Promise<Tenant | null> {
-    return Promise.resolve(null);
+  resolveBySlug(slug: TenantSlug): Promise<TenantRef | null> {
+    return Promise.resolve(
+      this.takenSlugs.has(slug.value)
+        ? { id: TenantId.create('018f3a2b-7c4d-7e1f-8a2b-0000000000ff'), status: 'active' }
+        : null,
+    );
   }
 
   existsBySlug(slug: TenantSlug): Promise<boolean> {
