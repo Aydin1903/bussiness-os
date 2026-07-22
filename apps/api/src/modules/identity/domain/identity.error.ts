@@ -248,3 +248,29 @@ export class RefreshTokenAlreadyUsedError extends IdentityDomainError {
     super('Refresh token zaten kullanilmis; yeniden kullanim ailenin iptalini gerektirir.');
   }
 }
+
+// --- Giris denemesi ve kaba kuvvet korumasi (ADR-0022) ---------------------
+
+export class InvalidLoginAttemptIdError extends IdentityDomainError {
+  readonly code = 'LOGIN_ATTEMPT_ID_INVALID';
+
+  constructor(value: string) {
+    super(`Giris denemesi id'si gecerli bir UUIDv7 degil: "${value}"`);
+  }
+}
+
+export class InvalidIpAddressError extends IdentityDomainError {
+  readonly code = 'IP_ADDRESS_INVALID';
+
+  constructor(value: string) {
+    super(`"${value}" gecerli bir IPv4 veya IPv6 adresi degil.`);
+  }
+}
+
+export class InvalidLoginAttemptTimestampError extends IdentityDomainError {
+  readonly code = 'LOGIN_ATTEMPT_TIMESTAMP_INVALID';
+
+  constructor(reason: string) {
+    super(`Giris denemesi zamani gecersiz: ${reason}`);
+  }
+}
