@@ -14,3 +14,12 @@ export { platformSchema } from './platform.schema';
 export { tenants } from './tenants.schema';
 export { memberships } from './memberships.schema';
 export { outbox } from './outbox.schema';
+
+// Identity (Faz 3) — hepsi tenant-scoped DEGILDIR (MULTI_TENANT_ARCHITECTURE 12.4
+// istisna listesi); tenant RLS uygulanmaz, erisim Identity repository'sinden.
+export { users } from './users.schema';
+export { credentials } from './credentials.schema';
+export { emailVerificationCodes } from './email-verification-codes.schema';
+export { tokenFamilies } from './token-families.schema';
+export { refreshTokens } from './refresh-tokens.schema';
+export { loginAttempts } from './login-attempts.schema';

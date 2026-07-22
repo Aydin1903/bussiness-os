@@ -53,17 +53,23 @@ describe('veritabani migration hatti', () => {
     expect(Number(result.rows[0]?.count)).toBeGreaterThan(0);
   });
 
-  it('tenant tablolarini olusturur', async () => {
-    // Faz 1'de bu test "tablo bulunmaz" diyordu. Faz 2 ile platform schema'si
-    // dolmaya basladi; iddia guncellendi.
+  it('platform tablolarini olusturur', async () => {
+    // Faz 1'de "tablo bulunmaz" diyordu; Faz 2 ile tenant tablolari, Faz 3 ile
+    // Identity tablolari eklendi. Iddia her fazda guncellenir.
     const result = await pool.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      'credentials',
+      'email_verification_codes',
+      'login_attempts',
       'memberships',
       'outbox',
+      'refresh_tokens',
       'tenants',
+      'token_families',
+      'users',
     ]);
   });
 
@@ -95,10 +101,15 @@ describe('veritabani migration hatti', () => {
    * Dosya sonunda durur: onceki testlerin kurdugu semayi bozdugu icin.
    */
   it('tum migration lar geri alinabilir ve yeniden uygulanabilir', async () => {
-    // Sira TERSTIR: 0002 once, cunku outbox tenants'a FK veriyor. Ileri yonun
-    // tersini uygulamayan bir geri alma, bagimlilik yuzunden hata verir —
-    // bu testin yakaladigi ilk sey tam olarak buydu.
-    const downFiles = ['0002_outbox.down.sql', '0001_tenant_tables.down.sql'];
+    // Sira TERSTIR (en yeni once): 0003 -> 0002 -> 0001. Ileri yonun tersini
+    // uygulamayan bir geri alma, bagimlilik yuzunden hata verir — bu testin
+    // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
+    // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
+    const downFiles = [
+      '0003_identity_tables.down.sql',
+      '0002_outbox.down.sql',
+      '0001_tenant_tables.down.sql',
+    ];
 
     for (const file of downFiles) {
       const downSql = readFileSync(join('drizzle', file), 'utf8');
@@ -134,9 +145,15 @@ describe('veritabani migration hatti', () => {
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
     expect(afterReapply.rows.map((row) => row.table_name)).toEqual([
+      'credentials',
+      'email_verification_codes',
+      'login_attempts',
       'memberships',
       'outbox',
+      'refresh_tokens',
       'tenants',
+      'token_families',
+      'users',
     ]);
   });
 });
