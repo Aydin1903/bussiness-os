@@ -17,11 +17,13 @@ import {
   type MembershipRepository,
 } from './application/membership.repository.port';
 import { ProvisionTenantUseCase } from './application/provision-tenant.use-case';
+import { ResolveTenantAccessQuery } from './application/resolve-tenant-access.query';
 import {
   TENANT_PROVISIONING_POLICY,
   type TenantProvisioningPolicy,
 } from './application/tenant-provisioning-policy.port';
 import { TENANT_REPOSITORY, type TenantRepository } from './application/tenant.repository.port';
+import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from './tenant.public';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
 import { TemporaryDenyProvisioningPolicy } from './infrastructure/temporary-deny-provisioning.policy';
@@ -98,7 +100,27 @@ import { TenantController } from './presentation/tenant.controller';
           clock,
         }),
     },
+    {
+      // Tenant modulunun Identity'ye actigi erisim sorgusu (tenant.public.ts).
+      // ProvisionTenantUseCase ile ayni desen: saf TypeScript, bagimliliklari
+      // burada factory ile verilir (ARCHITECTURE 4).
+      provide: TENANT_ACCESS_QUERY,
+      inject: [TENANT_REPOSITORY, MEMBERSHIP_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        tenantRepository: TenantRepository,
+        membershipRepository: MembershipRepository,
+        transactionManager: TransactionManager,
+      ): TenantAccessQuery =>
+        new ResolveTenantAccessQuery({
+          tenantRepository,
+          membershipRepository,
+          transactionManager,
+        }),
+    },
   ],
-  exports: [ProvisionTenantUseCase, TENANT_REPOSITORY, MEMBERSHIP_REPOSITORY],
+  // TENANT_ACCESS_QUERY disa acilir: Identity modulu (Faz 3) bunu token ile
+  // enjekte eder. Somut sinif DEGIL, token export edilir — tuketen taraf
+  // tenant.public.ts'teki arayuze baglanir, implementasyona degil.
+  exports: [ProvisionTenantUseCase, TENANT_REPOSITORY, MEMBERSHIP_REPOSITORY, TENANT_ACCESS_QUERY],
 })
 export class TenantModule {}
