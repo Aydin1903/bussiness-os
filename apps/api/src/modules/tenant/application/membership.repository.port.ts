@@ -1,7 +1,7 @@
 import type { Membership } from '../domain/membership.entity';
 import type { MembershipId } from '../domain/membership-id.value-object';
 import type { TenantId } from '../domain/tenant-id.value-object';
-import type { UserId } from '../domain/user-id.value-object';
+import type { UserId } from '../../../shared/user-id.value-object';
 
 /**
  * Uyelik kaliciligi icin application port'u.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TenantId } from './tenant-id.value-object';
-import { UserId } from './user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 import { TenantSlug } from './tenant-slug.value-object';
 import { Tenant, type ProvisionTenantInput, type TenantState } from './tenant.entity';
 import {

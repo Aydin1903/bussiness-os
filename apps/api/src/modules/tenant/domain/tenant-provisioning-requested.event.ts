@@ -1,7 +1,7 @@
 import { type DomainEvent } from '../../../shared/domain-event';
 import { type TenantId } from './tenant-id.value-object';
 import { type TenantSlug } from './tenant-slug.value-object';
-import { type UserId } from './user-id.value-object';
+import { type UserId } from '../../../shared/user-id.value-object';
 
 /**
  * Tenant kaydi olusturuldu; asenkron kurulum baslatilmali (ADR-0016).

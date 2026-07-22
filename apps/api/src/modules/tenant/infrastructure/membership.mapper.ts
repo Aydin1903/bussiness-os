@@ -3,7 +3,7 @@ import { MembershipRole } from '../domain/membership-role.value-object';
 import { parseMembershipStatus } from '../domain/membership-status.value-object';
 import { Membership } from '../domain/membership.entity';
 import { TenantId } from '../domain/tenant-id.value-object';
-import { UserId } from '../domain/user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 
 /** `platform.memberships` satirinin ham bicimi. */
 export interface MembershipRow {

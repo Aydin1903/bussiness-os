@@ -1,5 +1,10 @@
 /**
- * UUIDv7 bicim dogrulamasi.
+ * UUIDv7 bicim dogrulamasi — kernel yardimcisi.
+ *
+ * `shared/` altinda yasar cunku tenant'a veya kimlige ozgu degildir: her
+ * modulun id value object'i ayni bicim kuralina ihtiyac duyar (CLAUDE.md
+ * "shared/ ile infrastructure/ farki"). Framework'suz ve I/O'suz — domain
+ * katmaniyla ayni katilikta.
  *
  * Domain katmani id URETMEZ, yalnizca DOGRULAR. Uretim `Math.random()` ve
  * `Date.now()` gerektirir; DEVELOPMENT_RULES 3.2 bunlarin domain icinde
@@ -8,9 +13,6 @@
  *
  * Yan fayda: domain testleri sahte saat veya sahte uretici gerektirmez
  * (DEVELOPMENT_RULES 5.3 — domain testleri mock'suz yazilir).
- *
- * NOT: Bu yardimci, Identity modulu geldiginde `shared/` kernel'e tasinmalidir.
- * Bugun orada bir kernel yok; modul icinde tutuluyor.
  */
 
 /**

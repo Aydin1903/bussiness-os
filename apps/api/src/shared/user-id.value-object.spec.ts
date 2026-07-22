@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { InvalidUserIdError } from './tenant.error';
-import { UserId } from './user-id.value-object';
+import { InvalidUserIdError, UserId } from './user-id.value-object';
 
 const VALID_UUID_V7 = '018f3a2b-7c4d-7e1f-8a2b-3c4d5e6f7a8b';
 const OTHER_UUID_V7 = '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c';
@@ -16,8 +15,6 @@ describe('UserId', () => {
   });
 
   it('gecersiz id verildiginde kendi hatasini firlatir', () => {
-    // TenantId ile ayni dogrulamayi paylasir ama AYRI bir hata tipi uretir:
-    // hangi kimligin gecersiz oldugu cagiran taraf icin belirgin olmali.
     expect(() => UserId.create('gecersiz')).toThrow(InvalidUserIdError);
   });
 

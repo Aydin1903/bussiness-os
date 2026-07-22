@@ -11,7 +11,7 @@ import {
   OwnerMembershipProtectedError,
 } from './membership.error';
 import { TenantId } from './tenant-id.value-object';
-import { UserId } from './user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 
 const MEMBERSHIP_ID = MembershipId.create('018f3a2b-7c4d-7e1f-8a2b-000000000001');
 const TENANT_ID = TenantId.create('018f3a2b-7c4d-7e1f-8a2b-3c4d5e6f7a8b');

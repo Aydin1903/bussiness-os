@@ -1,5 +1,5 @@
 import { InvalidMembershipIdError } from './membership.error';
-import { normalizeUuidV7 } from './uuid-v7';
+import { normalizeUuidV7 } from '../../../shared/uuid-v7';
 
 /** Bir uyelik kaydinin kimligi. */
 export class MembershipId {

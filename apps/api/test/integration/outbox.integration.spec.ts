@@ -7,7 +7,7 @@ import { DrizzleTenantRepository } from '../../src/modules/tenant/infrastructure
 import { Tenant } from '../../src/modules/tenant/domain/tenant.entity';
 import { TenantId } from '../../src/modules/tenant/domain/tenant-id.value-object';
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
-import { UserId } from '../../src/modules/tenant/domain/user-id.value-object';
+import { UserId } from '../../src/shared/user-id.value-object';
 import type { DomainEvent } from '../../src/shared/domain-event';
 import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
 

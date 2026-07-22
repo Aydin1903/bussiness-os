@@ -7,7 +7,7 @@ import type { MembershipRepository } from '../application/membership.repository.
 import type { MembershipId } from '../domain/membership-id.value-object';
 import type { Membership } from '../domain/membership.entity';
 import type { TenantId } from '../domain/tenant-id.value-object';
-import type { UserId } from '../domain/user-id.value-object';
+import type { UserId } from '../../../shared/user-id.value-object';
 import { toMembership, toMembershipRow } from './membership.mapper';
 
 @Injectable()

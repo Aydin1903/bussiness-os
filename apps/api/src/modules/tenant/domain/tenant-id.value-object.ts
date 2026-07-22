@@ -1,5 +1,5 @@
 import { InvalidTenantIdError } from './tenant.error';
-import { normalizeUuidV7 } from './uuid-v7';
+import { normalizeUuidV7 } from '../../../shared/uuid-v7';
 
 /**
  * Tenant'in kalici teknik kimligi (MULTI_TENANT_ARCHITECTURE 6.1).

@@ -1,6 +1,6 @@
 import { type TenantId } from './tenant-id.value-object';
 import { type TenantSlug } from './tenant-slug.value-object';
-import { type UserId } from './user-id.value-object';
+import { type UserId } from '../../../shared/user-id.value-object';
 import { assertTransition, type TenantStatus } from './tenant-status.value-object';
 import {
   InconsistentTenantStateError,

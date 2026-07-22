@@ -28,13 +28,10 @@ export class InvalidTenantIdError extends TenantDomainError {
   }
 }
 
-export class InvalidUserIdError extends TenantDomainError {
-  readonly code = 'USER_ID_INVALID';
-
-  constructor(value: string) {
-    super(`Kullanici id'si gecerli bir UUIDv7 degil: "${value}"`);
-  }
-}
+// `InvalidUserIdError` artik burada DEGIL: `UserId` value object'i `shared/`
+// kernel'e tasindi (ADR-0014, B10) ve hatasi da onunla birlikte gitti —
+// `shared/user-id.value-object.ts`. Kernel hicbir modulun hata tabanina
+// (`TenantDomainError`) bagli olamaz.
 
 export class InvalidTenantSlugError extends TenantDomainError {
   readonly code = 'TENANT_SLUG_INVALID';

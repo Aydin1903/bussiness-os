@@ -7,7 +7,7 @@ import {
   OwnerMembershipProtectedError,
 } from './membership.error';
 import { type TenantId } from './tenant-id.value-object';
-import { type UserId } from './user-id.value-object';
+import { type UserId } from '../../../shared/user-id.value-object';
 
 /**
  * Bir kullanicinin bir tenant ICINDEKI uyeligi (ADR-0014).

@@ -8,7 +8,7 @@ import { ProvisionTenantUseCase } from '../../src/modules/tenant/application/pro
 import type { TenantProvisioningPolicy } from '../../src/modules/tenant/application/tenant-provisioning-policy.port';
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
 import { TenantSlugAlreadyTakenError } from '../../src/modules/tenant/domain/tenant.error';
-import { UserId } from '../../src/modules/tenant/domain/user-id.value-object';
+import { UserId } from '../../src/shared/user-id.value-object';
 import { DrizzleMembershipRepository } from '../../src/modules/tenant/infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from '../../src/modules/tenant/infrastructure/drizzle-tenant.repository';
 import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';

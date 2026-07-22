@@ -7,7 +7,7 @@ import { getCorrelationId } from '../../../infrastructure/logging/request-contex
 import { ProvisionTenantUseCase } from '../application/provision-tenant.use-case';
 import type { Tenant } from '../domain/tenant.entity';
 import { TenantSlug } from '../domain/tenant-slug.value-object';
-import { UserId } from '../domain/user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 import { provisionTenantSchema, type ProvisionTenantBody } from './provision-tenant.dto';
 import { TenantDomainExceptionFilter } from './tenant-domain-exception.filter';
 

@@ -2,7 +2,7 @@ import { parseTenantStatus } from '../domain/tenant-status.value-object';
 import { Tenant } from '../domain/tenant.entity';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { TenantSlug } from '../domain/tenant-slug.value-object';
-import { UserId } from '../domain/user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 
 /** `platform.tenants` satirinin ham bicimi. */
 export interface TenantRow {

@@ -1,4 +1,4 @@
-import type { UserId } from '../domain/user-id.value-object';
+import type { UserId } from '../../../shared/user-id.value-object';
 
 /**
  * Bir kullanicinin tenant acmaya UYGUN olup olmadigini soran port.

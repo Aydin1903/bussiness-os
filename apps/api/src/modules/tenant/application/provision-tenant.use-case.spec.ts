@@ -11,7 +11,7 @@ import { TenantSlug } from '../domain/tenant-slug.value-object';
 import { TenantProvisioningRequested } from '../domain/tenant-provisioning-requested.event';
 import { type Tenant } from '../domain/tenant.entity';
 import { TenantSlugAlreadyTakenError } from '../domain/tenant.error';
-import { UserId } from '../domain/user-id.value-object';
+import { UserId } from '../../../shared/user-id.value-object';
 import { type DomainEventPublisher } from '../../../shared/domain-event-publisher.port';
 import { type MembershipRepository } from './membership.repository.port';
 import {

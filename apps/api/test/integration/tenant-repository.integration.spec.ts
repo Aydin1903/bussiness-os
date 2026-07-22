@@ -10,7 +10,7 @@ import { Tenant } from '../../src/modules/tenant/domain/tenant.entity';
 import { TenantId } from '../../src/modules/tenant/domain/tenant-id.value-object';
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
 import { TenantSlugAlreadyTakenError } from '../../src/modules/tenant/domain/tenant.error';
-import { UserId } from '../../src/modules/tenant/domain/user-id.value-object';
+import { UserId } from '../../src/shared/user-id.value-object';
 import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
 
 /**
