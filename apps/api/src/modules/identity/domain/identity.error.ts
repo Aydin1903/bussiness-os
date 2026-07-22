@@ -274,3 +274,31 @@ export class InvalidLoginAttemptTimestampError extends IdentityDomainError {
     super(`Giris denemesi zamani gecersiz: ${reason}`);
   }
 }
+
+// --- Parola politikasi (ADR-0018) ve token (ADR-0020) ----------------------
+
+/** Parola politikasinin hangi kural(lar)ini ihlal ettigi. */
+export type PasswordPolicyViolation = 'too-short' | 'too-long' | 'missing-letter' | 'missing-digit';
+
+/**
+ * Parola ADR-0018 politikasini ihlal ediyor.
+ *
+ * Ihlaller ALAN BAZLI yanit icin tasinir (§16: 422 + detay). Parolanin KENDISI
+ * mesaja veya listeye ASLA girmez — yalnizca ihlal KODLARI (P1).
+ */
+export class PasswordPolicyError extends IdentityDomainError {
+  readonly code = 'PASSWORD_POLICY_VIOLATION';
+
+  constructor(readonly violations: readonly PasswordPolicyViolation[]) {
+    super(`Parola politikasi ihlali: ${violations.join(', ')}`);
+  }
+}
+
+/** Bir JWT dogrulanamadi (imza, sure, kid, biçim). Cagiran taraf 401'e cevirir. */
+export class InvalidTokenError extends IdentityDomainError {
+  readonly code = 'TOKEN_INVALID';
+
+  constructor(reason: string) {
+    super(`Token gecersiz: ${reason}`);
+  }
+}
