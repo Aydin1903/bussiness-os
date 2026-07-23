@@ -302,3 +302,51 @@ export class InvalidTokenError extends IdentityDomainError {
     super(`Token gecersiz: ${reason}`);
   }
 }
+
+// --- Giris sonuclari (AUTH_ARCHITECTURE 9, 14.3, 16) -----------------------
+
+/**
+ * GENEL kimlik hatasi — 401.
+ *
+ * ============================================================================
+ * DORT FARKLI SEBEP, TEK YANIT — bilincli
+ * ============================================================================
+ * Kullanici bulunamadi · parola yanlis · hesap kilitli (§14.3) · hesap aktif
+ * degil. Dordu de AYNI hatayi uretir cunku ayirt edilebilir olmalari hesabin
+ * VARLIGINI ve DURUMUNU sizdirir (P2). "Hesabiniz kilitlendi" demek, hesabin
+ * var oldugunu dogrulamaktir.
+ *
+ * Sebep asla mesaja konmaz; ayrim yalnizca SUNUCU loglarinda yasar.
+ * ============================================================================
+ */
+export class InvalidCredentialsError extends IdentityDomainError {
+  readonly code = 'INVALID_CREDENTIALS';
+
+  constructor() {
+    super('Kimlik bilgileri gecersiz.');
+  }
+}
+
+/**
+ * E-posta dogrulanmamis — 403, ve bu AYIRT EDILEBILIR olmasi guvenlidir.
+ *
+ * Buraya ulasmak icin parola DOGRU bilinmis olmalidir (§9.1); kimligini
+ * kanitlamis bir kullaniciya "e-postani dogrula" demek bilgi sizdirmaz —
+ * aksine, demezsek kullanici neden giremedigini anlayamaz.
+ */
+export class EmailNotVerifiedError extends IdentityDomainError {
+  readonly code = 'EMAIL_NOT_VERIFIED';
+
+  constructor() {
+    super('E-posta adresi henuz dogrulanmamis.');
+  }
+}
+
+/** Kaynak (IP) oran siniri asildi — 429 (ADR-0022 katman 3). */
+export class TooManyLoginAttemptsError extends IdentityDomainError {
+  readonly code = 'TOO_MANY_LOGIN_ATTEMPTS';
+
+  constructor() {
+    super('Cok fazla giris denemesi yapildi; lutfen daha sonra tekrar deneyin.');
+  }
+}
