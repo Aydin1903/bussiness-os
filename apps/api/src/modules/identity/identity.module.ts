@@ -45,6 +45,7 @@ import {
   VERIFICATION_CODE_HASHER,
   type VerificationCodeHasher,
 } from './application/verification-code-hasher.port';
+import { VerifyEmailUseCase } from './application/verify-email.use-case';
 import { Argon2idPasswordHasher } from './infrastructure/argon2id-password-hasher.adapter';
 import { CryptoRefreshTokenGenerator } from './infrastructure/crypto-refresh-token-generator.adapter';
 import { CryptoVerificationCodeGenerator } from './infrastructure/crypto-verification-code-generator.adapter';
@@ -253,6 +254,39 @@ function decodePem(base64: string): string {
           idGenerator,
           clock,
           delay,
+        }),
+    },
+    {
+      provide: VerifyEmailUseCase,
+      inject: [
+        USER_REPOSITORY,
+        EMAIL_VERIFICATION_CODE_REPOSITORY,
+        VERIFICATION_CODE_HASHER,
+        IDENTITY_EVENT_PUBLISHER,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+      ],
+      // Imza NestJS'in `inject` sozlesmesinden gelir; use case'in KENDI imzasi
+      // tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        userRepository: UserRepository,
+        verificationCodeRepository: EmailVerificationCodeRepository,
+        verificationCodeHasher: VerificationCodeHasher,
+        eventPublisher: DomainEventPublisher,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+      ): VerifyEmailUseCase =>
+        new VerifyEmailUseCase({
+          userRepository,
+          verificationCodeRepository,
+          verificationCodeHasher,
+          eventPublisher,
+          transactionManager,
+          idGenerator,
+          clock,
         }),
     },
   ],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { loginSchema, registerSchema } from './auth.dto';
+import { loginSchema, registerSchema, verifyEmailSchema } from './auth.dto';
 
 describe('registerSchema', () => {
   it('gecerli govdeyi kabul eder', () => {
@@ -68,6 +68,50 @@ describe('loginSchema', () => {
         email: 'user@example.com',
         password: 'parola123',
         ipAddress: '1.2.3.4',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('verifyEmailSchema', () => {
+  it('gecerli govdeyi kabul eder', () => {
+    expect(verifyEmailSchema.parse({ email: 'user@example.com', code: '123456' })).toEqual({
+      email: 'user@example.com',
+      code: '123456',
+    });
+  });
+
+  it('kodun bosluklarini temizler', () => {
+    expect(verifyEmailSchema.parse({ email: 'user@example.com', code: ' 123456 ' }).code).toBe(
+      '123456',
+    );
+  });
+
+  it.each([['12345'], ['1234567'], ['abcdef'], ['12 456'], ['']])(
+    'gecersiz bicimli kodu (%s) reddeder',
+    (code) => {
+      // Bicimsiz girdi bir TAHMIN degildir; deneme harcamadan sinirda elenir.
+      expect(() => verifyEmailSchema.parse({ email: 'user@example.com', code })).toThrow();
+    },
+  );
+
+  it('kodun DOGRULUGUNU burada karara baglamaz', () => {
+    // Bicimi gecerli her kod semadan gecer; dogru olup olmadigi HMAC kiyasiyla
+    // ve deneme sayaci artirilarak use case'te belirlenir.
+    expect(() =>
+      verifyEmailSchema.parse({ email: 'user@example.com', code: '000000' }),
+    ).not.toThrow();
+  });
+
+  it('parola veya kimlik alani KABUL ETMEZ (strict)', () => {
+    expect(() =>
+      verifyEmailSchema.parse({ email: 'user@example.com', code: '123456', password: 'parola123' }),
+    ).toThrow();
+    expect(() =>
+      verifyEmailSchema.parse({
+        email: 'user@example.com',
+        code: '123456',
+        emailVerified: true,
       }),
     ).toThrow();
   });

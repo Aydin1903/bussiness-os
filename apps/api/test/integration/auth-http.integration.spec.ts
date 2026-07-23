@@ -79,12 +79,49 @@ describe('auth uc noktalari (uctan uca)', () => {
     return request(httpServer(app)).post('/api/v1/auth/login').send(body);
   }
 
-  /** Dogrulama akisi henuz yok; durumu dogrudan kurar (verify-email ayri slice). */
+  function verifyEmail(body: Record<string, unknown>) {
+    return request(httpServer(app)).post('/api/v1/auth/verify-email').send(body);
+  }
+
+  /**
+   * Giris testleri icin durumu DOGRUDAN kurar.
+   *
+   * Gercek dogrulama akisi asagida ayri bir blokta uctan uca test edilir; giris
+   * testlerinin onu kullanmasi, bir slice'in hatasini digerine tasirdi.
+   */
   async function markVerified(email: string): Promise<void> {
     await database.ownerPool.query(
       "UPDATE platform.users SET email_verified = true, status = 'active' WHERE email = $1",
       [email],
     );
+  }
+
+  /**
+   * Kayit sirasinda uretilen HAM kodu outbox'tan okur.
+   *
+   * Kod veritabaninda yalnizca HMAC olarak durur; ham hali teslimat icin
+   * `user.registered` event payload'indadir (§8). Test de gercek istemcinin
+   * e-postayla aldigi seyi okur.
+   */
+  async function issuedCode(email: string): Promise<string> {
+    const rows = await database.ownerPool.query<{ code: string }>(
+      "SELECT payload->>'verificationCode' AS code FROM platform.identity_outbox " +
+        "WHERE event_type = 'user.registered' AND payload->>'email' = $1",
+      [email],
+    );
+
+    const code = rows.rows[0]?.code;
+    if (code === undefined) {
+      throw new Error(`Dogrulama kodu bulunamadi: ${email}`);
+    }
+    return code;
+  }
+
+  async function attemptCount(): Promise<number> {
+    const rows = await database.ownerPool.query<{ attempt_count: number }>(
+      'SELECT attempt_count FROM platform.email_verification_codes',
+    );
+    return rows.rows[0]?.attempt_count ?? -1;
   }
 
   it('uygulama IdentityModule ile ayaga kalkar', () => {
@@ -215,5 +252,112 @@ describe('auth uc noktalari (uctan uca)', () => {
     const response = await login({ email: 'yok@example.com', password: PASSWORD });
 
     expect(response.status).toBe(401);
+  });
+
+  // --- E-posta dogrulama ---------------------------------------------------
+
+  it('dogru kodla 200 doner ve kullaniciyi aktif eder', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+
+    const response = await verifyEmail({ email: EMAIL, code: await issuedCode(EMAIL) });
+
+    expect(response.status).toBe(200);
+
+    const rows = await database.ownerPool.query<{ status: string; email_verified: boolean }>(
+      'SELECT status, email_verified FROM platform.users WHERE email = $1',
+      [EMAIL],
+    );
+    expect(rows.rows[0]?.status).toBe('active');
+    expect(rows.rows[0]?.email_verified).toBe(true);
+  });
+
+  it('dogrulamayla birlikte kodu tuketir ve outbox event i yazar', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    await verifyEmail({ email: EMAIL, code: await issuedCode(EMAIL) });
+
+    const codes = await database.ownerPool.query<{ consumed_at: Date | null }>(
+      'SELECT consumed_at FROM platform.email_verification_codes',
+    );
+    const events = await database.ownerPool.query<{ event_type: string }>(
+      'SELECT event_type FROM platform.identity_outbox ORDER BY occurred_at',
+    );
+
+    expect(codes.rows[0]?.consumed_at).not.toBeNull();
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'user.registered',
+      'user.email_verified',
+    ]);
+  });
+
+  it('YANLIS koda 400 doner ve deneme sayacini KALICI artirir', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+
+    const response = await verifyEmail({ email: EMAIL, code: '000000' });
+
+    expect(response.status).toBe(400);
+    // Kritik: hata dondugu halde artis COMMIT olmus olmali. Geri alinsaydi
+    // 5 denemelik sinir hicbir zaman dolmaz (ADR-0019 §7.3).
+    expect(await attemptCount()).toBe(1);
+  });
+
+  it('5 yanlis denemeden sonra DOGRU kodu da reddeder', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    const code = await issuedCode(EMAIL);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await verifyEmail({ email: EMAIL, code: '000000' });
+    }
+
+    const response = await verifyEmail({ email: EMAIL, code });
+
+    expect(response.status).toBe(400);
+    expect(await attemptCount()).toBe(5);
+  });
+
+  it('ZATEN dogrulanmis hesabi tekrar dogrulamaz (idempotent basari yok)', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    const code = await issuedCode(EMAIL);
+    await verifyEmail({ email: EMAIL, code });
+
+    const second = await verifyEmail({ email: EMAIL, code });
+
+    expect(second.status).toBe(400);
+  });
+
+  it('bilinmeyen e-postaya da AYNI 400 doner', async () => {
+    const response = await verifyEmail({ email: 'yok@example.com', code: '123456' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('tum redler AYNI govdeyi uretir (sebep sizmaz)', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+
+    const wrongCode = await verifyEmail({ email: EMAIL, code: '000000' });
+    const unknownEmail = await verifyEmail({ email: 'yok@example.com', code: '000000' });
+
+    expect(unknownEmail.body).toMatchObject({ title: wrongCode.body.title, status: 400 });
+    expect(wrongCode.headers['content-type']).toContain('application/problem+json');
+  });
+
+  it('6 haneli olmayan koda 422 doner ve deneme HARCAMAZ', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+
+    const response = await verifyEmail({ email: EMAIL, code: 'abc' });
+
+    expect(response.status).toBe(422);
+    // Bicimsiz girdi bir tahmin degildir; sayaca dokunulmaz.
+    expect(await attemptCount()).toBe(0);
+  });
+
+  it('dogrulamadan SONRA giris calisir (kayit -> dogrula -> giris zinciri)', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    await verifyEmail({ email: EMAIL, code: await issuedCode(EMAIL) });
+
+    const response = await login({ email: EMAIL, password: PASSWORD });
+
+    // Ayni kullanici dogrulamadan once 403 aliyordu; zincir kapandi.
+    expect(response.status).toBe(200);
+    expect(typeof response.body.identityToken).toBe('string');
   });
 });

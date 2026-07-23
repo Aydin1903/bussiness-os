@@ -1,11 +1,28 @@
-import { Body, Controller, HttpCode, HttpStatus, Ip, Post, UseFilters } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Post,
+  UseFilters,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { getCorrelationId } from '../../../infrastructure/logging/request-context';
 import { LoginUseCase } from '../application/login.use-case';
 import { RegisterUserUseCase } from '../application/register-user.use-case';
-import { loginSchema, registerSchema, type LoginBody, type RegisterBody } from './auth.dto';
+import { VerifyEmailUseCase } from '../application/verify-email.use-case';
+import {
+  loginSchema,
+  registerSchema,
+  verifyEmailSchema,
+  type LoginBody,
+  type RegisterBody,
+  type VerifyEmailBody,
+} from './auth.dto';
 import { IdentityDomainExceptionFilter } from './identity-domain-exception.filter';
 
 /** Kayit yaniti — HER ZAMAN aynidir (hesap varligi sizmasin, §8.1). */
@@ -18,8 +35,22 @@ interface LoginResponse {
   readonly refreshToken: string;
 }
 
+interface VerifyEmailResponse {
+  readonly message: string;
+}
+
 /** Yanit metni sabittir: e-posta kayitli olsun olmasin AYNI cumle doner. */
 const REGISTER_MESSAGE = 'Dogrulama kodu gonderildi.';
+
+const VERIFY_EMAIL_MESSAGE = 'E-posta adresi dogrulandi.';
+
+/**
+ * TEK ret metni — hicbir red sebebi digerinden ayirt edilemez.
+ *
+ * Metin bilerek iki olasiligi birlikte anar: hangisinin gerceklestigini
+ * soylemek, saldirgana hangi kodun HALA gecerli oldugunu ogretirdi (P2).
+ */
+const VERIFY_EMAIL_REJECTION = 'Dogrulama kodu gecersiz veya suresi dolmus. Yeni bir kod isteyin.';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -28,6 +59,7 @@ export class AuthController {
   constructor(
     private readonly registerUser: RegisterUserUseCase,
     private readonly login: LoginUseCase,
+    private readonly verifyEmail: VerifyEmailUseCase,
   ) {}
 
   /**
@@ -98,5 +130,52 @@ export class AuthController {
     });
 
     return { identityToken: result.identityToken, refreshToken: result.refreshToken };
+  }
+
+  /**
+   * E-posta adresini 6 haneli kodla dogrular (§7.5).
+   *
+   * Basarili dogrulama kullaniciyi `active` yapar ve ADR-0016'nin tenant acma
+   * onkosulunu KARSILAR — ama tenant ACMAZ; o ayri bir adimdir.
+   *
+   * ============================================================================
+   * NEDEN `outcome` OKUNUP BURADA 400'E CEVRILIYOR
+   * ============================================================================
+   * Use case reddi exception ile bildirseydi transaction geri alinir ve deneme
+   * sayacinin artisi silinirdi (ADR-0019 §7.3). Bu yuzden reddi bir DEGER
+   * olarak dondurur; HTTP'ye cevirmek sunum katmaninin isidir ve ceviri
+   * transaction kapandiktan SONRA olur.
+   *
+   * Tum red sebepleri TEK yanit uretir: 400 ve sabit metin.
+   * ============================================================================
+   */
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'E-posta adresini dogrular',
+    description:
+      'Kod yanlis, suresi dolmus, tukenmis veya hesap zaten dogrulanmis olsa da ' +
+      'AYNI 400 yaniti doner — hangi durumun gerceklestigi sizdirilmaz.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'E-posta dogrulandi.' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Kod gecersiz veya kullanilamaz.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Govde gecerli degil (kod 6 haneli olmali).',
+  })
+  async confirmEmail(
+    @Body(new ZodValidationPipe(verifyEmailSchema)) body: VerifyEmailBody,
+  ): Promise<VerifyEmailResponse> {
+    const result = await this.verifyEmail.execute({
+      email: body.email,
+      code: body.code,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    if (result.outcome !== 'verified') {
+      throw new BadRequestException(VERIFY_EMAIL_REJECTION);
+    }
+
+    return { message: VERIFY_EMAIL_MESSAGE };
   }
 }
