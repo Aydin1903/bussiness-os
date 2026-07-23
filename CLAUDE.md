@@ -294,11 +294,11 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 | Katman | Ne var |
 |---|---|
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
-| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · repository ve kripto port'ları |
-| Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher |
-| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · auth middleware · domain hata → RFC 7807 filtresi |
+| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `PublishIdentityEventsUseCase` · repository ve kripto port'ları |
+| Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → konsol adapter |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · auth middleware · domain hata → RFC 7807 filtresi |
 | Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` (üçü de `tenantId = null`) |
-| Testler | ~690 birim + ~120 entegrasyon |
+| Testler | ~745 birim + ~139 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -324,11 +324,15 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 
 Authorization (RBAC) · tam tenant context (`userId`/`role` — §11.2) · çözüm
 zincirinin JWT gerektiren 5 adımı · refresh rotation / oturum sonlandırma /
-parola sıfırlama **kodu** (tasarımı hazır: ADR-0021, 0023, 0024) · doğrulama
-kodunu **yeniden gönderme** akışı · tenant outbox publisher süreci ·
-`tenant.public.ts` · iş modülleri · AI katmanı · Storage/Cache/Search
-adapter'ları.
+parola sıfırlama **kodu** (tasarımı hazır: ADR-0021, 0023, 0024) · tenant
+outbox publisher süreci · `tenant.public.ts` · iş modülleri · AI katmanı ·
+Storage/Cache/Search adapter'ları.
 
-Sıradaki adım: **Identity outbox tüketicisi** — `identity_outbox`'taki
-`UserRegistered` event'ini okuyup doğrulama kodunu e-postayla gönderen süreç.
-Bugün kod yalnızca outbox satırında duruyor; kimse onu teslim etmiyor.
+Sıradaki adım: **refresh token rotation ve oturum sonlandırma** (ADR-0021,
+ADR-0023). Bugün giriş bir refresh token üretiyor ama onu **yenileyen veya
+iptal eden uç nokta yok**; kullanıcı 5 dakikalık kimlik token'ı dolunca yeniden
+giriş yapmak zorunda ve `logout` diye bir şey mevcut değil.
+
+> **Resend adapter'ından önce kapatılması gereken borç:** outbox teslimat
+> hatası bugün sonsuza kadar yeniden deneniyor — `attempt_count` + `last_error`
+> + backoff + dead-letter gerekiyor (`AUTH_ARCHITECTURE.md` §16.1).
