@@ -40,12 +40,31 @@ export const identityOutbox = platformSchema.table(
 
     /** Publisher doldurur. `NULL` = henuz yayinlanmadi. */
     publishedAt: timestamp('published_at', { withTimezone: true }),
+
+    // --- Teslimat yeniden deneme (0006, AUTH §16.1) --------------------------
+
+    /** Kac kez denendi. Dead-letter esigi buna bakar. */
+    attemptCount: integer('attempt_count').notNull().default(0),
+
+    /** Son hatanin metni — TESHIS icin. Sir tasimaz (P1). */
+    lastError: text('last_error'),
+
+    /** Backoff: bu andan once yeniden denenmez. `NULL` = hemen hazir. */
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+
+    /** Kuyruktan cikarildi ama SILINMEDI. `NULL` = hala kuyrukta. */
+    deadLetteredAt: timestamp('dead_lettered_at', { withTimezone: true }),
   },
   (table) => [
-    // Kuyruk taramasi yalnizca BEKLEYENLERE bakar. Kismi kosul migration'da
-    // birebir aynidir.
+    // Kuyruk taramasi yalnizca BEKLEYEN ve OLU OLMAYAN kayitlara bakar.
+    // Siralama `next_attempt_at`: kuyrugun basi "en eski" degil, "yeniden
+    // denenmeye en erken hazir olan"dir. Kismi kosul migration'da birebir aynidir.
     index('identity_outbox_pending_idx')
-      .on(table.occurredAt)
-      .where(sql`published_at IS NULL`),
+      .on(table.nextAttemptAt, table.occurredAt)
+      .where(sql`published_at IS NULL AND dead_lettered_at IS NULL`),
+
+    index('identity_outbox_dead_letter_idx')
+      .on(table.deadLetteredAt)
+      .where(sql`dead_lettered_at IS NOT NULL`),
   ],
 );

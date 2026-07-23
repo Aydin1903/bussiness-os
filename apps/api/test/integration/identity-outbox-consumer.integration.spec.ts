@@ -10,7 +10,12 @@ import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
 import { IdentityOutboxRelay } from '../../src/modules/identity/infrastructure/identity-outbox-relay';
-import { EMAIL_PORT, type EmailMessage, type EmailPort } from '../../src/shared/email.port';
+import {
+  EmailDeliveryError,
+  EMAIL_PORT,
+  type EmailMessage,
+  type EmailPort,
+} from '../../src/shared/email.port';
 import { setIdentityTestEnv } from './support/identity-env';
 import {
   startTestDatabase,
@@ -46,8 +51,17 @@ function httpServer(app: INestApplication): NodeHttpServer {
 
 class RecordingEmailPort implements EmailPort {
   readonly sent: EmailMessage[] = [];
+  /** Dolu ise bu adrese gonderim basarisiz olur. */
+  failFor: string | null = null;
+  /** `true` ise hata KALICI isaretlenir (gecersiz adres gibi). */
+  permanentFailure = false;
 
   send(message: EmailMessage): Promise<void> {
+    if (this.failFor === message.to) {
+      return Promise.reject(
+        new EmailDeliveryError('teslimat reddedildi', { permanent: this.permanentFailure }),
+      );
+    }
     this.sent.push(message);
     return Promise.resolve();
   }
@@ -94,6 +108,8 @@ describe('identity outbox tuketicisi (uctan uca)', () => {
   beforeEach(async () => {
     await truncateIdentityTables(database.ownerPool);
     emailPort.sent.length = 0;
+    emailPort.failFor = null;
+    emailPort.permanentFailure = false;
   });
 
   function register(body: Record<string, unknown>) {
@@ -194,5 +210,138 @@ describe('identity outbox tuketicisi (uctan uca)', () => {
     const response = await verify({ email: EMAIL, code });
 
     expect(response.status).toBe(200);
+  });
+
+  // --- Yeniden deneme, backoff ve dead-letter (0006, AUTH §16.1) -----------
+
+  interface OutboxState {
+    attempt_count: number;
+    last_error: string | null;
+    next_attempt_at: Date | null;
+    dead_lettered_at: Date | null;
+    published_at: Date | null;
+  }
+
+  async function outboxState(): Promise<OutboxState | undefined> {
+    const rows = await database.ownerPool.query<OutboxState>(
+      `SELECT attempt_count, last_error, next_attempt_at, dead_lettered_at, published_at
+         FROM platform.identity_outbox WHERE event_type = 'user.registered'`,
+    );
+    return rows.rows[0];
+  }
+
+  /** Backoff'u geriye kaydirir — testin gercek zamani beklemesi gerekmesin. */
+  async function ageBackoff(seconds: number): Promise<void> {
+    await database.ownerPool.query(
+      `UPDATE platform.identity_outbox
+          SET next_attempt_at = next_attempt_at - make_interval(secs => $1)`,
+      [seconds],
+    );
+  }
+
+  it('basarisiz teslimat sayaci artirir ve son hatayi YAZAR', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+
+    await relay.runOnce();
+
+    const state = await outboxState();
+    expect(state?.attempt_count).toBe(1);
+    expect(state?.last_error).toContain('teslimat reddedildi');
+    expect(state?.published_at).toBeNull();
+  });
+
+  it('backoff suresi DOLMADAN kayit yeniden claim EDILMEZ', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+    await relay.runOnce();
+
+    // Ikinci tur hemen calisir: kayit henuz hazir degil.
+    await relay.runOnce();
+
+    // Sayac artmadi — kayit hic denenmedi. Backoff olmasaydi her tur denenirdi.
+    expect((await outboxState())?.attempt_count).toBe(1);
+  });
+
+  it('backoff suresi dolunca yeniden denenir', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+    await relay.runOnce();
+    await ageBackoff(120);
+
+    await relay.runOnce();
+
+    expect((await outboxState())?.attempt_count).toBe(2);
+  });
+
+  it('backoff dolunca teslimat BASARILI olabilir — kayit kurtarilir', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+    await relay.runOnce();
+
+    // Gecici kesinti gecti.
+    emailPort.failFor = null;
+    await ageBackoff(120);
+    await relay.runOnce();
+
+    expect(emailPort.sent).toHaveLength(1);
+    expect((await outboxState())?.published_at).not.toBeNull();
+  });
+
+  it('KALICI hata ilk denemede olu mektuba dusurur', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+    emailPort.permanentFailure = true;
+
+    await relay.runOnce();
+
+    const state = await outboxState();
+    expect(state?.dead_lettered_at).not.toBeNull();
+    expect(state?.attempt_count).toBe(1);
+  });
+
+  it('olu mektup kayitlari bir daha CLAIM EDILMEZ', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+    emailPort.permanentFailure = true;
+    await relay.runOnce();
+
+    // Hata duzelse bile olu kayit geri gelmez.
+    emailPort.failFor = null;
+    await relay.runOnce();
+    await relay.runOnce();
+
+    expect(emailPort.sent).toHaveLength(0);
+    expect((await outboxState())?.attempt_count).toBe(1);
+  });
+
+  it('olu kayit ARKASINDAKI gecerli e-postayi ENGELLEMEZ', async () => {
+    await register({ email: 'bozuk@example.com', password: PASSWORD });
+    emailPort.failFor = 'bozuk@example.com';
+    emailPort.permanentFailure = true;
+    await relay.runOnce();
+
+    // Yeni bir kayit gelir; olu kayit kuyrukta degildir.
+    emailPort.failFor = null;
+    await register({ email: 'saglam@example.com', password: PASSWORD });
+    await relay.runOnce();
+
+    // Mekanizmanin var olma sebebi tam olarak budur.
+    expect(emailPort.sent.map((message) => message.to)).toEqual(['saglam@example.com']);
+  });
+
+  it('SINIRA ulasinca olu mektuba duser', async () => {
+    await register({ email: EMAIL, password: PASSWORD });
+    emailPort.failFor = EMAIL;
+
+    // 5 deneme: her turdan sonra backoff'u geriye kaydir.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await relay.runOnce();
+      await ageBackoff(600);
+    }
+
+    const state = await outboxState();
+    expect(state?.attempt_count).toBe(5);
+    expect(state?.dead_lettered_at).not.toBeNull();
   });
 });

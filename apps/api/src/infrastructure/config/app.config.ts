@@ -57,6 +57,14 @@ export interface AppConfig {
     readonly intervalMs: number;
     readonly batchSize: number;
   };
+
+  /** E-posta saglayicisi secimi ve kimlik bilgileri (ARCHITECTURE 9.3). */
+  readonly email: {
+    readonly provider: 'console' | 'resend';
+    /** Yalnizca `provider === 'resend'` iken dolu (env semasi zorlar). */
+    readonly resendApiKey: string;
+    readonly from: string;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -81,11 +89,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     isProduction: env.NODE_ENV === 'production',
     port: env.PORT,
     version: env.APP_VERSION,
-    database: {
-      url: env.DATABASE_URL,
-      poolMax: env.DATABASE_POOL_MAX,
-      connectionTimeoutMs: env.DATABASE_CONNECTION_TIMEOUT_MS,
-    },
+    database: toDatabaseConfig(env),
     logging: {
       level: env.LOG_LEVEL,
       pretty: env.LOG_PRETTY,
@@ -98,6 +102,30 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     },
     auth: toAuthConfig(env),
     outboxRelay: toOutboxRelayConfig(env),
+    email: toEmailConfig(env),
+  };
+}
+
+/** Veritabani baglantisi. Deger DONUSTURMEZ; yalnizca eslestirir. */
+function toDatabaseConfig(env: Env): AppConfig['database'] {
+  return {
+    url: env.DATABASE_URL,
+    poolMax: env.DATABASE_POOL_MAX,
+    connectionTimeoutMs: env.DATABASE_CONNECTION_TIMEOUT_MS,
+  };
+}
+
+/**
+ * E-posta saglayicisi. Deger DONUSTURMEZ; yalnizca eslestirir.
+ *
+ * `?? ''`: sema `resend` secildiginde bu alanlari ZORUNLU kilar, dolayisiyla
+ * bos string yalnizca `console` modunda olusabilir — o modda da hic okunmaz.
+ */
+function toEmailConfig(env: Env): AppConfig['email'] {
+  return {
+    provider: env.EMAIL_PROVIDER,
+    resendApiKey: env.RESEND_API_KEY ?? '',
+    from: env.EMAIL_FROM ?? '',
   };
 }
 

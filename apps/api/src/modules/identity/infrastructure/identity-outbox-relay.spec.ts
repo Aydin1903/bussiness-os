@@ -13,6 +13,7 @@ const EMPTY: PublishIdentityEventsResult = {
   delivered: 0,
   acknowledged: 0,
   failures: [],
+  deadLettered: 0,
   unhandledEventTypes: [],
 };
 

@@ -964,25 +964,40 @@ Ortak sözleşme [MT §15.1](MULTI_TENANT_ARCHITECTURE.md)'dedir ve burada tekra
 
 **Yanıt formatı:** RFC 7807 (`application/problem+json`), Faz 1'de kurulan `ProblemDetailsFilter` üzerinden. Hiçbir yanıt e-posta varlığı, kilit durumu veya kodun neden reddedildiği hakkında bilgi **taşımaz**.
 
-### 16.1 ⚠️ Teknik borç — teslimat hatası bugün sonsuza kadar denenir
+### 16.1 Teslimat hatası: yeniden deneme, backoff ve dead-letter
 
-Identity outbox tüketicisi (`PublishIdentityEventsUseCase`) yazıldı ve doğrulama
-kodlarını `EmailPort` üzerinden teslim ediyor. **Teslimat hatası için bir
-politikası yoktur:** başarısız kayıt `published_at = NULL` kalır ve her turda
-yeniden denenir — sınırsızca.
+**Borç kapatıldı (2026-07-24, migration `0006`).** Resend adapter'ı bağlanmadan
+önce zorunlu tutulan üç mekanizmanın üçü de yazıldı.
 
-Bugün bu **teorik** bir risktir: bağlı adapter `ConsoleEmailAdapter`'dır ve asla
-hata vermez. Gerçek sağlayıcı bağlandığında teorik olmaktan çıkar.
-
-**Resend adapter'ı devreye alınmadan önce zorunlu:**
-
-| Gereken | Neden |
+| Kolon | İşlev |
 |---|---|
-| `attempt_count` + `last_error` kolonları (migration) | Kaç kez denendiği ve nedeni bugün hiçbir yerde tutulmuyor |
-| Üstel geri çekilme (backoff) | Her turda yeniden denemek, geçici sağlayıcı arızasını DDoS'a çevirir |
-| Dead-letter + alarm | N denemeden sonra kayıt kuyruktan çıkarılmalı; aksi halde kalıcı olarak reddedilen tek bir adres kuyruğu meşgul eder ve **arkasındaki geçerli e-postalar gecikir** |
+| `attempt_count` | Kaç kez denendi — dead-letter eşiği buna bakar |
+| `last_error` | Son hata metni (teşhis). Sır taşımaz (P1) |
+| `next_attempt_at` | Üstel backoff; bu andan önce yeniden denenmez |
+| `dead_lettered_at` | Kuyruktan çıkarıldı ama **silinmedi** |
 
-Bu üçü tamamlanmadan `EmailModule` üretim sağlayıcısına bağlanmamalıdır.
+**Backoff:** 30 sn → 1 dk → 2 dk → 4 dk, 5. denemede dead-letter (tavan 5 dk).
+Toplam pencere (~8 dk) **doğrulama kodunun 15 dakikalık ömründen kısadır**
+([ADR-0019](../adr/0019-email-verification-code.md)) — aşsaydı teslim edilen kod
+zaten ölü olurdu ve kullanıcı çalışmayan bir kod alırdı.
+
+**Kalıcı / geçici ayrımı:** `EmailPort` artık `EmailDeliveryError { permanent }`
+fırlatır. Sınıflandırmayı **yalnızca adapter** yapabilir (4xx geçersiz adres →
+kalıcı; 429/5xx/ağ hatası → geçici), kararı politika verir. **Kalıcı hata ilk
+denemede dead-letter'a düşer**: geçersiz bir adresi 5 kez denemek kuyruğu boşuna
+meşgul eder ve arkasındaki geçerli e-postaları geciktirirdi — mekanizmanın var
+olma sebebi tam olarak budur.
+
+Bilinmeyen bir hata (bozuk payload, beklenmedik istisna) **geçici** sayılır:
+geçici sanıp denemek birkaç tur israf eder, kalıcı sanıp atmak geçerli bir
+e-postayı kaybeder.
+
+Dead-letter bir **alarm** üretir (relay `error` seviyesinde loglar): sessizce
+kaybolan e-posta, mekanizmanın engellemek istediği şeydir ([§15.2](#152-güvenlik-etkisi-olan-eventler) ile aynı ilke).
+
+> **Kalan:** `platform.outbox` (tenant tarafı) aynı mekanizmadan **yoksundur**;
+> tüketici süreci henüz yazılmadığı için bugün etkisi yoktur. O tüketici
+> yazıldığında bu bölüm oraya da uygulanmalıdır.
 
 ---
 

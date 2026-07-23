@@ -16,6 +16,20 @@ export interface IdentityOutboxRecord {
   readonly payload: Readonly<Record<string, unknown>>;
   readonly correlationId: string;
   readonly occurredAt: Date;
+  /** Bu kayit daha once kac kez denendi. Yeniden deneme karari buna bakar. */
+  readonly attemptCount: number;
+}
+
+/** Basarisiz bir teslimatin kalici sonucu (backoff veya olu mektup). */
+export interface OutboxDeliveryFailure {
+  readonly id: string;
+  readonly attemptCount: number;
+  /** Teshis metni. Sir TASIMAZ (P1). */
+  readonly lastError: string;
+  /** Dolu ise kayit yeniden denenecek; `null` ise olu mektuba dusuruldu. */
+  readonly nextAttemptAt: Date | null;
+  /** Dolu ise kayit kuyruktan CIKARILDI. */
+  readonly deadLetteredAt: Date | null;
 }
 
 /**
@@ -35,8 +49,26 @@ export interface IdentityOutboxRepository {
    * gondermesin diye kilit `FOR UPDATE SKIP LOCKED` ile alinir — bekleyen degil,
    * ATLAYAN bir kilit: mesgul satir digerinin turunu bloklamaz.
    */
-  claimPending(limit: number): Promise<IdentityOutboxRecord[]>;
+  claimPending(limit: number, now: Date): Promise<IdentityOutboxRecord[]>;
 
   /** Kayitlari yayinlanmis olarak isaretler. Bos dizi gecerlidir ve is yapmaz. */
   markPublished(ids: readonly string[], publishedAt: Date): Promise<void>;
+
+  /**
+   * Basarisiz teslimatlari kalici hale getirir: sayac, son hata ve backoff
+   * (veya olu mektup isareti).
+   *
+   * ============================================================================
+   * BASARISIZLIK DA YAZILMAK ZORUNDADIR
+   * ============================================================================
+   * Yazilmasaydi sayac hic artmaz, backoff hic uygulanmaz ve kayit her turda
+   * yeniden denenirdi — mekanizmanin tamami islevsiz kalirdi. Bu, `LoginUseCase`
+   * ve resend defterindeki ayni dersin ucuncu tekrari: KORUMAYI SAGLAYAN YAZIM
+   * commit olmak zorundadir.
+   *
+   * Bu cagri, kaydin kilitli oldugu AYNI transaction'da yapilir; tur sonunda
+   * commit olur.
+   * ============================================================================
+   */
+  recordFailures(failures: readonly OutboxDeliveryFailure[]): Promise<void>;
 }

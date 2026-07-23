@@ -1,5 +1,5 @@
 import { type Clock } from '../../../shared/clock.port';
-import { type EmailPort } from '../../../shared/email.port';
+import { EmailDeliveryError, type EmailPort } from '../../../shared/email.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { UserEmailVerified } from '../domain/user-email-verified.event';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
@@ -7,17 +7,20 @@ import { UserRegistered } from '../domain/user-registered.event';
 import {
   type IdentityOutboxRecord,
   type IdentityOutboxRepository,
+  type OutboxDeliveryFailure,
 } from './identity-outbox.repository.port';
+import { decideDeliveryRetry } from './outbox-retry.policy';
 import { buildVerificationEmail } from './verification-email.builder';
 
-/**
- * Teslimati BASARISIZ olan kayit. `published_at` yazilmaz — sonraki turda
- * yeniden denenir.
- */
+/** Teslimati BASARISIZ olan kayit. */
 export interface OutboxFailure {
   readonly id: string;
   readonly eventType: string;
   readonly reason: string;
+  /** Bu denemeden sonraki sayac. */
+  readonly attemptCount: number;
+  /** `true` ise kayit kuyruktan CIKARILDI ve ALARM gerektirir. */
+  readonly deadLettered: boolean;
 }
 
 export interface PublishIdentityEventsResult {
@@ -28,6 +31,8 @@ export interface PublishIdentityEventsResult {
   /** `published_at` yazilan kayit sayisi (gonderilenler + is gerektirmeyenler). */
   readonly acknowledged: number;
   readonly failures: readonly OutboxFailure[];
+  /** Bu turda olu mektuba dusen kayit sayisi — ALARM konusu. */
+  readonly deadLettered: number;
   /** Handler'i OLMAYAN event tipleri — isaretlenmez, gorunur kalir. */
   readonly unhandledEventTypes: readonly string[];
 }
@@ -55,9 +60,10 @@ const NO_DELIVERY_EVENT_TYPES: readonly string[] = [UserLoggedIn.TYPE, UserEmail
 /** Tek turun ic muhasebesi; disariya `PublishIdentityEventsResult` olarak cikar. */
 interface BatchOutcome {
   readonly publishedIds: string[];
+  readonly deliveryFailures: OutboxDeliveryFailure[];
   readonly failures: OutboxFailure[];
   readonly unhandledEventTypes: string[];
-  readonly delivered: number;
+  delivered: number;
 }
 
 /** Hata mesajini guvenle metne cevirir; `Error` disi firlatilan degerler de olur. */
@@ -65,11 +71,23 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Hata KALICI mi? Yalnizca adapter'in acikca isaretledigi hatalar kalicidir.
+ *
+ * Bilinmeyen bir hata (bozuk payload, beklenmedik istisna) GECICI sayilir —
+ * fail-safe yon budur: gecici sanip yeniden denemek en fazla birkac tur israf
+ * eder, kalici sanip olu mektuba atmak ise gecerli bir e-postayi kaybeder.
+ */
+function isPermanent(error: unknown): boolean {
+  return error instanceof EmailDeliveryError && error.permanent;
+}
+
 const EMPTY_RESULT: PublishIdentityEventsResult = Object.freeze({
   claimed: 0,
   delivered: 0,
   acknowledged: 0,
   failures: Object.freeze([]),
+  deadLettered: 0,
   unhandledEventTypes: Object.freeze([]),
 });
 
@@ -93,20 +111,18 @@ const EMPTY_RESULT: PublishIdentityEventsResult = Object.freeze({
  * ============================================================================
  *
  * ============================================================================
- * ⚠️ TEKNIK BORC — RESEND'E GECMEDEN ONCE KAPATILMALI
+ * BASARISIZLIK YOLU (0006, AUTH §16.1 — borc KAPATILDI)
  * ============================================================================
- * Bugun kalici bir teslimat hatasi SONSUZA KADAR yeniden denenir: kayit
- * yayinlanmamis kalir ve her tur tekrar alinir. Konsol adapter'i asla hata
- * vermedigi icin bu bugun teorik bir risktir.
+ * Teslimat basarisiz olursa kayit ne kaybolur ne de sonsuza kadar denenir:
+ *   1. `attempt_count` artar ve `last_error` yazilir (teshis),
+ *   2. `next_attempt_at` ile ustel backoff uygulanir — kayit o ana kadar
+ *      kuyruktan CIKMIS gibi davranir ve arkasindakileri geciktirmez,
+ *   3. Sinira ulasan (veya KALICI hata alan) kayit olu mektuba duser ve
+ *      ALARM uretir.
  *
- * GERCEK saglayici (Resend) baglanmadan ONCE sunlar gerekir:
- *   1. `attempt_count` + `last_error` kolonlari (migration)
- *   2. Ustel geri cekilme (backoff) — her turda yeniden denemek degil
- *   3. Dead-letter: N denemeden sonra kayit kuyruktan cikarilir ve ALARM uretir
- *
- * Bunlar olmadan gecersiz bir adres kuyrugu sonsuza kadar mesgul eder ve
- * arkasindaki gecerli e-postalar gecikir. AUTH_ARCHITECTURE §16'da da borc
- * olarak kayitlidir.
+ * Kalici/gecici ayrimini adapter yapar (`EmailDeliveryError.permanent`); karari
+ * `outbox-retry.policy.ts` verir. Gecersiz bir adresi 5 kez denemek, kuyrugu
+ * bosuna mesgul edip ARKASINDAKI gecerli e-postalari geciktirirdi.
  * ============================================================================
  */
 export class PublishIdentityEventsUseCase {
@@ -118,51 +134,93 @@ export class PublishIdentityEventsUseCase {
   }
 
   async #runBatch(): Promise<PublishIdentityEventsResult> {
-    const records = await this.deps.outboxRepository.claimPending(this.deps.batchSize);
+    const now = this.deps.clock.now();
+    const records = await this.deps.outboxRepository.claimPending(this.deps.batchSize, now);
     if (records.length === 0) {
       return EMPTY_RESULT;
     }
 
-    const outcome = await this.#deliverAll(records);
+    const outcome = await this.#deliverAll(records, now);
 
-    await this.deps.outboxRepository.markPublished(outcome.publishedIds, this.deps.clock.now());
+    await this.deps.outboxRepository.markPublished(outcome.publishedIds, now);
+    // Basarisizliklar da YAZILIR: yazilmasaydi sayac artmaz, backoff uygulanmaz
+    // ve kayit her turda yeniden denenirdi.
+    await this.deps.outboxRepository.recordFailures(outcome.deliveryFailures);
 
     return {
       claimed: records.length,
       delivered: outcome.delivered,
       acknowledged: outcome.publishedIds.length,
       failures: outcome.failures,
+      deadLettered: outcome.failures.filter((failure) => failure.deadLettered).length,
       unhandledEventTypes: outcome.unhandledEventTypes,
     };
   }
 
-  async #deliverAll(records: readonly IdentityOutboxRecord[]): Promise<BatchOutcome> {
-    const publishedIds: string[] = [];
-    const failures: OutboxFailure[] = [];
-    const unhandledEventTypes: string[] = [];
-    let delivered = 0;
+  async #deliverAll(records: readonly IdentityOutboxRecord[], now: Date): Promise<BatchOutcome> {
+    const outcome: BatchOutcome = {
+      publishedIds: [],
+      deliveryFailures: [],
+      failures: [],
+      unhandledEventTypes: [],
+      delivered: 0,
+    };
 
     for (const record of records) {
       try {
         // Sirayla islenir, paralel DEGIL: ayni saglayiciya es zamanli istek
         // yagdirmak oran sinirlarini tetikler.
-        const outcome = await this.#deliver(record);
+        const result = await this.#deliver(record);
 
-        if (outcome === 'unhandled') {
+        if (result === 'unhandled') {
           // ISARETLENMEZ: eksik bir handler sessizce "islenmis" sayilmamali.
-          unhandledEventTypes.push(record.eventType);
+          outcome.unhandledEventTypes.push(record.eventType);
           continue;
         }
 
-        delivered += outcome === 'delivered' ? 1 : 0;
-        publishedIds.push(record.id);
+        if (result === 'delivered') {
+          outcome.delivered += 1;
+        }
+        outcome.publishedIds.push(record.id);
       } catch (error) {
         // Bir kaydin hatasi turun tamamini goturmez; digerleri teslim edilir.
-        failures.push({ id: record.id, eventType: record.eventType, reason: describe(error) });
+        this.#registerFailure({ outcome, record, error, now });
       }
     }
 
-    return { publishedIds, failures, unhandledEventTypes, delivered };
+    return outcome;
+  }
+
+  /** Basarisizligi politikaya danisarak backoff'a veya olu mektuba cevirir. */
+  #registerFailure(input: {
+    readonly outcome: BatchOutcome;
+    readonly record: IdentityOutboxRecord;
+    readonly error: unknown;
+    readonly now: Date;
+  }): void {
+    const { outcome, record, error, now } = input;
+    const decision = decideDeliveryRetry({
+      previousAttemptCount: record.attemptCount,
+      permanent: isPermanent(error),
+      now,
+    });
+    const deadLettered = decision.action === 'dead-letter';
+
+    outcome.deliveryFailures.push({
+      id: record.id,
+      attemptCount: decision.attemptCount,
+      lastError: describe(error),
+      nextAttemptAt: decision.action === 'retry' ? decision.nextAttemptAt : null,
+      deadLetteredAt: deadLettered ? now : null,
+    });
+
+    outcome.failures.push({
+      id: record.id,
+      eventType: record.eventType,
+      reason: describe(error),
+      attemptCount: decision.attemptCount,
+      deadLettered,
+    });
   }
 
   /** Tek kaydin yan etkisini uygular. */

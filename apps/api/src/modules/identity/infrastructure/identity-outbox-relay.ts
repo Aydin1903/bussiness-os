@@ -97,8 +97,19 @@ export class IdentityOutboxRelay implements OnApplicationBootstrap, OnApplicatio
     }
 
     for (const failure of result.failures) {
-      this.#logger.error(
-        `Outbox teslimati basarisiz (${failure.eventType}, ${failure.id}): ${failure.reason}`,
+      if (failure.deadLettered) {
+        // ⚠️ ALARM: kayit kuyruktan CIKARILDI ve bir daha denenmeyecek. Bu,
+        // sessizce kaybolan bir e-postadir; gorunmesi zorunludur (§16.1).
+        this.#logger.error(
+          `⚠️ Outbox OLU MEKTUP (${failure.eventType}, ${failure.id}) — ` +
+            `${String(failure.attemptCount)} deneme sonrasi vazgecildi: ${failure.reason}`,
+        );
+        continue;
+      }
+
+      this.#logger.warn(
+        `Outbox teslimati basarisiz, yeniden denenecek (${failure.eventType}, ${failure.id}, ` +
+          `deneme ${String(failure.attemptCount)}): ${failure.reason}`,
       );
     }
 

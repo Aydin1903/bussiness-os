@@ -16,6 +16,19 @@ const validEnv = {
   VERIFICATION_CODE_PEPPER: 'test-pepper-at-least-16',
 } as const;
 
+/**
+ * Uretim fixture'i. `EMAIL_PROVIDER=console` uretimde REDDEDILDIGI icin
+ * (konsol adapter'i dogrulama kodunu loglar — P1), uretimi konu alan her test
+ * gecerli bir saglayici vermek zorundadir.
+ */
+const productionEnv = {
+  ...validEnv,
+  NODE_ENV: 'production',
+  EMAIL_PROVIDER: 'resend',
+  RESEND_API_KEY: 're_live',
+  EMAIL_FROM: 'no-reply@example.com',
+} as const;
+
 describe('createAppConfig', () => {
   it('zorunlu degiskenler verildiginde yapilandirmayi uretir', () => {
     const config = createAppConfig({ ...validEnv });
@@ -119,7 +132,7 @@ describe('createAppConfig', () => {
     });
 
     it('SWAGGER_ENABLED production ortaminda da varsayilan olarak kapalidir', () => {
-      const config = createAppConfig({ ...validEnv, NODE_ENV: 'production' });
+      const config = createAppConfig({ ...productionEnv });
 
       expect(config.swagger.enabled).toBe(false);
     });
@@ -176,6 +189,72 @@ describe('createAppConfig', () => {
 
     it('absurt batch boyutunu reddeder — kilit turu boyunca tutulur', () => {
       expect(() => createAppConfig({ ...validEnv, OUTBOX_RELAY_BATCH_SIZE: '5000' })).toThrow();
+    });
+  });
+
+  describe('e-posta saglayicisi', () => {
+    it('belirtilmediginde console olur', () => {
+      const config = createAppConfig({ ...validEnv });
+
+      // Kazara gercek e-posta gondermek, gondermemekten pahalidir.
+      expect(config.email.provider).toBe('console');
+    });
+
+    it('resend secildiginde anahtar ve gonderen ZORUNLUDUR', () => {
+      expect(() => createAppConfig({ ...validEnv, EMAIL_PROVIDER: 'resend' })).toThrow(
+        /RESEND_API_KEY/,
+      );
+    });
+
+    it('resend secildiginde EMAIL_FROM da zorunludur', () => {
+      expect(() =>
+        createAppConfig({ ...validEnv, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' }),
+      ).toThrow(/EMAIL_FROM/);
+    });
+
+    it('BOS anahtari eksik sayar', () => {
+      expect(() =>
+        createAppConfig({
+          ...validEnv,
+          EMAIL_PROVIDER: 'resend',
+          RESEND_API_KEY: '   ',
+          EMAIL_FROM: 'no-reply@example.com',
+        }),
+      ).toThrow(/RESEND_API_KEY/);
+    });
+
+    it('tam yapilandirmayi kabul eder', () => {
+      const config = createAppConfig({
+        ...validEnv,
+        EMAIL_PROVIDER: 'resend',
+        RESEND_API_KEY: 're_test',
+        EMAIL_FROM: 'no-reply@example.com',
+      });
+
+      expect(config.email).toEqual({
+        provider: 'resend',
+        resendApiKey: 're_test',
+        from: 'no-reply@example.com',
+      });
+    });
+
+    it('URETIMDE console adapter i REDDEDER', () => {
+      // Konsol adapter'i dogrulama kodunu loglar; uretimde P1 ihlalidir.
+      // Wiring'e birakmak, hatanin ilk e-posta gonderilene kadar gizli
+      // kalmasi demekti.
+      expect(() =>
+        createAppConfig({ ...validEnv, NODE_ENV: 'production', EMAIL_PROVIDER: 'console' }),
+      ).toThrow(/EMAIL_PROVIDER/);
+    });
+
+    it('uretimde resend kabul edilir', () => {
+      const config = createAppConfig({ ...productionEnv });
+
+      expect(config.email.provider).toBe('resend');
+    });
+
+    it('bilinmeyen saglayiciyi reddeder', () => {
+      expect(() => createAppConfig({ ...validEnv, EMAIL_PROVIDER: 'smtp' })).toThrow();
     });
   });
 });

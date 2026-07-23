@@ -295,10 +295,10 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 |---|---|
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
 | Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · repository ve kripto port'ları |
-| Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → konsol adapter · **tenant context middleware + fail-closed `runInCurrentTenantTransaction`** (MT §11.3) |
+| Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → **konsol + Resend adapter** (retry/backoff/dead-letter) · **tenant context middleware + fail-closed `runInCurrentTenantTransaction`** (MT §11.3) |
 | Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/switch-tenant` (platform/session) · auth middleware · domain hata → RFC 7807 filtresi |
 | Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` (hepsi `tenantId = null`) |
-| Testler | ~800 birim + ~180 entegrasyon |
+| Testler | ~845 birim + ~190 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -336,6 +336,7 @@ yetkilendirme katmanı. Önkoşulların tamamı hazır.
 > · Tenant→Identity döngü riski (`platform/session` üçüncü modülü, `forwardRef`
 > yok) · MT §11.4 kural 2-3 (`runInCurrentTenantTransaction` fail-closed).
 
-> **Resend adapter'ından önce kapatılması gereken borç:** outbox teslimat
-> hatası bugün sonsuza kadar yeniden deneniyor — `attempt_count` + `last_error`
-> + backoff + dead-letter gerekiyor (`AUTH_ARCHITECTURE.md` §16.1).
+> **Kapandı:** Resend adapter'ı bağlandı ve önkoşulu olan teslimat mekanizması
+> (`attempt_count` + `last_error` + backoff + dead-letter, migration `0006`)
+> yazıldı — `AUTH_ARCHITECTURE.md` §16.1. Tenant tarafındaki `platform.outbox`
+> aynı mekanizmadan yoksun; tüketicisi yazıldığında oraya da uygulanmalı.

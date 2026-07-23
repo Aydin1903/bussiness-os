@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { type Clock } from '../../../shared/clock.port';
-import { type EmailMessage, type EmailPort } from '../../../shared/email.port';
+import {
+  EmailDeliveryError,
+  type EmailMessage,
+  type EmailPort,
+} from '../../../shared/email.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import {
   type IdentityOutboxRecord,
   type IdentityOutboxRepository,
+  type OutboxDeliveryFailure,
 } from './identity-outbox.repository.port';
+import { MAX_DELIVERY_ATTEMPTS, RETRY_BASE_DELAY_MS } from './outbox-retry.policy';
 import {
   PublishIdentityEventsUseCase,
   type PublishIdentityEventsDependencies,
@@ -17,7 +23,11 @@ import {
 const NOW = new Date('2026-07-22T10:00:00.000Z');
 const BATCH_SIZE = 10;
 
-function registeredRecord(id: string, email = 'user@example.com'): IdentityOutboxRecord {
+function registeredRecord(
+  id: string,
+  email = 'user@example.com',
+  attemptCount = 0,
+): IdentityOutboxRecord {
   return {
     id,
     eventType: 'user.registered',
@@ -25,6 +35,7 @@ function registeredRecord(id: string, email = 'user@example.com'): IdentityOutbo
     payload: { userId: 'u-1', email, verificationCode: '123456' },
     correlationId: 'corr-1',
     occurredAt: NOW,
+    attemptCount,
   };
 }
 
@@ -36,6 +47,7 @@ function record(id: string, eventType: string): IdentityOutboxRecord {
     payload: { userId: 'u-1' },
     correlationId: 'corr-1',
     occurredAt: NOW,
+    attemptCount: 0,
   };
 }
 
@@ -43,12 +55,20 @@ class FakeOutboxRepository implements IdentityOutboxRepository {
   pending: IdentityOutboxRecord[] = [];
   readonly published: string[] = [];
   claimedLimits: number[] = [];
+  claimedAt: Date | null = null;
   publishedAt: Date | null = null;
   failOnMark = false;
+  readonly recordedFailures: OutboxDeliveryFailure[] = [];
 
-  claimPending(limit: number): Promise<IdentityOutboxRecord[]> {
+  claimPending(limit: number, now: Date): Promise<IdentityOutboxRecord[]> {
     this.claimedLimits.push(limit);
+    this.claimedAt = now;
     return Promise.resolve(this.pending.slice(0, limit));
+  }
+
+  recordFailures(failures: readonly OutboxDeliveryFailure[]): Promise<void> {
+    this.recordedFailures.push(...failures);
+    return Promise.resolve();
   }
 
   markPublished(ids: readonly string[], publishedAt: Date): Promise<void> {
@@ -64,10 +84,16 @@ class FakeOutboxRepository implements IdentityOutboxRepository {
 class FakeEmailPort implements EmailPort {
   readonly sent: EmailMessage[] = [];
   failFor: string | null = null;
+  /** `true` ise hata KALICI olarak isaretlenir (gecersiz adres gibi). */
+  permanentFailure = false;
 
   send(message: EmailMessage): Promise<void> {
     if (this.failFor === message.to) {
-      return Promise.reject(new Error('saglayici reddetti'));
+      return Promise.reject(
+        this.permanentFailure
+          ? new EmailDeliveryError('gecersiz alici', { permanent: true })
+          : new EmailDeliveryError('saglayici reddetti', { permanent: false }),
+      );
     }
     this.sent.push(message);
     return Promise.resolve();
@@ -231,7 +257,13 @@ describe('PublishIdentityEventsUseCase — hata yalitimi', () => {
 
     expect(harness.emailPort.sent.map((m) => m.to)).toEqual(['saglam@example.com']);
     expect(result.failures).toEqual([
-      { id: 'e-1', eventType: 'user.registered', reason: 'saglayici reddetti' },
+      {
+        id: 'e-1',
+        eventType: 'user.registered',
+        reason: 'saglayici reddetti',
+        attemptCount: 1,
+        deadLettered: false,
+      },
     ]);
   });
 
@@ -258,6 +290,7 @@ describe('PublishIdentityEventsUseCase — hata yalitimi', () => {
         payload: { userId: 'u-1' },
         correlationId: 'corr-1',
         occurredAt: NOW,
+        attemptCount: 0,
       },
     ];
 
@@ -280,5 +313,138 @@ describe('PublishIdentityEventsUseCase — hata yalitimi', () => {
     // oldugunu soyler; kaybolmasindansa tekrarlanmasi tercih edilir.
     expect(harness.emailPort.sent).toHaveLength(1);
     expect(harness.transactionManager.rolledBack).toBe(true);
+  });
+});
+
+describe('PublishIdentityEventsUseCase — yeniden deneme ve backoff', () => {
+  it('basarisizlikta sayaci artirir ve son hatayi YAZAR', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'bozuk@example.com';
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'bozuk@example.com')];
+
+    await harness.useCase.execute();
+
+    // Yazilmasaydi sayac hic artmaz, backoff hic uygulanmaz ve kayit her turda
+    // yeniden denenirdi — mekanizmanin tamami islevsiz kalirdi.
+    expect(harness.outboxRepository.recordedFailures).toEqual([
+      {
+        id: 'e-1',
+        attemptCount: 1,
+        lastError: 'saglayici reddetti',
+        nextAttemptAt: new Date(NOW.getTime() + RETRY_BASE_DELAY_MS),
+        deadLetteredAt: null,
+      },
+    ]);
+  });
+
+  it('sonraki deneme anini USTEL olarak uzatir', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'bozuk@example.com';
+    // Kayit daha once 2 kez denenmis.
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'bozuk@example.com', 2)];
+
+    await harness.useCase.execute();
+
+    const failure = harness.outboxRepository.recordedFailures[0];
+    expect(failure?.attemptCount).toBe(3);
+    expect(failure?.nextAttemptAt).toEqual(new Date(NOW.getTime() + RETRY_BASE_DELAY_MS * 4));
+  });
+
+  it('basarisiz kaydi YAYINLANMIS olarak isaretlemez', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'bozuk@example.com';
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'bozuk@example.com')];
+
+    await harness.useCase.execute();
+
+    expect(harness.outboxRepository.published).toHaveLength(0);
+  });
+
+  it('claim sirasinda SAATI gecirir (backoff suzgeci icin)', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute();
+
+    // Repository "zamani gelmemis" kayitlari bu degere gore eler.
+    expect(harness.outboxRepository.claimedAt).toEqual(NOW);
+  });
+});
+
+describe('PublishIdentityEventsUseCase — dead-letter', () => {
+  it('SINIRA ulasan kaydi olu mektuba dusurur', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'bozuk@example.com';
+    harness.outboxRepository.pending = [
+      registeredRecord('e-1', 'bozuk@example.com', MAX_DELIVERY_ATTEMPTS - 1),
+    ];
+
+    const result = await harness.useCase.execute();
+
+    const failure = harness.outboxRepository.recordedFailures[0];
+    expect(failure?.deadLetteredAt).toEqual(NOW);
+    // Olu kayit yeniden denenmez: backoff ani YAZILMAZ.
+    expect(failure?.nextAttemptAt).toBeNull();
+    expect(result.deadLettered).toBe(1);
+  });
+
+  it('KALICI hatayi ILK denemede olu mektuba dusurur', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'gecersiz@example.com';
+    harness.emailPort.permanentFailure = true;
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'gecersiz@example.com')];
+
+    const result = await harness.useCase.execute();
+
+    // Gecersiz bir adresi 5 kez denemek kuyrugu bosuna mesgul eder ve
+    // ARKASINDAKI gecerli e-postalari geciktirirdi.
+    expect(harness.outboxRepository.recordedFailures[0]).toMatchObject({
+      attemptCount: 1,
+      deadLetteredAt: NOW,
+      nextAttemptAt: null,
+    });
+    expect(result.deadLettered).toBe(1);
+  });
+
+  it('olu mektuba dusen kaydi ALARM icin sonucta bildirir', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'gecersiz@example.com';
+    harness.emailPort.permanentFailure = true;
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'gecersiz@example.com')];
+
+    const result = await harness.useCase.execute();
+
+    expect(result.failures[0]).toMatchObject({ id: 'e-1', deadLettered: true, attemptCount: 1 });
+  });
+
+  it('GECICI hata sinirin altindayken olu mektuba DUSMEZ', async () => {
+    const harness = createHarness();
+    harness.emailPort.failFor = 'bozuk@example.com';
+    harness.outboxRepository.pending = [registeredRecord('e-1', 'bozuk@example.com')];
+
+    const result = await harness.useCase.execute();
+
+    expect(harness.outboxRepository.recordedFailures[0]?.deadLetteredAt).toBeNull();
+    expect(result.deadLettered).toBe(0);
+  });
+
+  it('bozuk payload GECICI sayilir — gecerli bir e-posta kaybedilmez', async () => {
+    const harness = createHarness();
+    harness.outboxRepository.pending = [
+      {
+        id: 'e-1',
+        eventType: 'user.registered',
+        eventVersion: 1,
+        payload: { userId: 'u-1' },
+        correlationId: 'corr-1',
+        occurredAt: NOW,
+        attemptCount: 0,
+      },
+    ];
+
+    await harness.useCase.execute();
+
+    // Bilinmeyen hata kalici SAYILMAZ: gecici sanip denemek birkac tur israf
+    // eder, kalici sanip atmak gecerli bir e-postayi kaybederdi.
+    expect(harness.outboxRepository.recordedFailures[0]?.deadLetteredAt).toBeNull();
   });
 });

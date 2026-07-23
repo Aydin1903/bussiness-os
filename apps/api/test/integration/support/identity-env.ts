@@ -24,4 +24,15 @@ export async function setIdentityTestEnv(): Promise<void> {
   // gozlemledigi satirlari onlarin altindan degistirir ve sonuclari zamana
   // bagimli kilar. Tuketici testleri turu KENDILERI tetikler.
   process.env.OUTBOX_RELAY_ENABLED = 'false';
+
+  // E-posta saglayicisi KONSOL — testler gelistiricinin `.env`'ine BAGIMLI
+  // OLMAMALIDIR. Bu satirlar olmasaydi, `.env`'inde `EMAIL_PROVIDER=resend`
+  // yazan bir makinede testler ya acilista patlar (anahtar yoksa) ya da GERCEK
+  // e-posta gondermeye calisirdi. Testler hermetik olmak zorundadir.
+  //
+  // NOT: dotenv ZATEN TANIMLI `process.env` degerlerini EZMEZ; burada atanan
+  // deger `.env`'dekine gore onceliklidir.
+  process.env.EMAIL_PROVIDER = 'console';
+  delete process.env.RESEND_API_KEY;
+  delete process.env.EMAIL_FROM;
 }

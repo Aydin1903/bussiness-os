@@ -29,6 +29,42 @@ export interface EmailMessage {
 }
 
 export interface EmailPort {
-  /** Mesaji gonderir. Saglayici bir adapter detayidir; sozlesme degismez. */
+  /**
+   * Mesaji gonderir. Saglayici bir adapter detayidir; sozlesme degismez.
+   *
+   * Basarisizlikta `EmailDeliveryError` firlatmalidir — cagiran tarafin yeniden
+   * deneyip denemeyecegine karar verebilmesi icin.
+   */
   send(message: EmailMessage): Promise<void>;
+}
+
+/**
+ * Teslimat basarisiz oldu — ve YENIDEN DENENEBILIR OLUP OLMADIGI belli.
+ *
+ * ============================================================================
+ * NEDEN KALICI/GECICI AYRIMI PORT'TA YASIYOR
+ * ============================================================================
+ * Bir hatanin yeniden denenmeye deger olup olmadigini YALNIZCA adapter bilebilir:
+ * "550 gecersiz alici" ile "503 servis mesgul" arasindaki farki saglayicinin
+ * protokolu soyler. Ama KARARI (kac kez dene, ne zaman vazgec) teslimat
+ * politikasi verir.
+ *
+ * Bu yuzden sinif sinirda durur: adapter SINIFLANDIRIR, politika DAVRANIR.
+ * Ayrim olmasaydi gecersiz bir adres, gecici bir kesinti gibi 5 kez denenir ve
+ * kuyrugu bosuna mesgul ederdi — ya da tersi, gecici bir kesinti kalici sanilip
+ * gercek e-postalar olu mektuba dusurdu.
+ * ============================================================================
+ */
+export class EmailDeliveryError extends Error {
+  /**
+   * `true` ise yeniden denemek ANLAMSIZDIR (gecersiz adres, reddedilen alan,
+   * kimlik dogrulama hatasi). Cagiran kaydi dogrudan dead-letter'a alir.
+   */
+  readonly permanent: boolean;
+
+  constructor(message: string, options: { readonly permanent: boolean }) {
+    super(message);
+    this.name = 'EmailDeliveryError';
+    this.permanent = options.permanent;
+  }
 }

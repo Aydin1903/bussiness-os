@@ -114,6 +114,57 @@ export const envSchema = z.object({
    * kilit suresini uzatir ve diger instance'lari bosa dondurur.
    */
   OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
-});
+
+  // --- E-posta saglayicisi (ARCHITECTURE 9.3) -------------------------------
+  //
+  // Varsayilan `console`: gelistirici makinesinde e-posta GONDERILMEZ, icerik
+  // loglanir. Varsayilanin `resend` olmasi, anahtari olmayan her ortamda acilis
+  // hatasi uretirdi; ayrica kazara gercek e-posta gondermek, gondermemekten
+  // pahalidir.
+  //
+  // Uretimde `console` REDDEDILIR (asagidaki superRefine): o adapter dogrulama
+  // kodunu loglar ve bu bir P1 ihlalidir.
+  EMAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),
+
+  /** Resend API anahtari — SIRDIR, varsayilani yoktur. */
+  RESEND_API_KEY: z.string().optional(),
+
+  /** Gonderen adresi. Resend'de dogrulanmis alan adina ait olmalidir. */
+  EMAIL_FROM: z.string().optional(),
+})
+  .superRefine((env, ctx) => {
+    // `resend` secildiyse kimlik bilgileri ZORUNLUDUR. Eksikse surec BASLAMAZ:
+    // anahtarsiz bir Resend adapter'i her gonderimde 401 alir ve kayitlari olu
+    // mektuba dusururdu — yani sessizce degil, GURULTULU ama GEC fark edilirdi.
+    if (env.EMAIL_PROVIDER === 'resend') {
+      if (env.RESEND_API_KEY === undefined || env.RESEND_API_KEY.trim() === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['RESEND_API_KEY'],
+          message: "EMAIL_PROVIDER=resend secildiginde RESEND_API_KEY zorunludur.",
+        });
+      }
+      if (env.EMAIL_FROM === undefined || env.EMAIL_FROM.trim() === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['EMAIL_FROM'],
+          message: "EMAIL_PROVIDER=resend secildiginde EMAIL_FROM zorunludur.",
+        });
+      }
+    }
+
+    // Uretimde konsol adapter'i YASAK: dogrulama kodunu loglar (P1).
+    // Bunu wiring'e birakmak, hatanin ilk e-posta gonderilene kadar gizli
+    // kalmasi demekti; acilista reddetmek onu ANINDA gorunur kilar.
+    if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'console') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_PROVIDER'],
+        message:
+          'Uretimde EMAIL_PROVIDER=console kullanilamaz: konsol adapter i ' +
+          'dogrulama kodlarini loglar (P1). EMAIL_PROVIDER=resend olmalidir.',
+      });
+    }
+  });
 
 export type Env = z.infer<typeof envSchema>;

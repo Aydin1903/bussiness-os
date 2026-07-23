@@ -43,6 +43,13 @@
       "when": 1784690000000,
       "tag": "0005_verification_code_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784700000000,
+      "tag": "0006_identity_outbox_retry",
+      "breakpoints": true
     }
   ]
 }

@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { asc, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 
 import { identityOutbox } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import type {
   IdentityOutboxRecord,
   IdentityOutboxRepository,
+  OutboxDeliveryFailure,
 } from '../application/identity-outbox.repository.port';
 
 /**
@@ -18,15 +19,24 @@ import type {
  */
 @Injectable()
 export class DrizzleIdentityOutboxRepository implements IdentityOutboxRepository {
-  async claimPending(limit: number): Promise<IdentityOutboxRecord[]> {
+  async claimPending(limit: number, now: Date): Promise<IdentityOutboxRecord[]> {
     const { db } = requireTransaction();
 
     const rows = await db
       .select()
       .from(identityOutbox)
-      .where(isNull(identityOutbox.publishedAt))
-      // En eski once: teslimat sirasi, olus sirasini takip eder.
-      .orderBy(asc(identityOutbox.occurredAt))
+      .where(
+        and(
+          isNull(identityOutbox.publishedAt),
+          // Olu mektup kuyrukta DEGILDIR; bir daha hic denenmez.
+          isNull(identityOutbox.deadLetteredAt),
+          // Backoff: zamani gelmemis kayit atlanir. `NULL` = hic denenmedi,
+          // hemen hazir.
+          or(isNull(identityOutbox.nextAttemptAt), lte(identityOutbox.nextAttemptAt, now)),
+        ),
+      )
+      // Once zamani gelenler (NULL'lar en basta), sonra olus sirasi.
+      .orderBy(asc(identityOutbox.nextAttemptAt), asc(identityOutbox.occurredAt))
       .limit(limit)
       // `skipLocked`: baska bir instance'in isledigi satirda BEKLEME, atla.
       // Beklemek iki tuketiciyi birbirine kilitler ve kuyrugu seri hale getirir.
@@ -47,6 +57,25 @@ export class DrizzleIdentityOutboxRepository implements IdentityOutboxRepository
       .update(identityOutbox)
       .set({ publishedAt })
       .where(inArray(identityOutbox.id, [...ids]));
+  }
+
+  async recordFailures(failures: readonly OutboxDeliveryFailure[]): Promise<void> {
+    const { db } = requireTransaction();
+
+    // Her kaydin sayaci ve yeniden deneme ani FARKLIDIR; tek bir toplu UPDATE
+    // ile yazilamaz. Basarisizlik nadir oldugu icin N sorgu kabul edilebilir —
+    // ve tur zaten batch boyutuyla sinirlidir.
+    for (const failure of failures) {
+      await db
+        .update(identityOutbox)
+        .set({
+          attemptCount: failure.attemptCount,
+          lastError: failure.lastError,
+          nextAttemptAt: failure.nextAttemptAt,
+          deadLetteredAt: failure.deadLetteredAt,
+        })
+        .where(eq(identityOutbox.id, failure.id));
+    }
   }
 }
 
@@ -73,5 +102,6 @@ function toRecord(row: typeof identityOutbox.$inferSelect): IdentityOutboxRecord
     payload: row.payload,
     correlationId: row.correlationId,
     occurredAt: row.occurredAt,
+    attemptCount: row.attemptCount,
   };
 }
