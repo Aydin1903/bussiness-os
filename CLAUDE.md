@@ -247,6 +247,8 @@ Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
 **Faz 1 tamamlandı** — altyapı iskeleti.
 **Faz 2 tamamlandı** — multi-tenancy çekirdeği kod olarak çalışıyor.
+**Faz 3 sürüyor** — kimlik doğrulama kod olarak çalışıyor; kayıt → doğrulama →
+giriş → tenant açma zinciri uçtan uca kapalı.
 
 ### Faz 1 — altyapı
 
@@ -271,7 +273,7 @@ Swagger · Vitest + Testcontainers · ESLint/Prettier · GitHub Actions CI.
 **Multi-tenancy'de tek doğruluk kaynağı** `docs/architecture/MULTI_TENANT_ARCHITECTURE.md`'dir.
 Önce oraya bakılır; kod ile doküman çelişirse doküman değil **kod yanlıştır**.
 
-### Faz 3 — tasarım tamamlandı, **kod yazımı başlamadı**
+### Faz 3 — kimlik doğrulama (**tasarım + kod**, sürüyor)
 
 Kimlik doğrulama mimarisi karara bağlandı ve ADR'leri yazıldı:
 ADR-0017 (Argon2id parametreleri) · ADR-0018 (parola politikası) ·
@@ -287,24 +289,46 @@ aşamalı token modeli, §9.2 kod tabanlı doğrulama akışı, §12.4 Identity 
 E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 (`ARCHITECTURE.md` §9.3).
 
-### Bilinçli olarak kapalı olanlar
+**Kod olarak var ve test edilmiş:**
 
-`POST /api/v1/tenants` bugün **her isteğe 503 döner**. İki kapı Identity
-modülünü bekliyor ve ikisi de **açıkça reddeder** — sessizce izin veren sahte
-implementasyon konmadı:
+| Katman | Ne var |
+|---|---|
+| Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
+| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · repository ve kripto port'ları |
+| Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · auth middleware · domain hata → RFC 7807 filtresi |
+| Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` (üçü de `tenantId = null`) |
+| Testler | ~690 birim + ~120 entegrasyon |
 
-- `CurrentUserProvider` → kimlik yalnızca doğrulanmış token'dan gelebilir
-- `TenantProvisioningPolicy` → ADR-0016'nın `emailVerified` önkoşulu doğrulanamıyor
+### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
-Bu ikisi Faz 3'te **değiştirilecek, genişletilmeyecek**.
+`POST /api/v1/tenants` Faz 2 boyunca **her isteğe 503 döndü**. İki kapı Identity
+modülünü bekliyordu ve ikisi de açıkça reddediyordu — sessizce izin veren sahte
+implementasyon **konmadı**. Bu kayıt bilerek duruyor: yazılma gerekçesi, bir
+özelliğin "kapalı olduğunu söylemesinin" sessizce yanlış çalışmasından iyi
+olduğudur.
+
+Her ikisi de Faz 3'te **değiştirildi, genişletilmedi**:
+
+- `UnavailableCurrentUserProvider` → `ContextCurrentUserProvider`: kimlik, auth
+  middleware'inin doğruladığı token'dan gelen istek bağlamından okunur
+- `TemporaryDenyProvisioningPolicy` → `EmailVerifiedProvisioningPolicy`:
+  ADR-0016'nın `emailVerified` önkoşulu Identity'nin public interface'i üzerinden
+  doğrulanır
+
+Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **202**
+(provisioning başladı) döner. `TENANT_PROVISIONING_UNAVAILABLE` ve
+`IDENTITY_UNAVAILABLE` hata kodları anlamlarını yitirdiği için **kaldırıldı**.
 
 ### Henüz yok
 
-Authentication **kodu** (tasarımı hazır) · Authorization (RBAC) · tam tenant
-context (`userId`/`role` — §11.2) · çözüm zincirinin JWT gerektiren 5 adımı ·
-outbox publisher süreci · `tenant.public.ts` · iş modülleri · AI katmanı ·
-Storage/Cache/Search adapter'ları.
+Authorization (RBAC) · tam tenant context (`userId`/`role` — §11.2) · çözüm
+zincirinin JWT gerektiren 5 adımı · refresh rotation / oturum sonlandırma /
+parola sıfırlama **kodu** (tasarımı hazır: ADR-0021, 0023, 0024) · doğrulama
+kodunu **yeniden gönderme** akışı · tenant outbox publisher süreci ·
+`tenant.public.ts` · iş modülleri · AI katmanı · Storage/Cache/Search
+adapter'ları.
 
-Sıradaki adım: **Faz 3 implementasyonu.** İlk iş `tenant.public.ts` — Identity,
-Tenant modülünü tüketecek ve public arayüz önce tanımlanmazsa ilk import
-doğrudan `application/`e gider (`ARCHITECTURE.md` §6.1).
+Sıradaki adım: **Identity outbox tüketicisi** — `identity_outbox`'taki
+`UserRegistered` event'ini okuyup doğrulama kodunu e-postayla gönderen süreç.
+Bugün kod yalnızca outbox satırında duruyor; kimse onu teslim etmiyor.
