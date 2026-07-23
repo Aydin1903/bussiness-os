@@ -26,29 +26,33 @@ import { TENANT_REPOSITORY, type TenantRepository } from './application/tenant.r
 import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from './tenant.public';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
-import { TemporaryDenyProvisioningPolicy } from './infrastructure/temporary-deny-provisioning.policy';
-import { UnavailableCurrentUserProvider } from './infrastructure/unavailable-current-user.adapter';
+import { ContextCurrentUserProvider } from '../../infrastructure/auth/context-current-user.adapter';
+import { EmailVerifiedProvisioningPolicy } from './infrastructure/email-verified-provisioning.policy';
+import { IdentityModule } from '../identity/identity.module';
+import { IDENTITY_USER_QUERY, type IdentityUserQuery } from '../identity/identity.public';
 import { TenantController } from './presentation/tenant.controller';
 
 /**
  * Tenant modulu — platform cekirdeginin ilk halkasi (ARCHITECTURE 6.2).
  *
- * Modul artik app.module.ts'e BAGLIDIR ve POST /api/v1/tenants uc noktasini
- * sunar. Ancak uc nokta BUGUN HER ISTEGE 503 doner:
+ * `POST /api/v1/tenants` ARTIK CALISIR: Faz 2'nin iki gecici "reddet" kapisi
+ * Identity ile degistirildi (genisletilmedi):
  *
- *   - CurrentUserProvider: kullanici kimligi yalnizca dogrulanmis token'dan
- *     gelebilir (ADR-0004); Identity modulu Faz 3.
- *   - TenantProvisioningPolicy: ADR-0016'nin emailVerified onkosulu ayni
- *     modulu bekliyor.
+ *   - `CurrentUserProvider` -> `ContextCurrentUserProvider`: kimlik, auth
+ *     middleware'inin dogruladigi token'dan gelen istek baglamindan okunur.
+ *   - `TenantProvisioningPolicy` -> `EmailVerifiedProvisioningPolicy`:
+ *     ADR-0016'nin `emailVerified` onkosulu Identity'nin public interface'i
+ *     uzerinden dogrulanir.
  *
- * Ikisi de ACIKCA reddeder. "Her zaman izin ver" diyen sahte implementasyonlar
- * KONMADI: konsaydi her sey saglikli GORUNUR, ADR-0016'nin onkosulu sessizce
- * devre disi kalir ve dogrulanmamis e-postayla tenant acilabilirdi. Kapali
- * oldugunu soyleyen bir ozellik, sessizce yanlis calisan bir ozellikten iyidir.
- *
- * Bu iki saglayici Identity geldiginde DEGISTIRILECEK — genisletilmeyecek.
+ * O kapilar bilincli olarak "sessizce izin veren" sahte implementasyonlar
+ * DEGILDI; ikisi de acikca reddediyordu ve yazili silinme kosullari gerceklesti.
  */
 @Module({
+  // TEKNIK BORC (bilincli, Secenek a): Tenant -> Identity bagimliligi yalnizca
+  // ADR-0016 onkosulu (emailVerified) icindir. switch-tenant geldiginde Identity
+  // de Tenant'a bagimli olacak ve DONGU olusacak; o gun bu binding bir
+  // composition root'a (app.module) tasinmalidir.
+  imports: [IdentityModule],
   controllers: [TenantController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
@@ -58,10 +62,18 @@ import { TenantController } from './presentation/tenant.controller';
     { provide: MEMBERSHIP_REPOSITORY, useClass: DrizzleMembershipRepository },
     { provide: DOMAIN_EVENT_PUBLISHER, useClass: OutboxEventPublisher },
 
-    // GECICI saglayicilar — ikisi de acikca REDDEDER, sessizce izin VERMEZ.
-    // Identity modulu (Faz 3) geldiginde gercekleriyle DEGISTIRILECEKLER.
-    { provide: TENANT_PROVISIONING_POLICY, useClass: TemporaryDenyProvisioningPolicy },
-    { provide: CURRENT_USER_PROVIDER, useClass: UnavailableCurrentUserProvider },
+    // Faz 2'nin iki GECICI "reddet" kapisi Identity ile DEGISTIRILDI.
+    //
+    // Kimlik artik dogrulanmis token'dan gelir (istek baglami uzerinden), onkosul
+    // ise Identity'nin public interface'i uzerinden dogrulanir. Ikisi de
+    // genisletilmedi, YERINE KONDU.
+    { provide: CURRENT_USER_PROVIDER, useClass: ContextCurrentUserProvider },
+    {
+      provide: TENANT_PROVISIONING_POLICY,
+      inject: [IDENTITY_USER_QUERY],
+      useFactory: (users: IdentityUserQuery): TenantProvisioningPolicy =>
+        new EmailVerifiedProvisioningPolicy(users),
+    },
     {
       provide: ProvisionTenantUseCase,
       // Use case saf TypeScript'tir — @Injectable() TASIMAZ ve NestJS'i bilmez

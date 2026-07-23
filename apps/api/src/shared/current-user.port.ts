@@ -34,20 +34,17 @@ export interface CurrentUserProvider {
 }
 
 /**
- * Kimlik saglayici henuz mevcut degil.
+ * Istek kimliksiz — kullanici kimligi gerektiren bir islem denendi.
  *
- * Bu bir KULLANICI hatasi degildir — istemci dogru davranmis olabilir; ozellik
- * henuz devrede degildir. Bu yuzden 503'e eslenir, 401/403'e degil: 401
- * "kimligini dogrula" der ve istemciyi olmayan bir giris akisina yollar.
+ * 401'e eslenir: "kimligini dogrula". Faz 3 oncesinde burada
+ * `IdentityUnavailableError` (503) vardi — o, "ozellik henuz yok" demekti ve
+ * Identity devreye girdiginde ANLAMINI YITIRDI; yerini gercek kimlik hatasi aldi.
  */
-export class IdentityUnavailableError extends Error {
-  readonly code = 'IDENTITY_UNAVAILABLE';
+export class UnauthenticatedError extends Error {
+  readonly code = 'UNAUTHENTICATED';
 
   constructor() {
-    super(
-      'Kimlik dogrulama henuz devrede degil (Identity modulu Faz 3). ' +
-        'Kullanici kimligi gerektiren islemler kullanilamaz.',
-    );
-    this.name = 'IdentityUnavailableError';
+    super('Bu islem icin kimlik dogrulamasi gerekiyor.');
+    this.name = 'UnauthenticatedError';
   }
 }

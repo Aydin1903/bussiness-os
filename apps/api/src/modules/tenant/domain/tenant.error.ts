@@ -68,21 +68,20 @@ export class TenantSlugAlreadyTakenError extends TenantDomainError {
 }
 
 /**
- * Tenant provisioning onkosulu DOGRULANAMIYOR.
+ * Tenant provisioning onkosulu KARSILANMIYOR (ADR-0016).
  *
- * ADR-0016 onkosulu `User.emailVerified === true`; bu bilgi Identity
- * modulundedir ve Identity Faz 3'te gelecektir. O zamana kadar onkosul
- * dogrulanamaz — ve dogrulanamayan bir onkosul, KARSILANMIS SAYILMAZ.
+ * Onkosul `User.emailVerified === true`'dur ve Identity'nin public interface'i
+ * uzerinden dogrulanir. Karsilanmadiginda bu GERCEK bir yetki hatasidir:
+ * istemci kimligini kanitlamistir ama henuz tenant acamaz -> 403.
  *
- * Bu bir kullanici hatasi DEGILDIR: istemci dogru davranmis olabilir, ozellik
- * henuz devrede degildir. 403 yerine 503'e eslenir; 403 "senin yetkin yok"
- * der ve ileride gercek yetki hatalariyla karisir.
+ * Faz 2'de burada `TenantProvisioningUnavailableError` (503) vardi; o, "onkosul
+ * DOGRULANAMIYOR" demekti ve Identity devreye girdiginde anlamini yitirdi.
  */
-export class TenantProvisioningUnavailableError extends TenantDomainError {
-  readonly code = 'TENANT_PROVISIONING_UNAVAILABLE';
+export class TenantProvisioningNotAllowedError extends TenantDomainError {
+  readonly code = 'TENANT_PROVISIONING_NOT_ALLOWED';
 
   constructor(reason: string) {
-    super(`Tenant provisioning su anda kullanilamiyor: ${reason}`);
+    super(`Tenant acma onkosulu karsilanmiyor: ${reason}`);
   }
 }
 

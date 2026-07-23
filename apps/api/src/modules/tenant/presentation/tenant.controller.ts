@@ -37,9 +37,11 @@ export class TenantController {
    * (ADR-0016). `201 Created` "kaynak hazir" anlamina gelir ve istemciyi
    * hemen kullanmaya yonlendirir.
    *
-   * BUGUN HER ISTEK 503 DONER: kimlik saglayici ve provisioning onkosulu
-   * Identity modulunu (Faz 3) bekliyor. Ikisi de acikca reddeder; sessizce
-   * izin veren gecici bir implementasyon KONMADI.
+   * Kimlik DOGRULANMIS token'dan gelir (auth middleware -> istek baglami);
+   * istek govdesinden ALINMAZ. ADR-0016 onkosulu (dogrulanmis e-posta)
+   * Identity'nin public interface'i uzerinden kontrol edilir:
+   *   - token yok      -> 401
+   *   - e-posta dogrulanmamis -> 403
    */
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
@@ -48,20 +50,21 @@ export class TenantController {
     description:
       'Tenant `provisioning` durumunda olusturulur; kurulum asenkron tamamlanir. ' +
       'Sahip, DOGRULANMIS kullanicidir — istek govdesinden alinmaz. ' +
-      'Identity modulu devreye girene kadar bu uc nokta 503 doner.',
+      'E-postasi dogrulanmamis kullanici tenant acamaz (ADR-0016).',
   })
   @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Provisioning baslatildi.' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Slug zaten kullanimda.' })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })
   @ApiResponse({
-    status: HttpStatus.SERVICE_UNAVAILABLE,
-    description: 'Provisioning henuz devrede degil (Identity modulu bekleniyor).',
+    status: HttpStatus.FORBIDDEN,
+    description: 'E-posta dogrulanmamis — tenant acilamaz (ADR-0016).',
   })
   async provision(
     @Body(new ZodValidationPipe(provisionTenantSchema)) body: ProvisionTenantBody,
   ): Promise<ProvisionTenantResponse> {
     // Kimlik ISTEK GOVDESINDEN DEGIL, dogrulanmis oturumdan gelir.
-    // Bugun bu cagri hata firlatir ve istek buradan oteye GECMEZ.
+    // Token yoksa burada 401 uretilir ve istek oteye GECMEZ.
     const ownerUserId = UserId.create(this.currentUser.requireUserId());
 
     const tenant = await this.provisionTenant.execute({

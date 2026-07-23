@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 
-import { IdentityUnavailableError } from '../../../shared/current-user.port';
+import { UnauthenticatedError } from '../../../shared/current-user.port';
 import type { DisclosableProblem } from '../../../infrastructure/http/problem-details.filter';
 import { TenantDomainError } from '../domain/tenant.error';
 
@@ -37,11 +37,12 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   TENANT_STATUS_TRANSITION_INVALID: HttpStatus.CONFLICT,
   MEMBERSHIP_STATUS_TRANSITION_INVALID: HttpStatus.CONFLICT,
   MEMBERSHIP_OWNER_PROTECTED: HttpStatus.CONFLICT,
-  TENANT_PROVISIONING_UNAVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
 
-  // Kimlik saglayici henuz devrede degil. 401 DEGIL: 401 "kimligini dogrula"
-  // der ve istemciyi olmayan bir giris akisina yollar.
-  IDENTITY_UNAVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
+  // Kimlik kanitlanmis ama onkosul (dogrulanmis e-posta) karsilanmamis -> 403.
+  TENANT_PROVISIONING_NOT_ALLOWED: HttpStatus.FORBIDDEN,
+
+  // Istek kimliksiz: "kimligini dogrula".
+  UNAUTHENTICATED: HttpStatus.UNAUTHORIZED,
 };
 
 /**
@@ -59,11 +60,11 @@ class ServiceUnavailableProblem extends HttpException implements DisclosableProb
   }
 }
 
-@Catch(TenantDomainError, IdentityUnavailableError)
+@Catch(TenantDomainError, UnauthenticatedError)
 export class TenantDomainExceptionFilter implements ExceptionFilter {
   // `_host` kullanilmiyor: bu filtre yaniti KENDISI yazmaz, cevrilmis hatayi
   // global filtreye birakir. Imza ExceptionFilter sozlesmesi geregi durur.
-  catch(exception: TenantDomainError | IdentityUnavailableError, _host: ArgumentsHost): never {
+  catch(exception: TenantDomainError | UnauthenticatedError, _host: ArgumentsHost): never {
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status === HttpStatus.SERVICE_UNAVAILABLE) {
