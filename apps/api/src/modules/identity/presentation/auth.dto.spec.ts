@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest';
+
+import { loginSchema, registerSchema } from './auth.dto';
+
+describe('registerSchema', () => {
+  it('gecerli govdeyi kabul eder', () => {
+    const parsed = registerSchema.parse({ email: 'user@example.com', password: 'parola123' });
+
+    expect(parsed).toEqual({ email: 'user@example.com', password: 'parola123' });
+  });
+
+  it('e-postanin bosluklarini temizler', () => {
+    expect(registerSchema.parse({ email: '  user@example.com  ', password: 'parola123' }).email).toBe(
+      'user@example.com',
+    );
+  });
+
+  it('tanimsiz alani REDDEDER (strict)', () => {
+    // Sessizce yok saymak, istemcinin gonderdigini sandigi ama islenmeyen
+    // veriyi gizler.
+    expect(() =>
+      registerSchema.parse({ email: 'user@example.com', password: 'parola123', role: 'admin' }),
+    ).toThrow();
+  });
+
+  it('kimlik alanlarini govdeden KABUL ETMEZ', () => {
+    // userId/emailVerified gibi alanlar istemciden gelemez (DEVELOPMENT_RULES 4.5).
+    expect(() =>
+      registerSchema.parse({
+        email: 'user@example.com',
+        password: 'parola123',
+        userId: '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c',
+      }),
+    ).toThrow();
+  });
+
+  it('bos parolayi reddeder', () => {
+    expect(() => registerSchema.parse({ email: 'user@example.com', password: '' })).toThrow();
+  });
+
+  it('absurt buyuklukteki parolayi sinirda eler (DoS)', () => {
+    expect(() =>
+      registerSchema.parse({ email: 'user@example.com', password: 'a'.repeat(257) }),
+    ).toThrow();
+  });
+
+  it('politika ihlalini BURADA yakalamaz — o domain in isi', () => {
+    // 'kisa1' politikaya (min 8) aykiridir ama Zod bunu gecirir; tek dogruluk
+    // kaynagi password-policy.ts'tir ve 422'yi o uretir.
+    expect(() =>
+      registerSchema.parse({ email: 'user@example.com', password: 'kisa1' }),
+    ).not.toThrow();
+  });
+});
+
+describe('loginSchema', () => {
+  it('gecerli govdeyi kabul eder', () => {
+    expect(loginSchema.parse({ email: 'user@example.com', password: 'parola123' })).toEqual({
+      email: 'user@example.com',
+      password: 'parola123',
+    });
+  });
+
+  it('ipAddress i govdeden KABUL ETMEZ', () => {
+    // IP kaba kuvvet sayacinin anahtaridir; istemci bildirirse limit atlatilir.
+    expect(() =>
+      loginSchema.parse({
+        email: 'user@example.com',
+        password: 'parola123',
+        ipAddress: '1.2.3.4',
+      }),
+    ).toThrow();
+  });
+});
