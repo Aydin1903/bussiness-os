@@ -743,6 +743,31 @@ Refresh, yalnızca yeni bir token üretmek değildir; **yetkinin hâlâ geçerli
 
 Biri bile hayırsa yenileme reddedilir. Bu, [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)'ün pratikteki karşılığıdır.
 
+### 11.5 ⚠️ Teknik borç — bugün üç kontrolden yalnızca biri uygulanıyor
+
+`RefreshSessionUseCase` yazıldı ve rotation + yeniden kullanım tespiti tam
+olarak çalışıyor. Ancak [§11.4](#114-yenilemede-yeniden-doğrulanan-şeyler)'ün
+üç kontrolünden yalnızca birincisi (**kullanıcı hâlâ `active` mi**) uygulanıyor.
+
+| Kontrol | Durum | Neden |
+|---|---|---|
+| Kullanıcı `active` mi | ✅ uygulandı | |
+| Membership `active` mi | ❌ yok | Oturum bir tenant taşımıyor |
+| Tenant `active` mi | ❌ yok | Aynı sebep |
+
+Sebep yapısaldır, ihmal değil: tenant seçimi (switch-tenant,
+[MT §7.4](MULTI_TENANT_ARCHITECTURE.md)) **henüz yazılmadı** ve hiçbir oturumda
+seçili tenant yok. Kontrol edilecek bir membership mevcut değil.
+
+Aynı sebeple `POST /auth/refresh` bugün **`identityToken`** döndürüyor;
+[§11.2](#112-rotation-akışı) diyagramındaki `accessToken` tenant-scoped'dır ve
+o adım gelene kadar üretilemez.
+
+> **switch-tenant slice'ı bu use case'i değiştirmek zorundadır.** Tenant-scoped
+> oturumlar ortaya çıktığı anda 2. ve 3. kontroller eklenmezse, üyeliği iptal
+> edilmiş bir kullanıcı refresh ile süresiz erişim sürdürür — iptalin anlamını
+> yok eden tam da ADR-0021'in engellemek istediği durum.
+
 ---
 
 ## 12. Çıkış ve İptal

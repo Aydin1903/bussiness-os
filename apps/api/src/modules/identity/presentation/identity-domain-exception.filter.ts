@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 
+import { UnauthenticatedError } from '../../../shared/current-user.port';
 import { IdentityDomainError } from '../domain/identity.error';
 
 /**
@@ -41,6 +42,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   // YOKTUR ve olmamalidir: onlar sessizce atlanir, 202 doner (§7.4, P2).
   TOO_MANY_VERIFICATION_REQUESTS: HttpStatus.TOO_MANY_REQUESTS,
 
+  // `logout-all` kimlik ister; token yoksa `CurrentUserProvider` bunu firlatir.
+  // Tenant filtresiyle AYNI esleme — kural tek: kimlik yoksa 401.
+  UNAUTHENTICATED: HttpStatus.UNAUTHORIZED,
+
   // Girdi dogrulama
   PASSWORD_POLICY_VIOLATION: HttpStatus.UNPROCESSABLE_ENTITY,
   EMAIL_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -52,11 +57,11 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   VERIFICATION_CODE_EXHAUSTED: HttpStatus.BAD_REQUEST,
 };
 
-@Catch(IdentityDomainError)
+@Catch(IdentityDomainError, UnauthenticatedError)
 export class IdentityDomainExceptionFilter implements ExceptionFilter {
   // `_host` kullanilmiyor: bu filtre yaniti KENDISI yazmaz, cevrilmis hatayi
   // global filtreye birakir. Imza ExceptionFilter sozlesmesi geregi durur.
-  catch(exception: IdentityDomainError, _host: ArgumentsHost): never {
+  catch(exception: IdentityDomainError | UnauthenticatedError, _host: ArgumentsHost): never {
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {

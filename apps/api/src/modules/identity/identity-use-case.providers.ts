@@ -1,10 +1,8 @@
 import { type Provider } from '@nestjs/common';
 
-import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { DELAY, type Delay } from '../../shared/delay.port';
 import { type DomainEventPublisher } from '../../shared/domain-event-publisher.port';
-import { EMAIL_PORT, type EmailPort } from '../../shared/email.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
 import {
@@ -16,17 +14,13 @@ import {
   type EmailVerificationCodeRepository,
 } from './application/email-verification-code.repository.port';
 import { IDENTITY_EVENT_PUBLISHER } from './application/identity-event-publisher.port';
-import {
-  IDENTITY_OUTBOX_REPOSITORY,
-  type IdentityOutboxRepository,
-} from './application/identity-outbox.repository.port';
 import { LoginUseCase } from './application/login.use-case';
+import { LogoutUseCase } from './application/logout.use-case';
 import {
   LOGIN_ATTEMPT_REPOSITORY,
   type LoginAttemptRepository,
 } from './application/login-attempt.repository.port';
 import { PASSWORD_HASHER, type PasswordHasher } from './application/password-hasher.port';
-import { PublishIdentityEventsUseCase } from './application/publish-identity-events.use-case';
 import {
   REFRESH_TOKEN_GENERATOR,
   type RefreshTokenGenerator,
@@ -39,6 +33,7 @@ import {
   REFRESH_TOKEN_REPOSITORY,
   type RefreshTokenRepository,
 } from './application/refresh-token.repository.port';
+import { RefreshSessionUseCase } from './application/refresh-session.use-case';
 import { RegisterUserUseCase } from './application/register-user.use-case';
 import { ResendVerificationUseCase } from './application/resend-verification.use-case';
 import {
@@ -60,7 +55,6 @@ import {
   type VerificationCodeRequestRepository,
 } from './application/verification-code-request.repository.port';
 import { VerifyEmailUseCase } from './application/verify-email.use-case';
-import { IdentityOutboxRelay } from './infrastructure/identity-outbox-relay';
 
 /**
  * Use case ve arka plan sureci saglayicilari.
@@ -243,38 +237,69 @@ export const identityUseCaseProviders: Provider[] = [
           clock,
         }),
     },
-    {
-      provide: PublishIdentityEventsUseCase,
-      inject: [IDENTITY_OUTBOX_REPOSITORY, EMAIL_PORT, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
-      // eslint-disable-next-line max-params
-      useFactory: (
-        outboxRepository: IdentityOutboxRepository,
-        emailPort: EmailPort,
-        transactionManager: TransactionManager,
-        clock: Clock,
-        config: AppConfig,
-      ): PublishIdentityEventsUseCase =>
-        new PublishIdentityEventsUseCase({
-          outboxRepository,
-          emailPort,
-          transactionManager,
-          clock,
-          batchSize: config.outboxRelay.batchSize,
-        }),
-    },
-
-    // --- Arka plan sureci ---------------------------------------------------
-    {
-      // Zamanlama config'ten gelir; relay'in kendisi yalnizca zamanlayicidir.
-      provide: IdentityOutboxRelay,
-      inject: [PublishIdentityEventsUseCase, APP_CONFIG],
-      useFactory: (
-        publishEvents: PublishIdentityEventsUseCase,
-        config: AppConfig,
-      ): IdentityOutboxRelay =>
-        new IdentityOutboxRelay(publishEvents, {
-          enabled: config.outboxRelay.enabled,
-          intervalMs: config.outboxRelay.intervalMs,
-        }),
-    },
+  {
+    provide: RefreshSessionUseCase,
+    inject: [
+      USER_REPOSITORY,
+      TOKEN_FAMILY_REPOSITORY,
+      REFRESH_TOKEN_REPOSITORY,
+      REFRESH_TOKEN_GENERATOR,
+      REFRESH_TOKEN_HASHER,
+      TOKEN_SIGNER,
+      IDENTITY_EVENT_PUBLISHER,
+      TRANSACTION_MANAGER,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    // eslint-disable-next-line max-params
+    useFactory: (
+      userRepository: UserRepository,
+      tokenFamilyRepository: TokenFamilyRepository,
+      refreshTokenRepository: RefreshTokenRepository,
+      refreshTokenGenerator: RefreshTokenGenerator,
+      refreshTokenHasher: RefreshTokenHasher,
+      tokenSigner: TokenSigner,
+      eventPublisher: DomainEventPublisher,
+      transactionManager: TransactionManager,
+      idGenerator: IdGenerator,
+      clock: Clock,
+    ): RefreshSessionUseCase =>
+      new RefreshSessionUseCase({
+        userRepository,
+        tokenFamilyRepository,
+        refreshTokenRepository,
+        refreshTokenGenerator,
+        refreshTokenHasher,
+        tokenSigner,
+        eventPublisher,
+        transactionManager,
+        idGenerator,
+        clock,
+      }),
+  },
+  {
+    provide: LogoutUseCase,
+    inject: [
+      TOKEN_FAMILY_REPOSITORY,
+      REFRESH_TOKEN_REPOSITORY,
+      REFRESH_TOKEN_HASHER,
+      TRANSACTION_MANAGER,
+      CLOCK,
+    ],
+    // eslint-disable-next-line max-params
+    useFactory: (
+      tokenFamilyRepository: TokenFamilyRepository,
+      refreshTokenRepository: RefreshTokenRepository,
+      refreshTokenHasher: RefreshTokenHasher,
+      transactionManager: TransactionManager,
+      clock: Clock,
+    ): LogoutUseCase =>
+      new LogoutUseCase({
+        tokenFamilyRepository,
+        refreshTokenRepository,
+        refreshTokenHasher,
+        transactionManager,
+        clock,
+      }),
+  },
 ];

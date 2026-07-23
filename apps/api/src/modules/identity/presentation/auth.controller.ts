@@ -4,6 +4,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Inject,
   Ip,
   Post,
   UseFilters,
@@ -12,16 +13,23 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { getCorrelationId } from '../../../infrastructure/logging/request-context';
+import { CURRENT_USER_PROVIDER, type CurrentUserProvider } from '../../../shared/current-user.port';
 import { LoginUseCase } from '../application/login.use-case';
+import { LogoutUseCase } from '../application/logout.use-case';
+import { RefreshSessionUseCase } from '../application/refresh-session.use-case';
 import { RegisterUserUseCase } from '../application/register-user.use-case';
 import { ResendVerificationUseCase } from '../application/resend-verification.use-case';
 import { VerifyEmailUseCase } from '../application/verify-email.use-case';
 import {
   loginSchema,
+  logoutSchema,
+  refreshSchema,
   registerSchema,
   resendVerificationSchema,
   verifyEmailSchema,
   type LoginBody,
+  type LogoutBody,
+  type RefreshBody,
   type RegisterBody,
   type ResendVerificationBody,
   type VerifyEmailBody,
@@ -68,6 +76,9 @@ export class AuthController {
     private readonly login: LoginUseCase,
     private readonly verifyEmail: VerifyEmailUseCase,
     private readonly resendVerification: ResendVerificationUseCase,
+    private readonly refreshSession: RefreshSessionUseCase,
+    private readonly logout: LogoutUseCase,
+    @Inject(CURRENT_USER_PROVIDER) private readonly currentUser: CurrentUserProvider,
   ) {}
 
   /**
@@ -231,5 +242,74 @@ export class AuthController {
     // Kayit ile AYNI metin: iki uc noktanin yanitlari da hesabin varligindan
     // bagimsiz ve birbirinden ayirt edilemez olmalidir.
     return { message: REGISTER_MESSAGE };
+  }
+
+  /**
+   * Oturumu yeniler ve refresh token'i rotasyona ugratir (§11, ADR-0021).
+   *
+   * Donen `identityToken`, `accessToken` DEGILDIR: tenant-scoped token tenant
+   * secimi adimindan cikar ve o adim henuz yok (MT §7.4, AUTH §11.5 borcu).
+   *
+   * Tum redler AYNI 401'i uretir: satir yok, suresi dolmus, aile iptal edilmis,
+   * kullanici pasif — ve YENIDEN KULLANIM. Sonuncusunda ailenin tamami iptal
+   * edilmis olur; istemci bunu yanittan ayirt edemez.
+   */
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Oturumu yeniler (refresh token rotation)',
+    description:
+      'Her kullanimda refresh token DEGISIR; eski token aninda gecersizlesir. ' +
+      'Kullanilmis bir token yeniden sunulursa AILENIN TAMAMI iptal edilir.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Oturum yenilendi.' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Token gecersiz.' })
+  async refresh(
+    @Body(new ZodValidationPipe(refreshSchema)) body: RefreshBody,
+  ): Promise<LoginResponse> {
+    const result = await this.refreshSession.execute({
+      refreshToken: body.refreshToken,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    return { identityToken: result.identityToken, refreshToken: result.refreshToken };
+  }
+
+  /**
+   * Cikis: sunulan refresh token'in AILESINI iptal eder (ADR-0023).
+   *
+   * HER ZAMAN 204 doner — bilinmeyen, suresi dolmus veya zaten iptal edilmis
+   * token dahil. 401 donmek "bu token gercekti" derdi; ayrica cikis idempotent
+   * olmalidir.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Cikis yapar (oturumu sunucuda sonlandirir)',
+    description:
+      'Token gecerli olmasa da 204 doner. Cikis SUNUCUDA gerceklesir; istemci ' +
+      'tarafi temizlik, calinmis bir kopyayi etkilemez.',
+  })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Oturum sonlandirildi.' })
+  async signOut(@Body(new ZodValidationPipe(logoutSchema)) body: LogoutBody): Promise<void> {
+    await this.logout.execute({ refreshToken: body.refreshToken });
+  }
+
+  /**
+   * Kullanicinin TUM oturumlarini sonlandirir (ADR-0023).
+   *
+   * Kimlik DOGRULANMIS token'dan gelir; govde ALMAZ. Govdeden `userId` kabul
+   * etseydik herkes herkesi cikartabilirdi.
+   */
+  @Post('logout-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Tum oturumlari sonlandirir',
+    description: 'Cihaz kaybinda kullanilir. Kimlik token i gerektirir.',
+  })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Tum oturumlar sonlandirildi.' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })
+  async signOutAll(): Promise<void> {
+    await this.logout.executeAll({ userId: this.currentUser.requireUserId() });
   }
 }

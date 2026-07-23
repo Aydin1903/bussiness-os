@@ -7,7 +7,9 @@ import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle
 import { TimeoutDelay } from '../../infrastructure/delay/timeout-delay.adapter';
 import { EmailModule } from '../../infrastructure/email/email.module';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
+import { ContextCurrentUserProvider } from '../../infrastructure/auth/context-current-user.adapter';
 import { CLOCK, type Clock } from '../../shared/clock.port';
+import { CURRENT_USER_PROVIDER } from '../../shared/current-user.port';
 import { DELAY } from '../../shared/delay.port';
 import { ID_GENERATOR } from '../../shared/id-generator.port';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
@@ -45,6 +47,7 @@ import { HmacVerificationCodeHasher } from './infrastructure/hmac-verification-c
 import { IdentityOutboxEventPublisher } from './infrastructure/identity-outbox-event-publisher.adapter';
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-hasher.adapter';
 import { DrizzleVerificationCodeRequestRepository } from './infrastructure/drizzle-verification-code-request.repository';
+import { identityOutboxProviders } from './identity-outbox.providers';
 import { identityUseCaseProviders } from './identity-use-case.providers';
 import { IDENTITY_USER_QUERY, type IdentityUserQuery } from './identity.public';
 import { AuthContextMiddleware } from './presentation/auth-context.middleware';
@@ -153,10 +156,17 @@ function decodePem(base64: string): string {
     // Auth middleware: token'i dogrular ve istek baglamina yazar.
     AuthContextMiddleware,
 
+    // `logout-all` kimlik ister. Kaynak, middleware'in dogruladigi istek
+    // baglamidir — Tenant modulu ile AYNI adapter, ayni kural.
+    { provide: CURRENT_USER_PROVIDER, useClass: ContextCurrentUserProvider },
+
     // --- Use case'ler ve arka plan sureci -----------------------------------
     // Ayri dosyada: bu dosya port -> adapter eslemelerini ve modulun
     // topolojisini tutar, orasi use case'lerin bagimlilik kurulumunu.
     ...identityUseCaseProviders,
+
+    // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
+    ...identityOutboxProviders,
   ],
   // Yalnizca PUBLIC yuzey disa acilir: IDENTITY_USER_QUERY (identity.public.ts)
   // ve token dogrulamak isteyenler icin TOKEN_SIGNER. Repository'ler, adapter'lar

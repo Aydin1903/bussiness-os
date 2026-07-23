@@ -105,6 +105,10 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
     this.saved.push(family);
     return Promise.resolve();
   }
+  /** Giris akisi toplu iptal yapmaz; sozlesme geregi bulunur. */
+  revokeAllActiveByUserId(): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 class FakeRefreshTokenRepository implements RefreshTokenRepository {
