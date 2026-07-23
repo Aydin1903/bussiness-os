@@ -596,6 +596,27 @@ flowchart TD
     style R404 fill:#b71c1c,color:#fff
 ```
 
+> **Uygulama durumu (2026-07-23).** Zincirin **4-5-6. adımları** çalışıyor:
+> `TenantContextMiddleware` (`platform/session`) her tenant-scoped istekte
+> `TENANT_ACCESS_QUERY` ile membership + `tenant.status` doğrular ve
+> `TenantContext`'i kurar; reddedilen her sebep **uniform 403** üretir.
+> Adım 1 (Host → hint) Faz 1'den beri var, adım 2 (JWT doğrulama) auth
+> middleware'inde.
+>
+> **⚠️ Adım 3 (hint ↔ claim çapraz kontrolü) HENÜZ YOK.** Host'tan çıkan ipucu bir
+> **slug**, claim ise bir **UUID**'dir; karşılaştırmak için `tenant.public.ts`'te
+> bulunmayan bir slug→id çözümü gerekir. Ayrıca subdomain/custom domain hattı
+> henüz devrede değildir (`ROOT_DOMAIN` bir yer tutucudur, doğrulanmış custom
+> domain kaydı yoktur). Doğrulanamayan bir kontrolü yazmak, çalışıyormuş gibi
+> görünen sahte bir güvenlik halkası olurdu; bu yüzden **bilinçli olarak eksik
+> bırakıldı**.
+>
+> Bugün bunun **güvenlik etkisi yoktur**: erişim kararı zaten `claimTenantId`
+> üzerinden ve membership doğrulamasıyla veriliyor; ipucu hiçbir yetki
+> taşımıyor. Adım 3'ün değeri, yanlış subdomain'den gelen isteği **güvenlik
+> olayı olarak loglamaktır** ([§8.2 diyagramı](#82-çözüm-zinciri) R403A) — o da
+> ancak subdomain yönlendirmesi gerçekten devreye girdiğinde anlamlıdır.
+
 ### 8.3 Custom domain doğrulaması
 
 Bir custom domain, sahipliği kanıtlanmadan **asla** aktif olmaz. Kanıtsız kabul, bir tenant'ın başka bir tenant'ın alan adını kendine bağlaması demektir.
@@ -930,6 +951,23 @@ sequenceDiagram
 | 6 | Havuzdan alınan her bağlantı `SET LOCAL` almadan sorgu çalıştıramaz | RLS `current_setting` bulunamayınca ya hata verir ya boş döner — ikisi de üretimde sürpriz |
 
 > **Bilinen tuzak:** Manuel `pool.connect()` ile alınan ve transaction açmadan kullanılan bağlantı, `SET LOCAL`'ın kapsamı dışında kalır. Bu yüzden bağlantı erişimi **yalnızca** transaction manager üzerinden yapılır; ham havuz erişimi lint kuralıyla engellenir.
+
+> **Uygulandı (2026-07-23).** Kural 2 ve 3'ün çalışan karşılığı
+> `TransactionManager.runInCurrentTenantTransaction()`'dır: tenant kimliğini
+> **çağırandan değil** doğrulanmış istek context'inden alır ve context yoksa
+> `MissingTenantContextError` fırlatır — bağlantı bile almadan. Tenant verisine
+> erişen use case'lerin kullanması gereken yol budur.
+>
+> Açık `tenantId` alan `runInTenantTransaction()` **korunur** ama yalnızca
+> context'in henüz olmadığı **bootstrap** akışları içindir: tenant çözümleme
+> (`ResolveTenantAccessQuery`) ve provisioning. İkisinin ayrı durması bilinçlidir
+> — biri "hangi tenant olduğunu biliyorum" der ve gerekçesini taşımak zorundadır,
+> diğeri hiçbir şey varsaymaz.
+>
+> Kural 1 ve 6, `set_config(..., is_local => true)` ile karşılanır ve
+> entegrasyon testiyle kanıtlanır: aynı havuzdan gelen bir sonraki transaction,
+> context'siz olduğu için **reddedilir** — önceki `SET LOCAL` sızmış olsaydı
+> sessizce çalışırdı.
 
 ---
 

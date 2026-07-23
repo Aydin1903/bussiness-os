@@ -204,6 +204,14 @@ class FakeTransactionManager implements TransactionManager {
   runInTenantTransaction<T>(_tenantId: string, fn: () => Promise<T>): Promise<T> {
     return this.runInTransaction(fn);
   }
+
+  /**
+   * Ambient context bu testlerde kullanilmaz; sozlesme geregi bulunur.
+   * Fail-closed davranisi gercek adapter'in entegrasyon testinde dogrulanir.
+   */
+  runInCurrentTenantTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    return this.runInTransaction(fn);
+  }
 }
 
 class SequentialIdGenerator implements IdGenerator {

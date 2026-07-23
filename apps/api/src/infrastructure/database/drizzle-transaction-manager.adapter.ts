@@ -2,7 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
 
-import type { TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  MissingTenantContextError,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
+import { getTenantContext } from '../tenant/tenant-context';
 import { DATABASE_POOL } from './drizzle.client';
 import * as schema from './schema';
 import { hasActiveTransaction, runWithTransaction } from './transaction-context';
@@ -28,6 +32,26 @@ export class DrizzleTransactionManager implements TransactionManager {
 
   runInTenantTransaction<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
     return this.#run(tenantId, fn);
+  }
+
+  /**
+   * Tenant kimligini istegin DOGRULANMIS context'inden alir; yoksa FIRLATIR.
+   *
+   * Context okumasi transaction ACILMADAN once yapilir: eksik context bir
+   * baglanti tuketmeden, `BEGIN` calismadan reddedilir.
+   */
+  // `async`: `Promise<T>` donen bir metot SENKRON firlatmamalidir. Firlatsaydi
+  // `.catch()` ile yakalanamaz ve cagiranin hata yolu sessizce atlanirdi —
+  // fail-closed'un kendisi yakalanamaz bir hataya donusurdu.
+  async runInCurrentTenantTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    const context = getTenantContext();
+
+    if (context === undefined) {
+      // FAIL CLOSED (§11.3): filtresiz sorgu ASLA calismaz.
+      throw new MissingTenantContextError();
+    }
+
+    return this.#run(context.tenantId, fn);
   }
 
   async #run<T>(tenantId: string | null, fn: () => Promise<T>): Promise<T> {

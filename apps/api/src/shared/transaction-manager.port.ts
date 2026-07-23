@@ -53,4 +53,47 @@ export interface TransactionManager {
    * ============================================================================
    */
   runInTenantTransaction<T>(tenantId: string, fn: () => Promise<T>): Promise<T>;
+
+  /**
+   * Verilen isi, ISTEGIN tenant context'i altinda calistirir.
+   *
+   * ============================================================================
+   * FAIL CLOSED — bu metodun VAR OLMA SEBEBI
+   * ============================================================================
+   * MULTI_TENANT_ARCHITECTURE 11.3: context YOKSA sorgu CALISMAZ, hata firlatir
+   * (`MissingTenantContextError`). Filtresiz bir sorgunun kazara calismasi
+   * ASLA mumkun olmamalidir.
+   *
+   * `runInTenantTransaction`'dan farki, tenant kimliginin CAGIRANDAN DEGIL
+   * dogrulanmis istek context'inden gelmesidir. Cagiran bir `tenantId`
+   * veremediginden, yanlis tenant'i gecirme ihtimali ORTADAN KALKAR — use
+   * case'lerin tenant verisine erismek icin kullanmasi gereken yol budur.
+   *
+   * Acik `tenantId` alan surum ise yalnizca context'in HENUZ OLMADIGI bootstrap
+   * akislari icindir (tenant cozumleme, provisioning). Ikisinin ayri durmasi
+   * bilinclidir: biri "hangi tenant oldugunu ben biliyorum" der ve gerekcesini
+   * yorumda tasir, digeri hicbir sey varsaymaz.
+   * ============================================================================
+   */
+  runInCurrentTenantTransaction<T>(fn: () => Promise<T>): Promise<T>;
+}
+
+/**
+ * Tenant context'i olmadan tenant-scoped bir transaction acilmaya calisildi.
+ *
+ * Bu bir PROGRAMLAMA hatasidir, kullanici hatasi degil: ya context'i kurmasi
+ * gereken katman atlanmistir ya da tenant'siz bir akis yanlis metodu
+ * cagirmaktadir. Sessizce bos sonuc DONMEZ (§11.4 kural 3) — sessiz bos sonuc,
+ * hatayi uretimde aylarca gizler.
+ */
+export class MissingTenantContextError extends Error {
+  readonly code = 'MISSING_TENANT_CONTEXT';
+
+  constructor() {
+    super(
+      'Tenant context kurulmadan tenant-scoped transaction acilamaz ' +
+        '(MULTI_TENANT_ARCHITECTURE 11.3 — fail closed).',
+    );
+    this.name = 'MissingTenantContextError';
+  }
 }

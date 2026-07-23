@@ -127,6 +127,14 @@ class FakeTransactionManager implements TransactionManager {
     return this.#run(fn);
   }
 
+  /**
+   * Ambient context bu testlerde kullanilmaz; sozlesme geregi bulunur.
+   * Fail-closed davranisi gercek adapter'in entegrasyon testinde dogrulanir.
+   */
+  runInCurrentTenantTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    return this.runInTransaction(fn);
+  }
+
   async #run<T>(fn: () => Promise<T>): Promise<T> {
     const tenantCount = this.tenantRepository.saved.length;
     const membershipCount = this.membershipRepository.saved.length;

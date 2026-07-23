@@ -70,6 +70,14 @@ class FakeTransactionManager implements TransactionManager {
     this.tenantContexts.push(tenantId);
     return fn();
   }
+
+  /**
+   * Ambient context bu testlerde kullanilmaz; sozlesme geregi bulunur.
+   * Fail-closed davranisi gercek adapter'in entegrasyon testinde dogrulanir.
+   */
+  runInCurrentTenantTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    return this.runInTransaction(fn);
+  }
 }
 
 interface Harness {
