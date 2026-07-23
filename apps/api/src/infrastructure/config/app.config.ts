@@ -50,6 +50,13 @@ export interface AppConfig {
     };
     readonly verificationCodePepper: string;
   };
+
+  /** Identity outbox tuketicisinin zamanlamasi (ADR-0006). */
+  readonly outboxRelay: {
+    readonly enabled: boolean;
+    readonly intervalMs: number;
+    readonly batchSize: number;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -90,6 +97,16 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       enabled: env.SWAGGER_ENABLED,
     },
     auth: toAuthConfig(env),
+    outboxRelay: toOutboxRelayConfig(env),
+  };
+}
+
+/** Outbox tuketicisinin zamanlamasi. Deger DONUSTURMEZ; yalnizca eslestirir. */
+function toOutboxRelayConfig(env: Env): AppConfig['outboxRelay'] {
+  return {
+    enabled: env.OUTBOX_RELAY_ENABLED,
+    intervalMs: env.OUTBOX_RELAY_INTERVAL_MS,
+    batchSize: env.OUTBOX_RELAY_BATCH_SIZE,
   };
 }
 

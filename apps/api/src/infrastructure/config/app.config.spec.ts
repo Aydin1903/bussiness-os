@@ -150,4 +150,32 @@ describe('createAppConfig', () => {
       expect(config.http.corsOrigins).toEqual([]);
     });
   });
+
+  describe('outbox tuketicisi', () => {
+    // Swagger'in TERSI yonde varsayilan — ve bu bilincli: relay kapaliyken
+    // hicbir sey patlamaz, kullanicilar yalnizca kodlarini hic almaz. Sessiz
+    // teslimatsizlik, bir gelistiricinin dokumani gormemesinden pahalidir.
+    it('belirtilmediginde ACIK olur', () => {
+      const config = createAppConfig({ ...validEnv });
+
+      expect(config.outboxRelay.enabled).toBe(true);
+    });
+
+    it('acikca kapatilabilir (testler bunu kullanir)', () => {
+      const config = createAppConfig({ ...validEnv, OUTBOX_RELAY_ENABLED: 'false' });
+
+      expect(config.outboxRelay.enabled).toBe(false);
+    });
+
+    it('varsayilan aralik ve batch boyutunu tasir', () => {
+      const config = createAppConfig({ ...validEnv });
+
+      expect(config.outboxRelay.intervalMs).toBe(5_000);
+      expect(config.outboxRelay.batchSize).toBe(20);
+    });
+
+    it('absurt batch boyutunu reddeder — kilit turu boyunca tutulur', () => {
+      expect(() => createAppConfig({ ...validEnv, OUTBOX_RELAY_BATCH_SIZE: '5000' })).toThrow();
+    });
+  });
 });

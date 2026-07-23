@@ -89,6 +89,31 @@ export const envSchema = z.object({
   // dogrulamaya yetmez. AUTH_ARCHITECTURE Ek A/U3: Faz 3'te `.env`, kalici
   // cozum secret manager (Faz 7).
   VERIFICATION_CODE_PEPPER: z.string().min(16),
+
+  // --- Identity outbox tuketicisi (ADR-0006) --------------------------------
+  //
+  // Varsayilan ACIK — Swagger'in tersi, ve bilincli olarak.
+  //
+  // Bu bir ifsa yuzeyi degil, TESLIMAT yoludur: kapali oldugunda hicbir sey
+  // patlamaz, kullanicilar yalnizca dogrulama kodlarini hic almaz ve sorun
+  // "kayit calismiyor" diye gorunur. Bir ortam degiskenini unutmanin bedeli
+  // burada sessiz teslimatsizliktir; o yuzden yanlis gittiginde bedeli kucuk
+  // olan yon ACIK olandir.
+  //
+  // Testlerde ACIKCA kapatilir (test/integration/support/identity-env.ts):
+  // arka planda calisan bir zamanlayici, testleri belirsiz hale getirir.
+  OUTBOX_RELAY_ENABLED: booleanFromEnv.default(true),
+
+  /** Iki tur arasi bekleme. Kisa tutulur: kod 15 dakika omurludur. */
+  OUTBOX_RELAY_INTERVAL_MS: z.coerce.number().int().min(100).max(600_000).default(5_000),
+
+  /**
+   * Tek turda islenecek en fazla kayit.
+   *
+   * Kilit tur boyunca tutulur (bkz. PublishIdentityEventsUseCase); buyuk batch
+   * kilit suresini uzatir ve diger instance'lari bosa dondurur.
+   */
+  OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
 });
 
 export type Env = z.infer<typeof envSchema>;

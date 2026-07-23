@@ -5,10 +5,12 @@ import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { TimeoutDelay } from '../../infrastructure/delay/timeout-delay.adapter';
+import { EmailModule } from '../../infrastructure/email/email.module';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { DELAY, type Delay } from '../../shared/delay.port';
 import { type DomainEventPublisher } from '../../shared/domain-event-publisher.port';
+import { EMAIL_PORT, type EmailPort } from '../../shared/email.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from './application/credential.repository.port';
@@ -17,6 +19,10 @@ import {
   type EmailVerificationCodeRepository,
 } from './application/email-verification-code.repository.port';
 import { IDENTITY_EVENT_PUBLISHER } from './application/identity-event-publisher.port';
+import {
+  IDENTITY_OUTBOX_REPOSITORY,
+  type IdentityOutboxRepository,
+} from './application/identity-outbox.repository.port';
 import { IdentityUserQueryService } from './application/identity-user.query';
 import { LoginUseCase } from './application/login.use-case';
 import {
@@ -24,6 +30,7 @@ import {
   type LoginAttemptRepository,
 } from './application/login-attempt.repository.port';
 import { PASSWORD_HASHER, type PasswordHasher } from './application/password-hasher.port';
+import { PublishIdentityEventsUseCase } from './application/publish-identity-events.use-case';
 import {
   REFRESH_TOKEN_GENERATOR,
   type RefreshTokenGenerator,
@@ -51,6 +58,7 @@ import { CryptoRefreshTokenGenerator } from './infrastructure/crypto-refresh-tok
 import { CryptoVerificationCodeGenerator } from './infrastructure/crypto-verification-code-generator.adapter';
 import { DrizzleCredentialRepository } from './infrastructure/drizzle-credential.repository';
 import { DrizzleEmailVerificationCodeRepository } from './infrastructure/drizzle-email-verification-code.repository';
+import { DrizzleIdentityOutboxRepository } from './infrastructure/drizzle-identity-outbox.repository';
 import { DrizzleLoginAttemptRepository } from './infrastructure/drizzle-login-attempt.repository';
 import { DrizzleRefreshTokenRepository } from './infrastructure/drizzle-refresh-token.repository';
 import { DrizzleTokenFamilyRepository } from './infrastructure/drizzle-token-family.repository';
@@ -58,6 +66,7 @@ import { DrizzleUserRepository } from './infrastructure/drizzle-user.repository'
 import { EddsaTokenSigner } from './infrastructure/eddsa-token-signer.adapter';
 import { HmacVerificationCodeHasher } from './infrastructure/hmac-verification-code-hasher.adapter';
 import { IdentityOutboxEventPublisher } from './infrastructure/identity-outbox-event-publisher.adapter';
+import { IdentityOutboxRelay } from './infrastructure/identity-outbox-relay';
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-hasher.adapter';
 import { IDENTITY_USER_QUERY, type IdentityUserQuery } from './identity.public';
 import { AuthContextMiddleware } from './presentation/auth-context.middleware';
@@ -83,6 +92,9 @@ function decodePem(base64: string): string {
  * ============================================================================
  */
 @Module({
+  // Teslimat yolu icin `EMAIL_PORT`. Somut saglayici EmailModule'un karari;
+  // Identity yalnizca port'u tuketir.
+  imports: [EmailModule],
   controllers: [AuthController],
   providers: [
     // --- Paylasilan cekirdek port'lari -------------------------------------
@@ -99,6 +111,7 @@ function decodePem(base64: string): string {
     { provide: REFRESH_TOKEN_REPOSITORY, useClass: DrizzleRefreshTokenRepository },
     { provide: LOGIN_ATTEMPT_REPOSITORY, useClass: DrizzleLoginAttemptRepository },
     { provide: IDENTITY_EVENT_PUBLISHER, useClass: IdentityOutboxEventPublisher },
+    { provide: IDENTITY_OUTBOX_REPOSITORY, useClass: DrizzleIdentityOutboxRepository },
 
     // --- Kripto -------------------------------------------------------------
     {
@@ -287,6 +300,40 @@ function decodePem(base64: string): string {
           transactionManager,
           idGenerator,
           clock,
+        }),
+    },
+    {
+      provide: PublishIdentityEventsUseCase,
+      inject: [IDENTITY_OUTBOX_REPOSITORY, EMAIL_PORT, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
+      // eslint-disable-next-line max-params
+      useFactory: (
+        outboxRepository: IdentityOutboxRepository,
+        emailPort: EmailPort,
+        transactionManager: TransactionManager,
+        clock: Clock,
+        config: AppConfig,
+      ): PublishIdentityEventsUseCase =>
+        new PublishIdentityEventsUseCase({
+          outboxRepository,
+          emailPort,
+          transactionManager,
+          clock,
+          batchSize: config.outboxRelay.batchSize,
+        }),
+    },
+
+    // --- Arka plan sureci ---------------------------------------------------
+    {
+      // Zamanlama config'ten gelir; relay'in kendisi yalnizca zamanlayicidir.
+      provide: IdentityOutboxRelay,
+      inject: [PublishIdentityEventsUseCase, APP_CONFIG],
+      useFactory: (
+        publishEvents: PublishIdentityEventsUseCase,
+        config: AppConfig,
+      ): IdentityOutboxRelay =>
+        new IdentityOutboxRelay(publishEvents, {
+          enabled: config.outboxRelay.enabled,
+          intervalMs: config.outboxRelay.intervalMs,
         }),
     },
   ],

@@ -19,4 +19,9 @@ export async function setIdentityTestEnv(): Promise<void> {
   process.env.JWT_PRIVATE_KEY = Buffer.from(await exportPKCS8(privateKey)).toString('base64');
   process.env.JWT_PUBLIC_KEY = Buffer.from(await exportSPKI(publicKey)).toString('base64');
   process.env.VERIFICATION_CODE_PEPPER = 'integration-test-pepper-32-chars';
+
+  // Outbox relay KAPALI: arka planda tiklayan bir zamanlayici, testlerin
+  // gozlemledigi satirlari onlarin altindan degistirir ve sonuclari zamana
+  // bagimli kilar. Tuketici testleri turu KENDILERI tetikler.
+  process.env.OUTBOX_RELAY_ENABLED = 'false';
 }

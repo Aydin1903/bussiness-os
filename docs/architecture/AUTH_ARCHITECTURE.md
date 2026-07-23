@@ -935,6 +935,26 @@ Ortak sözleşme [MT §15.1](MULTI_TENANT_ARCHITECTURE.md)'dedir ve burada tekra
 
 **Yanıt formatı:** RFC 7807 (`application/problem+json`), Faz 1'de kurulan `ProblemDetailsFilter` üzerinden. Hiçbir yanıt e-posta varlığı, kilit durumu veya kodun neden reddedildiği hakkında bilgi **taşımaz**.
 
+### 16.1 ⚠️ Teknik borç — teslimat hatası bugün sonsuza kadar denenir
+
+Identity outbox tüketicisi (`PublishIdentityEventsUseCase`) yazıldı ve doğrulama
+kodlarını `EmailPort` üzerinden teslim ediyor. **Teslimat hatası için bir
+politikası yoktur:** başarısız kayıt `published_at = NULL` kalır ve her turda
+yeniden denenir — sınırsızca.
+
+Bugün bu **teorik** bir risktir: bağlı adapter `ConsoleEmailAdapter`'dır ve asla
+hata vermez. Gerçek sağlayıcı bağlandığında teorik olmaktan çıkar.
+
+**Resend adapter'ı devreye alınmadan önce zorunlu:**
+
+| Gereken | Neden |
+|---|---|
+| `attempt_count` + `last_error` kolonları (migration) | Kaç kez denendiği ve nedeni bugün hiçbir yerde tutulmuyor |
+| Üstel geri çekilme (backoff) | Her turda yeniden denemek, geçici sağlayıcı arızasını DDoS'a çevirir |
+| Dead-letter + alarm | N denemeden sonra kayıt kuyruktan çıkarılmalı; aksi halde kalıcı olarak reddedilen tek bir adres kuyruğu meşgul eder ve **arkasındaki geçerli e-postalar gecikir** |
+
+Bu üçü tamamlanmadan `EmailModule` üretim sağlayıcısına bağlanmamalıdır.
+
 ---
 
 ## 17. Multi-Tenancy ile İlişki
