@@ -185,6 +185,62 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     expect(withValid.status).toBe(401);
   });
 
+  // --- Mutlak oturum omru --------------------------------------------------
+
+  /** Aileyi `days` gun once acilmis gibi gosterir; gercek zamani beklemeden. */
+  async function ageFamily(days: number): Promise<void> {
+    await database.ownerPool.query(
+      `UPDATE platform.token_families
+         SET created_at = created_at - make_interval(days => $1)`,
+      [days],
+    );
+  }
+
+  it('tavanin ALTINDA (89 gun) refresh calisir', async () => {
+    const session = await signIn();
+    await ageFamily(89);
+
+    const response = await post('refresh').send({ refreshToken: session.refreshToken });
+
+    expect(response.status).toBe(200);
+  });
+
+  it('mutlak omur dolunca (91 gun) refresh 401 doner', async () => {
+    const session = await signIn();
+    await ageFamily(91);
+
+    const response = await post('refresh').send({ refreshToken: session.refreshToken });
+
+    // Token'in kendisi hala kullanilabilir; reddin sebebi AILENIN yasidir.
+    expect(response.status).toBe(401);
+  });
+
+  it('omru dolan aile IPTAL EDILMIS olarak isaretlenmez', async () => {
+    const session = await signIn();
+    await ageFamily(91);
+
+    await post('refresh').send({ refreshToken: session.refreshToken });
+
+    // Sona erme `created_at`'ten turer; iptal kaydi yazmak "birileri karar
+    // verdi" izlenimi verir ve denetimi kirletir.
+    expect((await familyStates())[0]?.revoked_reason).toBeNull();
+  });
+
+  it('omru dolan oturum YENIDEN GIRISLE devam eder', async () => {
+    const session = await signIn();
+    await ageFamily(91);
+    await post('refresh').send({ refreshToken: session.refreshToken });
+
+    const again = await post('login').send({ email: EMAIL, password: PASSWORD });
+
+    // Kullanicidan beklenen davranis: parola ile yeni bir aile acmak.
+    expect(again.status).toBe(200);
+    const fresh = await post('refresh').send({
+      refreshToken: String(again.body.refreshToken),
+    });
+    expect(fresh.status).toBe(200);
+  });
+
   // --- Cikis ---------------------------------------------------------------
 
   it('logout ailesini iptal eder ve refresh artik calismaz', async () => {

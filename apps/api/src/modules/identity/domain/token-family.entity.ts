@@ -28,7 +28,29 @@ import { type TokenFamilyRevocationReason } from './token-family-revocation-reas
  *
  * ZAMAN DISARIDAN GELIR (DEVELOPMENT_RULES 3.2).
  * ============================================================================
+ *
+ * ============================================================================
+ * IKI SINIR: KAYAN PENCERE + MUTLAK TAVAN
+ * ============================================================================
+ * Refresh token'in 30 gunluk omru her rotasyonda YENIDEN BASLAR (ADR-0021).
+ * Tek basina bu, aktif kullanilan bir oturumun SONSUZA KADAR yasamasi demektir:
+ * calinmis ve fark edilmemis bir zincir, kullanicinin bir daha hic parola
+ * girmedigi bir kalici erisime doner.
+ *
+ * Bu yuzden ailenin uzerinde ikinci ve ASILAMAZ bir sinir vardir: 90 gun.
+ * Ikisi birlikte "aktif kullanan kullanici 30 gunde bir dusmez, ama hicbir
+ * oturum 90 gunu gecemez" der.
+ *
+ * TAVAN SAKLANMAZ, TURETILIR: `created_at + 90 gun`. Ayri bir `expires_at`
+ * kolonu ayni gercegi iki yerde tutar ve sure degistiginde hangisinin dogru
+ * oldugu belirsizlesir. Omur bir KURALDIR, veri degil.
+ * ============================================================================
  */
+
+/** Ailenin mutlak omru — rotasyon bunu SIFIRLAMAZ (ADR-0021 eki). */
+export const TOKEN_FAMILY_ABSOLUTE_TTL_DAYS = 90;
+
+const DAY_MS = 24 * 60 * 60_000;
 
 export interface StartTokenFamilyInput {
   readonly id: TokenFamilyId;
@@ -101,6 +123,30 @@ export class TokenFamily {
 
   get createdAt(): Date {
     return copyDate(this.#createdAt);
+  }
+
+  /**
+   * Mutlak tavan doldu mu? (`created_at + 90 gun`)
+   *
+   * `>=`: omrun doldugu AN biter. Tam 90. gunu gecerli saymak, siniri bir
+   * milisaniye de olsa gevsetmek olurdu ve sinirin varlik sebebi katiligidir.
+   *
+   * Bu bir IPTAL DEGILDIR: `revokedAt` bos kalir. Sona erme, `createdAt`'ten
+   * turetilen bir ZAMAN GERCEGIDIR; iptal kaydi gibi yazmak "bir operator ya da
+   * guvenlik karari verildi" izlenimi verir ve denetim kaydini kirletir.
+   */
+  hasReachedAbsoluteLifetime(now: Date): boolean {
+    return now.getTime() - this.#createdAt.getTime() >= TOKEN_FAMILY_ABSOLUTE_TTL_DAYS * DAY_MS;
+  }
+
+  /**
+   * Yenileme icin kullanilabilir mi? Iptal edilmemis VE tavana ulasmamis olmali.
+   *
+   * Iki sinir ayri sorulardir ama cagiranlar icin tek karar noktasi olmalidir;
+   * biri unutulursa sessizce acik kalir.
+   */
+  isRenewable(now: Date): boolean {
+    return !this.isRevoked && !this.hasReachedAbsoluteLifetime(now);
   }
 
   get revokedAt(): Date | null {

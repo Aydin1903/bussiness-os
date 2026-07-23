@@ -23,7 +23,8 @@ sey olmamis gibi devam eder — saldirgan ise iceridedir.
 | ----- | ----- |
 | Bicim | 256 bit kriptografik rastgele deger — **JWT degil** |
 | Saklama | Veritabaninda **SHA-256 hash'i** |
-| Mutlak omur | 30 gun |
+| Token omru (kayan pencere) | 30 gun — **her rotasyonda yeniden baslar** |
+| **Ailenin mutlak omru (tavan)** | **90 gun** — rotasyon bunu SIFIRLAMAZ |
 | Rotation | **Her kullanimda**; eski token aninda gecersizlesir |
 | **Yeniden kullanim** | **Tum AILE iptal edilir** + guvenlik alarmi |
 
@@ -106,3 +107,33 @@ almaya devam etmesi, iptalin anlamini yok ederdi.
   artirabilir.
 - `refresh_tokens` tablosu olcek sorunu uretirse: saklama suresi kisaltilir veya
   bolumleme (partitioning) gundeme gelir.
+
+## Ek (2026-07-23) — ailenin mutlak omru: 90 gun
+
+Ilk karar yalnizca TOKEN'in 30 gunluk omrunu tanimliyordu ve rotation bu sureyi
+her kullanimda sifirliyordu. Bunun sessiz sonucu sudur: **duzenli kullanilan bir
+oturum sonsuza kadar yasar.** Calinmis ve fark edilmemis bir zincir, kullanicinin
+bir daha hic parola girmedigi kalici bir erisime doner — ve rotation'in kendisi
+bunu gizler, cunku her sey normal gorunur.
+
+Bu yuzden ailenin uzerine **90 gunluk, asilamaz bir tavan** konur:
+
+| Sinir | Anlami |
+| ----- | ------ |
+| 30 gun (token) | Kayan pencere; aktif kullanicinin oturumu kendiliginden dusmez |
+| 90 gun (aile) | Tavan; hicbir oturum bunu gecemez, kullanici yeniden giris yapar |
+
+**Tavan SAKLANMAZ, turetilir:** `token_families.created_at + 90 gun`. Ayri bir
+`expires_at` kolonu ayni gercegi iki yerde tutar ve sure degistiginde hangisinin
+dogru oldugu belirsizlesir. Migration GEREKMEZ.
+
+**Tavana ulasan aile IPTAL EDILMEZ.** `revoked_at`/`revoked_reason` bos kalir;
+yalnizca yenileme reddedilir. Sona erme bir ZAMAN GERCEGIDIR, bir karar degil —
+iptal kaydi gibi yazmak "bir operator veya guvenlik olayi vardi" izlenimi verir
+ve denetim kaydini kirletir. (Ayrica `revoked_reason` enum'u veritabaninda CHECK
+ile sinirlidir; `expired` eklemek gereksiz bir migration olurdu.)
+
+**Yeniden kullanim tespiti tavandan ONCE calisir:** omru dolmus bir ailede
+kullanilmis token yeniden sunulursa alarm YINE uretilir. "Zaten bitmisti" diye
+sessiz kalmak, calinmis bir zincirin kullanildigini gosteren tek isareti
+kaybetmek olurdu.

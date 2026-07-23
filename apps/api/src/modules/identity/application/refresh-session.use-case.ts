@@ -165,6 +165,12 @@ export class RefreshSessionUseCase {
     if (session.family.isRevoked) {
       throw new InvalidTokenError('oturum sonlandirilmis');
     }
+    // Mutlak tavan (90 gun): rotasyon 30 gunluk pencereyi her seferinde sifirlar,
+    // bunu SIFIRLAMAZ. Aksi halde fark edilmemis bir zincir sonsuza kadar
+    // yenilenir ve kullanici bir daha hic parola girmez.
+    if (session.family.hasReachedAbsoluteLifetime(now)) {
+      throw new InvalidTokenError('oturumun mutlak omru doldu');
+    }
     // §11.4 kontrol 1. Kontrol 2 ve 3 icin bkz. sinif yorumundaki borc.
     if (!session.user.isActive) {
       throw new InvalidTokenError('kullanici aktif degil');

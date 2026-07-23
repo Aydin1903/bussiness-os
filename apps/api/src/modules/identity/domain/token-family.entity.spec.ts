@@ -7,7 +7,11 @@ import {
   InvalidTokenFamilyRevokedAtError,
   TokenFamilyAlreadyRevokedError,
 } from './identity.error';
-import { TokenFamily, type TokenFamilyState } from './token-family.entity';
+import {
+  TOKEN_FAMILY_ABSOLUTE_TTL_DAYS,
+  TokenFamily,
+  type TokenFamilyState,
+} from './token-family.entity';
 import { TokenFamilyId } from './token-family-id.value-object';
 
 const FAMILY_ID = TokenFamilyId.create('018f3a2b-7c4d-7e1f-8a2b-0000000000f1');
@@ -139,5 +143,69 @@ describe('TokenFamily.fromPersistence', () => {
     read?.setFullYear(1990);
 
     expect(family.revokedAt).toEqual(REVOKED_AT);
+  });
+});
+
+const DAY_MS = 24 * 60 * 60_000;
+
+function daysAfterCreation(days: number): Date {
+  return new Date(CREATED.getTime() + days * DAY_MS);
+}
+
+describe('TokenFamily — mutlak omur (90 gun tavani)', () => {
+  it('tavan ADR-0021 ekindeki deger ile aynidir', () => {
+    expect(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS).toBe(90);
+  });
+
+  it('tavanin ALTINDA dolmus saymaz', () => {
+    const family = TokenFamily.fromPersistence(persisted());
+
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(89))).toBe(false);
+  });
+
+  it('TAM 90. gunde dolmus sayar', () => {
+    const family = TokenFamily.fromPersistence(persisted());
+
+    // Sinirin varlik sebebi katiligidir; bir milisaniye gevsetmek de gevsetmektir.
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(90))).toBe(true);
+  });
+
+  it('tavanin USTUNDE dolmus sayar', () => {
+    const family = TokenFamily.fromPersistence(persisted());
+
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(91))).toBe(true);
+  });
+
+  it('tavan dolsa da aile IPTAL EDILMIS olmaz', () => {
+    const family = TokenFamily.fromPersistence(persisted());
+
+    // Sona erme bir zaman gercegidir, iptal kaydi degil: `revokedAt` bos kalir
+    // ve denetim kaydi "birileri karar verdi" demez.
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(91))).toBe(true);
+    expect(family.isRevoked).toBe(false);
+    expect(family.revokedAt).toBeNull();
+    expect(family.revokedReason).toBeNull();
+  });
+
+  it('isRenewable IKI sinirin ikisini de uygular', () => {
+    const active = TokenFamily.fromPersistence(persisted());
+    const revoked = TokenFamily.fromPersistence(
+      persisted({ revokedReason: 'logout', revokedAt: REVOKED_AT }),
+    );
+
+    expect(active.isRenewable(daysAfterCreation(1))).toBe(true);
+    // Tavan doldu (iptal yok):
+    expect(active.isRenewable(daysAfterCreation(91))).toBe(false);
+    // Iptal edildi (tavan dolmadi):
+    expect(revoked.isRenewable(daysAfterCreation(1))).toBe(false);
+  });
+
+  it('rotasyon tavani SIFIRLAMAZ — tavan olusturulma anina baglidir', () => {
+    // Aile 80 gun once acildi; token'lar arada defalarca rotasyona ugramis
+    // olabilir, aile hala AYNI `createdAt`'i tasir.
+    const family = TokenFamily.fromPersistence(persisted());
+
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(80))).toBe(false);
+    expect(family.hasReachedAbsoluteLifetime(daysAfterCreation(90))).toBe(true);
   });
 });

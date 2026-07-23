@@ -12,7 +12,7 @@ import { REFRESH_TOKEN_TTL_DAYS, RefreshToken } from '../domain/refresh-token.en
 import { RefreshTokenHash } from '../domain/refresh-token-hash.value-object';
 import { RefreshTokenId } from '../domain/refresh-token-id.value-object';
 import { RefreshTokenReuseDetected } from '../domain/refresh-token-reuse-detected.event';
-import { TokenFamily } from '../domain/token-family.entity';
+import { TOKEN_FAMILY_ABSOLUTE_TTL_DAYS, TokenFamily } from '../domain/token-family.entity';
 import { TokenFamilyId } from '../domain/token-family-id.value-object';
 import { User } from '../domain/user.entity';
 import { type RefreshTokenGenerator } from './refresh-token-generator.port';
@@ -396,5 +396,69 @@ describe('RefreshSessionUseCase — redler AYIRT EDILEMEZ (hepsi 401)', () => {
     harness.userRepository.user = null;
 
     await expect(harness.useCase.execute(command())).rejects.toThrow(InvalidTokenError);
+  });
+});
+
+describe('RefreshSessionUseCase — mutlak oturum omru (90 gun)', () => {
+  /** Aileyi `days` gun once acilmis gibi kurar; token hala kullanilabilir. */
+  function agedHarness(days: number): Harness {
+    const harness = createHarness();
+    const createdAt = new Date(NOW.getTime() - days * DAY_MS);
+
+    harness.familyRepository.family = TokenFamily.fromPersistence({
+      id: FAMILY_ID,
+      userId: USER_ID,
+      revokedReason: null,
+      createdAt,
+      revokedAt: null,
+    });
+
+    return harness;
+  }
+
+  it('tavanin ALTINDA yenilemeye izin verir', async () => {
+    const harness = agedHarness(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS - 1);
+
+    const result = await harness.useCase.execute(command());
+
+    expect(result.refreshToken).toBe(NEW_TOKEN);
+  });
+
+  it('tavan dolduysa gecerli token la bile 401 uretir', async () => {
+    const harness = agedHarness(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS);
+
+    // Token'in kendisi kullanilabilir; reddin sebebi AILENIN yasidir.
+    await expect(harness.useCase.execute(command())).rejects.toThrow(InvalidTokenError);
+  });
+
+  it('tavan dolduysa yeni token URETMEZ', async () => {
+    const harness = agedHarness(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS + 5);
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(InvalidTokenError);
+
+    expect(harness.tokenRepository.saved).toHaveLength(0);
+  });
+
+  it('tavan dolsa da aileyi IPTAL ETMEZ', async () => {
+    const harness = agedHarness(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS + 5);
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(InvalidTokenError);
+
+    // Sona erme bir zaman gercegidir; iptal kaydi yazmak denetimi kirletirdi.
+    expect(harness.familyRepository.saved).toHaveLength(0);
+  });
+
+  it('omru dolmus ailede YENIDEN KULLANIM hala alarm uretir', async () => {
+    const harness = agedHarness(TOKEN_FAMILY_ABSOLUTE_TTL_DAYS + 5);
+    const used = usableToken();
+    used.markUsed(new Date(NOW.getTime() - 60_000));
+    harness.tokenRepository.token = used;
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(InvalidTokenError);
+
+    // "Zaten bitmisti" diye sessiz kalmak sinyal kaybidir: calinmis bir zincirin
+    // kullanildigini gosteren tek isaret budur.
+    expect(harness.eventPublisher.published).toHaveLength(1);
+    expect(harness.familyRepository.saved[0]?.revokedReason).toBe('token-reuse-detected');
   });
 });

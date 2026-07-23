@@ -679,7 +679,8 @@ Tenant seçimi [MT §7.4](MULTI_TENANT_ARCHITECTURE.md)'teki `switch-tenant` ak�
 |---|---|
 | Refresh token biçimi | **256 bit** kriptografik rastgele değer (JWT **değil**) |
 | Saklama | Veritabanında **SHA-256 hash'i** |
-| Mutlak ömür | **30 gün** |
+| Token ömrü (kayan pencere) | **30 gün** — her rotasyonda yeniden başlar |
+| **Ailenin mutlak ömrü** | **90 gün** — rotation bunu **sıfırlamaz** ([ADR-0021 eki](../adr/0021-refresh-token-rotation.md)) |
 | Rotation | **Her kullanımda** — eski token anında geçersizleşir |
 | Yeniden kullanım | **Tüm aile iptal edilir** ([§11.3](#113-yeniden-kullanım-tespiti--asıl-koruma)) |
 
