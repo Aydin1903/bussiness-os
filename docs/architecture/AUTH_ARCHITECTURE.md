@@ -744,30 +744,33 @@ Refresh, yalnızca yeni bir token üretmek değildir; **yetkinin hâlâ geçerli
 
 Biri bile hayırsa yenileme reddedilir. Bu, [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)'ün pratikteki karşılığıdır.
 
-### 11.5 ⚠️ Teknik borç — bugün üç kontrolden yalnızca biri uygulanıyor
+### 11.5 §11.4 kontrollerinin yeri — refresh değil, switch-tenant
 
-`RefreshSessionUseCase` yazıldı ve rotation + yeniden kullanım tespiti tam
-olarak çalışıyor. Ancak [§11.4](#114-yenilemede-yeniden-doğrulanan-şeyler)'ün
-üç kontrolünden yalnızca birincisi (**kullanıcı hâlâ `active` mi**) uygulanıyor.
+[§11.4](#114-yenilemede-yeniden-doğrulanan-şeyler)'ün üç kontrolünden refresh
+akışı yalnızca birincisini (**kullanıcı hâlâ `active` mi**) uygular; bu **eksik
+değil, doğru yerleşimdir**.
 
-| Kontrol | Durum | Neden |
+| Kontrol | Nerede | Neden |
 |---|---|---|
-| Kullanıcı `active` mi | ✅ uygulandı | |
-| Membership `active` mi | ❌ yok | Oturum bir tenant taşımıyor |
-| Tenant `active` mi | ❌ yok | Aynı sebep |
+| Kullanıcı `active` mi | `refresh` | Kimlik oturumu kullanıcıya bağlıdır; refresh'te doğrulanır |
+| Membership `active` mi | **`switch-tenant`** | Kimlik oturumu tenant taşımaz; kontrol edilecek membership orada seçilir |
+| Tenant `active` mi | **`switch-tenant`** | Aynı sebep |
 
-Sebep yapısaldır, ihmal değil: tenant seçimi (switch-tenant,
-[MT §7.4](MULTI_TENANT_ARCHITECTURE.md)) **henüz yazılmadı** ve hiçbir oturumda
-seçili tenant yok. Kontrol edilecek bir membership mevcut değil.
+**Neden refresh'te değil:** `POST /auth/refresh` **kimlik oturumunu** yeniler
+ve **`identityToken`** döndürür — bu token'da `tenant` claim'i yoktur, dolayısıyla
+yeniden doğrulanacak bir membership/tenant da yoktur. Tenant-scoped access token
+**refresh edilmez**; kısa ömürlüdür (15 dk) ve her seferinde
+`POST /auth/switch-tenant` ile yeniden basılır.
 
-Aynı sebeple `POST /auth/refresh` bugün **`identityToken`** döndürüyor;
-[§11.2](#112-rotation-akışı) diyagramındaki `accessToken` tenant-scoped'dır ve
-o adım gelene kadar üretilemez.
+**Sonuç — daha güçlü koruma:** membership + tenant kontrolleri switch-tenant'ta,
+**her access token basımında** (yani pratikte her ~15 dakikada) çalışır. Refresh'e
+konsaydı yalnızca refresh sıklığında (30 güne kadar) çalışırdı. Üyeliği iptal
+edilmiş bir kullanıcı, elindeki access token dolar dolmaz yeni birini alamaz;
+`resolveMemberAccess` reddeder ([switch-tenant](MULTI_TENANT_ARCHITECTURE.md), MT §7.4).
 
-> **switch-tenant slice'ı bu use case'i değiştirmek zorundadır.** Tenant-scoped
-> oturumlar ortaya çıktığı anda 2. ve 3. kontroller eklenmezse, üyeliği iptal
-> edilmiş bir kullanıcı refresh ile süresiz erişim sürdürür — iptalin anlamını
-> yok eden tam da ADR-0021'in engellemek istediği durum.
+> Bu, [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)'ün pratikteki karşılığıdır:
+> yetki her tenant-scoped token basımında kaynaktan yeniden doğrulanır, bayat
+> izinle erişim sürdürülemez.
 
 ---
 

@@ -507,6 +507,10 @@ sequenceDiagram
 
 **Kritik kural:** Tenant değişimi **sunucuda** üyelik doğrulamasından geçer. İstemcinin gönderdiği `tenantId` bir *talep*tir, karar değil. Yeni token yalnızca doğrulama başarılıysa üretilir.
 
+> **Uygulandı (2026-07-23).** `POST /api/v1/auth/switch-tenant` çalışıyor. Akış, iki modülün orkestrasyonu olduğu için ne Identity ne Tenant içinde — `platform/session` modülünde yaşar ve ikisini de public arayüzlerinden tüketir (Identity↔Tenant döngüsü bu yolla önlendi; `forwardRef` yok). Uygulama diyagramdan iki noktada bilinçli olarak ayrılır:
+> - **Kimlik token'ı** kullanılır, refresh token değil: switch-tenant kimlik oturumunu tenant'a scope eder, oturumu *yenilemez*. `userId` ve `sessionId`, auth middleware'inin doğruladığı kimlik token'ından gelir; refresh token rotasyona uğramaz.
+> - **Access token'a `role` claim'i KONMAZ** ([`AUTH_ARCHITECTURE.md` §10.3](AUTH_ARCHITECTURE.md), [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)): token bir *iddia* taşır, *yetki* değil. Rol, `TENANT_ACCESS_QUERY` tarafından çözülür ve her istekte kaynaktan yeniden doğrulanır; token'a gömmek onu bayatlatırdı. (Yukarıdaki diagram v1.9'dan kalma "role claim" ifadesi bu ilkeyle çelişir; **kod doğru, diyagram notu eskidir**.)
+
 Eşzamanlı çok-tenant oturum ([N7](#non-goals-v1de-bilinçli-olarak-yapılmıyor)) desteklenmez: iki tenant'ta aynı anda "aktif" olmak, `AsyncLocalStorage` context'inin hangi tenant'a ait olduğunu belirsizleştirir ve sızıntının en kolay yolunu açar.
 
 ### 7.5 Role modeli — bugün enum, yarın tablo

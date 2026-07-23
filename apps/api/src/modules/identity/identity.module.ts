@@ -46,10 +46,16 @@ import { EddsaTokenSigner } from './infrastructure/eddsa-token-signer.adapter';
 import { HmacVerificationCodeHasher } from './infrastructure/hmac-verification-code-hasher.adapter';
 import { IdentityOutboxEventPublisher } from './infrastructure/identity-outbox-event-publisher.adapter';
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-hasher.adapter';
+import { TokenSignerAccessTokenIssuer } from './infrastructure/token-signer-access-token-issuer';
 import { DrizzleVerificationCodeRequestRepository } from './infrastructure/drizzle-verification-code-request.repository';
 import { identityOutboxProviders } from './identity-outbox.providers';
 import { identityUseCaseProviders } from './identity-use-case.providers';
-import { IDENTITY_USER_QUERY, type IdentityUserQuery } from './identity.public';
+import {
+  IDENTITY_USER_QUERY,
+  TENANT_ACCESS_TOKEN_ISSUER,
+  type IdentityUserQuery,
+  type TenantAccessTokenIssuer,
+} from './identity.public';
 import { AuthContextMiddleware } from './presentation/auth-context.middleware';
 import { AuthController } from './presentation/auth.controller';
 
@@ -152,6 +158,14 @@ function decodePem(base64: string): string {
         transactionManager: TransactionManager,
       ): IdentityUserQuery => new IdentityUserQueryService({ userRepository, transactionManager }),
     },
+    {
+      // switch-tenant (platform/session) tenant-scoped access token'i BU dar
+      // yetenek uzerinden bastirir — ham TOKEN_SIGNER'a dokunmadan.
+      provide: TENANT_ACCESS_TOKEN_ISSUER,
+      inject: [TOKEN_SIGNER],
+      useFactory: (tokenSigner: TokenSigner): TenantAccessTokenIssuer =>
+        new TokenSignerAccessTokenIssuer(tokenSigner),
+    },
 
     // Auth middleware: token'i dogrular ve istek baglamina yazar.
     AuthContextMiddleware,
@@ -168,10 +182,10 @@ function decodePem(base64: string): string {
     // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
     ...identityOutboxProviders,
   ],
-  // Yalnizca PUBLIC yuzey disa acilir: IDENTITY_USER_QUERY (identity.public.ts)
-  // ve token dogrulamak isteyenler icin TOKEN_SIGNER. Repository'ler, adapter'lar
-  // ve use case'ler modul ICINDE kalir.
-  exports: [IDENTITY_USER_QUERY, TOKEN_SIGNER],
+  // Yalnizca PUBLIC yuzey disa acilir: IDENTITY_USER_QUERY, TENANT_ACCESS_TOKEN_ISSUER
+  // (identity.public.ts) ve token dogrulamak isteyenler icin TOKEN_SIGNER.
+  // Repository'ler, adapter'lar ve use case'ler modul ICINDE kalir.
+  exports: [IDENTITY_USER_QUERY, TENANT_ACCESS_TOKEN_ISSUER, TOKEN_SIGNER],
 })
 export class IdentityModule implements NestModule {
   /**

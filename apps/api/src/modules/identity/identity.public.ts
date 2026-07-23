@@ -40,3 +40,40 @@ export interface IdentityUserQuery {
    */
   findById(userId: string): Promise<IdentityUserSnapshot | null>;
 }
+
+// ============================================================================
+// TENANT-SCOPED ACCESS TOKEN URETIMI — switch-tenant icin (MT §7.4)
+// ============================================================================
+// switch-tenant akisi `platform/session` modulunde yasar ve ne Identity'nin ne
+// Tenant'in ICINDEDIR (ikisinin orkestrasyonudur, DAG kurar). O modul token
+// imzalamayi dogrudan yapamaz: `TOKEN_SIGNER` Identity'nin `application`
+// katmanindadir ve modul sinirini (ARCHITECTURE 6.1) gecemez.
+//
+// Bu yuzden Identity, DAR bir yetenek acar: "kanitlanmis bir oturum + verilmis
+// bir tenant" icin access token bas. Ham `TOKEN_SIGNER` acilmaz — o, kimlik
+// token'i imzalama ve dogrulama gibi Identity-ici yetenekleri de tasir; yalnizca
+// tenant-scoped basim disari verilir.
+
+/** DI token'i. */
+export const TENANT_ACCESS_TOKEN_ISSUER = Symbol('TENANT_ACCESS_TOKEN_ISSUER');
+
+/** Access token basimi girdisi — ilkel string'ler, iki id yer degistiremesin diye obje. */
+export interface IssueTenantAccessTokenInput {
+  /** DOGRULANMIS kimlik token'indan gelir (istek govdesinden DEGIL). */
+  readonly userId: string;
+  /** Kimlik oturumunun (token ailesi) kimligi — `sid`. Yeni oturum ACILMAZ. */
+  readonly sessionId: string;
+  /** Erisimi Tenant'ca ONAYLANMIS tenant. */
+  readonly tenantId: string;
+}
+
+export interface TenantAccessTokenIssuer {
+  /**
+   * Tenant-scoped access token imzalar (`tenant` claim'li, 15 dk).
+   *
+   * ERISIM KARARINI VERMEZ — yalnizca imzalar. "Bu kullanici bu tenant'a
+   * girebilir mi" karari Tenant'a aittir (`TENANT_ACCESS_QUERY`); bu yetenek
+   * ancak o karar `granted` dondugunde cagrilmalidir.
+   */
+  issue(input: IssueTenantAccessTokenInput): Promise<string>;
+}

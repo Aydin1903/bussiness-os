@@ -296,9 +296,9 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
 | Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · repository ve kripto port'ları |
 | Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → konsol adapter |
-| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · auth middleware · domain hata → RFC 7807 filtresi |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/switch-tenant` (platform/session) · auth middleware · domain hata → RFC 7807 filtresi |
 | Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` (hepsi `tenantId = null`) |
-| Testler | ~772 birim + ~154 entegrasyon |
+| Testler | ~790 birim + ~170 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -322,19 +322,20 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 
 ### Henüz yok
 
-Authorization (RBAC) · tam tenant context (`userId`/`role` — §11.2) · çözüm
-zincirinin JWT gerektiren 5 adımı · parola değiştirme/sıfırlama **kodu**
-(tasarımı hazır: ADR-0024) · tenant outbox publisher süreci · `tenant.public.ts` ·
-iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları.
+Authorization (RBAC) · full tenant context request pipeline'ı (access token'ı
+her istekte doğrulayıp `tenantId`/`role`'ü RLS'e bağlayan katman — §11.2) ·
+parola değiştirme/sıfırlama **kodu** (tasarımı hazır: ADR-0024) · tenant outbox
+publisher süreci · iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları.
 
-Sıradaki adım: **tenant seçimi (switch-tenant)** — MT §7.4'ün ikinci aşaması.
-Bugün giriş yalnızca **kimlik token'ı** üretiyor; tenant-scoped access token
-üreten adım yok, dolayısıyla `platform.memberships` doğrulaması hiçbir akışta
-devrede değil.
+Sıradaki adım: **access token'ı istek hattına bağlamak** — bugün switch-tenant
+`tenant` claim'li access token üretiyor ama hiçbir endpoint onu tüketip tenant
+context'i (RLS `SET LOCAL`) kurmuyor. Yani token üretiliyor, henüz *kullanılmıyor*.
+Bu, RBAC'ın da önkoşulu.
 
-> **switch-tenant bu iki borcu da kapatmak zorundadır:** `AUTH_ARCHITECTURE.md`
-> §11.5 (refresh'te membership + tenant kontrolleri) ve `tenant.module.ts`'teki
-> Tenant→Identity döngü riski (binding'in composition root'a taşınması).
+> **Kapanan borçlar:** switch-tenant ile `AUTH_ARCHITECTURE.md` §11.5 çözüldü
+> (membership + tenant kontrolleri refresh yerine switch-tenant'ta, her token
+> basımında) ve Tenant→Identity döngü riski `platform/session` üçüncü modülüyle
+> önlendi (ters kenar hiç yaratılmadı, `forwardRef` yok).
 
 > **Resend adapter'ından önce kapatılması gereken borç:** outbox teslimat
 > hatası bugün sonsuza kadar yeniden deneniyor — `attempt_count` + `last_error`

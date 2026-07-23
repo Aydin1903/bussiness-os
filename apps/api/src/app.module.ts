@@ -6,6 +6,7 @@ import { AppLoggerModule } from './infrastructure/logging/logger.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { HealthModule } from './platform/health/health.module';
+import { SessionModule } from './platform/session/session.module';
 
 /**
  * Uygulamanin kok modulu.
@@ -21,6 +22,8 @@ import { HealthModule } from './platform/health/health.module';
     HealthModule,
     TenantModule,
     IdentityModule,
+    // switch-tenant: Identity + Tenant orkestrasyonu (MT §7.4 asama 2).
+    SessionModule,
   ],
 })
 export class AppModule {}

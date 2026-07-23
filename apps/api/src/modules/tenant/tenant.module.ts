@@ -48,10 +48,12 @@ import { TenantController } from './presentation/tenant.controller';
  * DEGILDI; ikisi de acikca reddediyordu ve yazili silinme kosullari gerceklesti.
  */
 @Module({
-  // TEKNIK BORC (bilincli, Secenek a): Tenant -> Identity bagimliligi yalnizca
-  // ADR-0016 onkosulu (emailVerified) icindir. switch-tenant geldiginde Identity
-  // de Tenant'a bagimli olacak ve DONGU olusacak; o gun bu binding bir
-  // composition root'a (app.module) tasinmalidir.
+  // Tenant -> Identity bagimliligi yalnizca ADR-0016 onkosulu (emailVerified)
+  // icindir. switch-tenant'in ters yonde (Identity -> Tenant) bir kenar YARATIP
+  // dongu olusturma riski, o akisi Identity'ye DEGIL ucuncu bir module
+  // (`platform/session`) koyarak cozuldu: Session hem Identity hem Tenant'i
+  // PUBLIC arayuzlerinden tuketir, ikisi de digerini import etmez. Graf DAG
+  // kalir; `forwardRef` gerekmedi. Dolayisiyla bu binding YERINDE kaliyor.
   imports: [IdentityModule],
   controllers: [TenantController],
   providers: [
