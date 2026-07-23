@@ -168,6 +168,35 @@ export class EmailVerificationCode {
 
     this.#consumedAt = copyDate(now);
   }
+
+  /**
+   * Kodu, YERINE YENISI URETILDIGI icin kullanilamaz kilar (ADR-0019).
+   *
+   * "Ayni anda gecerli kod: bir tane" kurali burada uygulanir. Yeni kod
+   * uretildiginde eskisi kendiliginden kaybolmaz — `findActiveByUserId` en
+   * yenisini dondurdugu icin ERISILEMEZ olur, ama erisilemez olmak GECERSIZ
+   * olmak degildir. Kural acikca uygulanmazsa, sorgu bir gun degistiginde
+   * (ornegin siralama) eski kodlar sessizce yeniden gecerli hale gelirdi.
+   *
+   * ============================================================================
+   * `consumedAt` KOLONU PAYLASILIYOR — bilincli
+   * ============================================================================
+   * "Kullanildi" ile "yerine yenisi geldi" ayni kolonda tutulur: ikisi de
+   * "artik kullanilamaz" demektir ve bugun bu ayrimi gerektiren bir denetim
+   * ihtiyaci YOKTUR. Ihtiyac dogarsa ayri bir `superseded_at` kolonu eklenir;
+   * o gun bu metot degisir, cagiranlar degismez.
+   * ============================================================================
+   */
+  supersede(now: Date): void {
+    if (this.isConsumed) {
+      // Zaten kullanilamaz durumda; sessizce gecmek, cagiranin yanlis bir
+      // varsayimla calistigini gizlerdi.
+      throw new VerificationCodeAlreadyConsumedError();
+    }
+    assertValidDate(now);
+
+    this.#consumedAt = copyDate(now);
+  }
 }
 
 function assertAttemptCount(value: number): void {

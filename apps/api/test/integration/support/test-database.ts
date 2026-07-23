@@ -60,6 +60,6 @@ export async function truncateIdentityTables(ownerPool: Pool): Promise<void> {
   await ownerPool.query(
     'TRUNCATE platform.login_attempts, platform.refresh_tokens, platform.token_families, ' +
       'platform.email_verification_codes, platform.credentials, platform.users, ' +
-      'platform.identity_outbox CASCADE',
+      'platform.identity_outbox, platform.verification_code_requests CASCADE',
   );
 }

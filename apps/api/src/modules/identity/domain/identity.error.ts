@@ -275,6 +275,39 @@ export class InvalidLoginAttemptTimestampError extends IdentityDomainError {
   }
 }
 
+// --- Dogrulama kodu istegi defteri (ADR-0019 7.4) -------------------------
+
+export class InvalidVerificationCodeRequestIdError extends IdentityDomainError {
+  readonly code = 'VERIFICATION_CODE_REQUEST_ID_INVALID';
+
+  constructor(value: string) {
+    super(`Dogrulama kodu istegi id'si gecerli bir UUIDv7 degil: "${value}"`);
+  }
+}
+
+export class InvalidVerificationCodeRequestTimestampError extends IdentityDomainError {
+  readonly code = 'VERIFICATION_CODE_REQUEST_TIMESTAMP_INVALID';
+
+  constructor(reason: string) {
+    super(`Dogrulama kodu istegi zamani gecersiz: ${reason}`);
+  }
+}
+
+/**
+ * Kaynak (IP) basina saatlik resend siniri asildi — 429 (ADR-0019 7.4).
+ *
+ * HESAP bazli sinirlarin boyle bir hatasi YOKTUR ve olmamalidir: onlar sessizce
+ * atlanir (bkz. verification-resend-policy.ts). Bu hata yalnizca IP icindir ve
+ * hesabin varligindan bagimsiz oldugu icin hicbir sey sizdirmaz.
+ */
+export class TooManyVerificationRequestsError extends IdentityDomainError {
+  readonly code = 'TOO_MANY_VERIFICATION_REQUESTS';
+
+  constructor() {
+    super('Cok fazla dogrulama kodu istegi yapildi; lutfen daha sonra tekrar deneyin.');
+  }
+}
+
 // --- Parola politikasi (ADR-0018) ve token (ADR-0020) ----------------------
 
 /** Parola politikasinin hangi kural(lar)ini ihlal ettigi. */

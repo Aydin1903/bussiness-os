@@ -14,6 +14,7 @@ import { PasswordHash } from '../domain/password-hash.value-object';
 import { type User } from '../domain/user.entity';
 import { UserRegistered } from '../domain/user-registered.event';
 import { VerificationCodeHash } from '../domain/verification-code-hash.value-object';
+import { type VerificationCodeRequest } from '../domain/verification-code-request.entity';
 import { type CredentialRepository } from './credential.repository.port';
 import { type EmailVerificationCodeRepository } from './email-verification-code.repository.port';
 import { type PasswordHasher } from './password-hasher.port';
@@ -21,6 +22,7 @@ import { RegisterUserUseCase, type RegisterUserDependencies } from './register-u
 import { type UserRepository } from './user.repository.port';
 import { type VerificationCodeGenerator } from './verification-code-generator.port';
 import { type VerificationCodeHasher } from './verification-code-hasher.port';
+import { type VerificationCodeRequestRepository } from './verification-code-request.repository.port';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 
@@ -117,6 +119,27 @@ class FakeCodeHasher implements VerificationCodeHasher {
   }
 }
 
+class FakeRequestRepository implements VerificationCodeRequestRepository {
+  readonly saved: VerificationCodeRequest[] = [];
+
+  save(request: VerificationCodeRequest): Promise<void> {
+    this.saved.push(request);
+    return Promise.resolve();
+  }
+
+  findLastRequestedAt(): Promise<Date | null> {
+    return Promise.resolve(null);
+  }
+
+  countByEmail(): Promise<number> {
+    return Promise.resolve(0);
+  }
+
+  countByIp(): Promise<number> {
+    return Promise.resolve(0);
+  }
+}
+
 class FakeEventPublisher implements DomainEventPublisher {
   readonly published: DomainEvent[] = [];
 
@@ -173,6 +196,7 @@ interface Harness extends RegisterUserDependencies {
   readonly userRepository: FakeUserRepository;
   readonly credentialRepository: FakeCredentialRepository;
   readonly verificationCodeRepository: FakeCodeRepository;
+  readonly requestRepository: FakeRequestRepository;
   readonly passwordHasher: FakePasswordHasher;
   readonly eventPublisher: FakeEventPublisher;
   readonly transactionManager: FakeTransactionManager;
@@ -183,6 +207,7 @@ function createHarness(): Harness {
   const userRepository = new FakeUserRepository();
   const credentialRepository = new FakeCredentialRepository();
   const verificationCodeRepository = new FakeCodeRepository();
+  const requestRepository = new FakeRequestRepository();
   const passwordHasher = new FakePasswordHasher();
   const eventPublisher = new FakeEventPublisher();
   const transactionManager = new FakeTransactionManager([
@@ -196,6 +221,7 @@ function createHarness(): Harness {
     userRepository,
     credentialRepository,
     verificationCodeRepository,
+    requestRepository,
     passwordHasher,
     verificationCodeGenerator: new FakeCodeGenerator(),
     verificationCodeHasher: new FakeCodeHasher(),
@@ -210,6 +236,7 @@ function createHarness(): Harness {
     userRepository,
     credentialRepository,
     verificationCodeRepository,
+    requestRepository,
     passwordHasher,
     eventPublisher,
     transactionManager,
@@ -217,10 +244,11 @@ function createHarness(): Harness {
   };
 }
 
-function command(overrides: Partial<{ email: string; password: string }> = {}) {
+function command(overrides: Partial<{ email: string; password: string; ipAddress: string }> = {}) {
   return {
     email: 'User@Example.com',
     password: 'parola123',
+    ipAddress: '203.0.113.10',
     correlationId: CORRELATION_ID,
     ...overrides,
   };
@@ -235,7 +263,11 @@ describe('RegisterUserUseCase — yeni kullanici', () => {
     expect(harness.userRepository.saved).toHaveLength(1);
     expect(harness.credentialRepository.saved).toHaveLength(1);
     expect(harness.verificationCodeRepository.saved).toHaveLength(1);
-    expect(harness.transactionManager.opened).toBe(1);
+
+    // IKI transaction: biri defter kaydi, digeri kayit. Defter AYRI olmak
+    // zorunda — kayit dali "e-posta zaten var" diye hicbir sey yazmadan
+    // donebilir ve o durumda istek hicbir sayaca dusmezdi (ADR-0019 §7.4).
+    expect(harness.transactionManager.opened).toBe(2);
   });
 
   it('e-postayi normalize ederek saklar', async () => {
@@ -266,6 +298,17 @@ describe('RegisterUserUseCase — yeni kullanici', () => {
     );
     const event = harness.eventPublisher.published[0];
     expect(event?.payload).toMatchObject({ verificationCode: CODE });
+  });
+
+  it('kod istegini resend defterine yazar', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command());
+
+    // 60 saniyelik bekleme, kayittan hemen sonraki ilk resend'i de kapsamali.
+    expect(harness.requestRepository.saved).toHaveLength(1);
+    expect(harness.requestRepository.saved[0]?.email.value).toBe('user@example.com');
+    expect(harness.requestRepository.saved[0]?.ipAddress.value).toBe('203.0.113.10');
   });
 
   it('kodun suresini 15 dakika sonrasina ayarlar', async () => {
@@ -307,6 +350,17 @@ describe('RegisterUserUseCase — var olan e-posta (hesap varlik oracle i olmama
     expect(harness.userRepository.saved).toHaveLength(1);
     expect(harness.credentialRepository.saved).toHaveLength(1);
     expect(harness.eventPublisher.published).toHaveLength(1);
+  });
+
+  it('kod istegini YINE DE deftere yazar', async () => {
+    const harness = createHarness();
+    await seedExisting(harness);
+
+    await harness.useCase.execute(command({ password: 'baskaparola9' }));
+
+    // Var olan e-postayla yapilan istek de bir istektir; deftere dusmezse IP
+    // siniri var olan adresler uzerinden atlatilirdi (ADR-0019 §7.4).
+    expect(harness.requestRepository.saved).toHaveLength(2);
   });
 
   it('parolayi YINE DE hash ler (zamanlama oracle i olmasin)', async () => {

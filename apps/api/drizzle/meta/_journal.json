@@ -36,6 +36,13 @@
       "when": 1784680000000,
       "tag": "0004_identity_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784690000000,
+      "tag": "0005_verification_code_requests",
+      "breakpoints": true
     }
   ]
 }

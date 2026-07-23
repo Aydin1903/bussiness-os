@@ -37,6 +37,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   EMAIL_NOT_VERIFIED: HttpStatus.FORBIDDEN,
   TOO_MANY_LOGIN_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
 
+  // Resend'in KAYNAK (IP) siniri. Hesap bazli sinirlarin karsiligi burada
+  // YOKTUR ve olmamalidir: onlar sessizce atlanir, 202 doner (§7.4, P2).
+  TOO_MANY_VERIFICATION_REQUESTS: HttpStatus.TOO_MANY_REQUESTS,
+
   // Girdi dogrulama
   PASSWORD_POLICY_VIOLATION: HttpStatus.UNPROCESSABLE_ENTITY,
   EMAIL_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,

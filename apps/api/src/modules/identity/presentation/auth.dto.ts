@@ -44,6 +44,10 @@ export const registerSchema = z.object({ email, password }).strict();
 export const loginSchema = z.object({ email, password }).strict();
 export const verifyEmailSchema = z.object({ email, code: verificationCode }).strict();
 
+/** Yeniden gonderme yalnizca ADRESI ister; kimlik kaniti gerektirmez. */
+export const resendVerificationSchema = z.object({ email }).strict();
+
 export type RegisterBody = z.infer<typeof registerSchema>;
 export type LoginBody = z.infer<typeof loginSchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailSchema>;
+export type ResendVerificationBody = z.infer<typeof resendVerificationSchema>;

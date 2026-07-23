@@ -14,13 +14,16 @@ import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.p
 import { getCorrelationId } from '../../../infrastructure/logging/request-context';
 import { LoginUseCase } from '../application/login.use-case';
 import { RegisterUserUseCase } from '../application/register-user.use-case';
+import { ResendVerificationUseCase } from '../application/resend-verification.use-case';
 import { VerifyEmailUseCase } from '../application/verify-email.use-case';
 import {
   loginSchema,
   registerSchema,
+  resendVerificationSchema,
   verifyEmailSchema,
   type LoginBody,
   type RegisterBody,
+  type ResendVerificationBody,
   type VerifyEmailBody,
 } from './auth.dto';
 import { IdentityDomainExceptionFilter } from './identity-domain-exception.filter';
@@ -56,10 +59,15 @@ const VERIFY_EMAIL_REJECTION = 'Dogrulama kodu gecersiz veya suresi dolmus. Yeni
 @Controller({ path: 'auth', version: '1' })
 @UseFilters(IdentityDomainExceptionFilter)
 export class AuthController {
+  // NestJS controller'i bagimliliklarini constructor'dan alir; use case sayisi
+  // uc noktalarla birlikte artar (DEVELOPMENT_RULES 2.5 siniri is nesneleri
+  // icindir, DI icin degil).
+  // eslint-disable-next-line max-params
   constructor(
     private readonly registerUser: RegisterUserUseCase,
     private readonly login: LoginUseCase,
     private readonly verifyEmail: VerifyEmailUseCase,
+    private readonly resendVerification: ResendVerificationUseCase,
   ) {}
 
   /**
@@ -87,10 +95,14 @@ export class AuthController {
   })
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterBody,
+    // Kayit da bir kod istegidir ve resend defterine yazilir (ADR-0019 §7.4);
+    // IP govdeden DEGIL baglantidan alinir.
+    @Ip() ipAddress: string,
   ): Promise<RegisterResponse> {
     await this.registerUser.execute({
       email: body.email,
       password: body.password,
+      ipAddress,
       correlationId: getCorrelationId() ?? 'unknown',
     });
 
@@ -177,5 +189,47 @@ export class AuthController {
     }
 
     return { message: VERIFY_EMAIL_MESSAGE };
+  }
+
+  /**
+   * Dogrulama kodunu yeniden gonderir (§7.4).
+   *
+   * ============================================================================
+   * HESAP SINIRLARI SESSIZ, YALNIZCA IP SINIRI 429
+   * ============================================================================
+   * 60 saniyelik bekleme ve saatlik hesap siniri asildiginda kod URETILMEZ ama
+   * yanit yine `202`'dir. Bunlara 429 donmek "bu hesap kayitli, sadece cok sik
+   * istedin" demek olurdu — var olmayan bir e-posta hesap sinirina hicbir zaman
+   * takilmaz, dolayisiyla 429 hesabin VARLIGINI dogrulardi (P2).
+   *
+   * IP siniri hesaptan bagimsizdir: hangi adres yazilirsa yazilsin ayni sonucu
+   * verir ve 429 hicbir sey sizdirmaz.
+   * ============================================================================
+   */
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Dogrulama kodunu yeniden gonderir',
+    description:
+      'Yanit, e-posta kayitli olsa da olmasa da AYNIDIR. Bekleme suresi ve saatlik ' +
+      'hesap siniri asildiginda da 202 doner; yalnizca IP siniri 429 uretir. ' +
+      'Yeni kod uretildiginde onceki kod GECERSIZLESIR.',
+  })
+  @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Istek alindi.' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Cok fazla istek (IP).' })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  async resendCode(
+    @Body(new ZodValidationPipe(resendVerificationSchema)) body: ResendVerificationBody,
+    @Ip() ipAddress: string,
+  ): Promise<RegisterResponse> {
+    await this.resendVerification.execute({
+      email: body.email,
+      ipAddress,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    // Kayit ile AYNI metin: iki uc noktanin yanitlari da hesabin varligindan
+    // bagimsiz ve birbirinden ayirt edilemez olmalidir.
+    return { message: REGISTER_MESSAGE };
   }
 }

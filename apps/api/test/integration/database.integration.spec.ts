@@ -71,6 +71,7 @@ describe('veritabani migration hatti', () => {
       'tenants',
       'token_families',
       'users',
+      'verification_code_requests',
     ]);
   });
 
@@ -107,6 +108,7 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      '0005_verification_code_requests.down.sql',
       '0004_identity_outbox.down.sql',
       '0003_identity_tables.down.sql',
       '0002_outbox.down.sql',
@@ -157,6 +159,7 @@ describe('veritabani migration hatti', () => {
       'tenants',
       'token_families',
       'users',
+      'verification_code_requests',
     ]);
   });
 });

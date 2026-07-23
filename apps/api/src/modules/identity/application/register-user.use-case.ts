@@ -10,17 +10,21 @@ import {
   VERIFICATION_CODE_TTL_MINUTES,
 } from '../domain/email-verification-code.entity';
 import { EmailVerificationCodeId } from '../domain/email-verification-code-id.value-object';
+import { IpAddress } from '../domain/ip-address.value-object';
 import { type PasswordHash } from '../domain/password-hash.value-object';
 import { assertPasswordPolicy } from '../domain/password-policy';
 import { User } from '../domain/user.entity';
 import { type VerificationCodeHash } from '../domain/verification-code-hash.value-object';
 import { UserRegistered } from '../domain/user-registered.event';
+import { VerificationCodeRequest } from '../domain/verification-code-request.entity';
+import { VerificationCodeRequestId } from '../domain/verification-code-request-id.value-object';
 import { type CredentialRepository } from './credential.repository.port';
 import { type EmailVerificationCodeRepository } from './email-verification-code.repository.port';
 import { type PasswordHasher } from './password-hasher.port';
 import { type UserRepository } from './user.repository.port';
 import { type VerificationCodeGenerator } from './verification-code-generator.port';
 import { type VerificationCodeHasher } from './verification-code-hasher.port';
+import { type VerificationCodeRequestRepository } from './verification-code-request.repository.port';
 
 const MINUTE_MS = 60_000;
 
@@ -50,6 +54,15 @@ const MINUTE_MS = 60_000;
 export interface RegisterUserCommand {
   readonly email: string;
   readonly password: string;
+  /**
+   * Baglantidan alinir, govdeden DEGIL.
+   *
+   * Kayit da bir KOD ISTEGIDIR ve resend defterine yazilir (ADR-0019 §7.4):
+   * 60 saniyelik bekleme, kayittan HEMEN sonraki ilk resend'i de kapsamak
+   * zorundadir — kuralin varlik sebebi ("gelmedi" diye ust uste basmak) tam
+   * olarak o senaryodur.
+   */
+  readonly ipAddress: string;
   /** HTTP sinirindan gelir; event ve loglar uzerinden uctan uca izleme saglar. */
   readonly correlationId: string;
 }
@@ -59,6 +72,7 @@ export interface RegisterUserDependencies {
   readonly userRepository: UserRepository;
   readonly credentialRepository: CredentialRepository;
   readonly verificationCodeRepository: EmailVerificationCodeRepository;
+  readonly requestRepository: VerificationCodeRequestRepository;
   readonly passwordHasher: PasswordHasher;
   readonly verificationCodeGenerator: VerificationCodeGenerator;
   readonly verificationCodeHasher: VerificationCodeHasher;
@@ -90,7 +104,12 @@ export class RegisterUserUseCase {
       correlationId: command.correlationId,
     });
 
-    // 3. Identity akislari tenant context'siz calisir (12.4.3).
+    // 3. Kod istegi deftere yazilir — kullanici olusturulsun ya da olusturulmasin.
+    //    Var olan e-postayla yapilan kayit denemesi de bir istektir ve IP
+    //    sinirina dusmelidir (ADR-0019 §7.4).
+    await this.#recordRequest(email, command.ipAddress, registration.now);
+
+    // 4. Identity akislari tenant context'siz calisir (12.4.3).
     await this.deps.transactionManager.runInTransaction(async () => {
       if ((await this.deps.userRepository.findByEmail(email)) !== null) {
         // Sessizce vazgec: yeni kullanici OLUSTURULMAZ, ama cagiran taraf
@@ -116,6 +135,7 @@ export class RegisterUserUseCase {
     readonly codeHash: VerificationCodeHash;
     readonly correlationId: string;
   }): {
+    now: Date;
     user: User;
     credential: Credential;
     code: EmailVerificationCode;
@@ -125,6 +145,8 @@ export class RegisterUserUseCase {
     const userId = UserId.create(this.deps.idGenerator.nextId());
 
     return {
+      // Defter kaydi ile kullanici/kod ayni ani tasir; saat iki kez okunmaz.
+      now,
       user: User.register({ id: userId, email: input.email, createdAt: now }),
       credential: Credential.create({
         userId,
@@ -152,6 +174,26 @@ export class RegisterUserUseCase {
       occurredAt: input.now,
       correlationId: input.correlationId,
     });
+  }
+
+  /**
+   * Kod istegini KENDI transaction'inda deftere yazar.
+   *
+   * Kayit transaction'i, e-posta zaten kayitliysa hicbir sey yazmadan doner;
+   * defter satiri ona baglansaydi o dalda hic yazilmaz ve var olan adreslere
+   * yapilan istekler IP sinirina hic dusmezdi.
+   */
+  async #recordRequest(email: Email, ipAddress: string, now: Date): Promise<void> {
+    const request = VerificationCodeRequest.record({
+      id: VerificationCodeRequestId.create(this.deps.idGenerator.nextId()),
+      email,
+      ipAddress: IpAddress.create(ipAddress),
+      requestedAt: now,
+    });
+
+    await this.deps.transactionManager.runInTransaction(() =>
+      this.deps.requestRepository.save(request),
+    );
   }
 
   #issueCode(userId: UserId, codeHash: VerificationCodeHash, now: Date): EmailVerificationCode {
