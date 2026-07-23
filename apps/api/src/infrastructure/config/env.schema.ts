@@ -59,6 +59,36 @@ export const envSchema = z.object({
    * Gelistirmede acikca .env icinde acilir.
    */
   SWAGGER_ENABLED: booleanFromEnv.default(false),
+
+  // --- Identity: JWT imzalama (ADR-0020) ------------------------------------
+  //
+  // VARSAYILAN YOKTUR ve olamaz: ozel anahtar bir SIRDIR: varsayilani olan bir
+  // sir, o degiskeni unutan HER ortamda ayni (ve herkesce bilinen) sirdir.
+  // Eksikse surec BASLAMAZ — fail closed.
+
+  JWT_ISSUER: z.string().min(1),
+  JWT_AUDIENCE: z.string().min(1),
+
+  /** Aktif imzalama anahtarinin kid'i; JWT basliginda tasinir (rotasyon icin). */
+  JWT_SIGNING_KID: z.string().min(1),
+
+  /**
+   * base64(PKCS#8 PEM) — Ed25519 OZEL anahtari. Yalnizca Identity tutar.
+   *
+   * base64: PEM cok satirlidir ve `.env` dosyalarinda satir sonlari guvenilir
+   * tasinmaz. Tek satirlik base64 bu sorunu ortadan kaldirir.
+   */
+  JWT_PRIVATE_KEY: z.string().min(1),
+
+  /** base64(SPKI PEM) — imzalayan anahtarin acik esi; dogrulama icin. */
+  JWT_PUBLIC_KEY: z.string().min(1),
+
+  // --- Identity: dogrulama kodu pepper'i (ADR-0019) -------------------------
+  //
+  // Veritabaninda OLMAYAN sunucu sirri: sizan bir veritabani tek basina kodlari
+  // dogrulamaya yetmez. AUTH_ARCHITECTURE Ek A/U3: Faz 3'te `.env`, kalici
+  // cozum secret manager (Faz 7).
+  VERIFICATION_CODE_PEPPER: z.string().min(16),
 });
 
 export type Env = z.infer<typeof envSchema>;

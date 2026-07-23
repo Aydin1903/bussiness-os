@@ -5,6 +5,15 @@ import { createAppConfig } from './app.config';
 const validEnv = {
   NODE_ENV: 'development',
   DATABASE_URL: 'postgresql://businessos_app:secret@localhost:5432/business_os',
+
+  // Identity sirlari — VARSAYILANI YOKTUR (ADR-0019, ADR-0020), bu yuzden
+  // gecerli her fixture'da bulunmak zorundadir. Degerler test icindir.
+  JWT_ISSUER: 'https://api.businessos.test',
+  JWT_AUDIENCE: 'businessos-api',
+  JWT_SIGNING_KID: 'test-1',
+  JWT_PRIVATE_KEY: 'dGVzdC1wcml2YXRlLWtleQ==',
+  JWT_PUBLIC_KEY: 'dGVzdC1wdWJsaWMta2V5',
+  VERIFICATION_CODE_PEPPER: 'test-pepper-at-least-16',
 } as const;
 
 describe('createAppConfig', () => {
@@ -31,6 +40,28 @@ describe('createAppConfig', () => {
     expect(() =>
       createAppConfig({ ...validEnv, DATABASE_URL: 'mysql://localhost:3306/db' }),
     ).toThrow(/postgres/);
+  });
+
+  it('JWT ozel anahtari eksikse uygulamayi baslatmaz', () => {
+    // Sirlarin VARSAYILANI YOKTUR: varsayilani olan bir sir, o degiskeni unutan
+    // her ortamda ayni (ve herkesce bilinen) sirdir (ADR-0020).
+    const { JWT_PRIVATE_KEY: _omitted, ...withoutKey } = validEnv;
+
+    expect(() => createAppConfig(withoutKey)).toThrow(/JWT_PRIVATE_KEY/);
+  });
+
+  it('cok kisa dogrulama kodu pepper ini reddeder', () => {
+    expect(() =>
+      createAppConfig({ ...validEnv, VERIFICATION_CODE_PEPPER: 'kisa' }),
+    ).toThrow(/VERIFICATION_CODE_PEPPER/);
+  });
+
+  it('Identity sirlarini yapilandirmaya tasir', () => {
+    const config = createAppConfig({ ...validEnv });
+
+    expect(config.auth.jwt.signingKid).toBe('test-1');
+    expect(config.auth.jwt.issuer).toBe('https://api.businessos.test');
+    expect(config.auth.verificationCodePepper).toBe('test-pepper-at-least-16');
   });
 
   it('gecersiz NODE_ENV degerini reddeder', () => {

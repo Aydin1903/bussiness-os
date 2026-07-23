@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
+import { setIdentityTestEnv } from './support/identity-env';
 import { startTestDatabase, type TestDatabase } from './support/test-database';
 
 /**
@@ -54,6 +55,9 @@ describe('POST /api/v1/tenants (uctan uca)', () => {
     // kurar. Container'in baglanti dizesi env uzerinden verilir.
     database = await startTestDatabase();
     process.env.DATABASE_URL = database.container.getConnectionUri();
+
+    // Env semasi Identity sirlarini ZORUNLU kilar; eksikse uygulama hic acilmaz.
+    await setIdentityTestEnv();
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 

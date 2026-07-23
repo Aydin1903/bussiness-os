@@ -33,6 +33,23 @@ export interface AppConfig {
   readonly swagger: {
     readonly enabled: boolean;
   };
+
+  /**
+   * Identity sirlari (ADR-0019, ADR-0020).
+   *
+   * Anahtarlar base64(PEM) olarak tasinir ve KULLANILDIGI yerde (IdentityModule
+   * factory'si) `jose` ile CryptoKey'e cevrilir — config saf veri kalir.
+   */
+  readonly auth: {
+    readonly jwt: {
+      readonly issuer: string;
+      readonly audience: string;
+      readonly signingKid: string;
+      readonly privateKeyBase64: string;
+      readonly publicKeyBase64: string;
+    };
+    readonly verificationCodePepper: string;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -72,6 +89,21 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     swagger: {
       enabled: env.SWAGGER_ENABLED,
     },
+    auth: toAuthConfig(env),
+  };
+}
+
+/** Identity sirlarini yapilandirmaya tasir. Deger DONUSTURMEZ; yalnizca eslestirir. */
+function toAuthConfig(env: Env): AppConfig['auth'] {
+  return {
+    jwt: {
+      issuer: env.JWT_ISSUER,
+      audience: env.JWT_AUDIENCE,
+      signingKid: env.JWT_SIGNING_KID,
+      privateKeyBase64: env.JWT_PRIVATE_KEY,
+      publicKeyBase64: env.JWT_PUBLIC_KEY,
+    },
+    verificationCodePepper: env.VERIFICATION_CODE_PEPPER,
   };
 }
 
