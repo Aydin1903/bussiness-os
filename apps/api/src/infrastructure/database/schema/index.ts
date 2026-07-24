@@ -24,4 +24,5 @@ export { tokenFamilies } from './token-families.schema';
 export { refreshTokens } from './refresh-tokens.schema';
 export { loginAttempts } from './login-attempts.schema';
 export { verificationCodeRequests } from './verification-code-requests.schema';
+export { passwordResetCodes } from './password-reset-codes.schema';
 export { identityOutbox } from './identity-outbox.schema';

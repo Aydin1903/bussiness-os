@@ -15,6 +15,7 @@ import { ID_GENERATOR } from '../../shared/id-generator.port';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
 import { CREDENTIAL_REPOSITORY } from './application/credential.repository.port';
 import { EMAIL_VERIFICATION_CODE_REPOSITORY } from './application/email-verification-code.repository.port';
+import { PASSWORD_RESET_CODE_REPOSITORY } from './application/password-reset-code.repository.port';
 import { IDENTITY_EVENT_PUBLISHER } from './application/identity-event-publisher.port';
 import { IDENTITY_OUTBOX_REPOSITORY } from './application/identity-outbox.repository.port';
 import { IdentityUserQueryService } from './application/identity-user.query';
@@ -37,6 +38,7 @@ import { CryptoRefreshTokenGenerator } from './infrastructure/crypto-refresh-tok
 import { CryptoVerificationCodeGenerator } from './infrastructure/crypto-verification-code-generator.adapter';
 import { DrizzleCredentialRepository } from './infrastructure/drizzle-credential.repository';
 import { DrizzleEmailVerificationCodeRepository } from './infrastructure/drizzle-email-verification-code.repository';
+import { DrizzlePasswordResetCodeRepository } from './infrastructure/drizzle-password-reset-code.repository';
 import { DrizzleIdentityOutboxRepository } from './infrastructure/drizzle-identity-outbox.repository';
 import { DrizzleLoginAttemptRepository } from './infrastructure/drizzle-login-attempt.repository';
 import { DrizzleRefreshTokenRepository } from './infrastructure/drizzle-refresh-token.repository';
@@ -49,6 +51,7 @@ import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-
 import { TokenSignerAccessTokenIssuer } from './infrastructure/token-signer-access-token-issuer';
 import { DrizzleVerificationCodeRequestRepository } from './infrastructure/drizzle-verification-code-request.repository';
 import { identityOutboxProviders } from './identity-outbox.providers';
+import { identityPasswordResetProviders } from './identity-password-reset.providers';
 import { identityUseCaseProviders } from './identity-use-case.providers';
 import {
   IDENTITY_USER_QUERY,
@@ -94,6 +97,7 @@ function decodePem(base64: string): string {
     { provide: USER_REPOSITORY, useClass: DrizzleUserRepository },
     { provide: CREDENTIAL_REPOSITORY, useClass: DrizzleCredentialRepository },
     { provide: EMAIL_VERIFICATION_CODE_REPOSITORY, useClass: DrizzleEmailVerificationCodeRepository },
+    { provide: PASSWORD_RESET_CODE_REPOSITORY, useClass: DrizzlePasswordResetCodeRepository },
     { provide: TOKEN_FAMILY_REPOSITORY, useClass: DrizzleTokenFamilyRepository },
     { provide: REFRESH_TOKEN_REPOSITORY, useClass: DrizzleRefreshTokenRepository },
     { provide: LOGIN_ATTEMPT_REPOSITORY, useClass: DrizzleLoginAttemptRepository },
@@ -178,6 +182,9 @@ function decodePem(base64: string): string {
     // Ayri dosyada: bu dosya port -> adapter eslemelerini ve modulun
     // topolojisini tutar, orasi use case'lerin bagimlilik kurulumunu.
     ...identityUseCaseProviders,
+
+    // --- Parola sifirlama use case'leri (ADR-0024) --------------------------
+    ...identityPasswordResetProviders,
 
     // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
     ...identityOutboxProviders,

@@ -294,11 +294,11 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 | Katman | Ne var |
 |---|---|
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
-| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · `ListMembershipsUseCase` · repository ve kripto port'ları |
+| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · `RequestPasswordResetUseCase` · `ResetPasswordUseCase` · `ListMembershipsUseCase` · repository ve kripto port'ları |
 | Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → **konsol + Resend adapter** (retry/backoff/dead-letter) · **tenant context middleware + fail-closed `runInCurrentTenantTransaction`** (MT §11.3) |
-| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/switch-tenant` (platform/session) · **`GET /api/v1/memberships`** (RBAC korumali) · auth middleware · **permission guard (platform/authz)** · domain hata → RFC 7807 filtresi |
-| Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` (hepsi `tenantId = null`) |
-| Testler | ~860 birim + ~200 entegrasyon |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/forgot-password` · `/reset-password` · `/switch-tenant` (platform/session) · **`GET /api/v1/memberships`** (RBAC korumali) · auth middleware · **permission guard (platform/authz)** · domain hata → RFC 7807 filtresi |
+| Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` · `PasswordResetRequested` · `UserPasswordChanged` (hepsi `tenantId = null`) |
+| Testler | ~925 birim + ~210 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -325,10 +325,12 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 Authorization (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine + guard, ilk
 korumalı endpoint `member:read`; kalan: tenant-configurable roller, ABAC, izin
 cache) ·
-parola değiştirme/sıfırlama **kodu** (tasarımı hazır: ADR-0024) · tenant outbox
-publisher süreci · iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları ·
-**MT §8.2 adım 3** (host ipucu ↔ claim çapraz kontrolü — subdomain altyapısı
-kurulunca).
+parola **değiştirme** akışı (giriş yapmış kullanıcı, eski parola ile —
+`POST /auth/change-password`; sıfırlama tamamlandı, değiştirme ayrı ve kısa bir
+sonraki iş) · tenant outbox publisher süreci · iş modülleri · AI katmanı ·
+Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
+çapraz kontrolü — subdomain altyapısı kurulunca) · **login_attempts +
+verification_code_requests retention** (sınırsız büyüme; ikisi birlikte).
 
 Sıradaki adım: **iş modülü** — RBAC + tenant context + RLS artık uçtan uca
 çalışan bir zincir; ilk gerçek iş kaynağı (CRM/müşteri hafızası, ARCHITECTURE

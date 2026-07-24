@@ -1,14 +1,18 @@
 import { type Clock } from '../../../shared/clock.port';
 import { EmailDeliveryError, type EmailPort } from '../../../shared/email.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
+import { PasswordResetRequested } from '../domain/password-reset-requested.event';
 import { UserEmailVerified } from '../domain/user-email-verified.event';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
+import { UserPasswordChanged } from '../domain/user-password-changed.event';
 import { UserRegistered } from '../domain/user-registered.event';
 import {
   type IdentityOutboxRecord,
   type IdentityOutboxRepository,
   type OutboxDeliveryFailure,
 } from './identity-outbox.repository.port';
+import { buildPasswordChangedNotification } from './password-changed-email.builder';
+import { buildPasswordResetEmail } from './password-reset-email.builder';
 import { decideDeliveryRetry } from './outbox-retry.policy';
 import { buildVerificationEmail } from './verification-email.builder';
 
@@ -227,6 +231,17 @@ export class PublishIdentityEventsUseCase {
   async #deliver(record: IdentityOutboxRecord): Promise<'delivered' | 'no-op' | 'unhandled'> {
     if (record.eventType === UserRegistered.TYPE) {
       await this.deps.emailPort.send(buildVerificationEmail(record.payload));
+      return 'delivered';
+    }
+
+    if (record.eventType === PasswordResetRequested.TYPE) {
+      await this.deps.emailPort.send(buildPasswordResetEmail(record.payload));
+      return 'delivered';
+    }
+
+    if (record.eventType === UserPasswordChanged.TYPE) {
+      // Bilgilendirme e-postasi ("parolan degistirildi").
+      await this.deps.emailPort.send(buildPasswordChangedNotification(record.payload));
       return 'delivered';
     }
 

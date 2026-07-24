@@ -306,11 +306,17 @@ describe('identity repository adapter (gercek PostgreSQL)', () => {
   // --- Migration geri alinabilirligi -------------------------------------
 
   it('0003 migration geri alinabilir (down sonra up)', async () => {
+    // 0007 (password_reset_codes) `users`'a FK ile baglidir ve 0003.down bilincli
+    // olarak CASCADE REDDEDER. Gercek rollback sirasi TERSTIR: once ona bagimli
+    // sonraki migration'lar geri alinir. 0007'yi once dusur, sonda geri kur.
+    await runSqlFile('0007_password_reset_codes.down.sql');
+
     await runSqlFile('0003_identity_tables.down.sql');
     expect(await tableExists('users')).toBe(false);
     expect(await tableExists('refresh_tokens')).toBe(false);
 
     await runSqlFile('0003_identity_tables.sql');
+    await runSqlFile('0007_password_reset_codes.sql');
     expect(await tableExists('users')).toBe(true);
 
     // Geri gelen tablo islevsel: kayit yine yazilabiliyor.

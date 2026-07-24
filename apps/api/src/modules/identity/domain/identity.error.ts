@@ -153,6 +153,20 @@ export class InconsistentVerificationCodeStateError extends IdentityDomainError 
   }
 }
 
+// --- Parola sifirlama kodu (ADR-0024) --------------------------------------
+//
+// Kod MEKANIGI (sona erme, tuketim, tukenme, tutarlilik) yukaridaki dogrulama
+// kodu hatalariyla AYNIDIR ve yeniden kullanilir — reset entity onlari firlatir.
+// Yalnizca kimlik tipi farklidir, o yuzden tek yeni hata:
+
+export class InvalidPasswordResetCodeIdError extends IdentityDomainError {
+  readonly code = 'PASSWORD_RESET_CODE_ID_INVALID';
+
+  constructor(value: string) {
+    super(`Parola sifirlama kodu id'si gecerli bir UUIDv7 degil: "${value}"`);
+  }
+}
+
 // --- Refresh token ve token family (ADR-0021) ------------------------------
 
 export class InvalidTokenFamilyIdError extends IdentityDomainError {

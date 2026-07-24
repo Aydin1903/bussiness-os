@@ -493,6 +493,22 @@ Aynı kod deseni yeniden kullanılır ([ADR-0024](../adr/0024-password-reset.md)
 
 > **`Ç2` ile aynı gizlilik kuralı:** sıfırlama talebi yanıtı, e-posta kayıtlı olsun olmasın **aynıdır**. Aksi halde uç nokta bir hesap varlık oracle'ına döner ([P2](#p2--yanıtlar-hesabın-varlığını-sızdırmaz)).
 
+> **Uygulandı (2026-07-24, migration `0007`).** `POST /auth/forgot-password`
+> (kod ister, daima `202`) ve `POST /auth/reset-password` (kod + yeni parola,
+> `200`/`400`). `PasswordResetCode` ayrı tablodadır (`EmailVerificationCode`'un
+> daha sıkı ikizi). Başarıda tüm refresh aileleri iptal edilir + `UserPasswordChanged`
+> ile bilgilendirme e-postası gönderilir. Reset **sonuç döndürür, throw etmez**
+> (atomik sayaç korunur, VerifyEmail ile aynı ders).
+>
+> **Oran sınırı — Seçenek A (bilinçli):** forgot-password, doğrulama akışının
+> `verification_code_requests` defterini **paylaşır** (cooldown 120 sn). "Bu adrese
+> ne sıklıkta kod e-postası" sayacı ortaktır — bir saldırgan doğrulama/sıfırlama
+> arasında geçiş yapıp hızı ikiye katlayamaz. Bilinen yan etki: kayıttan hemen
+> sonra (120 sn içinde) sıfırlama isteği sessizce beklemeye takılır.
+>
+> **Kapsam dışı:** giriş yapmış kullanıcının **parola değiştirme** akışı
+> (`change-password`, eski parola ile) — ayrı ve kısa bir sonraki iş.
+
 ### 7.7 E-posta gönderimi — `EmailPort`
 
 Bu dokümandaki üç akış (doğrulama, sıfırlama, güvenlik bildirimleri) e-posta gönderimine bağımlıdır. Gönderim **sağlayıcıdan bağımsız** bir port arkasındadır — `LLMPort`, `StoragePort` ve `CachePort` ile aynı desen (`ARCHITECTURE.md` §9.3).
@@ -1125,3 +1141,4 @@ Numaralar `0016`'ya kadar dolu olduğu için `0017`'den devam eder. **Sekizi de 
 | 1.2 | 2026-07-23 | Refresh token rotation + yeniden kullanım tespiti kod olarak yazıldı (ADR-0021); ailenin **90 günlük mutlak ömrü** eklendi. Sunucu tarafı çıkış (`/logout`, `/logout-all`, ADR-0023). **[§11.5](#115-114-kontrollerinin-yeri--refresh-değil-switch-tenant) borçtan çözüme:** §11.4 membership/tenant kontrolleri refresh'e değil **switch-tenant'a** yerleşti; refresh `identityToken` döndürür. |
 | 1.3 | 2026-07-24 | **[§16.1](#161-teslimat-hatası-yeniden-deneme-backoff-ve-dead-letter) borcu kapatıldı:** outbox teslimatına `attempt_count` + `last_error` + üstel backoff + dead-letter eklendi (migration `0006`) ve **Resend adapter'ı** canlıya bağlandı. Kalıcı/geçici hata ayrımı `EmailPort`'a taşındı. |
 | 1.4 | 2026-07-24 | **E-posta tasarımı bilinçli olarak ertelendi** ([§7.7](#77-e-posta-gönderimi--emailport)): şablonlar düz metin/minimal, marka kimliği belirlenince yalnızca `htmlBody` değişir — mimari sabit. switch-tenant + tenant-context + RBAC (ADR-0025) uçtan uca çalışır; Faz 3 kapanış denetimi geçildi. |
+| 1.5 | 2026-07-24 | **Parola sıfırlama kod olarak yazıldı** ([§7.6](#76-parola-sıfırlama), ADR-0024, migration `0007`): `forgot-password`/`reset-password`, 10 dk / 3 deneme / 120 sn, başarıda tüm oturumlar düşer + bildirim e-postası. Oran-sınırı defteri doğrulama akışıyla paylaşılır (Seçenek A). `change-password` kapsam dışı. |

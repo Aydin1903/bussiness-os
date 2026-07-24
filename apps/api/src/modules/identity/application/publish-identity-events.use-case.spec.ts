@@ -230,6 +230,48 @@ describe('PublishIdentityEventsUseCase — is gerektirmeyen event ler', () => {
     },
   );
 
+  it('password_reset.requested icin sifirlama e-postasi gonderir', async () => {
+    const harness = createHarness();
+    harness.outboxRepository.pending = [
+      {
+        id: 'e-1',
+        eventType: 'password_reset.requested',
+        eventVersion: 1,
+        payload: { userId: 'u-1', email: 'user@example.com', resetCode: '654321' },
+        correlationId: 'c-1',
+        occurredAt: NOW,
+        attemptCount: 0,
+      },
+    ];
+
+    const result = await harness.useCase.execute();
+
+    expect(harness.emailPort.sent[0]?.to).toBe('user@example.com');
+    expect(harness.emailPort.sent[0]?.textBody).toContain('654321');
+    expect(result).toMatchObject({ delivered: 1, acknowledged: 1 });
+  });
+
+  it('user.password_changed icin BILGILENDIRME e-postasi gonderir (kod yok)', async () => {
+    const harness = createHarness();
+    harness.outboxRepository.pending = [
+      {
+        id: 'e-1',
+        eventType: 'user.password_changed',
+        eventVersion: 1,
+        payload: { userId: 'u-1', email: 'user@example.com' },
+        correlationId: 'c-1',
+        occurredAt: NOW,
+        attemptCount: 0,
+      },
+    ];
+
+    const result = await harness.useCase.execute();
+
+    expect(harness.emailPort.sent[0]?.to).toBe('user@example.com');
+    expect(harness.emailPort.sent[0]?.textBody).not.toMatch(/\d{6}/);
+    expect(result).toMatchObject({ delivered: 1 });
+  });
+
   it('BILINMEYEN event tipini isaretlemez ve gorunur birakir', async () => {
     const harness = createHarness();
     harness.outboxRepository.pending = [record('e-1', 'user.something_new')];

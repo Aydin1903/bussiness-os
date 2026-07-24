@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { loginSchema, registerSchema, verifyEmailSchema } from './auth.dto';
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+} from './auth.dto';
 
 describe('registerSchema', () => {
   it('gecerli govdeyi kabul eder', () => {
@@ -112,6 +118,53 @@ describe('verifyEmailSchema', () => {
         email: 'user@example.com',
         code: '123456',
         emailVerified: true,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('forgotPasswordSchema', () => {
+  it('yalnizca e-posta kabul eder', () => {
+    expect(forgotPasswordSchema.parse({ email: 'user@example.com' })).toEqual({
+      email: 'user@example.com',
+    });
+  });
+
+  it('kimlik/parola alani KABUL ETMEZ (strict)', () => {
+    expect(() =>
+      forgotPasswordSchema.parse({ email: 'user@example.com', password: 'parola123' }),
+    ).toThrow();
+  });
+});
+
+describe('resetPasswordSchema', () => {
+  it('gecerli govdeyi kabul eder', () => {
+    expect(
+      resetPasswordSchema.parse({ email: 'user@example.com', code: '123456', password: 'parola123' }),
+    ).toEqual({ email: 'user@example.com', code: '123456', password: 'parola123' });
+  });
+
+  it('6 haneli olmayan kodu reddeder', () => {
+    expect(() =>
+      resetPasswordSchema.parse({ email: 'user@example.com', code: 'abc', password: 'parola123' }),
+    ).toThrow();
+  });
+
+  it('parola politikasini BURADA yakalamaz (o domain in isi)', () => {
+    // 'kisa1' politikaya aykiridir ama Zod gecirir; tek dogruluk kaynagi
+    // password-policy.ts'tir ve 422'yi o uretir.
+    expect(() =>
+      resetPasswordSchema.parse({ email: 'user@example.com', code: '123456', password: 'kisa1' }),
+    ).not.toThrow();
+  });
+
+  it('tanimsiz alani reddeder (strict)', () => {
+    expect(() =>
+      resetPasswordSchema.parse({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'parola123',
+        userId: '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c',
       }),
     ).toThrow();
   });

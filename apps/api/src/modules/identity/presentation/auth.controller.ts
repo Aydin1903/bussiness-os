@@ -18,20 +18,26 @@ import { LoginUseCase } from '../application/login.use-case';
 import { LogoutUseCase } from '../application/logout.use-case';
 import { RefreshSessionUseCase } from '../application/refresh-session.use-case';
 import { RegisterUserUseCase } from '../application/register-user.use-case';
+import { RequestPasswordResetUseCase } from '../application/request-password-reset.use-case';
 import { ResendVerificationUseCase } from '../application/resend-verification.use-case';
+import { ResetPasswordUseCase } from '../application/reset-password.use-case';
 import { VerifyEmailUseCase } from '../application/verify-email.use-case';
 import {
+  forgotPasswordSchema,
   loginSchema,
   logoutSchema,
   refreshSchema,
   registerSchema,
   resendVerificationSchema,
+  resetPasswordSchema,
   verifyEmailSchema,
+  type ForgotPasswordBody,
   type LoginBody,
   type LogoutBody,
   type RefreshBody,
   type RegisterBody,
   type ResendVerificationBody,
+  type ResetPasswordBody,
   type VerifyEmailBody,
 } from './auth.dto';
 import { IdentityDomainExceptionFilter } from './identity-domain-exception.filter';
@@ -54,6 +60,14 @@ interface VerifyEmailResponse {
 const REGISTER_MESSAGE = 'Dogrulama kodu gonderildi.';
 
 const VERIFY_EMAIL_MESSAGE = 'E-posta adresi dogrulandi.';
+
+/** Sifirlama TALEBI yaniti — hesap varligindan bagimsiz, DAIMA ayni (P2). */
+const FORGOT_PASSWORD_MESSAGE = 'Parola sifirlama kodu gonderildi.';
+
+const RESET_PASSWORD_MESSAGE = 'Parola sifirlandi.';
+
+/** Sifirlama TAMAMLAMA reddi — tek metin (P2: hangi sebep sizmaz). */
+const RESET_PASSWORD_REJECTION = 'Sifirlama kodu gecersiz veya suresi dolmus. Yeni bir kod isteyin.';
 
 /**
  * TEK ret metni — hicbir red sebebi digerinden ayirt edilemez.
@@ -78,6 +92,8 @@ export class AuthController {
     private readonly resendVerification: ResendVerificationUseCase,
     private readonly refreshSession: RefreshSessionUseCase,
     private readonly logout: LogoutUseCase,
+    private readonly requestPasswordReset: RequestPasswordResetUseCase,
+    private readonly resetPassword: ResetPasswordUseCase,
     @Inject(CURRENT_USER_PROVIDER) private readonly currentUser: CurrentUserProvider,
   ) {}
 
@@ -311,5 +327,74 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })
   async signOutAll(): Promise<void> {
     await this.logout.executeAll({ userId: this.currentUser.requireUserId() });
+  }
+
+  /**
+   * Parola sifirlama kodu ister (§7.6, ADR-0024). Kimliksiz kurtarma akisi.
+   *
+   * DAIMA `202` doner: e-posta kayitli olsun olmasin, hesap aktif olsun olmasin,
+   * bekleme/hesap siniri asilmis olsun olmasin — yanit AYNIDIR (P2). Yalnizca IP
+   * oran siniri `429` uretir (hesabin varligindan bagimsiz).
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Parola sifirlama kodu ister',
+    description:
+      'Yanit, e-posta kayitli olsa da olmasa da AYNIDIR (P2). Kod 10 dk gecerli, ' +
+      '3 deneme hakki; yeniden istek 120 sn beklemeli. Kod asenkron gonderilir.',
+  })
+  @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Istek alindi.' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Cok fazla istek (IP).' })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  async forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordBody,
+    // IP GOVDEDEN DEGIL baglantidan: oran sinirinin sayac anahtaridir.
+    @Ip() ipAddress: string,
+  ): Promise<RegisterResponse> {
+    await this.requestPasswordReset.execute({
+      email: body.email,
+      ipAddress,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    return { message: FORGOT_PASSWORD_MESSAGE };
+  }
+
+  /**
+   * Parola sifirlama kodunu kullanir ve parolayi degistirir (§7.6, ADR-0024).
+   *
+   * Basarida kullanicinin TUM oturumlari dusher ve bilgilendirme e-postasi
+   * gonderilir. Red (yanlis/dolmus/tukenmis kod, bilinmeyen hesap) TEK bicimde:
+   * `400` + sabit metin (P2). Reddi use case sonuc olarak doner; controller
+   * `400`'e cevirir — exception use case icinden gelseydi atomik sayac artisini
+   * geri alirdi (VerifyEmail ile ayni gerekce).
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Parolayi sifirlar (kod + yeni parola)',
+    description:
+      'Basarida TUM oturumlar sonlandirilir. Kod yanlis/dolmus/tukenmis veya hesap ' +
+      'yok/pasif olsa da AYNI 400 doner — hangi durumun gerceklestigi sizdirilmaz.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Parola sifirlandi.' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Kod gecersiz veya kullanilamaz.' })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde veya parola politikasi gecersiz.' })
+  async resetPasswordEndpoint(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordBody,
+  ): Promise<RegisterResponse> {
+    const result = await this.resetPassword.execute({
+      email: body.email,
+      code: body.code,
+      password: body.password,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    if (result.outcome !== 'reset') {
+      throw new BadRequestException(RESET_PASSWORD_REJECTION);
+    }
+
+    return { message: RESET_PASSWORD_MESSAGE };
   }
 }

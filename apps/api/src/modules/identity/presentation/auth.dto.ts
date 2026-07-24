@@ -60,9 +60,25 @@ const refreshToken = z.string().min(1, 'Refresh token bos olamaz').max(512, 'Tok
 export const refreshSchema = z.object({ refreshToken }).strict();
 export const logoutSchema = z.object({ refreshToken }).strict();
 
+/** Parola sifirlama TALEBI — yalnizca e-posta (kurtarma akisi, kimliksiz). */
+export const forgotPasswordSchema = z.object({ email }).strict();
+
+/**
+ * Parola sifirlama TAMAMLAMA — e-posta + 6 haneli kod + yeni parola.
+ *
+ * Kod bicimi (6 hane) burada elenir; parola politikasi (ADR-0018) DEGIL — onun
+ * tek dogruluk kaynagi `password-policy.ts`'tir, Zod yalnizca uzunlukla DoS'u
+ * sinirda keser (register ile ayni disiplin).
+ */
+export const resetPasswordSchema = z
+  .object({ email, code: verificationCode, password })
+  .strict();
+
 export type RegisterBody = z.infer<typeof registerSchema>;
 export type LoginBody = z.infer<typeof loginSchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationBody = z.infer<typeof resendVerificationSchema>;
 export type RefreshBody = z.infer<typeof refreshSchema>;
 export type LogoutBody = z.infer<typeof logoutSchema>;
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>;
