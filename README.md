@@ -19,14 +19,18 @@ yanitlar. Hedef bir chatbot degil, bir **dijital yonetici asistanidir**.
 Urun AI merkezlidir ama **hicbir LLM saglayicisina bagimli degildir**: erisim
 daima `LLMPort` arkasindadir (ADR-0007, ARCHITECTURE 8).
 
-> **Durum:** Faz 1 (altyapi) ve Faz 2 (multi-tenancy cekirdegi) tamamlandi.
-> Tenant + Membership domain'i, RLS politikalari, transactional outbox ve
-> `POST /api/v1/tenants` ucu calisir ve test edilmis durumda.
+> **Durum:** Faz 1 (altyapi), Faz 2 (multi-tenancy cekirdegi) tamamlandi;
+> **Faz 3 (kimlik dogrulama + yetkilendirme) uctan uca calisiyor.**
 >
-> **Kimlik dogrulama henuz YOKTUR (Faz 3).** Bu yuzden tenant acma ucu bugun
-> her istege `503` doner: kullanici kimligi ve e-posta dogrulama onkosulu
-> Identity modulunu bekliyor. Ikisi de ACIKCA reddeder — sessizce izin veren
-> gecici bir implementasyon konmadi.
+> Kayit -> e-posta dogrulama (6 haneli kod, Resend ile teslim) -> giris ->
+> tenant secme (switch-tenant) -> tenant-scoped erisim -> RBAC zinciri kapali
+> ve test edilmis durumda. Refresh token rotation, yeniden kullanim tespiti ve
+> sunucu tarafi cikis da devrede.
+>
+> `POST /api/v1/tenants` artik **calisir**: kimliksiz istege `401`, e-postasi
+> dogrulanmamis kullaniciya `403`, dogrulanmis kullaniciya `202` (provisioning
+> baslar) doner. Faz 2'deki "her istege 503" gecici kapilari Identity ile
+> **gercek implementasyonlariyla degistirildi**.
 >
 > Is modulleri (CRM, Finance, HR...) ve AI katmani Faz 5+.
 
@@ -81,12 +85,23 @@ curl http://localhost:3001/api/v1/health
 
 ## Uc noktalar
 
-| Yol              | Aciklama                  |
-| ---------------- | ------------------------- |
-| `/api/v1/health` | Saglik durumu (200 / 503) |
-| `POST /api/v1/tenants` | Yeni tenant acar (202). **Faz 3'e kadar 503 doner** |
-| `/api/docs`      | Swagger UI                |
-| `/api/docs/json` | OpenAPI spec              |
+| Yol | Aciklama |
+| --- | --- |
+| `GET /api/v1/health` | Saglik durumu (200 / 503) |
+| **Kimlik** | |
+| `POST /api/v1/auth/register` | Yeni kullanici kaydeder (202). Yanit hesap varligindan bagimsizdir (P2) |
+| `POST /api/v1/auth/verify-email` | 6 haneli kodla e-postayi dogrular (200 / 400) |
+| `POST /api/v1/auth/resend-verification` | Dogrulama kodunu yeniden gonderir (202; hesap sinirlari sessiz) |
+| `POST /api/v1/auth/login` | Giris — kimlik token'i + refresh token doner (tenant claim'i YOK) |
+| `POST /api/v1/auth/refresh` | Refresh token rotation; yeniden kullanim tum aileyi iptal eder |
+| `POST /api/v1/auth/logout` | Sunulan token'in ailesini iptal eder (daima 204) |
+| `POST /api/v1/auth/logout-all` | Kullanicinin tum oturumlarini sonlandirir (204 / 401) |
+| **Tenant** | |
+| `POST /api/v1/auth/switch-tenant` | Tenant secer, tenant-scoped access token uretir (200 / 403) |
+| `POST /api/v1/tenants` | Yeni tenant acar. Kimliksiz `401`, e-posta dogrulanmamis `403`, aksi `202` |
+| `GET /api/v1/memberships` | Tenant uye listesi — **RBAC**: `member:read` (owner/admin), aksi `403` |
+| **Dokumantasyon** | |
+| `/api/docs` · `/api/docs/json` | Swagger UI · OpenAPI spec |
 
 ## Yapi
 
