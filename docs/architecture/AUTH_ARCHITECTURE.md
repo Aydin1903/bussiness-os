@@ -511,6 +511,8 @@ Bu dokümandaki üç akış (doğrulama, sıfırlama, güvenlik bildirimleri) e-
 
 > **Sağlayıcı bir adapter detayıdır.** Resend'in ücretsiz kotası yetmez veya fiyatlandırması değişirse, yeni bir adapter yazmak dışında bu dokümandaki hiçbir akış değişmemelidir.
 
+> **E-posta tasarımı bilinçli olarak ertelendi.** Şablonlar bugün **düz metin / minimal**tir (`EmailMessage.textBody`). Marka kimliği belirlendiğinde (logo, renkler, HTML şablon) güncellenecek — landing page ile birlikte ele alınacaktır. Bu bir **içerik** değişikliğidir, mimari değil: yalnızca `EmailMessage.htmlBody` doldurulur; `EmailPort`, adapter'lar, outbox akışı ve use case'ler **değişmez**. İçeriği kuran tek yer `verification-email.builder.ts`'tir (saf fonksiyon), dolayısıyla değişim tek dosyada kalır ve testi e-posta göndermeden yapılır.
+
 ---
 
 ## 8. Kayıt Akışı

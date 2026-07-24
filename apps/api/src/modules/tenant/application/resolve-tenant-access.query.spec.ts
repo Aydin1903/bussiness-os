@@ -53,6 +53,11 @@ class FakeMembershipRepository implements MembershipRepository {
     return Promise.resolve(this.byTenantAndUser.get(`${tenantId.value}:${userId.value}`) ?? null);
   }
 
+  /** Erisim cozumleme listeleme yapmaz; sozlesme geregi bulunur. */
+  listByTenant(): Promise<{ items: readonly Membership[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
   save(_membership: Membership): Promise<void> {
     return Promise.resolve();
   }

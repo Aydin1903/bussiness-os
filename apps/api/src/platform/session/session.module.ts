@@ -1,4 +1,4 @@
-import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 import {
   TENANT_ACCESS_TOKEN_ISSUER,
@@ -45,21 +45,10 @@ import { TenantContextMiddleware } from './presentation/tenant-context.middlewar
     },
     TenantContextMiddleware,
   ],
+  // Middleware EXPORT edilir: uygulanma sirasi (auth ONCE, tenant-context SONRA)
+  // AppModule'de tek `apply(...)` cagrisiyla kesinlestirilir. Modullerarasi
+  // middleware sirasi NestJS'te guvenilir DEGILDIR; bu yuzden sira kompozisyon
+  // kokune tasindi (bkz. AppModule).
+  exports: [TenantContextMiddleware],
 })
-export class SessionModule implements NestModule {
-  /**
-   * Tenant context middleware'i TUM rotalara uygulanir.
-   *
-   * Her rotaya baglanmasi bilinclidir: "hangi endpoint tenant ister" listesi
-   * elle tutulsaydi, yeni bir tenant-scoped endpoint eklendiginde birinin onu
-   * listeye yazmayi unutmasi context'siz — yani RLS'siz — bir yol acardi.
-   * Middleware'in kendisi zaten tenant claim'i YOKSA hicbir sey yapmaz.
-   *
-   * SIRA: auth middleware (IdentityModule) ONCE calisip principal'i kurmali;
-   * NestJS middleware'leri modul import sirasina gore uygular ve `SessionModule`
-   * `AppModule`'de `IdentityModule`'den SONRA gelir.
-   */
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(TenantContextMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
-  }
-}
+export class SessionModule {}

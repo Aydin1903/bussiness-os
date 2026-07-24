@@ -25,16 +25,38 @@ import type { UserId } from '../../../shared/user-id.value-object';
  *   tarafinda `TransactionManager.runInTenantTransaction` ile calistirilmali
  *   ve DEVELOPMENT_RULES 4.4 geregi acikca isaretlenmelidir.
  *
- * LISTELEME METODU YOK. Uye listeleme gercek bir ihtiyactir ama henuz bir use
- * case'i yoktur; eklendiginde SAYFALAMA sozlesmesiyle birlikte gelmelidir
- * (DEVELOPMENT_RULES 7.1: sinirsiz liste yasak).
+ * LISTELEME `listByTenant` ile SAYFALIDIR (DEVELOPMENT_RULES 7.1: sinirsiz
+ * liste yasak). Tenant filtresi imzada TASINMAZ: context kurulmus akista RLS
+ * zaten o tenant'a daraltir (12.4) — `listByTenant` yalnizca context-ici
+ * calisir.
  * ============================================================================
  */
 /** DI token'i. */
 export const MEMBERSHIP_REPOSITORY = Symbol('MEMBERSHIP_REPOSITORY');
 
+/** Sayfalama girdisi — `limit`/`offset` use case tarafindan dogrulanmis gelir. */
+export interface MembershipPage {
+  readonly limit: number;
+  readonly offset: number;
+}
+
+/** Bir sayfa uyelik + toplam sayim (sayfalama meta'si icin). */
+export interface MembershipPageResult {
+  readonly items: readonly Membership[];
+  readonly total: number;
+}
+
 export interface MembershipRepository {
   findById(id: MembershipId): Promise<Membership | null>;
+
+  /**
+   * MEVCUT tenant'in uyeliklerini SAYFALI dondurur (context-ici; RLS filtreler).
+   *
+   * `total` toplam uye sayisidir (sayfa disi dahil) — istemcinin sayfalamayi
+   * surdurebilmesi icin. Siralama DETERMINISTIK olmalidir (aksi halde iki sayfa
+   * ayni kaydi gosterebilir veya atlayabilir).
+   */
+  listByTenant(page: MembershipPage): Promise<MembershipPageResult>;
 
   /**
    * Bir kullanicinin belirli bir tenant'taki uyeligini getirir; yoksa `null`.

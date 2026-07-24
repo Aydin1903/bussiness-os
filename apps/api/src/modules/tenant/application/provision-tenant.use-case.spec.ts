@@ -73,6 +73,11 @@ class FakeMembershipRepository implements MembershipRepository {
     return Promise.resolve(null);
   }
 
+  /** Provisioning listeleme yapmaz; sozlesme geregi bulunur. */
+  listByTenant(): Promise<{ items: readonly Membership[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
   save(membership: Membership): Promise<void> {
     if (this.failOnSave) {
       return Promise.reject(new Error('veritabani hatasi'));

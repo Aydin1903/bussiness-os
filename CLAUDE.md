@@ -294,11 +294,11 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 | Katman | Ne var |
 |---|---|
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
-| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · repository ve kripto port'ları |
+| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · `ListMembershipsUseCase` · repository ve kripto port'ları |
 | Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → **konsol + Resend adapter** (retry/backoff/dead-letter) · **tenant context middleware + fail-closed `runInCurrentTenantTransaction`** (MT §11.3) |
-| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/switch-tenant` (platform/session) · auth middleware · domain hata → RFC 7807 filtresi |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/switch-tenant` (platform/session) · **`GET /api/v1/memberships`** (RBAC korumali) · auth middleware · **permission guard (platform/authz)** · domain hata → RFC 7807 filtresi |
 | Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` (hepsi `tenantId = null`) |
-| Testler | ~845 birim + ~190 entegrasyon |
+| Testler | ~860 birim + ~200 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -322,19 +322,28 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 
 ### Henüz yok
 
-Authorization (RBAC — `role` artık context'te, kararı verecek katman yok) ·
+Authorization (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine + guard, ilk
+korumalı endpoint `member:read`; kalan: tenant-configurable roller, ABAC, izin
+cache) ·
 parola değiştirme/sıfırlama **kodu** (tasarımı hazır: ADR-0024) · tenant outbox
 publisher süreci · iş modülleri · AI katmanı · Storage/Cache/Search adapter'ları ·
 **MT §8.2 adım 3** (host ipucu ↔ claim çapraz kontrolü — subdomain altyapısı
 kurulunca).
 
-Sıradaki adım: **RBAC** — tenant context artık `role` taşıyor ve RLS'e bağlı;
-eksik olan, o rolü "bu kullanıcı bu işlemi yapabilir mi" kararına çeviren
-yetkilendirme katmanı. Önkoşulların tamamı hazır.
+Sıradaki adım: **iş modülü** — RBAC + tenant context + RLS artık uçtan uca
+çalışan bir zincir; ilk gerçek iş kaynağı (CRM/müşteri hafızası, ARCHITECTURE
+§6) bu zincirin üzerine oturur ve modül→Authorization permission deklarasyonu
+desenini ikinci kez kullanır.
 
 > **Kapanan borçlar:** `AUTH_ARCHITECTURE.md` §11.5 (kontroller switch-tenant'ta)
 > · Tenant→Identity döngü riski (`platform/session` üçüncü modülü, `forwardRef`
-> yok) · MT §11.4 kural 2-3 (`runInCurrentTenantTransaction` fail-closed).
+> yok) · MT §11.4 kural 2-3 (`runInCurrentTenantTransaction` fail-closed) · **RBAC
+> v1** (ADR-0025: merkezî policy engine + guard, deny-by-default).
+
+> **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
+> (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —
+> NestJS'te FARKLI modüllerin middleware'leri arasındaki sıra güvenilir değildir
+> (tenant-context, auth'tan önce çalışıp principal'i görememişti).
 
 > **Kapandı:** Resend adapter'ı bağlandı ve önkoşulu olan teslimat mekanizması
 > (`attempt_count` + `last_error` + backoff + dead-letter, migration `0006`)

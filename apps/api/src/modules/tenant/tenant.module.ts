@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Inject, Module } from '@nestjs/common';
 
+import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { OutboxEventPublisher } from '../../infrastructure/events/outbox-event-publisher.adapter';
@@ -23,13 +24,16 @@ import {
   type TenantProvisioningPolicy,
 } from './application/tenant-provisioning-policy.port';
 import { TENANT_REPOSITORY, type TenantRepository } from './application/tenant.repository.port';
+import { ListMembershipsUseCase } from './application/list-memberships.use-case';
 import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from './tenant.public';
+import { TENANT_PERMISSIONS } from './tenant.permissions';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
 import { ContextCurrentUserProvider } from '../../infrastructure/auth/context-current-user.adapter';
 import { EmailVerifiedProvisioningPolicy } from './infrastructure/email-verified-provisioning.policy';
 import { IdentityModule } from '../identity/identity.module';
 import { IDENTITY_USER_QUERY, type IdentityUserQuery } from '../identity/identity.public';
+import { MembershipController } from './presentation/membership.controller';
 import { TenantController } from './presentation/tenant.controller';
 
 /**
@@ -55,7 +59,7 @@ import { TenantController } from './presentation/tenant.controller';
   // PUBLIC arayuzlerinden tuketir, ikisi de digerini import etmez. Graf DAG
   // kalir; `forwardRef` gerekmedi. Dolayisiyla bu binding YERINDE kaliyor.
   imports: [IdentityModule],
-  controllers: [TenantController],
+  controllers: [TenantController, MembershipController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -131,10 +135,28 @@ import { TenantController } from './presentation/tenant.controller';
           transactionManager,
         }),
     },
+    {
+      // Ilk RBAC korumali uc noktanin use case'i (ADR-0025). Saf TypeScript.
+      provide: ListMembershipsUseCase,
+      inject: [MEMBERSHIP_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        membershipRepository: MembershipRepository,
+        transactionManager: TransactionManager,
+      ): ListMembershipsUseCase =>
+        new ListMembershipsUseCase({ membershipRepository, transactionManager }),
+    },
   ],
   // TENANT_ACCESS_QUERY disa acilir: Identity modulu (Faz 3) bunu token ile
   // enjekte eder. Somut sinif DEGIL, token export edilir — tuketen taraf
   // tenant.public.ts'teki arayuze baglanir, implementasyona degil.
   exports: [ProvisionTenantUseCase, TENANT_REPOSITORY, MEMBERSHIP_REPOSITORY, TENANT_ACCESS_QUERY],
 })
-export class TenantModule {}
+export class TenantModule {
+  constructor(@Inject(PERMISSION_REGISTRY) private readonly permissions: PermissionRegistry) {
+    // §10.1: modul kendi permission'larini Authorization'a DEKLARE eder.
+    // Kayit constructor'da yapilir — modul instantiate edilirken, ilk istekten
+    // ONCE tamamlanir. `AuthzModule` global oldugu icin registry burada
+    // Tenant'in Authorization'i import etmesine gerek kalmadan erisilebilir.
+    this.permissions.register(TENANT_PERMISSIONS);
+  }
+}

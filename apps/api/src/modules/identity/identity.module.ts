@@ -1,4 +1,4 @@
-import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { importPKCS8, importSPKI, type CryptoKey } from 'jose';
 
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
@@ -182,21 +182,26 @@ function decodePem(base64: string): string {
     // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
     ...identityOutboxProviders,
   ],
-  // Yalnizca PUBLIC yuzey disa acilir: IDENTITY_USER_QUERY, TENANT_ACCESS_TOKEN_ISSUER
-  // (identity.public.ts) ve token dogrulamak isteyenler icin TOKEN_SIGNER.
-  // Repository'ler, adapter'lar ve use case'ler modul ICINDE kalir.
-  exports: [IDENTITY_USER_QUERY, TENANT_ACCESS_TOKEN_ISSUER, TOKEN_SIGNER],
+  // PUBLIC yuzey + AuthContextMiddleware disa acilir. Middleware'i EXPORT etmek
+  // bilincli: SIRA garantisi icin auth + tenant-context birlikte, tek noktada
+  // (SessionModule) uygulanir — bkz. asagidaki not. Repository/adapter/use case
+  // modul ICINDE kalir.
+  exports: [IDENTITY_USER_QUERY, TENANT_ACCESS_TOKEN_ISSUER, TOKEN_SIGNER, AuthContextMiddleware],
 })
-export class IdentityModule implements NestModule {
+export class IdentityModule {
   /**
-   * Auth middleware TUM rotalara uygulanir — Tenant uc noktalari da dogrulanmis
-   * kimlige bu sayede ulasir.
+   * ============================================================================
+   * AUTH MIDDLEWARE'I NEDEN BURADA UYGULANMIYOR
+   * ============================================================================
+   * Auth middleware, tenant-context middleware'inden ONCE calismak ZORUNDADIR:
+   * tenant-context, auth'un istek baglamina yazdigi principal'i okur. NestJS'te
+   * FARKLI modullerin middleware'leri arasindaki sira GUVENILIR DEGILDIR (modul
+   * cozumleme sirasina baglidir ve import sirasini takip etmeyebilir).
    *
-   * Kimliksiz istekler ENGELLENMEZ: middleware yalnizca VARSA token'i dogrular.
-   * "Bu islem kimlik ister mi" karari `CurrentUserProvider`'a aittir; kayit ve
-   * giris uc noktalari tanimi geregi kimliksizdir.
+   * Bu yuzden ikisi de TEK bir `consumer.apply(auth, tenant)` cagrisiyla,
+   * SessionModule'de uygulanir — ayni cagri icindeki sira KESINDIR. Auth
+   * middleware buradan yalnizca EXPORT edilir; uygulanmasi SessionModule'un
+   * isidir.
+   * ============================================================================
    */
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(AuthContextMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
-  }
 }
