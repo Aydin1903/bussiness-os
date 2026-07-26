@@ -3,9 +3,11 @@
 Business OS — Kimlik Doğrulama Mimarisi
 
 > **Durum:** Faz 3 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.0
-> **Son güncelleme:** 2026-07-21
+> **Sürüm:** 1.1
+> **Son güncelleme:** 2026-07-26
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
+>
+> **1.1 (2026-07-26):** Refresh token taşıması `HttpOnly` cookie'ye taşındı (ADR-0026, §10.5). §9/§11.2 diyagramları ve §12.1 çıkış davranışı güncellendi; ADR-0026/0027 referans tablosuna eklendi.
 
 ---
 
@@ -36,6 +38,10 @@ Bu doküman, Business OS'un **kimlik doğrulama** tasarımı için Single Source
 | [0022](../adr/0022-brute-force-protection.md) | Kaba kuvvet koruması — katmanlı kilit | ✅ Kabul edildi |
 | [0023](../adr/0023-session-termination.md) | Oturum sonlandırma ve iptal | ✅ Kabul edildi |
 | [0024](../adr/0024-password-reset.md) | Parola sıfırlama | ✅ Kabul edildi |
+| [0026](../adr/0026-frontend-token-storage.md) | Frontend token saklama ve taşıma (refresh → HttpOnly cookie) | ✅ Kabul edildi |
+| [0027](../adr/0027-frontend-rendering-session.md) | Frontend rendering + session/API-client mimarisi | ✅ Kabul edildi |
+
+**Kardeş doküman:** [`FRONTEND_ARCHITECTURE.md`](FRONTEND_ARCHITECTURE.md) — web istemcisinin token saklama, rendering ve API-client tasarımı oradadır; bu dokümanın istemci karşılığıdır.
 
 ---
 
@@ -600,8 +606,8 @@ flowchart TD
     ST -->|hayır| GEN
     ST -->|evet| REHASH["Gerekiyorsa parolayı yeniden hash'le"]
 
-    REHASH --> ISSUE["TokenFamily + RefreshToken üret<br/>Access token üret"]
-    ISSUE --> OK(["200 { accessToken, refreshToken }"])
+    REHASH --> ISSUE["TokenFamily + RefreshToken üret<br/>Kimlik token'ı üret"]
+    ISSUE --> OK(["200 { identityToken }<br/>+ Set-Cookie: refresh_token (HttpOnly)"])
 
     style GEN fill:#b71c1c,color:#fff
     style OK fill:#1b5e20,color:#fff
@@ -687,6 +693,22 @@ Tenant seçimi [MT §7.4](MULTI_TENANT_ARCHITECTURE.md)'teki `switch-tenant` ak�
 
 **Anahtar rotasyonu:** JWT başlığında `kid` taşınır ve doğrulayıcı birden fazla açık anahtarı aynı anda kabul eder. Bu olmadan anahtar değişimi, tüm aktif oturumların anında düşmesi demektir.
 
+### 10.5 Token'ların taşınması — access/identity gövde, refresh HttpOnly cookie
+
+> **`[ADR-0026]`** Bu alt bölüm token'ların **istemciye nasıl taşındığını** tanımlar. Kod bu davranışı uygular ([`refresh-cookie.ts`](../../apps/api/src/modules/identity/presentation/refresh-cookie.ts)); tasarım gerekçesi [`FRONTEND_ARCHITECTURE.md`](FRONTEND_ARCHITECTURE.md) §2'dedir.
+
+| Token | Taşıma | İstemcide saklama (öneri) |
+|---|---|---|
+| **Kimlik token'ı** | Yanıt **gövdesi** (`identityToken`) | JS memory — kısa ömürlü |
+| **Access token** | Yanıt **gövdesi** (`accessToken`, `switch-tenant`'tan) + `Authorization: Bearer` | JS memory |
+| **Refresh token** | **`Set-Cookie` / `Cookie`** — `HttpOnly` + `Secure` + `SameSite=Strict` + `Path=/api/v1/auth` | **JS erişemez** (cookie) |
+
+**Neden refresh token cookie'de, gövdede değil.** Refresh token bu modelin tek uzun ömürlü (30 gün) kimlik bilgisidir; çalınırsa yeniden kullanım tespit edilene kadar ([§11.3](#113-yeniden-kullanım-tespiti--asıl-koruma)) hesap saldırganın elindedir. `HttpOnly` cookie JavaScript erişimini tamamen keser — bir XSS açığı bile onu **okuyamaz**. Access/identity token ise memory'de tutulur: kısa ömürlüdür ve `Authorization: Bearer` ile taşındığı için CSRF'e bağışıktır (ambient gönderilmez).
+
+**Neden `SameSite=Strict`.** Refresh cookie yalnızca XHR ile `/api/v1/auth/*`'a gider ve hiçbir top-level navigasyona bağlı değildir; cross-site isteklerde hiç gönderilmez → CSRF cookie katmanında kesilir. Bu, web ve API'nin **aynı kayıtlı alanda** (subdomain) çalışmasını gerektirir. Double-submit CSRF token V1'de **eklenmedi** (ADR-0026); cross-site (`SameSite=None`) deployment gerekirse hazır bir tırmanıştır.
+
+**`refresh` ve `logout` gövde ALMAZ.** İkisi de refresh token'ı cookie'den okur. `logout` / `logout-all` ayrıca cookie'yi temizler (`Set-Cookie` ile hemen sona erdirir).
+
 ---
 
 ## 11. Refresh ve Rotation
@@ -715,7 +737,7 @@ sequenceDiagram
     participant ID as Identity
     participant DB as Veritabanı
 
-    C->>ID: POST /api/v1/auth/refresh { refreshToken }
+    C->>ID: POST /api/v1/auth/refresh (Cookie: refresh_token)
     ID->>DB: SHA-256(token) ile satırı bul
 
     alt satır yok
@@ -737,7 +759,7 @@ sequenceDiagram
             Note over ID,DB: ── COMMIT ──
             end
             ID->>ID: membership + tenant durumu YENİDEN doğrula
-            ID-->>C: 200 { accessToken, refreshToken }
+            ID-->>C: 200 { identityToken }<br/>+ Set-Cookie: refresh_token (rotasyonlu)
         end
     end
 ```
@@ -798,10 +820,12 @@ edilmiş bir kullanıcı, elindeki access token dolar dolmaz yeni birini alamaz;
 
 | İşlem | Etki |
 |---|---|
-| `POST /api/v1/auth/logout` | Sunulan refresh token'ın **ailesi** iptal edilir |
-| `POST /api/v1/auth/logout-all` | Kullanıcının **tüm** aileleri iptal edilir |
+| `POST /api/v1/auth/logout` | Cookie'deki refresh token'ın **ailesi** iptal edilir + cookie temizlenir |
+| `POST /api/v1/auth/logout-all` | Kullanıcının **tüm** aileleri iptal edilir + bu cihazın cookie'si temizlenir |
 
-> **Yalnızca istemci tarafında silmek yeterli değildir** ve bunu açıkça yazıyoruz çünkü en sık yapılan hatadır. İstemcideki `localStorage.clear()` çağrısı, token'ın kopyasını almış bir saldırganı **hiç etkilemez**. Çıkış, sunucuda bir durum değişikliğidir.
+> **`logout` gövde almaz** (ADR-0026): refresh token `HttpOnly` cookie'den okunur. Cookie yoksa veya token geçersizse de **204** döner (idempotent) ve cookie yine temizlenir — 401 dönmek "bu token gerçekti" bilgisini sızdırırdı.
+
+> **Yalnızca istemci tarafında silmek yeterli değildir** ve bunu açıkça yazıyoruz çünkü en sık yapılan hatadır. Cookie'nin istemcide temizlenmesi (veya `Set-Cookie` ile sona erdirilmesi), token'ın kopyasını almış bir saldırganı **hiç etkilemez**. Çıkış, sunucuda bir durum değişikliğidir — aile iptali.
 
 ### 12.2 İptal nedenleri
 
