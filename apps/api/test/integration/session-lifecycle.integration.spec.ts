@@ -3,6 +3,7 @@ import { Server } from 'node:http';
 import { VersioningType } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -24,6 +25,10 @@ import {
  * 401 dondugu HALDE ailenin veritabaninda IPTAL EDILMIS olmasi — hata ile
  * iptal ayni transaction'da olsaydi iptal geri alinir ve calinan token'in
  * ailesi ayakta kalirdi (ADR-0021).
+ *
+ * Refresh token GOVDEDE DEGIL `HttpOnly` cookie'dedir (ADR-0026): testler
+ * `Set-Cookie`'den token'i cikarir ve sonraki isteklere `Cookie` basligiyla
+ * geri gonderir — gercek bir tarayicinin yaptigini taklit eder.
  */
 type NodeHttpServer = Server;
 
@@ -44,7 +49,24 @@ const PASSWORD = 'parola123';
 
 interface Session {
   readonly identityToken: string;
-  readonly refreshToken: string;
+  /** `Cookie` basligina konacak `refresh_token=xxx` ciftii (ADR-0026). */
+  readonly cookie: string;
+}
+
+/**
+ * `Set-Cookie`'den refresh token ciftini (`refresh_token=xxx`) cikarir.
+ *
+ * Sonraki isteklere `Cookie` basligiyla aynen geri gonderilir. Token degeri
+ * base64url'dir (noktali virgul icermez), bu yuzden ilk `;`'e kadar kesmek
+ * guvenlidir.
+ */
+function extractRefreshCookie(response: request.Response): string {
+  const setCookie = response.headers['set-cookie'] as unknown as string[] | undefined;
+  const raw = (setCookie ?? []).find((entry) => entry.startsWith('refresh_token='));
+  if (raw === undefined) {
+    throw new Error('Yanitta refresh_token cookie si bulunamadi.');
+  }
+  return raw.split(';')[0] ?? '';
 }
 
 describe('oturum yasam dongusu (uctan uca)', () => {
@@ -59,6 +81,9 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.use(correlationIdMiddleware);
+    // Refresh token cookie'den okunur (ADR-0026); parser olmadan `req.cookies`
+    // dolmaz ve refresh her zaman 401 verirdi. main.ts ile AYNI kurulum.
+    app.use(cookieParser());
     app.setGlobalPrefix('api');
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
     app.useGlobalFilters(new ProblemDetailsFilter());
@@ -95,7 +120,7 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
     return {
       identityToken: String(response.body.identityToken),
-      refreshToken: String(response.body.refreshToken),
+      cookie: extractRefreshCookie(response),
     };
   }
 
@@ -108,20 +133,22 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
   // --- Rotation ------------------------------------------------------------
 
-  it('refresh yeni kimlik token i ve YENI refresh token dondurur', async () => {
+  it('refresh yeni kimlik token i (govde) ve YENI refresh cookie si dondurur', async () => {
     const session = await signIn();
 
-    const response = await post('refresh').send({ refreshToken: session.refreshToken });
+    const response = await post('refresh').set('Cookie', session.cookie);
 
     expect(response.status).toBe(200);
     expect(String(response.body.identityToken).split('.')).toHaveLength(3);
-    expect(response.body.refreshToken).not.toBe(session.refreshToken);
+    // Refresh token GOVDEDE DONMEZ; yeni cookie eskisinden FARKLIDIR (rotation).
+    expect(response.body.refreshToken).toBeUndefined();
+    expect(extractRefreshCookie(response)).not.toBe(session.cookie);
   });
 
   it('rotasyon AYNI ailede kalir — yeni oturum acmaz', async () => {
     const session = await signIn();
 
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
     expect(await familyStates()).toHaveLength(1);
     const tokens = await database.ownerPool.query('SELECT 1 FROM platform.refresh_tokens');
@@ -130,12 +157,10 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
   it('ESKI token rotasyondan sonra calismaz', async () => {
     const session = await signIn();
-    const rotated = await post('refresh').send({ refreshToken: session.refreshToken });
+    const rotated = await post('refresh').set('Cookie', session.cookie);
 
-    // Yeni token calisir...
-    const withNew = await post('refresh').send({
-      refreshToken: String(rotated.body.refreshToken),
-    });
+    // Yeni cookie calisir...
+    const withNew = await post('refresh').set('Cookie', extractRefreshCookie(rotated));
     expect(withNew.status).toBe(200);
   });
 
@@ -143,18 +168,18 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
   it('kullanilmis token yeniden sunulursa 401 doner', async () => {
     const session = await signIn();
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
-    const reuse = await post('refresh').send({ refreshToken: session.refreshToken });
+    const reuse = await post('refresh').set('Cookie', session.cookie);
 
     expect(reuse.status).toBe(401);
   });
 
   it('yeniden kullanimda AILE veritabaninda IPTAL EDILMIS olur', async () => {
     const session = await signIn();
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
     // Iptal, 401 ile ayni transaction'da olsaydi GERI ALINIRDI.
     expect((await familyStates())[0]?.revoked_reason).toBe('token-reuse-detected');
@@ -162,9 +187,9 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
   it('yeniden kullanim alarmi outbox a yazilir', async () => {
     const session = await signIn();
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
     const events = await database.ownerPool.query<{ event_type: string }>(
       "SELECT event_type FROM platform.identity_outbox WHERE event_type = 'refresh_token.reuse_detected'",
@@ -174,12 +199,10 @@ describe('oturum yasam dongusu (uctan uca)', () => {
 
   it('yeniden kullanimdan sonra GECERLI token da calismaz — zincir dusmustur', async () => {
     const session = await signIn();
-    const rotated = await post('refresh').send({ refreshToken: session.refreshToken });
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    const rotated = await post('refresh').set('Cookie', session.cookie);
+    await post('refresh').set('Cookie', session.cookie);
 
-    const withValid = await post('refresh').send({
-      refreshToken: String(rotated.body.refreshToken),
-    });
+    const withValid = await post('refresh').set('Cookie', extractRefreshCookie(rotated));
 
     // Asil kazanc: saldirgan zinciri devralmis olsa bile erisimini kaybeder.
     expect(withValid.status).toBe(401);
@@ -200,7 +223,7 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     const session = await signIn();
     await ageFamily(89);
 
-    const response = await post('refresh').send({ refreshToken: session.refreshToken });
+    const response = await post('refresh').set('Cookie', session.cookie);
 
     expect(response.status).toBe(200);
   });
@@ -209,7 +232,7 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     const session = await signIn();
     await ageFamily(91);
 
-    const response = await post('refresh').send({ refreshToken: session.refreshToken });
+    const response = await post('refresh').set('Cookie', session.cookie);
 
     // Token'in kendisi hala kullanilabilir; reddin sebebi AILENIN yasidir.
     expect(response.status).toBe(401);
@@ -219,7 +242,7 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     const session = await signIn();
     await ageFamily(91);
 
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
     // Sona erme `created_at`'ten turer; iptal kaydi yazmak "birileri karar
     // verdi" izlenimi verir ve denetimi kirletir.
@@ -229,15 +252,13 @@ describe('oturum yasam dongusu (uctan uca)', () => {
   it('omru dolan oturum YENIDEN GIRISLE devam eder', async () => {
     const session = await signIn();
     await ageFamily(91);
-    await post('refresh').send({ refreshToken: session.refreshToken });
+    await post('refresh').set('Cookie', session.cookie);
 
     const again = await post('login').send({ email: EMAIL, password: PASSWORD });
 
     // Kullanicidan beklenen davranis: parola ile yeni bir aile acmak.
     expect(again.status).toBe(200);
-    const fresh = await post('refresh').send({
-      refreshToken: String(again.body.refreshToken),
-    });
+    const fresh = await post('refresh').set('Cookie', extractRefreshCookie(again));
     expect(fresh.status).toBe(200);
   });
 
@@ -246,30 +267,41 @@ describe('oturum yasam dongusu (uctan uca)', () => {
   it('logout ailesini iptal eder ve refresh artik calismaz', async () => {
     const session = await signIn();
 
-    const response = await post('logout').send({ refreshToken: session.refreshToken });
+    const response = await post('logout').set('Cookie', session.cookie);
 
     expect(response.status).toBe(204);
     expect((await familyStates())[0]?.revoked_reason).toBe('logout');
-    expect((await post('refresh').send({ refreshToken: session.refreshToken })).status).toBe(401);
+    expect((await post('refresh').set('Cookie', session.cookie)).status).toBe(401);
+
+    // Cikis cookie'yi de temizler: Set-Cookie, cookie'yi hemen sona erdirir.
+    const cleared = response.headers['set-cookie'] as unknown as string[] | undefined;
+    const clearing = (cleared ?? []).find((entry) => entry.startsWith('refresh_token='));
+    expect(clearing).toBeDefined();
+    expect(clearing).toMatch(/Expires=Thu, 01 Jan 1970|Max-Age=0/);
   });
 
-  it('logout BILINMEYEN token la da 204 doner', async () => {
+  it('logout COOKIE OLMADAN da 204 doner (idempotent)', async () => {
+    // Cikis idempotenttir; cookie hic yoksa bile 204 doner.
+    expect((await post('logout')).status).toBe(204);
+  });
+
+  it('logout BILINMEYEN token cookie siyle de 204 doner', async () => {
     // 401 donmek "bu token gercekti" bilgisini verirdi; cikis ayrica
     // idempotent olmalidir.
-    expect((await post('logout').send({ refreshToken: 'olmayan-token' })).status).toBe(204);
+    expect((await post('logout').set('Cookie', 'refresh_token=olmayan-token')).status).toBe(204);
   });
 
   it('logout IKI KEZ cagrilabilir', async () => {
     const session = await signIn();
-    await post('logout').send({ refreshToken: session.refreshToken });
+    await post('logout').set('Cookie', session.cookie);
 
-    expect((await post('logout').send({ refreshToken: session.refreshToken })).status).toBe(204);
+    expect((await post('logout').set('Cookie', session.cookie)).status).toBe(204);
   });
 
   it('logout-all kullanicinin TUM oturumlarini dusurur', async () => {
     const first = await signIn();
     const second = await post('login').send({ email: EMAIL, password: PASSWORD });
-    const secondRefresh = String(second.body.refreshToken);
+    const secondCookie = extractRefreshCookie(second);
 
     const response = await post('logout-all')
       .set('Authorization', `Bearer ${first.identityToken}`)
@@ -280,8 +312,8 @@ describe('oturum yasam dongusu (uctan uca)', () => {
       'logout-all',
       'logout-all',
     ]);
-    expect((await post('refresh').send({ refreshToken: first.refreshToken })).status).toBe(401);
-    expect((await post('refresh').send({ refreshToken: secondRefresh })).status).toBe(401);
+    expect((await post('refresh').set('Cookie', first.cookie)).status).toBe(401);
+    expect((await post('refresh').set('Cookie', secondCookie)).status).toBe(401);
   });
 
   it('logout-all KIMLIK ister — token yoksa 401', async () => {
@@ -303,20 +335,19 @@ describe('oturum yasam dongusu (uctan uca)', () => {
     expect(reasons).toEqual(['logout-all', null]);
   });
 
-  // --- Govde dogrulama -----------------------------------------------------
+  // --- Cookie dogrulama ----------------------------------------------------
+  //
+  // Refresh artik GOVDE ALMAZ (ADR-0026); kimlik bilgisi cookie'dedir. Eksik
+  // veya gecersiz cookie, diger tum redlerle AYNI 401'i uretir — sebep sizmaz.
 
-  it('bos refresh token a 422 doner', async () => {
-    expect((await post('refresh').send({ refreshToken: '' })).status).toBe(422);
+  it('refresh COOKIE OLMADAN 401 doner', async () => {
+    expect((await post('refresh')).status).toBe(401);
   });
 
-  it('tanimsiz alan gonderilirse 422 doner (strict govde)', async () => {
-    const session = await signIn();
+  it('GECERSIZ refresh cookie degerine 401 doner', async () => {
+    const response = await post('refresh').set('Cookie', 'refresh_token=gecersiz-deger');
 
-    const response = await post('refresh').send({
-      refreshToken: session.refreshToken,
-      userId: '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c',
-    });
-
-    expect(response.status).toBe(422);
+    // Bilinmeyen token, gecersiz/dolmus/iptal ile ayni yaniti verir.
+    expect(response.status).toBe(401);
   });
 });

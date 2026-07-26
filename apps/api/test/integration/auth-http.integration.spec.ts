@@ -202,7 +202,7 @@ describe('auth uc noktalari (uctan uca)', () => {
     expect(response.status).toBe(403);
   });
 
-  it('dogrulanmis kullaniciya kimlik token i ve refresh token doner', async () => {
+  it('dogrulanmis kullaniciya kimlik token i (govde) ve refresh cookie si doner', async () => {
     await register({ email: EMAIL, password: PASSWORD });
     await markVerified(EMAIL);
 
@@ -210,9 +210,20 @@ describe('auth uc noktalari (uctan uca)', () => {
 
     expect(response.status).toBe(200);
     expect(typeof response.body.identityToken).toBe('string');
-    expect(typeof response.body.refreshToken).toBe('string');
     // Kimlik token'i bir JWT'dir (uc parca).
     expect(String(response.body.identityToken).split('.')).toHaveLength(3);
+
+    // Refresh token GOVDEDE DONMEZ; HttpOnly cookie ile gelir (ADR-0026).
+    expect(response.body.refreshToken).toBeUndefined();
+
+    const setCookie = response.headers['set-cookie'] as unknown as string[] | undefined;
+    const refreshCookie = (setCookie ?? []).find((c) => c.startsWith('refresh_token='));
+    expect(refreshCookie).toBeDefined();
+    // Savunmanin ozu bu ozniteliklerde: JS okuyamaz, cross-site gonderilmez,
+    // yalnizca auth uclarina tasinir.
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(refreshCookie).toContain('SameSite=Strict');
+    expect(refreshCookie).toContain('Path=/api/v1/auth');
   });
 
   it('girisle birlikte oturumu (aile + refresh token) yazar', async () => {

@@ -7,10 +7,15 @@ import {
   Inject,
   Ip,
   Post,
+  Req,
+  Res,
+  UnauthorizedException,
   UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 
+import { APP_CONFIG, type AppConfig } from '../../../infrastructure/config/app.config';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { getCorrelationId } from '../../../infrastructure/logging/request-context';
 import { CURRENT_USER_PROVIDER, type CurrentUserProvider } from '../../../shared/current-user.port';
@@ -25,31 +30,33 @@ import { VerifyEmailUseCase } from '../application/verify-email.use-case';
 import {
   forgotPasswordSchema,
   loginSchema,
-  logoutSchema,
-  refreshSchema,
   registerSchema,
   resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
   type ForgotPasswordBody,
   type LoginBody,
-  type LogoutBody,
-  type RefreshBody,
   type RegisterBody,
   type ResendVerificationBody,
   type ResetPasswordBody,
   type VerifyEmailBody,
 } from './auth.dto';
 import { IdentityDomainExceptionFilter } from './identity-domain-exception.filter';
+import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './refresh-cookie';
 
 /** Kayit yaniti — HER ZAMAN aynidir (hesap varligi sizmasin, §8.1). */
 interface RegisterResponse {
   readonly message: string;
 }
 
-interface LoginResponse {
+/**
+ * Giris ve yenileme yaniti — refresh token GOVDEDE DONMEZ (ADR-0026).
+ *
+ * Refresh token `HttpOnly` cookie ile tasinir; yanit gövdesi yalnizca memory'de
+ * tutulacak kisa omurlu kimlik token'ini icerir (FRONTEND_ARCHITECTURE §2).
+ */
+interface IdentityTokenResponse {
   readonly identityToken: string;
-  readonly refreshToken: string;
 }
 
 interface VerifyEmailResponse {
@@ -95,6 +102,9 @@ export class AuthController {
     private readonly requestPasswordReset: RequestPasswordResetUseCase,
     private readonly resetPassword: ResetPasswordUseCase,
     @Inject(CURRENT_USER_PROVIDER) private readonly currentUser: CurrentUserProvider,
+    // Cookie `secure` bayragi ortamdan turer: uretimde HTTPS zorunlu, dev/test'te
+    // (HTTP) kapali — aksi halde tarayici cookie'yi hic saklamazdi (ADR-0026).
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   /**
@@ -148,7 +158,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Giris yapar',
     description:
-      'KIMLIK token (tenant claim YOK, 5 dk) ve refresh token doner. ' +
+      'KIMLIK token (tenant claim YOK, 5 dk) gövdede doner; refresh token ' +
+      '`HttpOnly` cookie ile yazilir (Set-Cookie, ADR-0026) — govdede DONMEZ. ' +
       'Gecersiz kimlik, kilitli hesap ve pasif hesap AYNI 401 yanitini uretir.',
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Giris basarili.' })
@@ -160,7 +171,8 @@ export class AuthController {
     // IP GOVDEDEN DEGIL baglantidan alinir: kaba kuvvet sayacinin anahtaridir
     // ve istemcinin bildirmesine izin verilirse limit atlatilir (ADR-0022).
     @Ip() ipAddress: string,
-  ): Promise<LoginResponse> {
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<IdentityTokenResponse> {
     const result = await this.login.execute({
       email: body.email,
       password: body.password,
@@ -168,7 +180,10 @@ export class AuthController {
       correlationId: getCorrelationId() ?? 'unknown',
     });
 
-    return { identityToken: result.identityToken, refreshToken: result.refreshToken };
+    // Refresh token JS'e hic gorunmez: gövde yerine HttpOnly cookie (ADR-0026).
+    setRefreshCookie(response, result.refreshToken, this.config.isProduction);
+
+    return { identityToken: result.identityToken };
   }
 
   /**
@@ -266,29 +281,48 @@ export class AuthController {
    * Donen `identityToken`, `accessToken` DEGILDIR: tenant-scoped token tenant
    * secimi adimindan cikar ve o adim henuz yok (MT §7.4, AUTH §11.5 borcu).
    *
-   * Tum redler AYNI 401'i uretir: satir yok, suresi dolmus, aile iptal edilmis,
-   * kullanici pasif — ve YENIDEN KULLANIM. Sonuncusunda ailenin tamami iptal
-   * edilmis olur; istemci bunu yanittan ayirt edemez.
+   * ============================================================================
+   * REFRESH TOKEN GOVDEDEN DEGIL COOKIE'DEN OKUNUR (ADR-0026)
+   * ============================================================================
+   * Token `HttpOnly` cookie'dedir; JS ona dokunamaz. Cookie yoksa istek kimlik
+   * bilgisi tasimiyor demektir -> diger tum redlerle AYNI 401. Rotasyonla uretilen
+   * yeni token yine cookie'ye yazilir; eski cookie ustune yazilir.
+   *
+   * Tum redler AYNI 401'i uretir: cookie yok, satir yok, suresi dolmus, aile iptal
+   * edilmis, kullanici pasif — ve YENIDEN KULLANIM. Sonuncusunda ailenin tamami
+   * iptal edilmis olur; istemci bunu yanittan ayirt edemez.
+   * ============================================================================
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Oturumu yeniler (refresh token rotation)',
     description:
-      'Her kullanimda refresh token DEGISIR; eski token aninda gecersizlesir. ' +
-      'Kullanilmis bir token yeniden sunulursa AILENIN TAMAMI iptal edilir.',
+      'Refresh token `HttpOnly` cookie den okunur; gövde ALMAZ (ADR-0026). ' +
+      'Her kullanimda token DEGISIR ve yeni cookie yazilir; eski token aninda ' +
+      'gecersizlesir. Kullanilmis bir token yeniden sunulursa AILENIN TAMAMI iptal edilir.',
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Oturum yenilendi.' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Token gecersiz.' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Token gecersiz veya yok.' })
   async refresh(
-    @Body(new ZodValidationPipe(refreshSchema)) body: RefreshBody,
-  ): Promise<LoginResponse> {
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<IdentityTokenResponse> {
+    const refreshToken = readRefreshCookie(request);
+    if (refreshToken === undefined) {
+      // Cookie yoksa istek kimliksizdir; sebep (yok/gecersiz) sizmasin diye
+      // gecersiz token ile AYNI 401.
+      throw new UnauthorizedException('Token gecersiz.');
+    }
+
     const result = await this.refreshSession.execute({
-      refreshToken: body.refreshToken,
+      refreshToken,
       correlationId: getCorrelationId() ?? 'unknown',
     });
 
-    return { identityToken: result.identityToken, refreshToken: result.refreshToken };
+    setRefreshCookie(response, result.refreshToken, this.config.isProduction);
+
+    return { identityToken: result.identityToken };
   }
 
   /**
@@ -303,12 +337,25 @@ export class AuthController {
   @ApiOperation({
     summary: 'Cikis yapar (oturumu sunucuda sonlandirir)',
     description:
-      'Token gecerli olmasa da 204 doner. Cikis SUNUCUDA gerceklesir; istemci ' +
-      'tarafi temizlik, calinmis bir kopyayi etkilemez.',
+      'Refresh token `HttpOnly` cookie den okunur (ADR-0026). Token gecerli ' +
+      'olmasa veya cookie hic yoksa da 204 doner (idempotent). Cookie her halukarda ' +
+      'temizlenir. Cikis SUNUCUDA gerceklesir; istemci tarafi temizlik, calinmis ' +
+      'bir kopyayi etkilemez.',
   })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Oturum sonlandirildi.' })
-  async signOut(@Body(new ZodValidationPipe(logoutSchema)) body: LogoutBody): Promise<void> {
-    await this.logout.execute({ refreshToken: body.refreshToken });
+  async signOut(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const refreshToken = readRefreshCookie(request);
+
+    // Cookie varsa ailesini iptal et; yoksa yalnizca cookie'yi temizle. Cikis
+    // idempotenttir — bilinmeyen/eksik token da 204.
+    if (refreshToken !== undefined) {
+      await this.logout.execute({ refreshToken });
+    }
+
+    clearRefreshCookie(response, this.config.isProduction);
   }
 
   /**
@@ -321,12 +368,19 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Tum oturumlari sonlandirir',
-    description: 'Cihaz kaybinda kullanilir. Kimlik token i gerektirir.',
+    description:
+      'Cihaz kaybinda kullanilir. Kimlik token i gerektirir. Bu cihazin refresh ' +
+      'cookie si de temizlenir (ADR-0026).',
   })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Tum oturumlar sonlandirildi.' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })
-  async signOutAll(): Promise<void> {
-    await this.logout.executeAll({ userId: this.currentUser.requireUserId() });
+  async signOutAll(@Res({ passthrough: true }) response: Response): Promise<void> {
+    // Kimlik DOGRULANMADIYSA once burada 401 firlatilir; cookie'ye dokunulmaz.
+    const userId = this.currentUser.requireUserId();
+    await this.logout.executeAll({ userId });
+
+    // Tum aileler sunucuda dustu; bu cihazin cookie'sini de birak birak.
+    clearRefreshCookie(response, this.config.isProduction);
   }
 
   /**

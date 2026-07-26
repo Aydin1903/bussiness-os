@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -25,6 +26,10 @@ async function bootstrap(): Promise<void> {
   // hata cevabi ayni kimligi tasir.
   app.use(correlationIdMiddleware);
   app.use(securityHeaders());
+
+  // Refresh token `HttpOnly` cookie ile tasinir (ADR-0026); okumak icin cookie
+  // ayristirilmali. Yazma (`res.cookie`) Express'te yerlesiktir, okuma degil.
+  app.use(cookieParser());
 
   // Host'tan tenant IPUCUSU cikarir. Tenant context KURMAZ ve hicbir erisim
   // acmaz — Host istemci kontrolundedir (MULTI_TENANT_ARCHITECTURE P1).

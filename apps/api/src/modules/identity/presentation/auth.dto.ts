@@ -48,17 +48,10 @@ export const verifyEmailSchema = z.object({ email, code: verificationCode }).str
 export const resendVerificationSchema = z.object({ email }).strict();
 
 /**
- * Refresh token: 256 bit deger, base64url ile tasinir (ADR-0021).
- *
- * Bicimi BURADA dogrulanmaz — yalnizca bos olmadigi ve absurt buyuklukte
- * olmadigi (DoS) kontrol edilir. Gecerliligin tek olcusu, SHA-256'sinin
- * veritabaninda karsiligi olmasidir; sinirda bir bicim kurali koymak, token
- * uretimi degistiginde sessizce ayrisan ikinci bir kural yaratirdi.
+ * `refresh` ve `logout` GOVDE ALMAZ (ADR-0026): refresh token artik `HttpOnly`
+ * cookie ile tasinir ve controller onu cookie'den okur. Bu yuzden burada bir
+ * `refreshSchema`/`logoutSchema` yoktur — gövde dogrulanacak veri icermez.
  */
-const refreshToken = z.string().min(1, 'Refresh token bos olamaz').max(512, 'Token cok uzun');
-
-export const refreshSchema = z.object({ refreshToken }).strict();
-export const logoutSchema = z.object({ refreshToken }).strict();
 
 /** Parola sifirlama TALEBI — yalnizca e-posta (kurtarma akisi, kimliksiz). */
 export const forgotPasswordSchema = z.object({ email }).strict();
@@ -78,7 +71,5 @@ export type RegisterBody = z.infer<typeof registerSchema>;
 export type LoginBody = z.infer<typeof loginSchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationBody = z.infer<typeof resendVerificationSchema>;
-export type RefreshBody = z.infer<typeof refreshSchema>;
-export type LogoutBody = z.infer<typeof logoutSchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>;
