@@ -3,8 +3,8 @@
 Business OS — Frontend Mimarisi
 
 > **Durum:** Faz 3 — frontend giriş — ✅ **Kabul edildi**
-> **Sürüm:** 1.1
-> **Son güncelleme:** 2026-07-26
+> **Sürüm:** 1.2
+> **Son güncelleme:** 2026-07-27
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -142,9 +142,12 @@ Refresh cookie ambient gönderildiği için CSRF korunur:
 
 ### 3.2 Auth-gate: `middleware.ts` bir güvenlik sınırı DEĞİLDİR
 
-Next.js `middleware.ts`, kimliksiz kullanıcıyı `/app` altından login'e yönlendirmek için yalnızca **refresh cookie'sinin varlığına** bakar.
+Next.js `middleware.ts`, kimliksiz kullanıcıyı `/app` altından login'e yönlendirmek için web origin'inde yaşayan, `HttpOnly` **olmayan** bir **oturum ipucu çerezine** (`bo_session_hint`) bakar.
 
-- **Varlık ≠ geçerlilik.** Middleware token'ı doğrulamaz; yalnızca "muhtemelen girişli" tahmini yapıp yönlendirir.
+> **Neden refresh cookie'sine bakılamaz.** Refresh cookie'si `HttpOnly` + **host-only** (Domain yok) + `Path=/api/v1/auth` ve **API origin'ine** aittir (ADR-0026, §2.3). Middleware **web origin'inde** çalışır ve başka bir origin'in host-only cookie'sini **asla göremez**. Bu yüzden auth-gate ayrı, web origin'inde yaşayan bir ipucu çerezine dayanır.
+
+- **`bo_session_hint`** F2'de başarılı login sonrası **istemci tarafından** set edilir, logout'ta silinir. Güvenlik değeri **yoktur**: yalnızca "muhtemelen girişli" tahminidir.
+- **Varlık ≠ geçerlilik.** Middleware token doğrulamaz; ipucunun varlığına bakıp yönlendirir. İpucu kurcalanabilir — bu önemsizdir, çünkü hiçbir yetki kararı ona dayanmaz.
 - **Gerçek yetki daima sunucudadır** (API + RLS + permission guard). Middleware bir **UX routing** katmanıdır.
 - Bu, backend'in kendi dersini yansıtır: *middleware sırası/varlığı bir güvenlik kararı değildir* (`CLAUDE.md` "Kalıcı ders"). İstemci middleware'ini güvenlik sınırı sanmak, aynı hatanın frontend versiyonudur.
 
@@ -260,3 +263,4 @@ Eşzamanlı 401'ler **tek bir yenileme promise'inde birleştirilir**; ikinci ist
 |---|---|---|
 | 1.0 | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0). |
 | 1.1 | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef. |
+| 1.2 | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2. |
