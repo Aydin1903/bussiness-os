@@ -630,8 +630,10 @@ flowchart TD
 
 | Biçim | Ne zaman | `tenant` claim'i | Ne yapabilir |
 |---|---|---|---|
-| **Kimlik token'ı** | Giriş sonrası | **Yok** | Yalnızca "hangi tenant'lara üyeyim" sorgusu ve tenant seçimi |
+| **Kimlik token'ı** | Giriş sonrası | **Yok** | Yalnızca "hangi tenant'lara üyeyim" sorgusu (`GET /me/memberships`) ve tenant seçimi |
 | **Tenant-scoped access token** | Tenant seçildikten sonra | **Var** | Tenant verisine erişim |
+
+> **"Hangi tenant'lara üyeyim" artık uçtur:** `GET /api/v1/me/memberships` ([ADR-0028](../adr/0028-my-memberships-query.md)), kimlik token'ıyla çağrılır ve yalnızca switchable tenant'ları döndürür. `userId` token'dan gelir; kullanıcı yalnızca kendi üyeliklerini görür. `memberships` FORCE-RLS olduğundan okuma, dar bir `BYPASSRLS` rolünün sahip olduğu bir `SECURITY DEFINER` fonksiyonuyla yapılır ([MT §12.4.4](MULTI_TENANT_ARCHITECTURE.md)).
 
 **Neden iki biçim:** Kullanıcı birden fazla tenant'a üye olabilir ([ADR-0014](../adr/0014-global-user-membership.md)) ve giriş anında hangisini istediği **bilinmez**. Tek biçim olsaydı, ya giriş bir tenant tahmin etmek zorunda kalırdı ya da tenant kimliği token dışından gelirdi — ikincisi [MT P1](MULTI_TENANT_ARCHITECTURE.md)'in ihlali olurdu.
 

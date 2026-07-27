@@ -1108,6 +1108,37 @@ Kaybın sınırı: uygulama zaten tablo sahibi **olmayan** `businessos_app` rol�
 
 Bu, RLS'in doğrudan bir sonucudur ama **sezgiye aykırıdır**: tenant izolasyonu, "global tekil bir alan kullanımda mı?" sorusunu normal yoldan yanıtlanamaz hâle getirir. Aynı durum ileride eklenecek her global-tekil alan için geçerli olacaktır (örneğin custom domain).
 
+#### 12.4.4 "Hangi tenant'lara üyeyim" için ikinci kontrollü aşım — dar `BYPASSRLS` rolü ([ADR-0028](../adr/0028-my-memberships-query.md))
+
+**Çözülmesi gereken çelişki (§12.4.1'e benzer ama daha zor).** Giriş sonrası kullanıcı bir tenant **seçmelidir** ([AUTH §10.1](AUTH_ARCHITECTURE.md)); "hangi tenant'lara üyeyim?" sorusu **hiçbir tenant context'i yokken** yanıtlanmalıdır. Ama `platform.memberships` — `tenants`'ın aksine — **`FORCE ROW LEVEL SECURITY` taşır** (§12.2). `resolve_tenant` numarası burada işe yaramaz: `FORCE`, `SECURITY DEFINER` fonksiyonunu **sahibi için de** politikaya tabi kılar ve `businessos_owner` bilinçle `NOBYPASSRLS`'tir.
+
+**Çözüm — aşım yine bir fonksiyon imzasında, ama sahibi dar bir `BYPASSRLS` rolü:**
+
+```sql
+CREATE FUNCTION platform.list_user_memberships(p_user_id uuid)
+RETURNS TABLE (tenant_id uuid, tenant_name text, tenant_slug text,
+               membership_role text, membership_status text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = platform, pg_temp
+AS $$ SELECT t.id, t.name, t.slug, m.role, m.status
+      FROM platform.memberships m JOIN platform.tenants t ON t.id = m.tenant_id
+      WHERE m.user_id = p_user_id AND m.status = 'active' AND t.status = 'active'; $$;
+-- Sahip: businessos_rls_reader (NOLOGIN, BYPASSRLS, yalnızca bu fonksiyonun sahibi)
+```
+
+**`memberships`'te `FORCE` KALDIRILMAZ** — bu, `tenants`'tan farkı. FORCE korunur; aşım bunun yerine, TEK amacı bu fonksiyonu sahiplenmek olan dar bir role verilir:
+
+| `businessos_rls_reader` kısıtı | Değer |
+|---|---|
+| `NOLOGIN` | Doğrudan bağlanamaz; yalnızca fonksiyon içinde çalışır |
+| `BYPASSRLS` | Tek yeteneği — FORCE-RLS `memberships`'i aşmak |
+| SELECT | **Yalnızca** `memberships` + `tenants`; başka hiçbir tablo değil |
+| Sahiplik | **Yalnızca** `list_user_memberships` |
+| Yazma / diğer fonksiyon | Hiçbiri |
+
+Bu kısıtlar bir entegrasyon testiyle **kanıtlanır** (ADR-0028 Constraint 2): rol `users`/`credentials`/`refresh_tokens`'ı okuyamaz, `resolve_tenant`'ı çalıştıramaz. `p_user_id` **doğrulanmış identity token'dan** gelir — kullanıcı yalnızca kendi üyeliklerini görür. Uç nokta: `GET /api/v1/me/memberships` (sayfalı, yalnızca switchable tenant'lar).
+
+> İki kontrollü aşım, iki farklı teknikle: `tenants` (§12.4.1) **FORCE'suz** bırakılır (sahip zaten aşar); `memberships` **FORCE'lu kalır** ve aşım dar bir `BYPASSRLS` rolüne verilir. İkisi de tek bir fonksiyon imzasında toplanır ve testle sabitlenir.
+
 > Testi olmadan bu hata **fark edilmez**: kontrol her zaman "boş" dediği için akış normal görünür, çakışma yalnızca veritabanı kısıtına çarptığında ortaya çıkar. Bir entegrasyon testi, başka bir tenant'ın slug'ının **kullanımda** olarak raporlandığını doğrular.
 
 #### 12.4.2 Outbox publisher için planlanan aşım
