@@ -28,3 +28,20 @@ export type {
   DependencyHealth,
   DependencyStatus,
 } from './health/health.contract';
+
+export {
+  registerRequestSchema,
+  loginRequestSchema,
+  verifyEmailRequestSchema,
+  resendVerificationRequestSchema,
+  messageResponseSchema,
+  loginResponseSchema,
+} from './auth/auth.contract';
+export type {
+  RegisterRequest,
+  LoginRequest,
+  VerifyEmailRequest,
+  ResendVerificationRequest,
+  MessageResponse,
+  LoginResponse,
+} from './auth/auth.contract';

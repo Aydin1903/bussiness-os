@@ -1,15 +1,20 @@
+import { LoginForm } from './login-form';
+
 /**
- * `/login` — F1'de yalnızca İSKELET.
+ * `/login` — giriş.
  *
- * Bu sayfanın var olma sebebi, middleware'in kimliksiz kullanıcıyı buraya
- * yönlendirebilmesidir (§3.2). Gerçek giriş formu F2'de gelir; şimdilik yalnızca
- * kart düzeninin (`(auth)/layout.tsx`) yerinde durduğunu gösterir.
+ * `?next=` (middleware yönlendirmesinden) ve `?verified=1` (doğrulama sonrası)
+ * SUNUCUDA okunur; form Client Component'tır. Böylece `useSearchParams`'ın
+ * Suspense gereksiniminden kaçınılır.
  */
-export default function LoginPage() {
-  return (
-    <div className="flex flex-col gap-2 text-center">
-      <h1 className="text-base font-medium">Giriş</h1>
-      <p className="text-sm text-fg-muted">Giriş formu bir sonraki fazda (F2) eklenecek.</p>
-    </div>
-  );
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[]; verified?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const next = typeof params.next === 'string' ? params.next : undefined;
+  const justVerified = params.verified === '1';
+
+  return <LoginForm next={next} justVerified={justVerified} />;
 }
