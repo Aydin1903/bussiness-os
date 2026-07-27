@@ -1,5 +1,95 @@
 @import 'tailwindcss';
 
+/*
+ * Tasarım token'ları — FRONTEND_ARCHITECTURE §4 (Apple-vari minimal).
+ *
+ * Tailwind v4 CSS-first'tür: SSOT bu dosyadaki CSS değişkenleridir, ayrı bir
+ * `tailwind.config.js` YOKTUR. Semantik renkler önce runtime CSS değişkeni
+ * olarak tanımlanır (light/dark burada çevrilir), sonra `@theme inline` ile
+ * Tailwind utility'lerine bağlanır — böylece `bg-bg`, `text-fg` gibi sınıflar
+ * `dark:` ikizine gerek kalmadan `prefers-color-scheme` ile kendiliğinden döner.
+ *
+ * Apple disiplini: renk değil KONTRAST. Tek "vurgu" siyah/beyazdır.
+ */
+
 :root {
   color-scheme: light dark;
+
+  /* Light — beyaz / krem / açık gri / siyah */
+  --bg: #ffffff;
+  --surface: #faf9f6; /* krem */
+  --border: #ecebe7; /* açık gri */
+  --fg: #0a0a0a;
+  --fg-muted: #6b6b6b;
+  --accent: #0a0a0a; /* kontrast = vurgu */
+  --accent-fg: #ffffff;
+  --danger: #b3261e;
+}
+
+/* Sistem tercihi karanlıksa çevir. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --border: #262626;
+    --fg: #f5f5f5;
+    --fg-muted: #a3a3a3;
+    --accent: #f5f5f5;
+    --accent-fg: #0a0a0a;
+    --danger: #f2b8b5;
+  }
+}
+
+/* Kullanıcının açık tema toggle'ı sistem tercihini EZER. */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --surface: #faf9f6;
+  --border: #ecebe7;
+  --fg: #0a0a0a;
+  --fg-muted: #6b6b6b;
+  --accent: #0a0a0a;
+  --accent-fg: #ffffff;
+  --danger: #b3261e;
+}
+
+/* Kullanıcının karanlık tema toggle'ı sistem tercihini EZER. */
+:root[data-theme='dark'] {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --border: #262626;
+  --fg: #f5f5f5;
+  --fg-muted: #a3a3a3;
+  --accent: #f5f5f5;
+  --accent-fg: #0a0a0a;
+  --danger: #f2b8b5;
+}
+
+@theme inline {
+  /* Semantik renkler → `bg-bg`, `text-fg`, `border-border`, `text-fg-muted`… */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+
+  /* Tipografi — Apple platformlarında yerel SF; diğerlerinde temiz alternatif. */
+  --font-sans:
+    -apple-system, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  /* Yumuşak köşeler; gölge yerine ince kenarlıkla derinlik. */
+  --radius-card: 0.75rem; /* 12px */
+}
+
+/*
+ * Başlıklarda sıkı negatif letter-spacing (Apple estetiği). Gövde nötr kalır.
+ * Spacing ve tip ölçeği için Tailwind v4 defaultları kullanılır — 4px tabanı ve
+ * ~1.25 oran §4 ile zaten uyumludur; ikinci bir ölçek tanımlamak sapma yaratırdı.
+ */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
 }
