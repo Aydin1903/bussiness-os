@@ -32,8 +32,18 @@ export const APP_ROLE = 'businessos_app';
 export const APP_PASSWORD = 'app_test_password';
 
 /**
- * Rolu olusturur. Migration'dan ONCE cagrilmalidir: `0000_init` ve
- * `0001_tenant_tables` rol mevcutsa ona yetki verir, yoksa o adimi atlar.
+ * `businessos_rls_reader` — dar BYPASSRLS rolu (ADR-0028, `01-roles.sql` kopyasi).
+ *
+ * `0008_list_user_memberships` migration'i `list_user_memberships` fonksiyonunun
+ * sahipligini bu role ATAR; dolayisiyla rol migrate'ten ONCE var olmalidir.
+ * Ozellikleri (NOLOGIN + BYPASSRLS + yalnizca iki tabloya SELECT) Constraint 2
+ * testiyle DOGRUDAN dogrulanir — bu kopya saparsa o test kirmizi yanar.
+ */
+export const RLS_READER_ROLE = 'businessos_rls_reader';
+
+/**
+ * Rolleri olusturur. Migration'dan ONCE cagrilmalidir: `0000_init`,
+ * `0001_tenant_tables` ve `0008` roller mevcutsa onlara yetki verir.
  */
 export async function createApplicationRole(pool: Pool, databaseName: string): Promise<void> {
   // NOBYPASSRLS acikca yazilir. Varsayilan zaten budur, ama bu satirin
@@ -49,4 +59,15 @@ export async function createApplicationRole(pool: Pool, databaseName: string): P
   `);
 
   await pool.query(`GRANT CONNECT ON DATABASE "${databaseName}" TO ${APP_ROLE}`);
+
+  // Dar BYPASSRLS rolu (ADR-0028). Migration 0008 sahipligi buna atar.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${RLS_READER_ROLE}') THEN
+        CREATE ROLE ${RLS_READER_ROLE} NOLOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE;
+      END IF;
+    END
+    $$;
+  `);
 }

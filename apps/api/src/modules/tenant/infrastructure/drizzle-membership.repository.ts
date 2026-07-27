@@ -7,12 +7,32 @@ import type {
   MembershipPage,
   MembershipPageResult,
   MembershipRepository,
+  UserMembershipRowPage,
 } from '../application/membership.repository.port';
 import type { MembershipId } from '../domain/membership-id.value-object';
 import type { Membership } from '../domain/membership.entity';
 import type { TenantId } from '../domain/tenant-id.value-object';
 import type { UserId } from '../../../shared/user-id.value-object';
 import { toMembership, toMembershipRow } from './membership.mapper';
+
+/**
+ * `platform.list_user_memberships` fonksiyonunun ham satiri (+ pencere sayimi).
+ *
+ * `type` (interface degil): drizzle `db.execute<T>` T'nin `Record<string, unknown>`
+ * kisitini saglamasini bekler; object-literal `type` implicit index signature
+ * tasir, `interface` tasimaz — bu yuzden `consistent-type-definitions` burada
+ * bilincli olarak devre disi.
+ */
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type UserMembershipQueryRow = {
+  readonly tenant_id: string;
+  readonly tenant_name: string;
+  readonly tenant_slug: string;
+  readonly membership_role: string;
+  readonly membership_status: string;
+  /** `count(*) OVER ()` — pg bigint'i string dondurur; cevrimi asagida. */
+  readonly total: string;
+};
 
 @Injectable()
 export class DrizzleMembershipRepository implements MembershipRepository {
@@ -67,6 +87,46 @@ export class DrizzleMembershipRepository implements MembershipRepository {
     return {
       items: rows.map((r) => toMembership(r.row)),
       total: rows[0]?.total ?? 0,
+    };
+  }
+
+  /**
+   * Kullanicinin TUM tenant'lardaki switchable uyelikleri (ADR-0028).
+   *
+   * Okuma, kontrollu SECURITY DEFINER fonksiyonu `platform.list_user_memberships`
+   * uzerinden yapilir: fonksiyon BYPASSRLS sahibiyle FORCE-RLS memberships'i asar
+   * ve YALNIZCA verilen kullanicinin aktif uyelik + aktif tenant satirlarini
+   * doner. Tenant filtresi/context BURADA yok — fonksiyon zaten daraltir.
+   *
+   * `count(*) OVER ()`: sayfa ve toplam tek sorguda; ayri COUNT'tan ve iki sorgu
+   * arasi tutarsizliktan kacinir. Siralama DETERMINISTIK (`tenant_name`, tie-break
+   * `tenant_id`) — iki sayfanin ortusmesini onler.
+   */
+  async listUserMemberships(
+    userId: UserId,
+    limit: number,
+    offset: number,
+  ): Promise<UserMembershipRowPage> {
+    const { db } = requireTransaction();
+
+    const result = await db.execute<UserMembershipQueryRow>(sql`
+      SELECT tenant_id, tenant_name, tenant_slug, membership_role, membership_status,
+             count(*) OVER () AS total
+      FROM platform.list_user_memberships(${userId.value})
+      ORDER BY tenant_name ASC, tenant_id ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    return {
+      items: result.rows.map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        tenantSlug: row.tenant_slug,
+        role: row.membership_role,
+        status: row.membership_status,
+      })),
+      // Bigint string olarak doner; sayfa bossa toplam da 0'dir.
+      total: Number(result.rows[0]?.total ?? 0),
     };
   }
 

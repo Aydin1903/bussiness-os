@@ -57,6 +57,13 @@
       "when": 1784710000000,
       "tag": "0007_password_reset_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784720000000,
+      "tag": "0008_list_user_memberships",
+      "breakpoints": true
     }
   ]
 }

@@ -5,9 +5,16 @@ import {
   type TenantAccessTokenIssuer,
 } from '../../modules/identity/identity.public';
 import { IdentityModule } from '../../modules/identity/identity.module';
-import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from '../../modules/tenant/tenant.public';
+import {
+  TENANT_ACCESS_QUERY,
+  USER_MEMBERSHIPS_QUERY,
+  type TenantAccessQuery,
+  type UserMembershipsQuery,
+} from '../../modules/tenant/tenant.public';
 import { TenantModule } from '../../modules/tenant/tenant.module';
+import { ListMyMembershipsUseCase } from './application/list-my-memberships.use-case';
 import { SwitchTenantUseCase } from './application/switch-tenant.use-case';
+import { MembershipsController } from './presentation/memberships.controller';
 import { SwitchTenantController } from './presentation/switch-tenant.controller';
 import { TenantContextMiddleware } from './presentation/tenant-context.middleware';
 
@@ -31,7 +38,7 @@ import { TenantContextMiddleware } from './presentation/tenant-context.middlewar
  */
 @Module({
   imports: [IdentityModule, TenantModule],
-  controllers: [SwitchTenantController],
+  controllers: [SwitchTenantController, MembershipsController],
   providers: [
     {
       // Use case saf TypeScript'tir — @Injectable() TASIMAZ ve NestJS'i bilmez.
@@ -42,6 +49,14 @@ import { TenantContextMiddleware } from './presentation/tenant-context.middlewar
         accessTokenIssuer: TenantAccessTokenIssuer,
       ): SwitchTenantUseCase =>
         new SwitchTenantUseCase({ tenantAccessQuery, accessTokenIssuer }),
+    },
+    {
+      // "Hangi tenant'lara uyeyim" (ADR-0028). Tenant'in public port'undan
+      // (`USER_MEMBERSHIPS_QUERY`) beslenir; ic import yok. Saf TypeScript.
+      provide: ListMyMembershipsUseCase,
+      inject: [USER_MEMBERSHIPS_QUERY],
+      useFactory: (userMembershipsQuery: UserMembershipsQuery): ListMyMembershipsUseCase =>
+        new ListMyMembershipsUseCase({ userMembershipsQuery }),
     },
     TenantContextMiddleware,
   ],

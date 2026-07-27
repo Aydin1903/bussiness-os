@@ -11,6 +11,7 @@ import {
   type MembershipPage,
   type MembershipPageResult,
   type MembershipRepository,
+  type UserMembershipRowPage,
 } from './membership.repository.port';
 
 const TENANT_ID = TenantId.create('018f3a2b-7c4d-7e1f-8a2b-0000000000a1');
@@ -42,6 +43,10 @@ class FakeMembershipRepository implements MembershipRepository {
   listByTenant(page: MembershipPage): Promise<MembershipPageResult> {
     this.receivedPages.push(page);
     return Promise.resolve(this.page);
+  }
+
+  listUserMemberships(): Promise<UserMembershipRowPage> {
+    return Promise.resolve({ items: [], total: 0 });
   }
 
   save(): Promise<void> {

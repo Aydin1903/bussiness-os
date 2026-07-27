@@ -45,3 +45,14 @@ export type {
   MessageResponse,
   LoginResponse,
 } from './auth/auth.contract';
+
+export {
+  membershipRoleSchema,
+  myMembershipItemSchema,
+  myMembershipsResponseSchema,
+} from './memberships/memberships.contract';
+export type {
+  MembershipRoleName,
+  MyMembershipItem,
+  MyMembershipsResponse,
+} from './memberships/memberships.contract';

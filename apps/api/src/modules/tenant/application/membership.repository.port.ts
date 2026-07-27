@@ -46,6 +46,27 @@ export interface MembershipPageResult {
   readonly total: number;
 }
 
+/**
+ * Cross-tenant uyelik listesinin HAM satiri (ADR-0028).
+ *
+ * Bu bir domain entity'si DEGIL, bir READ-MODEL projeksiyonudur: memberships +
+ * tenants birlesiminden gelir ve tek bir aggregate'e ait degildir. Bu yuzden
+ * `Membership` yerine duz string alanlar tasir; `role` domain kumesiyle
+ * sinirlidir (DB CHECK) ama sinirda string gecer.
+ */
+export interface UserMembershipRow {
+  readonly tenantId: string;
+  readonly tenantName: string;
+  readonly tenantSlug: string;
+  readonly role: string;
+  readonly status: string;
+}
+
+export interface UserMembershipRowPage {
+  readonly items: readonly UserMembershipRow[];
+  readonly total: number;
+}
+
 export interface MembershipRepository {
   findById(id: MembershipId): Promise<Membership | null>;
 
@@ -68,6 +89,23 @@ export interface MembershipRepository {
    * Tekillik garantisi veritabani unique index'indedir, uygulamada degil.
    */
   findByTenantAndUser(tenantId: TenantId, userId: UserId): Promise<Membership | null>;
+
+  /**
+   * Bir kullanicinin TUM tenant'lardaki SWITCHABLE uyeliklerini sayfali dondurur
+   * (ADR-0028). Yalnizca aktif uyelik + aktif tenant.
+   *
+   * Tenant context GEREKTIRMEZ: okuma, kontrollu SECURITY DEFINER fonksiyonu
+   * `platform.list_user_memberships` uzerinden yapilir (memberships FORCE-RLS'i
+   * context'siz okunamaz). Bu, `findByTenantAndUser`'dan farkli olarak tek bir
+   * tenant'a degil, kullaniciya scope'ludur.
+   *
+   * `total` sayfa disi dahil toplam sayidir. Siralama DETERMINISTIK olmalidir.
+   */
+  listUserMemberships(
+    userId: UserId,
+    limit: number,
+    offset: number,
+  ): Promise<UserMembershipRowPage>;
 
   /**
    * Uyeligi kalici hale getirir.

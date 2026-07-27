@@ -17,10 +17,11 @@ import type { MembershipRoleName } from './domain/membership-role.value-object';
  * (MULTI_TENANT_ARCHITECTURE 7.4): Identity `userId`'yi kanitlar, ama "bu
  * kullanici bu tenant'a girebilir mi ve hangi rolle" karari Tenant'a aittir.
  *
- * Uye LISTELEME ("hangi tenant'lara uyeyim") BILINCLI olarak burada YOK.
- * O islem `MembershipRepository`'de olmayan bir listeleme metodu ve bir
- * SAYFALAMA sozlesmesi gerektirir (DEVELOPMENT_RULES 7.1: sinirsiz liste
- * yasak); tenant-secim endpoint'i gercekten yazildiginda kendi karariyla gelir.
+ * Uye LISTELEME ("hangi tenant'lara uyeyim") ARTIK VAR: `UserMembershipsQuery`
+ * (ADR-0028). Tenant-secim endpoint'i (`GET /me/memberships`) yazildiginda
+ * gelen karar buydu — sayfalama sozlesmesiyle (DEVELOPMENT_RULES 7.1) ve
+ * kontrollu bir RLS asimiyla (SECURITY DEFINER `list_user_memberships`, cunku
+ * `memberships` FORCE-RLS'i tenant context'siz okunamaz).
  *
  * ============================================================================
  * SINIR TIPLERI ILKELDIR, VALUE OBJECT DEGIL
@@ -94,4 +95,48 @@ export interface TenantAccessQuery {
    * FAIL CLOSED: karar verilemeyen her durum reddile sonuclanir, izinle degil.
    */
   resolveMemberAccess(input: ResolveMemberAccessInput): Promise<TenantAccessResult>;
+}
+
+/** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
+export const USER_MEMBERSHIPS_QUERY = Symbol('USER_MEMBERSHIPS_QUERY');
+
+/**
+ * Kullanicinin bir tenant'taki uyeliginin DIS goruntusu (ADR-0028).
+ *
+ * Sinir tipleri ilkeldir (yukaridaki gerekce): `TenantId`/`UserId` value
+ * object'leri internaldir. `role` domain kumesinden turer (MT §7.5).
+ */
+export interface UserMembershipView {
+  readonly tenantId: string;
+  readonly tenantName: string;
+  readonly tenantSlug: string;
+  readonly role: TenantRole;
+  readonly status: string;
+}
+
+/** Sayfalama girdisi (DEVELOPMENT_RULES 7.1: sinirsiz liste yasak). */
+export interface ListUserMembershipsInput {
+  readonly userId: string;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+export interface UserMembershipsPage {
+  readonly items: readonly UserMembershipView[];
+  readonly total: number;
+}
+
+/**
+ * Tenant'in "hangi tenant'lara uyeyim" sorgusu (ADR-0028).
+ *
+ * DI token'i: `USER_MEMBERSHIPS_QUERY`.
+ *
+ * Yalnizca SWITCHABLE tenant'lari doner: aktif uyelik + aktif (operasyonel)
+ * tenant. `userId` cagirandan (dogrulanmis identity token) gelir; kullanici
+ * yalnizca KENDI uyeliklerini gorebilir. Tenant context GEREKTIRMEZ — okuma,
+ * kontrollu bir SECURITY DEFINER fonksiyonu (`list_user_memberships`) uzerinden
+ * yapilir (memberships FORCE-RLS'i context'siz okunamaz).
+ */
+export interface UserMembershipsQuery {
+  listForUser(input: ListUserMembershipsInput): Promise<UserMembershipsPage>;
 }

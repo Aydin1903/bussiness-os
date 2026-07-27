@@ -13,7 +13,10 @@ import { type Tenant } from '../domain/tenant.entity';
 import { TenantSlugAlreadyTakenError } from '../domain/tenant.error';
 import { UserId } from '../../../shared/user-id.value-object';
 import { type DomainEventPublisher } from '../../../shared/domain-event-publisher.port';
-import { type MembershipRepository } from './membership.repository.port';
+import {
+  type MembershipRepository,
+  type UserMembershipRowPage,
+} from './membership.repository.port';
 import {
   ProvisionTenantUseCase,
   type ProvisionTenantDependencies,
@@ -75,6 +78,10 @@ class FakeMembershipRepository implements MembershipRepository {
 
   /** Provisioning listeleme yapmaz; sozlesme geregi bulunur. */
   listByTenant(): Promise<{ items: readonly Membership[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
+  listUserMemberships(): Promise<UserMembershipRowPage> {
     return Promise.resolve({ items: [], total: 0 });
   }
 

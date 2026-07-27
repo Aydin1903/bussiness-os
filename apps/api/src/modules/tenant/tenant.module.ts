@@ -17,6 +17,7 @@ import {
   MEMBERSHIP_REPOSITORY,
   type MembershipRepository,
 } from './application/membership.repository.port';
+import { ListUserMembershipsQuery } from './application/list-user-memberships.query';
 import { ProvisionTenantUseCase } from './application/provision-tenant.use-case';
 import { ResolveTenantAccessQuery } from './application/resolve-tenant-access.query';
 import {
@@ -25,7 +26,12 @@ import {
 } from './application/tenant-provisioning-policy.port';
 import { TENANT_REPOSITORY, type TenantRepository } from './application/tenant.repository.port';
 import { ListMembershipsUseCase } from './application/list-memberships.use-case';
-import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from './tenant.public';
+import {
+  TENANT_ACCESS_QUERY,
+  USER_MEMBERSHIPS_QUERY,
+  type TenantAccessQuery,
+  type UserMembershipsQuery,
+} from './tenant.public';
 import { TENANT_PERMISSIONS } from './tenant.permissions';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
@@ -145,11 +151,28 @@ import { TenantController } from './presentation/tenant.controller';
       ): ListMembershipsUseCase =>
         new ListMembershipsUseCase({ membershipRepository, transactionManager }),
     },
+    {
+      // "Hangi tenant'lara uyeyim" sorgusu (ADR-0028). Session modulu bunu
+      // token ile enjekte eder (GET /me/memberships). Saf TypeScript.
+      provide: USER_MEMBERSHIPS_QUERY,
+      inject: [MEMBERSHIP_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        membershipRepository: MembershipRepository,
+        transactionManager: TransactionManager,
+      ): UserMembershipsQuery =>
+        new ListUserMembershipsQuery({ membershipRepository, transactionManager }),
+    },
   ],
   // TENANT_ACCESS_QUERY disa acilir: Identity modulu (Faz 3) bunu token ile
   // enjekte eder. Somut sinif DEGIL, token export edilir — tuketen taraf
   // tenant.public.ts'teki arayuze baglanir, implementasyona degil.
-  exports: [ProvisionTenantUseCase, TENANT_REPOSITORY, MEMBERSHIP_REPOSITORY, TENANT_ACCESS_QUERY],
+  exports: [
+    ProvisionTenantUseCase,
+    TENANT_REPOSITORY,
+    MEMBERSHIP_REPOSITORY,
+    TENANT_ACCESS_QUERY,
+    USER_MEMBERSHIPS_QUERY,
+  ],
 })
 export class TenantModule {
   constructor(@Inject(PERMISSION_REGISTRY) private readonly permissions: PermissionRegistry) {

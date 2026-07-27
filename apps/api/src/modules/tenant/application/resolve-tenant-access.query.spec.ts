@@ -8,7 +8,10 @@ import { TenantId } from '../domain/tenant-id.value-object';
 import { TenantSlug } from '../domain/tenant-slug.value-object';
 import { Tenant } from '../domain/tenant.entity';
 import { UserId } from '../../../shared/user-id.value-object';
-import { type MembershipRepository } from './membership.repository.port';
+import {
+  type MembershipRepository,
+  type UserMembershipRowPage,
+} from './membership.repository.port';
 import { type TenantRef, type TenantRepository } from './tenant.repository.port';
 import { ResolveTenantAccessQuery } from './resolve-tenant-access.query';
 
@@ -55,6 +58,10 @@ class FakeMembershipRepository implements MembershipRepository {
 
   /** Erisim cozumleme listeleme yapmaz; sozlesme geregi bulunur. */
   listByTenant(): Promise<{ items: readonly Membership[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
+  listUserMemberships(): Promise<UserMembershipRowPage> {
     return Promise.resolve({ items: [], total: 0 });
   }
 
