@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@business-os/contracts": "workspace:*",
-    "next": "^15.5.4",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.1.12"
   },
   "devDependencies": {
