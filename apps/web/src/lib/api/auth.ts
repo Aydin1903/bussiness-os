@@ -1,11 +1,13 @@
 import {
   loginResponseSchema,
   messageResponseSchema,
+  type ForgotPasswordRequest,
   type LoginRequest,
   type LoginResponse,
   type MessageResponse,
   type RegisterRequest,
   type ResendVerificationRequest,
+  type ResetPasswordRequest,
   type VerifyEmailRequest,
 } from '@business-os/contracts';
 
@@ -50,4 +52,17 @@ export function verifyEmail(body: VerifyEmailRequest): Promise<MessageResponse> 
 /** Doğrulama kodunu yeniden gönder — 202, sabit mesaj. */
 export function resendVerification(body: ResendVerificationRequest): Promise<MessageResponse> {
   return apiFetch('/auth/resend-verification', messageResponseSchema, { body, noRetry: true });
+}
+
+/**
+ * Parola sıfırlama kodu iste — 202, sabit mesaj. Yanıt hesabın varlığından
+ * BAĞIMSIZ aynıdır (P2); istemci başarı/başarısızlık ayırt etmez.
+ */
+export function forgotPassword(body: ForgotPasswordRequest): Promise<MessageResponse> {
+  return apiFetch('/auth/forgot-password', messageResponseSchema, { body, noRetry: true });
+}
+
+/** Parola sıfırla (kod + yeni parola) — 200, sabit mesaj. Red 400/422. */
+export function resetPassword(body: ResetPasswordRequest): Promise<MessageResponse> {
+  return apiFetch('/auth/reset-password', messageResponseSchema, { body, noRetry: true });
 }

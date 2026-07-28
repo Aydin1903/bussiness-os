@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { LogoutButton } from '@/components/logout-button';
+
 /**
  * Authenticated uygulama kabuğu — sidebar + header İSKELETİ (§3.1).
  *
@@ -28,7 +30,10 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
         {/* Header — iskelet */}
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-6">
           <div className="text-sm text-fg-muted">{/* Breadcrumb / başlık — sonraki faz */}</div>
-          <div>{/* Tenant seçici + kullanıcı menüsü — sonraki faz */}</div>
+          <div className="flex items-center gap-2">
+            {/* Tenant seçici + kullanıcı menüsü — sonraki faz */}
+            <LogoutButton />
+          </div>
         </header>
 
         <main className="flex-1 p-6">{children}</main>

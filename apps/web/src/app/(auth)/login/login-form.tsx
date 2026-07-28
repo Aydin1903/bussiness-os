@@ -34,9 +34,11 @@ function safeNext(next: string | undefined): string {
 export function LoginForm({
   next,
   justVerified,
+  justReset,
 }: {
   next: string | undefined;
   justVerified: boolean;
+  justReset: boolean;
 }) {
   const router = useRouter();
   const session = useSession();
@@ -112,6 +114,12 @@ export function LoginForm({
         </p>
       ) : null}
 
+      {justReset ? (
+        <p className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-fg-muted">
+          Parolanız sıfırlandı. Yeni parolanızla giriş yapabilirsiniz.
+        </p>
+      ) : null}
+
       <FormError message={error} />
 
       {needsVerification ? (
@@ -155,12 +163,20 @@ export function LoginForm({
         Giriş yap
       </Button>
 
-      <p className="text-center text-sm text-fg-muted">
-        Hesabın yok mu?{' '}
-        <Link href="/register" className="font-medium text-fg underline-offset-2 hover:underline">
-          Hesap oluştur
+      <div className="flex flex-col gap-2 text-center text-sm text-fg-muted">
+        <Link
+          href="/forgot-password"
+          className="underline-offset-2 hover:text-fg hover:underline"
+        >
+          Şifreni mi unuttun?
         </Link>
-      </p>
+        <p>
+          Hesabın yok mu?{' '}
+          <Link href="/register" className="font-medium text-fg underline-offset-2 hover:underline">
+            Hesap oluştur
+          </Link>
+        </p>
+      </div>
     </form>
   );
 }

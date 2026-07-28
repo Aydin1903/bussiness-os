@@ -40,6 +40,16 @@ export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export const resendVerificationRequestSchema = z.object({ email }).strict();
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;
 
+/** Parola sıfırlama TALEBİ — yalnızca e-posta (kimliksiz kurtarma akışı). */
+export const forgotPasswordRequestSchema = z.object({ email }).strict();
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+/** Parola sıfırlama TAMAMLAMA — e-posta + 6 haneli kod + yeni parola. */
+export const resetPasswordRequestSchema = z
+  .object({ email, code: verificationCode, password })
+  .strict();
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+
 // --- Yanıt gövdeleri --------------------------------------------------------
 
 /**
