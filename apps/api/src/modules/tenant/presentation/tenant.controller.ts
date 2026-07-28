@@ -31,11 +31,10 @@ export class TenantController {
   /**
    * Yeni tenant acar.
    *
-   * `202 Accepted` doner, `201` DEGIL: tenant `provisioning` durumunda olusur
-   * ve HENUZ KULLANIMA HAZIR DEGILDIR. Kurulumun geri kalani
-   * `TenantProvisioningRequested` event'ini tuketen asenkron handler'da olur
-   * (ADR-0016). `201 Created` "kaynak hazir" anlamina gelir ve istemciyi
-   * hemen kullanmaya yonlendirir.
+   * `201 Created` doner: V1'de provisioning SENKRONDUR — tenant AYNI istekte
+   * `active` (kullanima hazir) acilir (ADR-0016 V1 notu; use case yorumu). Bu,
+   * yapilacak gercek asenkron kurulum isi olmadigi icin dururtir; is eklendiginde
+   * `202 Accepted` + asenkron handler'a geri donulur.
    *
    * Kimlik DOGRULANMIS token'dan gelir (auth middleware -> istek baglami);
    * istek govdesinden ALINMAZ. ADR-0016 onkosulu (dogrulanmis e-posta)
@@ -44,15 +43,15 @@ export class TenantController {
    *   - e-posta dogrulanmamis -> 403
    */
   @Post()
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Yeni tenant acar',
     description:
-      'Tenant `provisioning` durumunda olusturulur; kurulum asenkron tamamlanir. ' +
+      'Tenant `active` (kullanima hazir) olusturulur — V1 senkron provisioning. ' +
       'Sahip, DOGRULANMIS kullanicidir — istek govdesinden alinmaz. ' +
       'E-postasi dogrulanmamis kullanici tenant acamaz (ADR-0016).',
   })
-  @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Provisioning baslatildi.' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Tenant olusturuldu (active).' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Slug zaten kullanimda.' })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })

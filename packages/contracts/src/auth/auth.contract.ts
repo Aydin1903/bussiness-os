@@ -55,3 +55,11 @@ export type MessageResponse = z.infer<typeof messageResponseSchema>;
  */
 export const loginResponseSchema = z.object({ identityToken: z.string().min(1) });
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+/**
+ * `POST /auth/switch-tenant` yanıtı — tenant-scoped access token (ADR-0020, 15 dk).
+ * Kimlik token'ıyla + seçilen `tenantId` ile çağrılır; membership doğrulamasından
+ * geçer (MT §7.4).
+ */
+export const switchTenantResponseSchema = z.object({ accessToken: z.string().min(1) });
+export type SwitchTenantResponse = z.infer<typeof switchTenantResponseSchema>;

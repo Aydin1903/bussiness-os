@@ -179,13 +179,13 @@ describe('POST /api/v1/tenants (uctan uca)', () => {
 
   // --- Mutlu yol -----------------------------------------------------------
 
-  it('dogrulanmis kullaniciya 202 doner ve tenant i provisioning durumunda acar', async () => {
+  it('dogrulanmis kullaniciya 201 doner ve tenant i active acar (V1 senkron provisioning)', async () => {
     const token = await tokenFor({ verified: true });
 
     const response = await postTenant(token).send(BODY);
 
-    expect(response.status).toBe(202);
-    expect(response.body).toMatchObject({ slug: 'acme', status: 'provisioning' });
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ slug: 'acme', status: 'active' });
   });
 
   it('tenant, owner uyeligi ve outbox event ini birlikte yazar', async () => {

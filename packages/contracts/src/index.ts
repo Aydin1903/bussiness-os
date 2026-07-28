@@ -36,6 +36,7 @@ export {
   resendVerificationRequestSchema,
   messageResponseSchema,
   loginResponseSchema,
+  switchTenantResponseSchema,
 } from './auth/auth.contract';
 export type {
   RegisterRequest,
@@ -44,7 +45,17 @@ export type {
   ResendVerificationRequest,
   MessageResponse,
   LoginResponse,
+  SwitchTenantResponse,
 } from './auth/auth.contract';
+
+export {
+  provisionTenantRequestSchema,
+  provisionTenantResponseSchema,
+} from './tenants/tenants.contract';
+export type {
+  ProvisionTenantRequest,
+  ProvisionTenantResponse,
+} from './tenants/tenants.contract';
 
 export {
   membershipRoleSchema,

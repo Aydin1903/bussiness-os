@@ -79,7 +79,7 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
     };
   }
 
-  it('tenant i provisioning durumunda olusturur', async () => {
+  it('tenant i active durumunda olusturur (V1 senkron provisioning)', async () => {
     const tenant = await useCase.execute(command('acme'));
 
     const rows = await database.ownerPool.query<{ id: string; slug: string; status: string }>(
@@ -89,7 +89,7 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
     expect(rows.rowCount).toBe(1);
     expect(rows.rows[0]?.id).toBe(tenant.id.value);
     expect(rows.rows[0]?.slug).toBe('acme');
-    expect(rows.rows[0]?.status).toBe('provisioning');
+    expect(rows.rows[0]?.status).toBe('active');
   });
 
   it('owner uyeligini ayni islemde olusturur', async () => {
@@ -251,6 +251,6 @@ describe('tenant provisioning (uctan uca, gercek PostgreSQL)', () => {
     );
 
     expect(resolved.rows[0]?.tenant_id).toBe(tenant.id.value);
-    expect(resolved.rows[0]?.tenant_status).toBe('provisioning');
+    expect(resolved.rows[0]?.tenant_status).toBe('active');
   });
 });

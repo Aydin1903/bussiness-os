@@ -61,11 +61,24 @@ export class ProvisionTenantUseCase {
   constructor(private readonly deps: ProvisionTenantDependencies) {}
 
   /**
-   * Tenant'i `provisioning` durumunda dondurur — HENUZ KULLANIMA HAZIR DEGIL.
+   * Tenant'i `active` durumunda — KULLANIMA HAZIR — dondurur.
    *
-   * Kurulumun geri kalani (storage prefix'i, arama index'i, ornek veri)
-   * `TenantProvisioningRequested` event'ini tuketen asenkron handler'da olur.
-   * Bu yuzden HTTP karsiligi `202 Accepted`'tir, `201` degil.
+   * ============================================================================
+   * V1: PROVISIONING SENKRON (ADR-0016 notu)
+   * ============================================================================
+   * ADR-0016 tenant'i `provisioning`'de acip aktive gecisi asenkron bir
+   * handler'a birakmisti. Ama o handler'in yapacagi GERCEK bir is henuz YOK
+   * (per-tenant storage prefix'i, arama index'i, ornek veri — hicbiri
+   * uygulanmadi). "provisioning" durumu bu yuzden DURUST DEGILDI: hicbir sey onu
+   * `active` yapmadigindan yeni tenant sonsuza kadar erisilemez kaliyordu
+   * (switch-tenant 403, /me/memberships gostermiyor).
+   *
+   * V1'de bu yuzden provisioning SENKRONDUR: tenant AYNI transaction'da
+   * `markProvisioned()` ile `active` acilir. Gercek asenkron kurulum isi
+   * eklendiginde `provisioning` durumu ve onu tuketen handler geri gelir.
+   * `TenantProvisioningRequested` event'i KORUNUR (outbox kaydi + gelecekteki
+   * tuketici icin); yalnizca tenant artik onu BEKLEMEZ.
+   * ============================================================================
    */
   async execute(command: ProvisionTenantCommand): Promise<Tenant> {
     // 1. Onkosul: ADR-0016 geregi dogrulanmamis kullanici tenant acamaz.
@@ -126,6 +139,11 @@ export class ProvisionTenantUseCase {
       ownerUserId: command.ownerUserId,
       createdAt: now,
     });
+
+    // V1: provisioning SENKRON — tenant hemen `active` acilir (bkz. execute
+    // yorumu). Domain gecisi kullanilir (durum makinesi korunur), duz atama
+    // degil: provisioning -> active gecerli bir gecistir (tenant-status VO).
+    tenant.markProvisioned();
 
     const ownerMembership = Membership.createOwner({
       id: MembershipId.create(this.deps.idGenerator.nextId()),

@@ -139,3 +139,35 @@ Iki tetikleyici:
 2. **SSO ile giris** eklendiginde: kimlik saglayici e-postayi zaten dogrulanmis
    olarak bildiriyorsa, ayri bir dogrulama adimi gereksizlesir. Onkosul korunur,
    dogrulamanin kaynagi degisir.
+
+## Ek (2026-07-28) — V1: provisioning SENKRON
+
+Bu ADR tenant'i `provisioning` durumunda acip aktive gecisi
+`TenantProvisioningRequested` event'ini tuketen asenkron bir handler'a
+birakmisti. Ama o handler'in yapacagi GERCEK is henuz YOK: per-tenant storage
+prefix'i, arama index'i, ornek veri — hicbiri uygulanmadi ve tenant outbox
+tuketicisi de yazilmadi (CLAUDE.md "henuz yok").
+
+Sonuc SESSIZ ama ciddiydi: hicbir sey tenant'i `active` yapmadigindan, yeni
+acilan her tenant SONSUZA KADAR erisilemez kaliyordu — `switch-tenant` 403
+(tenant-inactive) veriyor, `GET /me/memberships` (ADR-0028) onu gostermiyordu.
+"provisioning" durumu, arkasinda hicbir is olmadigi icin **durust degildi**:
+"hazirlaniyor" diyordu ama hazirlayan yoktu.
+
+**Bu yuzden V1'de provisioning SENKRONDUR.** `ProvisionTenantUseCase` tenant'i
+AYNI transaction'da `markProvisioned()` ile `active` acar (durum makinesi
+korunur: `provisioning -> active` gecerli gecistir). HTTP karsiligi artik
+**`201 Created`**'tir (`202 Accepted` degil): kaynak olusturuldugu anda hazirdir.
+
+**Neyin DEGISMEDIGI:**
+
+- Atomiklik pazarlik konusu degil: tenant + owner membership + event hala TEK
+  transaction'da yazilir. Sahipsiz tenant hala imkansiz.
+- E-posta dogrulamasi onkosulu (bu ADR'nin ozu) AYNEN durur.
+- `TenantProvisioningRequested` event'i KORUNUR (outbox kaydi + gelecekteki
+  tuketici); yalnizca tenant artik onu beklemez.
+
+**Ne zaman geri alinir:** Gercek bir asenkron kurulum isi (dis sistem cagrisi,
+per-tenant kaynak) eklendiginde `provisioning` durumu ve onu `active`'e goturen
+tuketici geri gelir; HTTP `202`'ye doner. O gune kadar senkron olmak, "hazir"
+demeyip erisilemez birakmaktan durusttur.

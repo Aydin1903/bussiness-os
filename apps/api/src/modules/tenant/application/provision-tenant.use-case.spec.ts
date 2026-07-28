@@ -235,13 +235,14 @@ function command(overrides: Partial<Parameters<ProvisionTenantUseCase['execute']
 }
 
 describe('ProvisionTenantUseCase — mutlu yol', () => {
-  it('tenant.i provisioning durumunda olusturur', async () => {
-    // ADR-0016: kurulum asenkron tamamlanana kadar tenant hazir DEGILDIR.
+  it('tenant.i active durumunda olusturur (V1 senkron provisioning)', async () => {
+    // ADR-0016 V1 notu: yapilacak gercek asenkron is olmadigindan provisioning
+    // senkrondur; tenant ayni transaction'da `active` acilir.
     const harness = createHarness();
 
     const tenant = await harness.useCase.execute(command());
 
-    expect(tenant.status).toBe('provisioning');
+    expect(tenant.status).toBe('active');
     expect(tenant.slug.value).toBe('acme');
     expect(tenant.name).toBe('Acme Ltd.');
   });
