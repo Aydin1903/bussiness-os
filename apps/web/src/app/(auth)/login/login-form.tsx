@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { loginUser } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/error-message';
 import { ApiError } from '@/lib/api/problem';
+import { listMyMemberships } from '@/lib/api/tenants';
+import { selectTenant } from '@/lib/session/select-tenant';
 import { setSessionHint } from '@/lib/session/session-hint';
 import { useSession } from '@/lib/session/session-provider';
 
@@ -44,6 +46,24 @@ export function LoginForm({
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Login sonrası yönlendirme (ADR-0028 iki aşamalı model):
+   *   0 üyelik → /create-tenant · 1 → otomatik switch-tenant + hedef · 2+ → /select-tenant.
+   */
+  async function routeAfterLogin(): Promise<void> {
+    const memberships = await listMyMemberships();
+    const only = memberships.items[0];
+
+    if (memberships.total === 0) {
+      router.push('/create-tenant');
+    } else if (memberships.total === 1 && only !== undefined) {
+      await selectTenant(only.tenantId);
+      router.push(safeNext(next));
+    } else {
+      router.push('/select-tenant');
+    }
+  }
+
   async function submit(): Promise<void> {
     setError(null);
     setNeedsVerification(false);
@@ -56,12 +76,7 @@ export function LoginForm({
       session.setIdentityToken(result.identityToken);
       setSessionHint();
 
-      // ── F2.2 GERÇEK ROUTING BURAYA GİRECEK ──────────────────────────────
-      // Kullanıcının üyeliklerini (GET /me/memberships) sorup: 0 tenant →
-      // /create-tenant, 1 tenant → switch-tenant + /app, >1 → /select-tenant.
-      // F2.1'de geçici olarak doğrudan /app'e (veya `next`) gidilir; /app
-      // kabuğu access token olmadan da (veri çekmeden) render olur.
-      router.push(safeNext(next));
+      await routeAfterLogin();
     } catch (caught) {
       // Durum koduna göre metin; 403 (e-posta doğrulanmamış) ise ayrıca
       // doğrulama bağlantısı gösterilir (AUTH §9: 403 ayırt edilebilir).

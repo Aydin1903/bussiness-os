@@ -28,6 +28,12 @@ export interface ApiFetchOptions {
   readonly headers?: Record<string, string>;
   /** 401 sonrası yeniden deneme yapılmasın (yenileme uçlarının kendisi için). */
   readonly noRetry?: boolean;
+  /**
+   * Authorization Bearer olarak kullanılacak token — VERİLİRSE memory'deki access
+   * token yerine bu kullanılır. Tenant-öncesi (identity token) çağrılar içindir:
+   * `/me/memberships`, `/tenants`, `/auth/switch-tenant` (§5, ADR-0028).
+   */
+  readonly bearer?: string;
   readonly signal?: AbortSignal;
 }
 
@@ -81,8 +87,10 @@ async function send(path: string, options: ApiFetchOptions): Promise<Response> {
   if (options.body !== undefined) {
     headers['content-type'] ??= 'application/json';
   }
-  if (accessToken !== undefined) {
-    headers.authorization = `Bearer ${accessToken}`;
+  // Açık `bearer` (identity token) memory'deki access token'ı ezer.
+  const authToken = options.bearer ?? accessToken;
+  if (authToken !== undefined) {
+    headers.authorization = `Bearer ${authToken}`;
   }
 
   return fetch(`${apiBaseUrl()}${path}`, {
