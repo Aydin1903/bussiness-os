@@ -109,3 +109,19 @@ async function deriveAccessToken(identityToken: string, tenantId: TenantId): Pro
 export function hasIdentity(): boolean {
   return getIdentityToken() !== undefined;
 }
+
+/**
+ * YALNIZCA kimlik token'ını tazeler (refresh cookie ile) ve memory'ye yazar.
+ *
+ * İki kullanım (Dashboard):
+ * - Sayfa yenileme sonrası session bootstrap (memory sıfırlanır, cookie durur).
+ * - Uzun oturumda tenant değiştirirken identity 5 dk'da dolduysa retry.
+ *
+ * Başarısızlıkta (`refreshIdentity` içinde) session temizlenir ve fırlatır;
+ * çağıran login'e yönlendirir.
+ */
+export async function refreshIdentityToken(): Promise<string> {
+  const identityToken = await refreshIdentity();
+  setSession({ identityToken });
+  return identityToken;
+}

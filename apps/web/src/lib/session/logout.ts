@@ -1,4 +1,5 @@
 import { apiSend } from '../api/client';
+import { clearLastTenant } from './last-tenant';
 import { clearSessionHint } from './session-hint';
 import { clearSession } from './session-store';
 
@@ -19,6 +20,7 @@ export async function logout(): Promise<void> {
     await apiSend('/auth/logout', { method: 'POST', noRetry: true });
   } finally {
     clearSessionHint();
+    clearLastTenant();
     clearSession();
   }
 }

@@ -1,14 +1,57 @@
+import { CustomersIcon, FinanceIcon, KnowledgeIcon, ProjectsIcon } from '@/components/icons';
+import { AiWelcomeCard } from '@/components/dashboard/ai-welcome-card';
+import { ModuleCard } from '@/components/dashboard/module-card';
+
 /**
- * `/app` — F1'de boş dashboard İSKELETİ.
+ * `/app` — Genel Bakış (dashboard).
  *
- * Gerçek içerik (modül kartları, AI özetleri) sonraki fazlarda gelir. Şimdilik
- * yalnızca app kabuğunun (`app/layout.tsx`) render olduğunu gösterir.
+ * AI-öncelikli düzen: önce karşılama/asistan kartı (placeholder), sonra modül
+ * kartları (hepsi "yakında"). Henüz tenant-scoped GERÇEK veri yoktur; içerik
+ * tamamen statiktir (bkz. AiWelcomeCard / ModuleCard yorumları).
  */
-export default function AppHomePage() {
+const MODULES = [
+  {
+    title: 'Müşteriler',
+    description: 'Müşteri kayıtları ve ilişki geçmişi — AI için müşteri hafızası.',
+    icon: CustomersIcon,
+  },
+  {
+    title: 'Finans',
+    description: 'Gelir, gider ve nakit akışı — AI için finansal hafıza.',
+    icon: FinanceIcon,
+  },
+  {
+    title: 'Projeler',
+    description: 'İşler, teslimatlar ve zaman — AI için yürütme hafızası.',
+    icon: ProjectsIcon,
+  },
+  {
+    title: 'Bilgi Bankası',
+    description: 'Belgeler, kararlar ve politikalar — AI için kurumsal hafıza.',
+    icon: KnowledgeIcon,
+  },
+] as const;
+
+export default function DashboardPage() {
   return (
-    <div className="flex flex-col gap-1">
-      <h1 className="text-lg font-semibold">Panel</h1>
-      <p className="text-sm text-fg-muted">İçerik sonraki fazda eklenecek.</p>
+    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <header className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold">Genel Bakış</h1>
+        <p className="text-sm text-fg-muted">Şirketinin durumuna tek bakışta bak.</p>
+      </header>
+
+      <AiWelcomeCard />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {MODULES.map((module) => (
+          <ModuleCard
+            key={module.title}
+            title={module.title}
+            description={module.description}
+            icon={module.icon}
+          />
+        ))}
+      </div>
     </div>
   );
 }
