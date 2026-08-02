@@ -3,7 +3,7 @@
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
 > **Durum:** Faz 4 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.1
+> **Sürüm:** 1.2
 > **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -52,27 +52,32 @@ Ayrıntı [`CLAUDE.md` "Mevcut Durum"](../CLAUDE.md) bölümündedir ve **burada
 | Kalem | Durum | Nereye bağlandı |
 |---|---|---|
 | **Authorization'ın kalanı** — tenant-configurable roller · ABAC · izin cache | RBAC çekirdeği ÇALIŞIYOR (ADR-0025: merkezî policy engine + guard, deny-by-default) | ❄️ **Backlog — herhangi bir faza bağlanmadı.** Etiket: *"gerçek ihtiyaç doğunca"* |
-| **Tenant outbox publisher / drain süreci** | ❌ **Hiç yazılmadı** — bkz. §1.2 | 🔴 **Faz 4'ün ÖNKOŞULU** — Faz 4 başlamadan kapatılmalı |
+| **Tenant outbox publisher / drain süreci** | ✅ **Yazıldı** (commit `b07966f`) — bkz. §1.2 | 🟢 **Kapatıldı** — Faz 4 önkoşulu karşılandı |
 
 **Authorization'ın kalanı neden bir faza bağlanmadı:** üçü de bugün *varsayımsal* ihtiyaçlardır. Tenant-configurable roller, bir müşteri sabit rol setinin yetmediğini söyleyene kadar tahmindir; ABAC ("yalnızca kendi departmanının projelerini görebilir") gerçek bir kural talebi olmadan tasarlanamaz; izin cache ise **henüz ölçülmemiş** bir performans sorununun çözümüdür — bugün cache eklemek, olmayan bir darboğazı optimize etmektir. `resource:action` modeli üçünün de altına bozulmadan girecek şekilde tasarlandı (ARCHITECTURE §10.1), dolayısıyla erteleme bir borç değil, bilinçli bir bekleyiştir.
 
-### 1.2 Tenant outbox publisher — durum tespiti (2026-08-02)
+### 1.2 Tenant outbox publisher — ✅ kapatıldı (commit `b07966f`)
 
-**Yazma yolu var, okuma yolu YOK.**
+> **Durum: kapandı (2026-08-02).** Aşağıdaki tespit, işin yapılmasından **önceki** durumu anlatır ve kayıt olarak bırakılmıştır. Bugün son sütun dolu: tüketici, zamanlayıcı, repository ve teslimat hatası mekanizmasının tamamı yazıldı (migration `0009`+`0010`, `MULTI_TENANT_ARCHITECTURE.md` §12.4.2 / v2.0).
 
-| | Identity (`platform.identity_outbox`) | **Tenant (`platform.outbox`)** |
-|---|---|---|
-| Yazan | `IdentityOutboxEventPublisher` | `OutboxEventPublisher` ✅ |
-| **Tüketici use case** | `PublishIdentityEventsUseCase` ✅ | ❌ **yok** |
-| **Zamanlayıcı / worker** | `IdentityOutboxRelay` (`setInterval` + bootstrap/shutdown) ✅ | ❌ **yok** |
-| Repository | `DrizzleIdentityOutboxRepository` ✅ | ❌ **yok** |
-| Teslimat hatası mekanizması | `attempt_count` · `last_error` · backoff · dead-letter (migration `0006`) ✅ | ❌ **kolonlar bile yok** |
+**Tespit edildiğinde: yazma yolu var, okuma yolu YOK.**
 
-Kod tabanında `platform.outbox`'tan **okuyan tek satır yoktur** (entegrasyon testinin ham SQL'i hariç). Satırlar birikir, `published_at` sonsuza kadar `NULL` kalır ve kısmî index `outbox_pending_idx` sınırsız büyür.
+| | Identity (`platform.identity_outbox`) | Tenant (`platform.outbox`) — **tespit** | Tenant — **bugün** |
+|---|---|---|---|
+| Yazan | `IdentityOutboxEventPublisher` | `OutboxEventPublisher` ✅ | ✅ değişmedi |
+| Tüketici use case | `PublishIdentityEventsUseCase` ✅ | ❌ yok | ✅ `PublishTenantEventsUseCase` |
+| Zamanlayıcı / worker | `IdentityOutboxRelay` ✅ | ❌ yok | ✅ `TenantOutboxRelay` |
+| Repository | `DrizzleIdentityOutboxRepository` ✅ | ❌ yok | ✅ `DrizzleTenantOutboxRepository` |
+| Teslimat hatası mekanizması | `attempt_count` · `last_error` · backoff · dead-letter (`0006`) ✅ | ❌ kolonlar bile yok | ✅ migration `0009` |
+| RLS aşımı (tenant'lar arası okuma) | gerekmiyor (tablo tenant'sız) | — | ✅ migration `0010` + dar rol |
 
-**Bugün işlevsel bir hata üretmiyor:** tabloya yazılan tek event `TenantProvisioningRequested`'dır ve V1 provisioning **senkrondur** (ADR-0016 — tenant anında `active` açılır). Yani bu event'in bugün tüketici tarafında yapması gereken bir işi yok; kayıt amaçlı duruyor.
+Tespit anında kod tabanında `platform.outbox`'tan **okuyan tek satır yoktu**. Satırlar birikiyor, `published_at` sonsuza kadar `NULL` kalıyor ve kısmî index `outbox_pending_idx` sınırsız büyüyordu.
 
-**Ama Faz 4'ün önkoşuludur:** ilk iş modülü domain event üretir ve o event'lerin teslim edilmesi gerekir. Drain süreci olmadan yazılan bir modül, "event yayınlıyorum" sanan ama hiçbir şey yayınlamayan bir modüldür — ve bu, ADR-0006'nın açıkça engellemek için var olduğu sessiz hatanın ta kendisidir. Identity tarafındaki tüketici + relay + retry mekanizması hazır bir şablondur; iş, onu tenant tarafına uyarlamak ve `platform.outbox`'a eksik teslimat kolonlarını eklemektir (migration gerekir).
+**O gün işlevsel bir hata üretmiyordu:** tabloya yazılan tek event `TenantProvisioningRequested`'dır ve V1 provisioning **senkrondur** (ADR-0016 — tenant anında `active` açılır). Yani bu event'in tüketici tarafında yapması gereken bir işi yoktu; kayıt amaçlı duruyordu. Bugün de öyle — tüketici onu "işlendi" olarak işaretlemekten başka bir şey yapmıyor.
+
+**Faz 4'ün önkoşulu olmasının sebebi:** ilk iş modülü domain event üretir ve o event'lerin teslim edilmesi gerekir. Drain süreci olmadan yazılan bir modül, "event yayınlıyorum" sanan ama hiçbir şey yayınlamayan bir modüldür — ADR-0006'nın açıkça engellemek için var olduğu sessiz hata. Altyapı artık hazır; **gerçek tüketici mantığı Faz 4'te, her event tipi için ayrı ayrı yazılacak.**
+
+> **Beklenmedik çıktı:** iş sırasında `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı **uygulanamaz** çıktı (`FORCE RLS` altında `resolve_tenant` deseni çalışmıyor) ve "üçüncü rol eklenmeyecek" öngörüsü ikinci kez düştü. Eski metin silinmedi; üstüne superseded notu eklendi (MT v2.0). Ayrıntı orada.
 
 ---
 
@@ -94,7 +99,7 @@ Bu, `CLAUDE.md`'nin kurucu kısıtının doğrudan sonucudur: *"Modüller ürün
 
 ### 2.3 Bu fazda **zorunlu olarak** karara bağlanacak açık teknik kararlar
 
-Hiçbiri bugünden seçilmiyor. Üçü de modülün mimari tasarımı sırasında, kendi ADR'leriyle netleşecek.
+Hiçbiri bugünden seçilmiyor. Dördü de modülün mimari tasarımı sırasında, kendi ADR'leriyle netleşecek.
 
 | Karar | Bugünkü durum | Ne zaman |
 |---|---|---|
@@ -121,9 +126,9 @@ Gerekçe: prod'a hiç çıkmamış bir sistemin "çalışıyor" iddiası test ed
 
 ### 2.5 Kapı koşulu (Faz 4'e giriş)
 
-🔴 **Tenant outbox publisher / drain süreci yazılmış olmalı** ([§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)).
+🟢 **Karşılandı.** Tek koşul olan tenant outbox drain süreci yazıldı (commit `b07966f`, [§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f)).
 
-Bunun dışında engel yok: RBAC + tenant context + RLS zinciri uçtan uca çalışıyor ve modül→Authorization permission deklarasyonu deseni bir kez uygulandı (`member:read`).
+Başka engel yok: RBAC + tenant context + RLS zinciri uçtan uca çalışıyor, modül→Authorization permission deklarasyonu deseni bir kez uygulandı (`member:read`), ve artık bir iş modülünün yayınlayacağı domain event'lerin teslim yolu da mevcut.
 
 ---
 
@@ -232,3 +237,4 @@ Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablos
 |---|---|---|
 | 1.0 | 2026-08-02 | İlk sürüm. Faz 4–9 sırası ve kapı koşulları karara bağlandı: **Faz 4 = Knowledge/Inbox + AI Context Engine birlikte** (CRM/Finans/İK değil), Search/Vector + Queue + Cache bu fazda seçilecek, CI/CD + Hosting zorunlu alt-adım. Yatay kalemler ve [§9](#9-uzlaştırılacak-kayıtlar) uyumsuzluk kaydı eklendi. Faz 1–3 **tekrarlanmadı**, CLAUDE.md'ye referans verildi. |
 | 1.1 | 2026-08-02 | **[§9.1](#91-architecturemd-2--adr-0007--uzlaştırıldı) uzlaştırıldı** (commit `ba0fb41`): ARCHITECTURE.md §2/§6.2 ve ADR-0007 bu dokümana hizalandı. **[§1.1](#11-faz-3ten-devreden-açık-kalemler)** eklendi — Faz 3'ten devreden iki kalem ayrıştırıldı: Authorization'ın kalanı (ABAC · configurable roller · izin cache) **hiçbir faza bağlanmadı**, *"gerçek ihtiyaç doğunca"* etiketiyle backlog'a alındı; **tenant outbox publisher Faz 4'ün önkoşulu** oldu. **[§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)** durum tespiti eklendi: yazma yolu var, **okuma yolu hiç yazılmadı** — bugün işlevsel hata üretmiyor (V1 provisioning senkron) ama iş modülleri event üretmeye başlayınca sessiz veri kaybı olur. **Object storage** §2.3'e dördüncü açık karar olarak eklendi (koşullu: Knowledge/Inbox dosya eki alacaksa zorunlu). |
+| 1.2 | 2026-08-02 | **[§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f) kapatıldı** (commit `b07966f`): tenant outbox drain süreci yazıldı — tüketici + zamanlayıcı + repository + backoff/dead-letter (migration `0009`+`0010`). Faz 4'ün **tek kapı koşulu karşılandı** ([§2.5](#25-kapı-koşulu-faz-4e-giriş)). Yan çıktı: `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı uygulanamaz çıktı ve iki öngörüsü düzeltildi (MT v2.0, superseded notu — metin silinmedi). |

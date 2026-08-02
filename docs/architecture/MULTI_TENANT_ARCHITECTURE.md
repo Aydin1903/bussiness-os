@@ -3,9 +3,11 @@
 Business OS — Çok Kiracılı Mimari
 
 > **Durum:** Faz 2 girişi — onaylanmış tasarım
-> **Sürüm:** 1.0
-> **Son güncelleme:** 2026-07-21
+> **Sürüm:** 2.0
+> **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
+>
+> **2.0 (2026-08-02):** Tenant outbox tüketicisi yazıldı (migration `0009`+`0010`, commit `b07966f`). [§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım)'nin "planlanan aşım"ı **uygulandı ve iki noktada düzeltildi** — plan `resolve_tenant` desenini öngörüyordu ama `FORCE RLS` altında o desen çalışmaz, ve "üçüncü rol eklenmeyecek" öngörüsü ikinci kez düştü. Eski metin **silinmedi**, üstüne superseded notu eklendi.
 
 ---
 
@@ -1155,6 +1157,24 @@ Bu kısıtlar bir entegrasyon testiyle **kanıtlanır** (ADR-0028 Constraint 2):
 
 Bugün yazılmamasının sebebi: tüketen bir süreç yok. **Test edilemeyecek bir aşım yüzeyi açmak, açmamaktan kötüdür** — kullanılmayan bir `SECURITY DEFINER` fonksiyonu, kimsenin doğrulamadığı bir RLS deliğidir.
 
+> ### ⚠️ Yukarıdaki iki kutu **superseded** — öngörü iki kez yanlış çıktı
+>
+> **Superseded by [§12.4.4](#1244-hangi-tenantlara-üyeyim-için-ikinci-kontrollü-aşım--dar-bypassrls-rolü-adr-0028) (üçüncü rol) ve commit `b07966f` (dördüncü rol): bu öngörü yanlış çıktı.**
+>
+> Metin tarihî kayıt olarak **bilerek silinmedi** — neyin, ne zaman, hangi gerekçeyle öngörüldüğü ve nerede yanıldığı görünür kalmalıdır. Düzeltme:
+>
+> **1. "`resolve_tenant` deseninin aynısı" olmadı — olamazdı.** §12.4.4 (bu bölümden *sonra* yazıldı) gerekçeyi zaten veriyor: `FORCE`, `SECURITY DEFINER` fonksiyonunu **sahibi için de** politikaya tabi kılar ve `businessos_owner` bilinçle `NOBYPASSRLS`'tir. `resolve_tenant` yalnızca `platform.tenants` **`FORCE` taşımadığı** için çalışır; `platform.outbox` taşır. Sade bir `SECURITY DEFINER` bu tabloda hiçbir satır göremez.
+>
+> **2. "Üçüncü bir rol eklenmeyecektir" iddiası iki kez düştü.** Üçüncü rol (`businessos_rls_reader`) §12.4.4 ile, dördüncüsü (`businessos_outbox_relay`) bu işle eklendi. Reddin gerekçesi — *"docker init, README, `.env` ve config'e yayılan bir değişiklik"* — **`NOLOGIN` bir rol için geçerli değil**: rol hiçbir zaman bağlanmaz, dolayısıyla hiçbir bağlantı dizesine, `.env`'e veya config'e girmez. Değişiklik `01-roles.sql` + migration `GRANT`'ları ile sınırlı kaldı; §12.4.4 aynı işi tam olarak bu bedelle yapmıştı.
+>
+> **Öngörünün doğru çıkan tek kısmı:** aşım gerçekten *"tek bir fonksiyon imzasında"* toplandı — üç imzada (`claim_outbox_batch`, `mark_outbox_published`, `record_outbox_failure`), genel bir "outbox'ı oku" yetkisi olmadan.
+>
+> **"Test edilemeyecek aşım yüzeyi açma" kuralı ise doğruydu ve bugün karşılandı:** tüketici ve testleri birlikte yazıldı. Dar rolün sınırları — yalnızca `platform.outbox`, `INSERT`/`DELETE` yok, başka tabloya/fonksiyona erişim yok, standing `CREATE` yok — §12.4.4'ün Constraint 2 testiyle simetrik bir entegrasyon testiyle **doğrudan kanıtlanır**.
+>
+> **Uygulandı (2026-08-02, migration `0009` + `0010`).** Ayrıntı: `modules/tenant/` altındaki `tenant-outbox.repository.port.ts` ve `publish-tenant-events.use-case.ts`.
+>
+> **Çıkarılan ders:** bir bölümün "şöyle yapılacak" cümlesi, o bölüm yazıldıktan sonra eklenen bir kısıtla geçersizleşebilir. §12.4.4 bu çelişkiyi zaten içeriyordu ama §12.4.2 güncellenmemişti — dokümanın iki yeri birbiriyle çelişirken **sonraki tarihli olan** esas alınır.
+
 #### 12.4.3 Identity tabloları
 
 Faz 3 ile gelen Identity tabloları **tenant-scoped değildir** ve olamaz: kimlik, tenant'ların *üstünde* yaşar ([ADR-0014](../adr/0014-global-user-membership.md)). Tam tasarım [`AUTH_ARCHITECTURE.md` §13](AUTH_ARCHITECTURE.md)'tedir; burada yalnızca **izolasyon modelini ilgilendiren** kısım vardır.
@@ -1568,3 +1588,4 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 | 1.7 | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi). |
 | 1.8 | 2026-07-21 | §6.3 erisim tablosuna `failed` satiri eklendi — kod bes durumluydu, tablo dordunu listeliyordu. Faz 2 kapanis denetiminde bulundu. |
 | 1.9 | 2026-07-21 | Faz 3 (Identity) kararlarıyla hizalandı: §7.4'e **iki aşamalı token modeli**, §9.2'ye **6 haneli kod** akışı (bağlantı yerine), §12.4'e Identity tabloları ve **§12.4.3** eklendi. Kaynak: `AUTH_ARCHITECTURE.md` v1.0, ADR-0019/0020. |
+| 2.0 | 2026-08-02 | **[§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) uygulandı ve düzeltildi** (migration `0009`+`0010`, commit `b07966f`). Tenant outbox tüketicisi yazıldı: `claim_outbox_batch` / `mark_outbox_published` / `record_outbox_failure` + dördüncü dar rol `businessos_outbox_relay` (NOLOGIN + BYPASSRLS). §12.4.2'nin iki öngörüsü **yanlış çıktı** ve üstlerine superseded notu eklendi (metin silinmedi): (a) `resolve_tenant` deseni `FORCE RLS` altında çalışmaz — gerekçe §12.4.4'te zaten vardı, (b) "üçüncü rol eklenmeyecek" iddiası ikinci kez düştü; `NOLOGIN` rol için reddin gerekçesi geçerli değil. Dar rolün sınırları Constraint 2 eşdeğeri entegrasyon testiyle kanıtlanır. |
