@@ -50,6 +50,18 @@ export const resetPasswordRequestSchema = z
   .strict();
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 
+/**
+ * Parola DEĞİŞTİRME — mevcut parola + yeni parola (`POST /me/change-password`).
+ *
+ * `email`/`userId` YOK: kimlik doğrulanmış token'dan gelir. "Yeni parola tekrar"
+ * da yok — o bir ARAYÜZ doğrulamasıdır (yazım hatası yakalar) ve sunucuya
+ * gönderilmez.
+ */
+export const changePasswordRequestSchema = z
+  .object({ currentPassword: password, newPassword: password })
+  .strict();
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+
 // --- Yanıt gövdeleri --------------------------------------------------------
 
 /**
