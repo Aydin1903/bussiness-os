@@ -249,6 +249,13 @@ Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 **Faz 2 tamamlandı** — multi-tenancy çekirdeği kod olarak çalışıyor.
 **Faz 3 sürüyor** — kimlik doğrulama kod olarak çalışıyor; kayıt → doğrulama →
 giriş → tenant açma zinciri uçtan uca kapalı.
+**Frontend (`apps/web`) çalışıyor** — F1 foundation (tasarım token'ları, session
+store, API client, middleware) · F2 auth ekranları (register · verify-email ·
+login+routing · create-tenant · select-tenant · forgot/reset-password · logout) ·
+Dashboard (app shell + company switcher + session bootstrap + `bo_last_tenant`
+reload dayanıklılığı). Riskli runtime akışları (bootstrap, tenant değiştirme)
+gerçek tarayıcıda doğrulandı. **Bilinen borç: `apps/web`'de otomatik test YOK**
+(yalnızca typecheck + lint + build). SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
 
