@@ -1,6 +1,7 @@
 import {
   loginResponseSchema,
   messageResponseSchema,
+  type ChangePasswordRequest,
   type ForgotPasswordRequest,
   type LoginRequest,
   type LoginResponse,
@@ -65,4 +66,25 @@ export function forgotPassword(body: ForgotPasswordRequest): Promise<MessageResp
 /** Parola sıfırla (kod + yeni parola) — 200, sabit mesaj. Red 400/422. */
 export function resetPassword(body: ResetPasswordRequest): Promise<MessageResponse> {
   return apiFetch('/auth/reset-password', messageResponseSchema, { body, noRetry: true });
+}
+
+/**
+ * Parola DEĞİŞTİR (giriş yapmış kullanıcı) — 200, sabit mesaj.
+ *
+ * ============================================================================
+ * BU UÇTA `noRetry` YOK — yukarıdakilerin AKSİNE, ve bu bilinçli
+ * ============================================================================
+ * Diğerleri kimliksizdir; bu uç kimlik doğrulanmış bağlamda çalışır ve access
+ * token'ı KULLANIR. Burada bir `401` gerçekten "token süresi doldu" demektir;
+ * yenileyip tekrar denemek DOĞRU davranıştır (formu boşuna kaybettirmez).
+ *
+ * Bunun mümkün olmasının sebebi backend'in "mevcut parola yanlış" için `401`
+ * DEĞİL `400` döndürmesidir. `401` dönseydi tek yazım hatası sessizce iki
+ * isteğe ve iki başarısız denemeye dönüşürdü (kaba kuvvet bütçesi yarıya inerdi).
+ * ============================================================================
+ *
+ * Başarıda BU oturum ayakta kalır; kullanıcının diğer tüm oturumları düşer.
+ */
+export function changePassword(body: ChangePasswordRequest): Promise<MessageResponse> {
+  return apiFetch('/me/change-password', messageResponseSchema, { body });
 }

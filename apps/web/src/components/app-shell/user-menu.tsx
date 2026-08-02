@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -7,11 +8,11 @@ import { UserIcon } from '@/components/icons';
 import { logout } from '@/lib/session/logout';
 
 /**
- * Kullanıcı menüsü — V1'de MİNİMAL (yalnızca çıkış).
+ * Kullanıcı menüsü — V1'de MİNİMAL (şifre değiştir + çıkış).
  *
  * Token PII taşımaz (ADR-0020): e-posta/ad client'ta YOKTUR. Profil verisi
  * (görünen ad, avatar) ileride bir `/me` ucuyla gelecek; şimdilik menü yapısal
- * olarak var ve tek eylemi çıkıştır.
+ * olarak var ve hesap eylemlerini barındırır.
  */
 export function UserMenu() {
   const router = useRouter();
@@ -50,6 +51,15 @@ export function UserMenu() {
             aria-hidden="true"
           />
           <div className="absolute right-0 z-20 mt-2 w-44 rounded-card border border-border bg-bg p-1 shadow-lg">
+            <Link
+              href="/app/change-password"
+              onClick={() => {
+                setOpen(false);
+              }}
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-surface"
+            >
+              Şifre Değiştir
+            </Link>
             <button
               type="button"
               onClick={() => {
