@@ -3,7 +3,7 @@
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
 > **Durum:** Faz 4 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.0
+> **Sürüm:** 1.1
 > **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -45,9 +45,34 @@ Ayrıntı [`CLAUDE.md` "Mevcut Durum"](../CLAUDE.md) bölümündedir ve **burada
 | **Faz 2** | Multi-tenancy çekirdeği — `Tenant`/`Membership`, RLS politikaları, outbox, `SET LOCAL` transaction manager, izolasyon testleri | ✅ Tamamlandı |
 | **Faz 3** | Kimlik doğrulama — kayıt → doğrulama → giriş → tenant açma zinciri, refresh rotation, oturum sonlandırma, parola sıfırlama ve **değiştirme**, RBAC v1 (ADR-0025), frontend (`apps/web`) auth ekranları + dashboard | 🟡 **Sürüyor** — bkz. aşağıdaki not |
 
-> ⚠️ **Faz 3 formal olarak kapatılmadı.** CLAUDE.md bugün "Faz 3 **sürüyor**" diyor ve "Henüz yok" listesinde iki kalem hâlâ Faz 3 kapsamındadır: **Authorization'ın kalanı** (tenant-configurable roller, ABAC, izin cache — çekirdek çalışıyor) ve **tenant outbox publisher süreci** (Identity outbox tüketicisi var, tenant tarafınınki yok).
->
-> Bu iki kalem Faz 4'ü **bloke etmez**: RBAC çekirdeği + tenant context + RLS uçtan uca çalışan bir zincirdir ve ilk iş modülü bunun üzerine oturur. Ama "Faz 3 tamamlandı" demek için Product Owner'ın bunları ya kapatması ya da açıkça Faz 5'e devretmesi gerekir. **Karar bekliyor.**
+> ⚠️ **Faz 3 formal olarak kapatılmadı.** CLAUDE.md bugün "Faz 3 **sürüyor**" diyor. Açık kalan iki kalem **aynı türden değildir** ve ayrı ayrı ele alınır:
+
+### 1.1 Faz 3'ten devreden açık kalemler
+
+| Kalem | Durum | Nereye bağlandı |
+|---|---|---|
+| **Authorization'ın kalanı** — tenant-configurable roller · ABAC · izin cache | RBAC çekirdeği ÇALIŞIYOR (ADR-0025: merkezî policy engine + guard, deny-by-default) | ❄️ **Backlog — herhangi bir faza bağlanmadı.** Etiket: *"gerçek ihtiyaç doğunca"* |
+| **Tenant outbox publisher / drain süreci** | ❌ **Hiç yazılmadı** — bkz. §1.2 | 🔴 **Faz 4'ün ÖNKOŞULU** — Faz 4 başlamadan kapatılmalı |
+
+**Authorization'ın kalanı neden bir faza bağlanmadı:** üçü de bugün *varsayımsal* ihtiyaçlardır. Tenant-configurable roller, bir müşteri sabit rol setinin yetmediğini söyleyene kadar tahmindir; ABAC ("yalnızca kendi departmanının projelerini görebilir") gerçek bir kural talebi olmadan tasarlanamaz; izin cache ise **henüz ölçülmemiş** bir performans sorununun çözümüdür — bugün cache eklemek, olmayan bir darboğazı optimize etmektir. `resource:action` modeli üçünün de altına bozulmadan girecek şekilde tasarlandı (ARCHITECTURE §10.1), dolayısıyla erteleme bir borç değil, bilinçli bir bekleyiştir.
+
+### 1.2 Tenant outbox publisher — durum tespiti (2026-08-02)
+
+**Yazma yolu var, okuma yolu YOK.**
+
+| | Identity (`platform.identity_outbox`) | **Tenant (`platform.outbox`)** |
+|---|---|---|
+| Yazan | `IdentityOutboxEventPublisher` | `OutboxEventPublisher` ✅ |
+| **Tüketici use case** | `PublishIdentityEventsUseCase` ✅ | ❌ **yok** |
+| **Zamanlayıcı / worker** | `IdentityOutboxRelay` (`setInterval` + bootstrap/shutdown) ✅ | ❌ **yok** |
+| Repository | `DrizzleIdentityOutboxRepository` ✅ | ❌ **yok** |
+| Teslimat hatası mekanizması | `attempt_count` · `last_error` · backoff · dead-letter (migration `0006`) ✅ | ❌ **kolonlar bile yok** |
+
+Kod tabanında `platform.outbox`'tan **okuyan tek satır yoktur** (entegrasyon testinin ham SQL'i hariç). Satırlar birikir, `published_at` sonsuza kadar `NULL` kalır ve kısmî index `outbox_pending_idx` sınırsız büyür.
+
+**Bugün işlevsel bir hata üretmiyor:** tabloya yazılan tek event `TenantProvisioningRequested`'dır ve V1 provisioning **senkrondur** (ADR-0016 — tenant anında `active` açılır). Yani bu event'in bugün tüketici tarafında yapması gereken bir işi yok; kayıt amaçlı duruyor.
+
+**Ama Faz 4'ün önkoşuludur:** ilk iş modülü domain event üretir ve o event'lerin teslim edilmesi gerekir. Drain süreci olmadan yazılan bir modül, "event yayınlıyorum" sanan ama hiçbir şey yayınlamayan bir modüldür — ve bu, ADR-0006'nın açıkça engellemek için var olduğu sessiz hatanın ta kendisidir. Identity tarafındaki tüketici + relay + retry mekanizması hazır bir şablondur; iş, onu tenant tarafına uyarlamak ve `platform.outbox`'a eksik teslimat kolonlarını eklemektir (migration gerekir).
 
 ---
 
@@ -76,8 +101,11 @@ Hiçbiri bugünden seçilmiyor. Üçü de modülün mimari tasarımı sırasınd
 | **Search / Vector store** | Ön öneri var (PostgreSQL FTS + pgvector — [ADR-0011](adr/0011-search-port-postgres-fts.md), ARCHITECTURE §9), **seçilmedi** | Context Engine tasarımıyla |
 | **Queue** | Ön öneri var (BullMQ), **seçilmedi** | Asenkron indeksleme/embedding ihtiyacı netleşince |
 | **Cache** | Ön öneri var (Redis — [ADR-0010](adr/0010-cache-port.md)), container ayakta ama **uygulama bağlanmıyor**, **seçilmedi** | İlk gerçek önbellek yükü çıkınca |
+| **Object storage** | Ön öneri var (S3-uyumlu — [ADR-0009](adr/0009-storage-port.md)), **seçilmedi** | Knowledge/Inbox dosya eki alacaksa bu fazda; almayacaksa Faz 5'e devreder |
 
-> Üçü de **port arkasındadır** ve öyle kalacaktır (ADR-0009/0010/0011 deseni). Sağlayıcı seçimi bir adapter kararıdır; iş mantığı hiçbirine bağlanmaz.
+> Dördü de **port arkasındadır** ve öyle kalacaktır (ADR-0009/0010/0011 deseni). Sağlayıcı seçimi bir adapter kararıdır; iş mantığı hiçbirine bağlanmaz.
+>
+> **Object storage'ın koşullu olması bilinçlidir:** Knowledge/Inbox'ın dosya eki (PDF, görsel, e-posta eki) alıp almayacağı modülün kapsam kararıdır ve henüz verilmedi. Alacaksa storage bu fazda zorunludur — ekleri veritabanına yazmak, ilk gerçek kullanımda geri alınması pahalı bir hatadır.
 
 ### 2.4 Zorunlu alt-adım: CI/CD + Hosting
 
@@ -93,7 +121,9 @@ Gerekçe: prod'a hiç çıkmamış bir sistemin "çalışıyor" iddiası test ed
 
 ### 2.5 Kapı koşulu (Faz 4'e giriş)
 
-Yok — Faz 4 bugün başlayabilir. RBAC + tenant context + RLS zinciri uçtan uca çalışıyor ve modül→Authorization permission deklarasyonu deseni bir kez uygulandı (`member:read`).
+🔴 **Tenant outbox publisher / drain süreci yazılmış olmalı** ([§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)).
+
+Bunun dışında engel yok: RBAC + tenant context + RLS zinciri uçtan uca çalışıyor ve modül→Authorization permission deklarasyonu deseni bir kez uygulandı (`member:read`).
 
 ---
 
@@ -169,27 +199,30 @@ Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme
 
 ## 9. Uzlaştırılacak kayıtlar
 
-Bu doküman yazılırken, mevcut dokümanlarda **bu yol haritasıyla çelişen** faz atamaları bulundu. Sessizce düzeltilmedi — Product Owner kararı gerektiriyor.
+Bu doküman yazılırken, mevcut dokümanlarda **bu yol haritasıyla çelişen** faz atamaları bulundu.
 
-### 9.1 `ARCHITECTURE.md` §2 teknoloji tablosu
+### 9.1 `ARCHITECTURE.md` §2 + ADR-0007 — ✅ **UZLAŞTIRILDI**
 
-| Kalem | ARCHITECTURE.md diyor | Bu doküman diyor |
+> **Durum: kapandı.** Hizalama commit `ba0fb41` ile yapıldı (2026-08-02).
+
+| Kalem | ARCHITECTURE.md (önce) | Bugün — iki dokümanda da |
 |---|---|---|
 | Cache | Faz 3 | **Faz 4** (§2.3) |
 | Queue / Jobs | Faz 3 | **Faz 4** (§2.3) |
-| Object storage | Faz 3 | Faz 4 kapsamında değerlendirilmeli — **bu dokümanda hiç yok** |
-| Search | Faz 4 | **Faz 4** ✅ uyumlu |
-| Vector store | Faz 4 | **Faz 4** ✅ uyumlu |
+| Object storage | Faz 3 | **Faz 4** (§2.3, koşullu) |
+| Search | Faz 4 | **Faz 4** — zaten uyumluydu |
+| Vector store | Faz 4 | **Faz 4** — zaten uyumluydu |
 | Hosting | Faz 7 | **Faz 4** (§2.4) |
-| İş modülleri | Faz 5+ | **Faz 4** (ilk modül), Faz 5 (kalanlar) |
+| İş modülleri | Faz 5+ | **Faz 4** (ilki), **Faz 5** (kalanlar) |
+| AI / `LLMPort` ([ADR-0007](adr/0007-ai-provider-agnostic-port.md)) | uygulama Faz 6+ | **Faz 4** |
 
-Ayrıca [ADR-0007](adr/0007-ai-provider-agnostic-port.md) "uygulama Faz 6+" der; bu doküman AI Context Engine'i **Faz 4**'e koyar.
+Hizalamada ayrıca iki satır **ayrıştırıldı**: `Observability` ve `CI/CD` tabloda tek başına "Faz 1" diyordu ve bu yanıltıcıydı — temel kuruldu (Pino + correlation ID, GitHub Actions CI) ama merkezî log toplama, AI maliyet takibi ve **CD** yok. Artık ikisi de "Faz 1 (temel) + Faz 4 (kalanı)" olarak okunuyor.
 
-> **Öneri:** `ARCHITECTURE.md` §2 tablosunun "Ne zaman sorulacak" sütunu ve ADR-0007'nin faz alanı bu dokümana göre güncellensin. Faz numaraları erken yazıldığında tahminden ibaretti; bugün gerçek sıra biliniyor. **Onay bekliyor** — bu doküman tek başına ARCHITECTURE.md'yi geçersiz kılmaz.
+> **ADR-0007'de kararın kendisi değişmedi** — yalnızca ne zaman uygulanacağı değişti. `LLMPort` soyutlaması, kabul testi ve gerekçe aynen geçerlidir. Fazın öne alınması ADR'yi **daha bağlayıcı** kılar: sağlayıcı seçimi artık yakın bir karardır ve business logic'in ona bağımlı olmaması bugün teorik değil pratik bir kısıttır.
 
-### 9.2 `AUTH_ARCHITECTURE.md` sürüm geçmişi
+### 9.2 `AUTH_ARCHITECTURE.md` sürüm geçmişi — 🟡 açık
 
-Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablosu arasında bir numara çakışması var: `1.1` tabloda zaten 2026-07-22'de (EmailPort) kullanılmış, ADR-0026 cookie değişikliği muhtemelen `1.6` olmalıydı ve tabloya hiç girmemiş. Geçmişi yeniden yazmamak için dokunulmadı; en son kayıt `1.6` olarak eklendi (§8 "doküman sürüm numarası denetimi").
+Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablosu arasında bir numara çakışması var: `1.1` tabloda zaten 2026-07-22'de (EmailPort) kullanılmış, ADR-0026 cookie değişikliği muhtemelen `1.6` olmalıydı ve tabloya hiç girmemiş. Geçmişi yeniden yazmamak için dokunulmadı; en son kayıt `1.6` olarak eklendi ([§8](#8-yatay--sürekli-kalemler) "doküman sürüm numarası denetimi").
 
 ---
 
@@ -198,3 +231,4 @@ Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablos
 | Sürüm | Tarih | Değişiklik |
 |---|---|---|
 | 1.0 | 2026-08-02 | İlk sürüm. Faz 4–9 sırası ve kapı koşulları karara bağlandı: **Faz 4 = Knowledge/Inbox + AI Context Engine birlikte** (CRM/Finans/İK değil), Search/Vector + Queue + Cache bu fazda seçilecek, CI/CD + Hosting zorunlu alt-adım. Yatay kalemler ve [§9](#9-uzlaştırılacak-kayıtlar) uyumsuzluk kaydı eklendi. Faz 1–3 **tekrarlanmadı**, CLAUDE.md'ye referans verildi. |
+| 1.1 | 2026-08-02 | **[§9.1](#91-architecturemd-2--adr-0007--uzlaştırıldı) uzlaştırıldı** (commit `ba0fb41`): ARCHITECTURE.md §2/§6.2 ve ADR-0007 bu dokümana hizalandı. **[§1.1](#11-faz-3ten-devreden-açık-kalemler)** eklendi — Faz 3'ten devreden iki kalem ayrıştırıldı: Authorization'ın kalanı (ABAC · configurable roller · izin cache) **hiçbir faza bağlanmadı**, *"gerçek ihtiyaç doğunca"* etiketiyle backlog'a alındı; **tenant outbox publisher Faz 4'ün önkoşulu** oldu. **[§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)** durum tespiti eklendi: yazma yolu var, **okuma yolu hiç yazılmadı** — bugün işlevsel hata üretmiyor (V1 provisioning senkron) ama iş modülleri event üretmeye başlayınca sessiz veri kaybı olur. **Object storage** §2.3'e dördüncü açık karar olarak eklendi (koşullu: Knowledge/Inbox dosya eki alacaksa zorunlu). |
