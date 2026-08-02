@@ -109,6 +109,9 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
   revokeAllActiveByUserId(): Promise<number> {
     return Promise.resolve(0);
   }
+  revokeAllActiveByUserIdExcept(): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 class FakeRefreshTokenRepository implements RefreshTokenRepository {

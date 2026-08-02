@@ -51,6 +51,11 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
     this.bulkRevocations.push({ userId: userId.value, reason, at: revokedAt });
     return Promise.resolve(this.bulkResult);
   }
+
+  /** Cikis akisi "bu oturum haric" iptali yapmaz; sozlesme geregi bulunur. */
+  revokeAllActiveByUserIdExcept(): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 class FakeRefreshTokenRepository implements RefreshTokenRepository {

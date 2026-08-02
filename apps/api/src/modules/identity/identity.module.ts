@@ -50,6 +50,7 @@ import { IdentityOutboxEventPublisher } from './infrastructure/identity-outbox-e
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-hasher.adapter';
 import { TokenSignerAccessTokenIssuer } from './infrastructure/token-signer-access-token-issuer';
 import { DrizzleVerificationCodeRequestRepository } from './infrastructure/drizzle-verification-code-request.repository';
+import { identityChangePasswordProviders } from './identity-change-password.providers';
 import { identityOutboxProviders } from './identity-outbox.providers';
 import { identityPasswordResetProviders } from './identity-password-reset.providers';
 import { identityUseCaseProviders } from './identity-use-case.providers';
@@ -61,6 +62,7 @@ import {
 } from './identity.public';
 import { AuthContextMiddleware } from './presentation/auth-context.middleware';
 import { AuthController } from './presentation/auth.controller';
+import { MePasswordController } from './presentation/me-password.controller';
 
 /** base64(PEM) -> PEM. Anahtarlar `.env`'de tek satir tasinir (bkz. env.schema). */
 function decodePem(base64: string): string {
@@ -85,7 +87,7 @@ function decodePem(base64: string): string {
   // Teslimat yolu icin `EMAIL_PORT`. Somut saglayici EmailModule'un karari;
   // Identity yalnizca port'u tuketir.
   imports: [EmailModule],
-  controllers: [AuthController],
+  controllers: [AuthController, MePasswordController],
   providers: [
     // --- Paylasilan cekirdek port'lari -------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -185,6 +187,9 @@ function decodePem(base64: string): string {
 
     // --- Parola sifirlama use case'leri (ADR-0024) --------------------------
     ...identityPasswordResetProviders,
+
+    // --- Parola degistirme use case'i (AUTH §7.6) ---------------------------
+    ...identityChangePasswordProviders,
 
     // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
     ...identityOutboxProviders,

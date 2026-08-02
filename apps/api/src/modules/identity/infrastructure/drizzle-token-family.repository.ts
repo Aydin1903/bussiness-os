@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { tokenFamilies } from '../../../infrastructure/database/schema';
@@ -40,6 +40,36 @@ export class DrizzleTokenFamilyRepository implements TokenFamilyRepository {
       .update(tokenFamilies)
       .set({ revokedReason: reason, revokedAt })
       .where(and(eq(tokenFamilies.userId, userId.value), isNull(tokenFamilies.revokedAt)))
+      .returning({ id: tokenFamilies.id });
+
+    return rows.length;
+  }
+
+  // NestJS DI ile alakasiz: imza port sozlesmesidir (userId + haric tutulan aile
+  // + neden + zaman). Dordu de birbirinden turetilemez.
+  // eslint-disable-next-line max-params
+  async revokeAllActiveByUserIdExcept(
+    userId: UserId,
+    exceptFamilyId: TokenFamilyId,
+    reason: TokenFamilyRevocationReason,
+    revokedAt: Date,
+  ): Promise<number> {
+    const { db } = requireTransaction();
+
+    // `revokeAllActiveByUserId` ile AYNI tek-komut disiplini; tek fark, istegi
+    // yapan oturumun ailesini disarida birakan `id <> $2` kosuludur. Aileyi
+    // once okuyup sonra "digerlerini" yazmak, arada dogan yeni bir ailenin
+    // iptalden kacmasina pencere birakirdi.
+    const rows = await db
+      .update(tokenFamilies)
+      .set({ revokedReason: reason, revokedAt })
+      .where(
+        and(
+          eq(tokenFamilies.userId, userId.value),
+          ne(tokenFamilies.id, exceptFamilyId.value),
+          isNull(tokenFamilies.revokedAt),
+        ),
+      )
       .returning({ id: tokenFamilies.id });
 
     return rows.length;

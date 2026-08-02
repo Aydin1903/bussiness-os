@@ -128,6 +128,15 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
     this.bulkRevocations.push({ userId: userId.value, reason });
     return Promise.resolve(2);
   }
+
+  /**
+   * SIFIRLAMA hicbir aileyi haric TUTMAZ (ADR-0024) — kullanici parolayi
+   * bilmiyordu. Cagrilirsa test patlar: bu, "degistirme" ile "sifirlama"
+   * arasindaki farkin sessizce kaybolmasini engeller.
+   */
+  revokeAllActiveByUserIdExcept(): Promise<number> {
+    throw new Error('Sifirlama akisi oturum haric tutmaz.');
+  }
 }
 
 class FakePasswordHasher implements PasswordHasher {

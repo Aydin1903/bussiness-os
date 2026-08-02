@@ -40,4 +40,29 @@ export interface TokenFamilyRepository {
     reason: TokenFamilyRevocationReason,
     revokedAt: Date,
   ): Promise<number>;
+
+  /**
+   * Kullanicinin BIR AILE DISINDAKI tum aktif ailelerini iptal eder; iptal
+   * edilen aile sayisini dondurur (parola DEGISTIRME — AUTH §7.6).
+   *
+   * ============================================================================
+   * NEDEN AYRI BIR METOT, NEDEN NULLABLE PARAMETRE DEGIL
+   * ============================================================================
+   * `revokeAllActiveByUserId`'a `exceptFamilyId: TokenFamilyId | null` eklemek
+   * daha az kod olurdu ama cagiran her yerde "null gecersem ne olur" sorusunu
+   * yeniden dogurur; sifirlama (ADR-0024) HICBIR aileyi haric tutmamalidir ve
+   * bunu bir null'un dogru gecilmesine birakmak, bir gun yanlis gecilmesi
+   * demektir. Iki AYRI niyet, iki AYRI metot.
+   *
+   * Sifirlama ile fark BILINCLIDIR: sifirlamayi yapan kisi parolayi BILMIYORDU
+   * (kurtarma akisi), degistirmeyi yapan BILIYORDU ve kimligini kanitladi —
+   * onu kendi cihazindan atmak icin sebep yok. Diger cihazlar yine duser.
+   * ============================================================================
+   */
+  revokeAllActiveByUserIdExcept(
+    userId: UserId,
+    exceptFamilyId: TokenFamilyId,
+    reason: TokenFamilyRevocationReason,
+    revokedAt: Date,
+  ): Promise<number>;
 }

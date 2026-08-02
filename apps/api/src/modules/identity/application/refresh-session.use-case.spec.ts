@@ -87,6 +87,10 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
     this.revokedAllCount += 1;
     return Promise.resolve(0);
   }
+  /** Yenileme akisi "bu oturum haric" iptali yapmaz; sozlesme geregi bulunur. */
+  revokeAllActiveByUserIdExcept(): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 class FakeRefreshTokenRepository implements RefreshTokenRepository {

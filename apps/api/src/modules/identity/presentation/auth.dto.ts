@@ -67,9 +67,32 @@ export const resetPasswordSchema = z
   .object({ email, code: verificationCode, password })
   .strict();
 
+/**
+ * Parola DEGISTIRME — mevcut parola + yeni parola (§7.6).
+ *
+ * ============================================================================
+ * BURADA `email` VE `userId` YOK — bilincli
+ * ============================================================================
+ * Kimlik, auth middleware'inin DOGRULADIGI token'dan gelir. Govdeden bir
+ * `userId` kabul etmek herkesin herkesin parolasini degistirebilmesi demekti
+ * (`logout-all` ile ayni gerekce, DEVELOPMENT_RULES 4.5). `email` de gereksizdir:
+ * hangi hesabin parolasinin degistigi token'dan bellidir.
+ *
+ * "Yeni parola tekrar" alani da YOKTUR: o bir ARAYUZ dogrulamasidir (yazim
+ * hatasini yakalar) ve sunucunun bilebilecegi bir kural degildir. Sunucuya
+ * gondermek, dogrulanmayan bir alan tasimak olurdu.
+ *
+ * Parola politikasi (ADR-0018) burada DEGIL `password-policy.ts`'te dogrulanir.
+ * ============================================================================
+ */
+export const changePasswordSchema = z
+  .object({ currentPassword: password, newPassword: password })
+  .strict();
+
 export type RegisterBody = z.infer<typeof registerSchema>;
 export type LoginBody = z.infer<typeof loginSchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationBody = z.infer<typeof resendVerificationSchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordBody = z.infer<typeof changePasswordSchema>;

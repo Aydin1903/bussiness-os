@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -167,5 +168,55 @@ describe('resetPasswordSchema', () => {
         userId: '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c',
       }),
     ).toThrow();
+  });
+});
+
+describe('changePasswordSchema', () => {
+  it('gecerli govdeyi kabul eder', () => {
+    expect(
+      changePasswordSchema.parse({ currentPassword: 'eskiparola1', newPassword: 'yeniparola9' }),
+    ).toEqual({ currentPassword: 'eskiparola1', newPassword: 'yeniparola9' });
+  });
+
+  it('KIMLIK alani KABUL ETMEZ — userId/email token dan gelir (strict)', () => {
+    expect(() =>
+      changePasswordSchema.parse({
+        currentPassword: 'eskiparola1',
+        newPassword: 'yeniparola9',
+        userId: '018f3a2b-7c4d-7e1f-9b3c-4d5e6f7a8b9c',
+      }),
+    ).toThrow();
+    expect(() =>
+      changePasswordSchema.parse({
+        currentPassword: 'eskiparola1',
+        newPassword: 'yeniparola9',
+        email: 'user@example.com',
+      }),
+    ).toThrow();
+  });
+
+  it('"yeni parola tekrar" alanini KABUL ETMEZ — o bir arayuz dogrulamasidir', () => {
+    expect(() =>
+      changePasswordSchema.parse({
+        currentPassword: 'eskiparola1',
+        newPassword: 'yeniparola9',
+        newPasswordConfirmation: 'yeniparola9',
+      }),
+    ).toThrow();
+  });
+
+  it('bos parolayi reddeder', () => {
+    expect(() =>
+      changePasswordSchema.parse({ currentPassword: '', newPassword: 'yeniparola9' }),
+    ).toThrow();
+    expect(() =>
+      changePasswordSchema.parse({ currentPassword: 'eskiparola1', newPassword: '' }),
+    ).toThrow();
+  });
+
+  it('yeni parola politikasini BURADA yakalamaz (o domain in isi)', () => {
+    expect(() =>
+      changePasswordSchema.parse({ currentPassword: 'eskiparola1', newPassword: 'kisa1' }),
+    ).not.toThrow();
   });
 });
