@@ -3,7 +3,7 @@
 - **Durum:** Kabul edildi
 - **Tarih:** 2026-07-20
 - **Karar veren:** Product Owner
-- **Faz:** 0 (uygulama Faz 6+)
+- **Faz:** 0 (uygulama **Faz 4** — 2026-08-02'de `ROADMAP.md` v1.0 ile hizalandi; onceki deger "Faz 6+" idi)
 
 ## Baglam
 
@@ -52,3 +52,17 @@ modelleri talep edecek; bu ancak saglayici degistirilebilirse mumkun.
 
 Bir saglayicinin ozgun yetenegi urun icin vazgecilmez hale gelirse, o yetenek
 port'a birinci sinif olarak eklenir — dogrudan bagimlilik yine kurulmaz.
+
+## Not — uygulama fazi degisikligi (2026-08-02)
+
+Bu ADR yazildiginda uygulama "Faz 6+" olarak isaretlenmisti. `ROADMAP.md` v1.0
+onu **Faz 4**'e cekti: AI Context Engine, ilk is modulunun (Knowledge/Inbox)
+UZERINE SONRADAN eklenen bir ozellik degil, o modulle BIRLIKTE tasarlanan mimari
+bir temeldir. Context Engine'i ikinci veya ucuncu modulde eklemeye kalkmak, ilk
+modulu "AI'a baglam uretmeyen" bir modul olarak tasarlamak ve sonradan geriye
+donuk yeniden yazmak demektir.
+
+**KARARIN KENDISI DEGISMEDI** — yalnizca ne zaman uygulanacagi degisti. `LLMPort`
+soyutlamasi, kabul testi ve gerekce aynen gecerlidir. Faz'in one alinmasi bu
+ADR'yi daha da baglayici kilar: saglayici secimi artik yakin bir karardir ve
+business logic'in ona bagimli olmamasi bugun teorik degil pratik bir kisittir.

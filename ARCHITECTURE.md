@@ -50,15 +50,28 @@ Aşağıdakiler ilgili fazda Product Owner'a ayrıca sorulacaktır — bu doküm
 
 | Alan | Ön öneri | Ne zaman sorulacak |
 |---|---|---|
-| Cache | Redis | Faz 3 |
-| Queue / Jobs | BullMQ (Redis üzerinde) | Faz 3 |
+| Cache | Redis | **Faz 4** |
+| Queue / Jobs | BullMQ (Redis üzerinde) | **Faz 4** |
 | Message broker | Faz 1'de gerek yok — in-process bus + Outbox | Mikroservis geçişinde |
-| Object storage | S3-uyumlu (MinIO lokal / R2 veya S3 prod) | Faz 3 |
-| Search | PostgreSQL Full Text ile başla; gerekirse Meilisearch | Faz 4 |
-| Vector store | pgvector (ayrı DB yerine) | Faz 4 |
-| Observability | OpenTelemetry + Pino | Faz 1 |
-| CI/CD | GitHub Actions | Faz 1 |
-| Hosting | Belirlenmedi | Faz 7 |
+| Object storage | S3-uyumlu (MinIO lokal / R2 veya S3 prod) | **Faz 4** |
+| Search | PostgreSQL Full Text ile başla; gerekirse Meilisearch | **Faz 4** |
+| Vector store | pgvector (ayrı DB yerine) | **Faz 4** |
+| Observability | OpenTelemetry + Pino | Faz 1 (temel kuruldu; merkezî toplama + AI maliyet takibi **Faz 4**) |
+| CI/CD | GitHub Actions | Faz 1 (CI kuruldu; **CD Faz 4**) |
+| Hosting | Belirlenmedi | **Faz 4** |
+
+> **Faz atamaları 2026-08-02'de `ROADMAP.md` v1.0 ile hizalandı.** Bu tablodaki
+> numaralar Faz 0'da, gerçek sıra bilinmeden yazılmıştı ve tahminden ibaretti.
+> Hizalamanın kaynağı, ROADMAP'te alınan stratejik karardır: **AI Context Engine
+> ilk iş modülüyle BİRLİKTE inşa edilir** — sonradan üstüne yapıştırılan bir
+> özellik değil, ilk modülle birlikte tasarlanan mimari bir temeldir. Bu karar
+> ilk modülü Faz 4'e çeker; onunla birlikte Search/Vector, Queue, Cache ve
+> Object storage kararları da oraya taşınır. Hosting'in öne alınmasının gerekçesi
+> ayrıdır ve daha basittir: bugüne kadar **hiç prod'a çıkılmadı**, ve prod'a
+> çıkmamış bir sistemin "çalışıyor" iddiası test edilmemiş bir iddiadır.
+>
+> Sıra ve kapı koşullarının tek doğruluk kaynağı [`docs/ROADMAP.md`](docs/ROADMAP.md)'dir;
+> bu tablo yalnızca **ön önerileri** kaydeder.
 
 ---
 
@@ -265,11 +278,17 @@ Tenant → Identity → Authorization (RBAC) → Audit
 | Authorization | Rol, izin, policy değerlendirme |
 | Audit | Değişmez denetim kaydı |
 
-**İş modülleri (Faz 5+)**
+**İş modülleri (ilki Faz 4, kalanlar Faz 5+)**
 
 CRM · Projects · Documents · Knowledge Base (kurumsal hafıza) · Workflow · Reporting
 
 Her biri bağımsız geliştirilir, bağımsız test edilir.
+
+> **İlk modül Knowledge/Inbox'tır ve Faz 4'tedir** ([`docs/ROADMAP.md`](docs/ROADMAP.md) §2) —
+> AI Context Engine ile birlikte inşa edilir. Kalanlar Faz 5'e kalır ve kapı
+> koşulu, Context Engine deseninin **en az bir modülde kanıtlanmış** olmasıdır:
+> kanıtlanmamış bir deseni üç modüle birden uygulamak, üç modülü birden yeniden
+> yazmak demektir.
 
 ---
 
