@@ -64,6 +64,20 @@
       "when": 1784720000000,
       "tag": "0008_list_user_memberships",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784730000000,
+      "tag": "0009_outbox_retry",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784740000000,
+      "tag": "0010_outbox_relay_functions",
+      "breakpoints": true
     }
   ]
 }

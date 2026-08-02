@@ -33,6 +33,7 @@ import {
   type UserMembershipsQuery,
 } from './tenant.public';
 import { TENANT_PERMISSIONS } from './tenant.permissions';
+import { tenantOutboxProviders } from './tenant-outbox.providers';
 import { DrizzleMembershipRepository } from './infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from './infrastructure/drizzle-tenant.repository';
 import { ContextCurrentUserProvider } from '../../infrastructure/auth/context-current-user.adapter';
@@ -162,6 +163,11 @@ import { TenantController } from './presentation/tenant.controller';
       ): UserMembershipsQuery =>
         new ListUserMembershipsQuery({ membershipRepository, transactionManager }),
     },
+
+    // --- Outbox tuketim yolu ve zamanlayicisi (ADR-0006) --------------------
+    // Ayri dosyada: burasi HTTP istegine hizmet eden bagimliliklari tutar,
+    // orasi arka plan surecininkileri (Identity ile ayni ayrim).
+    ...tenantOutboxProviders,
   ],
   // TENANT_ACCESS_QUERY disa acilir: Identity modulu (Faz 3) bunu token ile
   // enjekte eder. Somut sinif DEGIL, token export edilir — tuketen taraf

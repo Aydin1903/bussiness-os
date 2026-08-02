@@ -62,6 +62,42 @@ CREATE ROLE businessos_rls_reader
 
 GRANT businessos_rls_reader TO businessos_owner;
 
+-- ---------------------------------------------------------------------------
+-- businessos_outbox_relay — DORDUNCU rol, ikinci kontrollu RLS-asim rolu
+-- (ADR-0006, MULTI_TENANT_ARCHITECTURE 12.4.2, migration 0010)
+--
+-- TEK VAROLUS SEBEBI: tenant outbox tuketicisinin uc SECURITY DEFINER
+-- fonksiyonunun (`claim_outbox_batch`, `mark_outbox_published`,
+-- `record_outbox_failure`) sahibi olmak. `platform.outbox` FORCE ROW LEVEL
+-- SECURITY tasir (0002); publisher sureci tenant'lar ARASI okumak zorundadir
+-- ve tenant context'i yoktur.
+--
+-- NEDEN businessos_rls_reader YENIDEN KULLANILMADI: o rolun ADR-0028 Constraint
+-- 2 sozlesmesi "yalnizca memberships/tenants'a SELECT, hicbir yerde
+-- INSERT/UPDATE/DELETE YOK" der ve bir entegrasyon testiyle KANITLANIR. Outbox
+-- yetkisi eklemek o sozlesmeyi ve testi kirardi. Iki asim, iki ayri dar rol.
+--
+-- NEDEN businessos_owner'a BYPASSRLS verilmedi: migration'lari calistiran rol
+-- BYPASSRLS olsaydi tum DDL akisi RLS'i sessizce bypass ederdi (12.4.4 ile ayni
+-- gerekce).
+--
+-- NARROWNESS:
+--   * NOLOGIN — dogrudan baglanamaz; hicbir baglanti dizesine/.env'e girmez.
+--   * BYPASSRLS — tek yetenegi bu.
+--   * Yalnizca yukaridaki uc fonksiyonun sahibidir.
+--   * SELECT + UPDATE YALNIZCA `platform.outbox`'a verilir (migration 0010'da,
+--     tablo sahibi tarafindan) — baska HICBIR tabloya degil. INSERT/DELETE YOK.
+--   * Standing sema-yazma yetkisi TUTMAZ (CREATE gecici verilip geri alinir).
+-- Bu kisitlar bir entegrasyon testiyle KANITLANIR (Constraint 2 esdegeri).
+CREATE ROLE businessos_outbox_relay
+  NOLOGIN
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  BYPASSRLS;
+
+GRANT businessos_outbox_relay TO businessos_owner;
+
 -- Varsayilan genis yetkiler kaldirilir: erisim acikca verilir (deny by default).
 REVOKE ALL ON DATABASE business_os FROM PUBLIC;
 

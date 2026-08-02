@@ -57,17 +57,40 @@ export const outbox = platformSchema.table(
 
     /** Publisher doldurur. `NULL` = henuz yayinlanmadi. */
     publishedAt: timestamp('published_at', { withTimezone: true }),
+
+    // --- Teslimat yeniden deneme (migration 0009) ---------------------------
+    // Identity outbox'taki (0006) mekanizmanin AYNISI; kolon adlari ve tipleri
+    // birebir ayni tutuldu.
+
+    /** Kac kez denendi. Dead-letter esigi buna bakar. */
+    attemptCount: integer('attempt_count').notNull().default(0),
+
+    /** Son hata metni — TESHIS icin. Sir TASIMAZ. */
+    lastError: text('last_error'),
+
+    /** Backoff: bu andan ONCE yeniden denenmez. `NULL` = hemen hazir. */
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+
+    /** Dolu ise kayit kuyruktan CIKARILDI — ama silinmedi. */
+    deadLetteredAt: timestamp('dead_lettered_at', { withTimezone: true }),
   },
   (table) => [
-    // Kuyruk taramasi yalnizca BEKLEYENLERE bakar. Kismi index, yayinlanmis
-    // satirlar biriktikce index'in buyumesini engeller — outbox zamanla en
-    // buyuk tablolardan biri olur.
+    // Kuyruk taramasi yalnizca BEKLEYENLERE bakar ve olu kayitlari ELER. Kismi
+    // index, yayinlanmis satirlar biriktikce index'in buyumesini engeller —
+    // outbox zamanla en buyuk tablolardan biri olur.
+    //
+    // Siralama `next_attempt_at`'e gore: kuyrugun basi "en eski" degil,
+    // "yeniden denenmeye en erken hazir olan"dir.
     //
     // Kosul migration'da BIREBIR ayni yazilidir; ayrisirlarsa `db:generate`
     // gereksiz bir migration onerir.
     index('outbox_pending_idx')
-      .on(table.occurredAt)
-      .where(sql`published_at IS NULL`),
+      .on(table.nextAttemptAt, table.occurredAt)
+      .where(sql`published_at IS NULL AND dead_lettered_at IS NULL`),
+
+    index('outbox_dead_letter_idx')
+      .on(table.deadLetteredAt)
+      .where(sql`dead_lettered_at IS NOT NULL`),
 
     index('outbox_tenant_id_idx').on(table.tenantId),
   ],

@@ -109,8 +109,14 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
-      // 0008 memberships/tenants'a (0001) bagimlidir; en yeni oldugu icin ONCE
-      // geri alinir (fonksiyonu ve dar role verilen yetkileri kaldirir).
+      // 0010 outbox'a (0002) bagimlidir: uc SECURITY DEFINER fonksiyonu ve dar
+      // role verilen yetkileri kaldirir. En yeni oldugu icin EN ONCE.
+      '0010_outbox_relay_functions.down.sql',
+      // 0009 outbox kolonlarini geri alir; 0010'un fonksiyonlari o kolonlari
+      // okudugu icin ONDAN SONRA gelir.
+      '0009_outbox_retry.down.sql',
+      // 0008 memberships/tenants'a (0001) bagimlidir; fonksiyonu ve dar role
+      // verilen yetkileri kaldirir.
       '0008_list_user_memberships.down.sql',
       '0007_password_reset_codes.down.sql',
       '0006_identity_outbox_retry.down.sql',
