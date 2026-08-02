@@ -253,9 +253,10 @@ giriş → tenant açma zinciri uçtan uca kapalı.
 store, API client, middleware) · F2 auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout) ·
 Dashboard (app shell + company switcher + session bootstrap + `bo_last_tenant`
-reload dayanıklılığı). Riskli runtime akışları (bootstrap, tenant değiştirme)
-gerçek tarayıcıda doğrulandı. **Bilinen borç: `apps/web`'de otomatik test YOK**
-(yalnızca typecheck + lint + build). SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
+reload dayanıklılığı) · **şifre değiştirme ekranı** (`/app/change-password`,
+UserMenu'den). Riskli runtime akışları (bootstrap, tenant değiştirme) gerçek
+tarayıcıda doğrulandı. Vitest + RTL kurulu (~50 test); **kalan borç: Playwright
+e2e yok.** SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
 
@@ -301,11 +302,11 @@ E-posta gönderimi `EmailPort` + **Resend** adapter ile sağlayıcı bağımsız
 | Katman | Ne var |
 |---|---|
 | Domain | `User` · `Credential` · `EmailVerificationCode` · `RefreshToken` · `TokenFamily` · `LoginAttempt` · `Email`/`PasswordHash`/`IpAddress`/durum makineleri · parola politikası · kaba kuvvet politikası |
-| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · `RequestPasswordResetUseCase` · `ResetPasswordUseCase` · `ListMembershipsUseCase` · repository ve kripto port'ları |
+| Application | `RegisterUserUseCase` · `LoginUseCase` · `VerifyEmailUseCase` · `ResendVerificationUseCase` · `RefreshSessionUseCase` · `LogoutUseCase` · `PublishIdentityEventsUseCase` · `RequestPasswordResetUseCase` · `ResetPasswordUseCase` · `ChangePasswordUseCase` · `ListMembershipsUseCase` · repository ve kripto port'ları |
 | Infrastructure | Argon2id hasher · HMAC kod hasher · EdDSA token imzalayıcı · Drizzle repository'leri · `platform.identity_outbox` publisher · **outbox tüketicisi + interval relay** · `EmailPort` → **konsol + Resend adapter** (retry/backoff/dead-letter) · **tenant context middleware + fail-closed `runInCurrentTenantTransaction`** (MT §11.3) |
-| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/forgot-password` · `/reset-password` · `/switch-tenant` (platform/session) · **`GET /api/v1/memberships`** (RBAC korumali) · auth middleware · **permission guard (platform/authz)** · domain hata → RFC 7807 filtresi |
+| Presentation | `POST /api/v1/auth/register` · `/login` · `/verify-email` · `/resend-verification` · `/refresh` · `/logout` · `/logout-all` · `/forgot-password` · `/reset-password` · `/switch-tenant` (platform/session) · **`POST /api/v1/me/change-password`** (kimlik korumali) · **`GET /api/v1/memberships`** (RBAC korumali) · auth middleware · **permission guard (platform/authz)** · domain hata → RFC 7807 filtresi |
 | Event | `UserRegistered` · `UserLoggedIn` · `UserEmailVerified` · `RefreshTokenReuseDetected` · `PasswordResetRequested` · `UserPasswordChanged` (hepsi `tenantId = null`) |
-| Testler | ~925 birim + ~210 entegrasyon |
+| Testler | ~955 birim + ~235 entegrasyon |
 
 ### Faz 2'de kapalıydı, Faz 3'te **açıldı**
 
@@ -332,9 +333,7 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 Authorization (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine + guard, ilk
 korumalı endpoint `member:read`; kalan: tenant-configurable roller, ABAC, izin
 cache) ·
-parola **değiştirme** akışı (giriş yapmış kullanıcı, eski parola ile —
-`POST /auth/change-password`; sıfırlama tamamlandı, değiştirme ayrı ve kısa bir
-sonraki iş) · tenant outbox publisher süreci · iş modülleri · AI katmanı ·
+tenant outbox publisher süreci · iş modülleri · AI katmanı ·
 Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
 çapraz kontrolü — subdomain altyapısı kurulunca) · **login_attempts +
 verification_code_requests retention** (sınırsız büyüme; ikisi birlikte).
@@ -347,7 +346,15 @@ desenini ikinci kez kullanır.
 > **Kapanan borçlar:** `AUTH_ARCHITECTURE.md` §11.5 (kontroller switch-tenant'ta)
 > · Tenant→Identity döngü riski (`platform/session` üçüncü modülü, `forwardRef`
 > yok) · MT §11.4 kural 2-3 (`runInCurrentTenantTransaction` fail-closed) · **RBAC
-> v1** (ADR-0025: merkezî policy engine + guard, deny-by-default).
+> v1** (ADR-0025: merkezî policy engine + guard, deny-by-default) · **parola
+> değiştirme** (`POST /api/v1/me/change-password` — AUTH §7.6.1).
+
+> **Yol notu:** parola değiştirme `/auth/...` altında **değil** `/me/...`
+> altındadır. `auth` öneki tanımı gereği kimliksiz akışlara aittir (kayıt, giriş,
+> kurtarma); bu ise kimliği kanıtlanmış kullanıcının kendi kaynağı üzerindeki
+> işlemidir — `GET /me/memberships` ile aynı okuma. Yeni ADR yazılmadı: iş, var
+> olan desenlerin (login transaction sırası, reset-password `outcome` deseni)
+> uygulanmasıdır.
 
 > **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
 > (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —

@@ -3,9 +3,11 @@
 Business OS — Kimlik Doğrulama Mimarisi
 
 > **Durum:** Faz 3 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.1
-> **Son güncelleme:** 2026-07-26
+> **Sürüm:** 1.6
+> **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
+>
+> **1.6 (2026-08-02):** Parola **değiştirme** akışı eklendi ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil)): `POST /api/v1/me/change-password`, mevcut oturum hariç tüm aileler düşer, ret `400` (`401` değil), kaba kuvvet defteri girişle ortak. §12.2 iptal tablosu sıfırlama/değiştirme ayrımını yansıtacak şekilde güncellendi. Yeni ADR yok.
 >
 > **1.1 (2026-07-26):** Refresh token taşıması `HttpOnly` cookie'ye taşındı (ADR-0026, §10.5). §9/§11.2 diyagramları ve §12.1 çıkış davranışı güncellendi; ADR-0026/0027 referans tablosuna eklendi.
 
@@ -147,7 +149,7 @@ MT §11.2 beş alan tarif ediyor: `tenantId` · `userId` · `role` · `correlati
 4. [Design Principles](#4-design-principles)
 5. [Domain Model](#5-domain-model)
 6. [Parola Politikası ve Hash'leme](#6-parola-politikası-ve-hashleme)
-7. [E-posta Doğrulama ve Parola Sıfırlama](#7-e-posta-doğrulama)
+7. [E-posta Doğrulama, Parola Sıfırlama ve Değiştirme](#7-e-posta-doğrulama)
 8. [Kayıt Akışı](#8-kayıt-akışı)
 9. [Giriş Akışı](#9-giriş-akışı)
 10. [JWT Yapısı](#10-jwt-yapısı)
@@ -188,7 +190,7 @@ Yanıtladığı sorular:
 
 ### Kapsam içinde
 
-Parola saklama · parola politikası · kayıt · e-posta doğrulama (6 haneli kod) · giriş · JWT üretimi ve doğrulaması · refresh rotation · çıkış ve iptal · kaba kuvvet koruması · **parola sıfırlama** · Identity domain event'leri · Identity tablolarının RLS ile ilişkisi.
+Parola saklama · parola politikası · kayıt · e-posta doğrulama (6 haneli kod) · giriş · JWT üretimi ve doğrulaması · refresh rotation · çıkış ve iptal · kaba kuvvet koruması · **parola sıfırlama ve değiştirme** · Identity domain event'leri · Identity tablolarının RLS ile ilişkisi.
 
 ### Kapsam dışında
 
@@ -512,8 +514,39 @@ Aynı kod deseni yeniden kullanılır ([ADR-0024](../adr/0024-password-reset.md)
 > arasında geçiş yapıp hızı ikiye katlayamaz. Bilinen yan etki: kayıttan hemen
 > sonra (120 sn içinde) sıfırlama isteği sessizce beklemeye takılır.
 >
-> **Kapsam dışı:** giriş yapmış kullanıcının **parola değiştirme** akışı
-> (`change-password`, eski parola ile) — ayrı ve kısa bir sonraki iş.
+#### 7.6.1 Parola değiştirme — sıfırlamanın kardeşi, aynısı değil
+
+`POST /api/v1/me/change-password` — **giriş yapmış** kullanıcı mevcut parolasını doğrulatıp yenisini belirler. Sıfırlamayla aynı sonucu üretir ama **farklı bir tehdit modelinden** gelir: sıfırlamayı yapan kişi parolayı *bilmiyordu* (kurtarma akışı), değiştirmeyi yapan **biliyordu ve kimliğini kanıtladı**.
+
+| | Sıfırlama (`/auth/reset-password`) | **Değiştirme (`/me/change-password`)** |
+|---|---|---|
+| Kimlik kanıtı | E-postaya gelen 6 haneli kod | **Access/identity token + mevcut parola** |
+| Kimliğin kaynağı | Gövdedeki `email` | **Doğrulanmış token** (`userId` + `sid`) |
+| Oturum iptali | **Tümü** | **İstek yapan oturum HARİÇ tümü** |
+| Ret yanıtı | `400` + sabit metin | `400` + sabit metin |
+| Oran sınırı defteri | `verification_code_requests` | **`login_attempts`** (giriş ile ortak) |
+
+**Yol neden `/auth/...` değil `/me/...`:** `auth` öneki tanımı gereği kimliksiz akışlara aittir. Bu ise kimliği kanıtlanmış kullanıcının kendi kaynağı üzerindeki işlemidir — `GET /me/memberships` ([ADR-0028](../adr/0028-my-memberships-query.md)) ile aynı okuma.
+
+**Zorunlu yan etkiler (başarıda):**
+
+1. `Credential` güncellenir; `password_changed_at` **ilerler** (kademeli yeniden hash'leme değil — [§6.3](#63-saklama-kuralları)).
+2. Kullanıcının **istek yapan aile dışındaki** tüm refresh aileleri `password-changed` nedeniyle iptal edilir ([§12.2](#122-i̇ptal-nedenleri)). Parolayı bilen ve kimliğini kanıtlayan kişiyi kendi cihazından atmak için sebep yoktur; diğer cihazlar yine düşer.
+3. `UserPasswordChanged` yayınlanır → **bilgilendirme e-postası** (sıfırlamayla aynı event ve aynı handler).
+
+> **`login_attempts` neden paylaşılıyor:** tahmin edilen sır, girişte tahmin edilen sırla **aynı sırdır**. Ayrı bir sayaç, saldırgana iki ayrı bütçe verir ve iki uç arasında geçiş yaparak hızı ikiye katlamasına izin verirdi ([ADR-0022](../adr/0022-brute-force-protection.md) üç katmanı olduğu gibi uygulanır). **Kabul edilen yan etki:** change-password'da 5 yanlış deneme, aynı IP'den **girişi de** kilitler. Bu, §7.6'daki sıfırlama defteri paylaşımıyla (Seçenek A) aynı akıl yürütmedir.
+>
+> **Başarılı** değişiklik deftere **yazılmaz**: `login_attempts` bir "başarısız parola tahmini" sayacıdır ve sayımları yalnızca başarısızları okur. Başarının denetim kaydı `password_changed_at` ve `UserPasswordChanged`'dir.
+
+> **Ret neden `401` değil `400`:** bu uç kimlik doğrulanmış bağlamda çalışır ve orada `401` zaten **"token yok / süresi doldu"** anlamını taşır. Yanlış paroladan da `401` dönseydi istemcinin yenile-ve-tekrar-dene mekanizması devreye girer, istek sessizce ikinci kez gönderilir ve kullanıcının **tek yazım hatası iki başarısız deneme** yakardı — katman 1'in 5 denemelik sınırı yarı yarıya erirdi. Bu yüzden use case reddi bir **değer** olarak döndürür (§7.6'daki `ResetPassword` deseni) ve sunum katmanı `400`'e çevirir. `401` yalnızca **kimliksiz** isteğe ayrılmıştır.
+>
+> Ret **tek biçimlidir** ([P2](#p2--yanıtlar-hesabın-varlığını-sızdırmaz)): mevcut parola yanlış · hesap aktif değil · katman 1 kilidi — üçü de aynı `400` ve aynı metni üretir. Yeni parola politikası ihlali `422`'dir ve parolanın doğru bilinip bilinmediğinden bağımsızdır.
+
+> **Uygulandı (2026-08-02, migration YOK).** Transaction sıralaması [§9](#9-giriş-akışı) ile birebir aynıdır: sayımlar okuma transaction'ında, **başarısız deneme kendi transaction'ında commit edilip ret ondan SONRA döner** (aynı transaction'da olsaydı ret, sayacın artışını geri alırdı). Argon2 verify ve hash transaction'ların **dışında** çalışır. Hariç tutan iptal için `TokenFamilyRepository.revokeAllActiveByUserIdExcept` eklendi — mevcut `revokeAllActiveByUserId`'a nullable parametre **eklenmedi**: sıfırlama hiçbir aileyi hariç tutmamalıdır ve bunu bir `null`'un doğru geçilmesine bırakmak, bir gün yanlış geçilmesi demektir.
+>
+> **Yeni ADR yazılmadı:** bu iş yeni bir mimari desen tanıtmaz, var olanların (ADR-0017 hash'leme, ADR-0018 politika, ADR-0021 aile iptali, ADR-0022 katmanlı kilit, ADR-0023 oturum sonlandırma) uygulanmasıdır.
+>
+> **Kapsam dışı bırakıldı:** parola **geçmişi** kuralı — kullanıcı yeni parola olarak aynı parolayı girebilir ve istek `200` döner. ADR-0018'de geçmiş kuralı yoktur; yarım bir kural eklemek ayrı bir politika kararıdır.
 
 ### 7.7 E-posta gönderimi — `EmailPort`
 
@@ -835,7 +868,8 @@ Refresh aileleri şu durumlarda da iptal edilir:
 
 | Olay | Kapsam |
 |---|---|
-| Parola değişikliği | Kullanıcının **tüm** aileleri |
+| Parola **sıfırlama** (kurtarma akışı) | Kullanıcının **tüm** aileleri ([§7.6](#76-parola-sıfırlama)) |
+| Parola **değiştirme** (giriş yapmış kullanıcı) | İstek yapan aile **hariç** tümü ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil)) |
 | Yeniden kullanım tespiti | İlgili aile ([§11.3](#113-yeniden-kullanım-tespiti--asıl-koruma)) |
 | Kullanıcı `deactivated` / `locked` | Tüm aileler |
 | `MemberRemoved` / `MemberSuspended` | **İlgili tenant'a bağlı** oturumlar ([MT §15.3](MULTI_TENANT_ARCHITECTURE.md)) |
@@ -1168,3 +1202,4 @@ Numaralar `0016`'ya kadar dolu olduğu için `0017`'den devam eder. **Sekizi de 
 | 1.3 | 2026-07-24 | **[§16.1](#161-teslimat-hatası-yeniden-deneme-backoff-ve-dead-letter) borcu kapatıldı:** outbox teslimatına `attempt_count` + `last_error` + üstel backoff + dead-letter eklendi (migration `0006`) ve **Resend adapter'ı** canlıya bağlandı. Kalıcı/geçici hata ayrımı `EmailPort`'a taşındı. |
 | 1.4 | 2026-07-24 | **E-posta tasarımı bilinçli olarak ertelendi** ([§7.7](#77-e-posta-gönderimi--emailport)): şablonlar düz metin/minimal, marka kimliği belirlenince yalnızca `htmlBody` değişir — mimari sabit. switch-tenant + tenant-context + RBAC (ADR-0025) uçtan uca çalışır; Faz 3 kapanış denetimi geçildi. |
 | 1.5 | 2026-07-24 | **Parola sıfırlama kod olarak yazıldı** ([§7.6](#76-parola-sıfırlama), ADR-0024, migration `0007`): `forgot-password`/`reset-password`, 10 dk / 3 deneme / 120 sn, başarıda tüm oturumlar düşer + bildirim e-postası. Oran-sınırı defteri doğrulama akışıyla paylaşılır (Seçenek A). `change-password` kapsam dışı. |
+| 1.6 | 2026-08-02 | **Parola değiştirme kod olarak yazıldı** ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil), migration YOK): `POST /api/v1/me/change-password`. Sıfırlamadan iki bilinçli fark — **istek yapan oturum ayakta kalır** ([§12.2](#122-i̇ptal-nedenleri) tablosu güncellendi) ve oran-sınırı defteri `login_attempts`'tir (girişle ortak; 5 yanlış deneme girişi de kilitler). Ret `400`, `401` değil: `401` bu bağlamda "token süresi doldu" demektir ve istemcinin yenile-tekrar-dene mekanizmasını yanlış tetiklerdi. §7.6'nın "kapsam dışı" notu kaldırıldı. **Yeni ADR yok** — var olan desenlerin (ADR-0017/0018/0021/0022/0023) uygulanması. |
