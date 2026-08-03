@@ -16,10 +16,10 @@ import { EMBEDDING_DIMENSIONS } from '../domain/note-chunk.entity';
  * edilemez. Bu adapter olmasaydi ya anahtar zorunlu olurdu ya da testler ag'a
  * cikardi — ikisi de yanlis.
  *
- * ⚠️ URETIMDE SECILMESI env semasinda REDDEDILMEZ (e-postadaki `console`
- * yasagindan FARKLI): sahte embedding bir SIR SIZDIRMAZ, yalnizca aramayi
- * anlamsiz kilar. Bu bir guvenlik degil KALITE sorunudur ve acilisi bloke
- * etmesi orantisiz olurdu. Wiring'de gorunur bir uyari loglanir.
+ * ⚠️ URETIMDE SECILMESI env semasinda REDDEDILIR ve surec BASLAMAZ. Sahte
+ * embedding bir sir sizdirmaz ama urunu SESSIZCE islevsiz kilar: arama
+ * calisiyor gorunur, sonuclari anlamsizdir. Sessizce yanlis calismak,
+ * acilista patlamaktan kotudur.
  * ============================================================================
  *
  * ============================================================================

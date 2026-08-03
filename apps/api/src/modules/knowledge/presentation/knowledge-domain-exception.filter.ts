@@ -27,6 +27,11 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   NOTE_ID_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   NOTE_CHUNK_ID_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
+  // Kimlik KANITLANMIS ama konusma bu kullaniciya ait degil -> 403.
+  // 404 DEGIL: "yok" ile "senin degil" ayirt edilirse, bir kullanici id
+  // deneyerek baskasinin konusmasinin VARLIGINI ogrenebilirdi (P2).
+  CONVERSATION_ACCESS_DENIED: HttpStatus.FORBIDDEN,
+
   // Bunlar CAGIRAN hatasi degil, SISTEM hatasidir: bozuk bir zaman damgasi,
   // negatif chunk sirasi veya yanlis boyutlu embedding istemcinin uretemeyecegi
   // degerlerdir. Eslenmezler -> 500 (asagidaki varsayilan) ve traceId ile

@@ -1,5 +1,6 @@
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
+import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { type ConversationRepository } from './conversation.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
@@ -76,17 +77,8 @@ export class AskKnowledgeUseCase {
     // --- Ag · transaction YOK ------------------------------------------------
     const questionEmbedding = await this.#embed(question);
 
-    // --- T1: retrieval + gecmis ---------------------------------------------
-    const { chunks, history } = await this.deps.transactionManager.runInCurrentTenantTransaction(
-      async () => ({
-        chunks: await this.deps.noteChunkSearch.findSimilar({
-          tenantId,
-          embedding: questionEmbedding,
-          limit: this.deps.retrievalLimit,
-        }),
-        history: await this.#loadHistory(command.conversationId),
-      }),
-    );
+    // --- T1: sahiplik + retrieval + gecmis -----------------------------------
+    const { chunks, history } = await this.#gatherContext(command, tenantId, questionEmbedding);
 
     // --- Ag · transaction YOK ------------------------------------------------
     const answer = await this.#complete(question, chunks, history);
@@ -107,6 +99,57 @@ export class AskKnowledgeUseCase {
     );
 
     return { answer, sourceNoteIds: distinctNoteIds(chunks), conversationId };
+  }
+
+  /** T1 — tek transaction: sahiplik, retrieval ve gecmis birlikte okunur. */
+  #gatherContext(
+    command: AskKnowledgeCommand,
+    tenantId: TenantId,
+    questionEmbedding: number[],
+  ): Promise<{ chunks: readonly SimilarChunk[]; history: LlmMessage[] }> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      // Sahiplik ONCE dogrulanir: erisimi olmayan bir konusma icin pahali
+      // retrieval yapmanin anlami yok.
+      await this.#assertConversationAccess(command.conversationId, command.userId);
+
+      return {
+        chunks: await this.deps.noteChunkSearch.findSimilar({
+          tenantId,
+          embedding: questionEmbedding,
+          limit: this.deps.retrievalLimit,
+        }),
+        history: await this.#loadHistory(command.conversationId),
+      };
+    });
+  }
+
+  /**
+   * Verilen konusmanin istegi yapan kullaniciya ait oldugunu dogrular.
+   *
+   * ============================================================================
+   * RLS TENANT'I KORUR, KULLANICIYI KORUMAZ
+   * ============================================================================
+   * `knowledge.conversations` politikasi `tenant_id` uzerindedir. Ayni
+   * tenant'taki BASKA bir kullanicinin konusma id'si RLS'e TAKILMAZ ve gecmisi
+   * baglama girerdi — yani bir kullanici, meslektasinin gecmis sorularini
+   * modele okutabilirdi. Kullanici siniri bu yuzden BURADA uygulanir.
+   *
+   * UC DURUM AYNI SONUCU verir (P2): konusma yok · baska tenant · baska
+   * kullanici. Ayirt etmek "bu id gercek mi" sorusuna cevap vermek olurdu.
+   *
+   * YAN FAYDA: bu kontrol olmadan, var olmayan bir `conversationId` T2'de
+   * yabanci anahtar ihlaline dusup 500 uretiyordu. Artik 403 doner.
+   * ============================================================================
+   */
+  async #assertConversationAccess(conversationId: string | null, userId: string): Promise<void> {
+    if (conversationId === null) {
+      return;
+    }
+
+    const ownerUserId = await this.deps.conversationRepository.findOwnerUserId(conversationId);
+    if (ownerUserId !== userId) {
+      throw new ConversationAccessDeniedError();
+    }
   }
 
   /** Konusma verilmemisse gecmis YOKTUR; bosuna sorgu acilmaz. */

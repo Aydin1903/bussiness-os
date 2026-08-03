@@ -20,13 +20,23 @@ export interface NewMessage {
  */
 export interface ConversationRepository {
   /**
+   * Konusmanin SAHIBI olan kullanicinin id'si; konusma GORUNMUYORSA `null`.
+   *
+   * `null` uc farkli durumu birden temsil eder ve bu BILINCLIDIR (P2): konusma
+   * hic yok · baska tenant'a ait (RLS gizler) · silinmis. Cagiran taraf ucunu
+   * de AYNI sekilde reddeder; ayirt etmek "bu id gercek mi" sorusuna cevap
+   * vermek olurdu.
+   *
+   * Kullanici karsilastirmasi CAGIRANDA yapilir, burada degil: repository veri
+   * dondurur, YETKI KARARI vermez.
+   */
+  findOwnerUserId(conversationId: string): Promise<string | null>;
+
+  /**
    * Konusmanin SON `limit` mesajini KRONOLOJIK sirada dondurur.
    *
-   * Konusma yoksa veya baska bir tenant'a aitse bos dizi doner — RLS zaten
-   * gormeyecegi icin ayrica kontrol GEREKMEZ. Bu, "var olmayan
-   * `conversation_id`" ile "baska tenant'in `conversation_id`'si" arasinda
-   * FARK OLMAMASI demektir; ikisi de sessizce bos gecmise duser (P2 ile ayni
-   * ilke: varlik sizdirilmaz).
+   * Bu metot cagrildiginda sahiplik ZATEN dogrulanmis olmalidir
+   * (`findOwnerUserId`): erisimi olmayan bir konusma buraya hic gelmez.
    */
   findRecentMessages(input: {
     readonly conversationId: string;

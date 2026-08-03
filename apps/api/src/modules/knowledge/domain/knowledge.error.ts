@@ -94,3 +94,27 @@ export class InvalidEmbeddingDimensionsError extends KnowledgeDomainError {
     super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
   }
 }
+
+/**
+ * Konusma istegi yapan kullaniciya AIT DEGIL.
+ *
+ * ============================================================================
+ * RLS TENANT SINIRINI KORUR, KULLANICI SINIRINI KORUMAZ
+ * ============================================================================
+ * `knowledge.conversations` RLS politikasi `tenant_id` uzerindedir; ayni
+ * tenant'taki BASKA bir kullanicinin konusmasi RLS'e takILMAZ. Kullanici
+ * siniri bu yuzden uygulama katmaninda uygulanir (ADR-0030 §1.1'in tablo
+ * yorumunda ongorulen kontrol).
+ *
+ * UC DURUM AYIRT EDILMEZ (P2): konusma hic yok · baska tenant'a ait ·
+ * ayni tenant'ta baska kullaniciya ait. Ucu de bu hatayi uretir. Ayirt etmek,
+ * "bu id gercek mi" sorusuna cevap vermek olurdu.
+ * ============================================================================
+ */
+export class ConversationAccessDeniedError extends KnowledgeDomainError {
+  readonly code = 'CONVERSATION_ACCESS_DENIED';
+
+  constructor() {
+    super('Bu konusmaya erisiminiz yok.');
+  }
+}

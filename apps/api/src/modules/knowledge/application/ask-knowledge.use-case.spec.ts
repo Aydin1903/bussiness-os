@@ -7,6 +7,7 @@ import {
   type ConversationRepository,
   type NewMessage,
 } from './conversation.repository.port';
+import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import {
@@ -43,6 +44,8 @@ class FakeNoteChunkSearch implements NoteChunkSearch {
 
 class FakeConversationRepository implements ConversationRepository {
   history: LlmMessage[] = [];
+  /** Konusmanin sahibi. `null` = konusma yok (ya da baska tenant'ta). */
+  ownerUserId: string | null = USER_ID;
   lastHistoryLimit: number | null = null;
   appended: {
     conversationId: string | null;
@@ -50,6 +53,11 @@ class FakeConversationRepository implements ConversationRepository {
   }[] = [];
 
   constructor(private readonly calls: CallLog) {}
+
+  findOwnerUserId(): Promise<string | null> {
+    this.calls.push('owner');
+    return Promise.resolve(this.ownerUserId);
+  }
 
   findRecentMessages(input: { conversationId: string; limit: number }): Promise<LlmMessage[]> {
     this.calls.push('history');
@@ -232,6 +240,7 @@ describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda',
     expect(harness.calls).toEqual([
       'embed',
       'tx.begin',
+      'owner',
       'search',
       'history',
       'tx.commit',
@@ -315,6 +324,74 @@ describe('AskKnowledgeUseCase — gecmis', () => {
     await harness.useCase.execute(command({ conversationId: CONVERSATION_ID }));
 
     expect(harness.calls).not.toContain('history');
+  });
+});
+
+// --- Konusma sahipligi ------------------------------------------------------
+
+describe('AskKnowledgeUseCase — konusma SAHIPLIGI', () => {
+  const OTHER_USER = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
+
+  it('BASKA kullanicinin konusmasi reddedilir', async () => {
+    const harness = createHarness();
+    harness.conversations.ownerUserId = OTHER_USER;
+
+    await expect(
+      harness.useCase.execute(command({ conversationId: CONVERSATION_ID })),
+    ).rejects.toThrow(ConversationAccessDeniedError);
+  });
+
+  it('VAR OLMAYAN konusma da AYNI hatayi verir (P2)', async () => {
+    // "yok" ile "senin degil" ayirt edilirse, id deneyerek baskasinin
+    // konusmasinin VARLIGI ogrenilebilirdi.
+    const harness = createHarness();
+    harness.conversations.ownerUserId = null;
+
+    await expect(
+      harness.useCase.execute(command({ conversationId: CONVERSATION_ID })),
+    ).rejects.toThrow(ConversationAccessDeniedError);
+  });
+
+  it('reddedilen istek SESSIZCE YENI konusma ACMAZ', async () => {
+    const harness = createHarness();
+    harness.conversations.ownerUserId = OTHER_USER;
+
+    await expect(
+      harness.useCase.execute(command({ conversationId: CONVERSATION_ID })),
+    ).rejects.toThrow(ConversationAccessDeniedError);
+
+    expect(harness.conversations.appended).toHaveLength(0);
+  });
+
+  it('reddedilen istekte GECMIS OKUNMAZ ve LLM CAGRILMAZ', async () => {
+    // Sizintinin ozu gecmistir: sahiplik dogrulanmadan okunmamali. Ayrica
+    // reddedilecek bir istek icin para harcanmamali.
+    const harness = createHarness();
+    harness.conversations.ownerUserId = OTHER_USER;
+
+    await expect(
+      harness.useCase.execute(command({ conversationId: CONVERSATION_ID })),
+    ).rejects.toThrow(ConversationAccessDeniedError);
+
+    expect(harness.calls).not.toContain('history');
+    expect(harness.calls).not.toContain('complete');
+  });
+
+  it('konusma VERILMEZSE sahiplik sorgusu HIC yapilmaz', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command({ conversationId: null }));
+
+    expect(harness.calls).not.toContain('owner');
+  });
+
+  it('KENDI konusmasi kabul edilir', async () => {
+    const harness = createHarness();
+    harness.conversations.ownerUserId = USER_ID;
+
+    await expect(
+      harness.useCase.execute(command({ conversationId: CONVERSATION_ID })),
+    ).resolves.toMatchObject({ conversationId: CONVERSATION_ID });
   });
 });
 

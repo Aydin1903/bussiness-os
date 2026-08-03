@@ -12,9 +12,9 @@ import { type CompleteInput, type LLMPort } from '../application/llm.port';
  * DeepSeek anahtari BULUNMAZ ve her `pnpm test` kosusunun para harcamasi kabul
  * edilemez.
  *
- * ⚠️ URETIMDE SECILMESI env semasinda REDDEDILMEZ: sahte cevap bir SIR
- * SIZDIRMAZ, yalnizca urunu isesiz kilar. Guvenlik degil KALITE sorunudur;
- * wiring'de gorunur bir uyari loglanir.
+ * ⚠️ URETIMDE SECILMESI env semasinda REDDEDILIR ve surec BASLAMAZ. Sahte
+ * cevap bir sir sizdirmaz ama soru-cevap ozelligini SESSIZCE islevsiz kilar —
+ * her soru "[sahte cevap] ..." doner ve hicbir hata uretilmez.
  * ============================================================================
  *
  * ============================================================================

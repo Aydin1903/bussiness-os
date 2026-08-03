@@ -164,7 +164,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     return String(response.body.noteId);
   }
 
-  function ask(token: string | undefined, body: unknown) {
+  function ask(token: string | undefined, body: object) {
     const call = request(httpServer(app)).post('/api/v1/knowledge/ask');
     return token === undefined
       ? call.send(body)
@@ -300,6 +300,54 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     },
     120_000,
   );
+
+  // --- Konusma sahipligi: RLS'in KAPSAMADIGI sinir --------------------------
+
+  it(
+    'AYNI tenant taki BASKA kullanicinin conversationId si 403',
+    async () => {
+      const alice = await signInAs('owner', 'alice@example.com');
+      await addNote(alice, 'Fatura surecini Ayse Yilmaz yonetiyor.');
+
+      const first = await ask(alice, { question: 'Fatura surecini kim yonetiyor?' });
+      expect(first.status).toBe(200);
+      const conversationId = String(first.body.conversationId);
+
+      // Bob ayni tenant'ta ve `knowledge:ask` izni VAR — RLS onu durdurmaz,
+      // cunku konusma satiri kendi tenant'inda. Duran sey use case'deki
+      // sahiplik kontrolu.
+      const bob = await signInAs('member', 'bob@example.com');
+      const stolen = await ask(bob, { question: 'Ne konusulmustu?', conversationId });
+
+      expect(stolen.status).toBe(403);
+
+      // Sessizce YENI konusma da acilmamali: 403 dondurup arka planda devam
+      // etmek, hatayi kullanicidan gizlemek olurdu.
+      const conversations = await database.ownerPool.query('SELECT 1 FROM knowledge.conversations');
+      expect(conversations.rowCount).toBe(1);
+
+      // Alice'in gecmisi buyumemis olmali (iki mesaj: soru + cevap).
+      const messages = await database.ownerPool.query(
+        'SELECT 1 FROM knowledge.messages WHERE conversation_id = $1',
+        [conversationId],
+      );
+      expect(messages.rowCount).toBe(2);
+    },
+    180_000,
+  );
+
+  it('VAR OLMAYAN conversationId 403 (500 DEGIL)', async () => {
+    // Bu kontrolden once, bilinmeyen bir id T2'de yabanci anahtar ihlaline
+    // dusup 500 uretiyordu — gizli bir hata.
+    const token = await signInAs('owner', 'owner@example.com');
+
+    const response = await ask(token, {
+      question: 'soru',
+      conversationId: '018f3a2b-7c4d-7e1f-8a2b-0000000000ff',
+    });
+
+    expect(response.status).toBe(403);
+  });
 
   // --- Yetki ve dogrulama ---------------------------------------------------
 

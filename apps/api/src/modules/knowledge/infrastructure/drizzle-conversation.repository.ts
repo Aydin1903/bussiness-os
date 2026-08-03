@@ -25,6 +25,25 @@ function toRole(value: string): 'user' | 'assistant' {
 @Injectable()
 export class DrizzleConversationRepository implements ConversationRepository {
   /**
+   * Konusmanin sahibini dondurur; RLS tenant'i zaten daraltir.
+   *
+   * Baska TENANT'in konusmasi politikaya takilir ve satir hic gelmez -> `null`.
+   * Ayni tenant'taki baska KULLANICININ konusmasi ise gelir; ayrimi cagiran
+   * yapar (`AskKnowledgeUseCase`).
+   */
+  async findOwnerUserId(conversationId: string): Promise<string | null> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({ userId: conversations.userId })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    return rows[0]?.userId ?? null;
+  }
+
+  /**
    * Son `limit` mesaji KRONOLOJIK sirada dondurur.
    *
    * Sorgu `DESC` siralar (en yeniler), sonra dizi TERS CEVRILIR. "Son N" ile

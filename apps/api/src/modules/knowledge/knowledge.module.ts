@@ -85,10 +85,10 @@ import { NoteController } from './presentation/note.controller';
           });
         }
 
-        // Sessiz kalmaz: sahte embedding aramayi anlamsiz kilar ve bunu
-        // ARAYAN birinin gorebilecegi tek yer burasidir. Env semasi bunu
-        // uretimde REDDETMEZ (sir sizdirmaz, yalnizca kalite sorunudur) —
-        // dolayisiyla uyari tek savunmadir.
+        // Uretimde bu dala HIC girilmez: env semasi `fake`'i orada reddeder
+        // ve surec baslamaz. Uyari dev/CI icindir — sahte embedding ile
+        // calistigini unutan gelistirici, "arama neden sacmaliyor" sorusunun
+        // cevabini burada bulur.
         new Logger(KnowledgeModule.name).warn(
           'EMBEDDING_PROVIDER=fake — embedding ler SAHTE, anlamsal arama calismaz.',
         );
@@ -111,6 +111,7 @@ import { NoteController } from './presentation/note.controller';
           });
         }
 
+        // Uretimde bu dala HIC girilmez (env semasi reddeder); uyari dev/CI icin.
         new Logger(KnowledgeModule.name).warn(
           'LLM_PROVIDER=fake — cevaplar SAHTE, soru-cevap anlamli calismaz.',
         );
