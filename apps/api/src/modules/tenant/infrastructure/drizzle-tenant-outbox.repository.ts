@@ -8,8 +8,17 @@ import type {
   TenantOutboxRepository,
 } from '../application/tenant-outbox.repository.port';
 
-/** `platform.claim_outbox_batch` fonksiyonunun dondurdugu ham satir. */
-interface ClaimedRow {
+/**
+ * `platform.claim_outbox_batch` fonksiyonunun dondurdugu ham satir.
+ *
+ * `type` (interface DEGIL): drizzle `db.execute<T>`, T'nin `Record<string, unknown>`
+ * kisitini saglamasini bekler; object-literal `type` implicit index signature
+ * tasir, `interface` TASIMAZ. `DrizzleMembershipRepository`'deki
+ * `UserMembershipQueryRow` ile ayni gerekce — bu yuzden
+ * `consistent-type-definitions` burada bilincli olarak devre disi.
+ */
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type ClaimedRow = {
   readonly id: string;
   readonly tenant_id: string;
   readonly event_type: string;
@@ -18,7 +27,7 @@ interface ClaimedRow {
   readonly correlation_id: string;
   readonly occurred_at: Date;
   readonly attempt_count: number;
-}
+};
 
 /**
  * `TenantOutboxRepository`'nin Drizzle implementasyonu (ADR-0006).

@@ -5,6 +5,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { AppLoggerModule } from './infrastructure/logging/logger.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { AuthzModule } from './platform/authz/authz.module';
 import { HealthModule } from './platform/health/health.module';
@@ -30,6 +31,9 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     IdentityModule,
     // switch-tenant: Identity + Tenant orkestrasyonu (MT §7.4 asama 2).
     SessionModule,
+    // Ilk IS modulu (ADR-0029/0030). Platform cekirdeginden SONRA gelir:
+    // permission katalogunu AuthzModule'e kaydeder ve tenant context'e dayanir.
+    KnowledgeModule,
   ],
 })
 export class AppModule implements NestModule {

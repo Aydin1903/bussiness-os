@@ -73,3 +73,6 @@ export type {
   MyMembershipItem,
   MyMembershipsResponse,
 } from './memberships/memberships.contract';
+
+export { createNoteRequestSchema, createNoteResponseSchema } from './knowledge/knowledge.contract';
+export type { CreateNoteRequest, CreateNoteResponse } from './knowledge/knowledge.contract';

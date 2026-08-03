@@ -26,7 +26,7 @@ const postgresUrl = z
     message: 'DATABASE_URL postgres:// veya postgresql:// ile baslamalidir',
   });
 
-export const envSchema = z.object({
+const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -131,40 +131,114 @@ export const envSchema = z.object({
 
   /** Gonderen adresi. Resend'de dogrulanmis alan adina ait olmalidir. */
   EMAIL_FROM: z.string().optional(),
-})
-  .superRefine((env, ctx) => {
-    // `resend` secildiyse kimlik bilgileri ZORUNLUDUR. Eksikse surec BASLAMAZ:
-    // anahtarsiz bir Resend adapter'i her gonderimde 401 alir ve kayitlari olu
-    // mektuba dusururdu — yani sessizce degil, GURULTULU ama GEC fark edilirdi.
-    if (env.EMAIL_PROVIDER === 'resend') {
-      if (env.RESEND_API_KEY === undefined || env.RESEND_API_KEY.trim() === '') {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['RESEND_API_KEY'],
-          message: "EMAIL_PROVIDER=resend secildiginde RESEND_API_KEY zorunludur.",
-        });
-      }
-      if (env.EMAIL_FROM === undefined || env.EMAIL_FROM.trim() === '') {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['EMAIL_FROM'],
-          message: "EMAIL_PROVIDER=resend secildiginde EMAIL_FROM zorunludur.",
-        });
-      }
-    }
 
-    // Uretimde konsol adapter'i YASAK: dogrulama kodunu loglar (P1).
-    // Bunu wiring'e birakmak, hatanin ilk e-posta gonderilene kadar gizli
-    // kalmasi demekti; acilista reddetmek onu ANINDA gorunur kilar.
-    if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'console') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['EMAIL_PROVIDER'],
-        message:
-          'Uretimde EMAIL_PROVIDER=console kullanilamaz: konsol adapter i ' +
-          'dogrulama kodlarini loglar (P1). EMAIL_PROVIDER=resend olmalidir.',
-      });
-    }
+  // --- Embedding saglayicisi (ADR-0029 §3, ADR-0030 §1.3) -------------------
+  //
+  // `EmailPort` ile AYNI desen: saglayici secimi bir ORTAM karari, kod karari
+  // degil. `fake` varsayilandir cunku her gelistirici makinesinde ve CI'da
+  // OpenAI anahtari bulunmaz — varsayilanin `openai` olmasi, anahtari olmayan
+  // her ortamda acilis hatasi uretirdi.
+  //
+  // ⚠️ Uretimde `fake` REDDEDILMEZ (e-postadaki `console` yasagindan FARKLI):
+  // sahte embedding bir SIR SIZDIRMAZ, yalnizca aramayi anlamsiz kilar. Bu bir
+  // guvenlik degil kalite sorunudur ve acilisi bloke etmesi orantisiz olurdu.
+  // Yine de wiring'de gorunur bir uyari loglanir.
+  EMBEDDING_PROVIDER: z.enum(['fake', 'openai']).default('fake'),
+
+  /** OpenAI API anahtari — SIRDIR, varsayilani yoktur. */
+  OPENAI_API_KEY: z.string().optional(),
+
+  /**
+   * Embedding modeli. Varsayilan `text-embedding-3-small`: cikti boyutu 1536'dir
+   * ve `knowledge.note_chunks.embedding` kolonu (migration 0011) TAM olarak bu
+   * boyuta gore tanimlidir. Modeli degistirmek kolonu ve TUM saklanan
+   * vektorleri yeniden uretmeyi gerektirir (ADR-0029 "Bilinen sinirlar").
+   */
+  OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+});
+
+export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
+    // Kural basina bir fonksiyon: `superRefine` govdesi buyudukce okunamaz hale
+    // gelir ve her yeni saglayici onu biraz daha uzatir. Kurallar ayri
+    // fonksiyonlarda durunca, eklenen bir saglayici MEVCUT kurallari okumayi
+    // gerektirmez.
+    requireResendCredentials(env, ctx);
+    requireOpenAiCredentials(env, ctx);
+    forbidConsoleEmailInProduction(env, ctx);
   });
+
+/** Zod'un `superRefine` baglami — kurallarin ortak imzasi. */
+type RefinementContext = z.RefinementCtx;
+
+/** Ham (henuz cikarilmamis) env; kurallar yalnizca okudugu alanlari bilir. */
+type RawEnv = z.infer<typeof baseEnvSchema>;
+
+/**
+ * `resend` secildiyse kimlik bilgileri ZORUNLUDUR. Eksikse surec BASLAMAZ:
+ * anahtarsiz bir Resend adapter'i her gonderimde 401 alir ve kayitlari olu
+ * mektuba dusururdu — yani sessizce degil, GURULTULU ama GEC fark edilirdi.
+ */
+function requireResendCredentials(env: RawEnv, ctx: RefinementContext): void {
+  if (env.EMAIL_PROVIDER !== 'resend') {
+    return;
+  }
+
+  if (isBlank(env.RESEND_API_KEY)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['RESEND_API_KEY'],
+      message: 'EMAIL_PROVIDER=resend secildiginde RESEND_API_KEY zorunludur.',
+    });
+  }
+  if (isBlank(env.EMAIL_FROM)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['EMAIL_FROM'],
+      message: 'EMAIL_PROVIDER=resend secildiginde EMAIL_FROM zorunludur.',
+    });
+  }
+}
+
+/**
+ * `openai` secildiyse anahtar ZORUNLUDUR. Eksikse surec BASLAMAZ: anahtarsiz bir
+ * adapter ilk not kaydedilene kadar SESSIZ kalir, sonra 401 ile patlar — yani
+ * hata, kullanicinin veri girdigi ana ertelenir.
+ */
+function requireOpenAiCredentials(env: RawEnv, ctx: RefinementContext): void {
+  if (env.EMBEDDING_PROVIDER === 'openai' && isBlank(env.OPENAI_API_KEY)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPENAI_API_KEY'],
+      message: 'EMBEDDING_PROVIDER=openai secildiginde OPENAI_API_KEY zorunludur.',
+    });
+  }
+}
+
+/**
+ * Uretimde konsol adapter'i YASAK: dogrulama kodunu loglar (P1).
+ *
+ * Bunu wiring'e birakmak, hatanin ilk e-posta gonderilene kadar gizli kalmasi
+ * demekti; acilista reddetmek onu ANINDA gorunur kilar.
+ *
+ * ⚠️ `EMBEDDING_PROVIDER=fake` icin BENZER bir yasak YOKTUR ve bu bilinclidir:
+ * sahte embedding bir SIR SIZDIRMAZ, yalnizca aramayi anlamsiz kilar — guvenlik
+ * degil kalite sorunudur ve acilisi bloke etmesi orantisiz olurdu.
+ */
+function forbidConsoleEmailInProduction(env: RawEnv, ctx: RefinementContext): void {
+  if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'console') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['EMAIL_PROVIDER'],
+      message:
+        'Uretimde EMAIL_PROVIDER=console kullanilamaz: konsol adapter i ' +
+        'dogrulama kodlarini loglar (P1). EMAIL_PROVIDER=resend olmalidir.',
+    });
+  }
+}
+
+/** `undefined` veya yalnizca bosluk. */
+function isBlank(value: string | undefined): boolean {
+  return value === undefined || value.trim() === '';
+}
 
 export type Env = z.infer<typeof envSchema>;

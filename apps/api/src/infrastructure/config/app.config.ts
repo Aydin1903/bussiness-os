@@ -65,6 +65,14 @@ export interface AppConfig {
     readonly resendApiKey: string;
     readonly from: string;
   };
+
+  /** Embedding saglayicisi secimi ve kimlik bilgileri (ADR-0029 §3). */
+  readonly embedding: {
+    readonly provider: 'fake' | 'openai';
+    /** Yalnizca `provider === 'openai'` iken dolu (env semasi zorlar). */
+    readonly openAiApiKey: string;
+    readonly model: string;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -103,6 +111,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     auth: toAuthConfig(env),
     outboxRelay: toOutboxRelayConfig(env),
     email: toEmailConfig(env),
+    embedding: toEmbeddingConfig(env),
   };
 }
 
@@ -126,6 +135,18 @@ function toEmailConfig(env: Env): AppConfig['email'] {
     provider: env.EMAIL_PROVIDER,
     resendApiKey: env.RESEND_API_KEY ?? '',
     from: env.EMAIL_FROM ?? '',
+  };
+}
+
+/**
+ * Embedding saglayicisi. `??  ''`: anahtar yalnizca `fake` modunda bos olabilir
+ * — o modda da hic okunmaz (`toEmailConfig` ile ayni disiplin).
+ */
+function toEmbeddingConfig(env: Env): AppConfig['embedding'] {
+  return {
+    provider: env.EMBEDDING_PROVIDER,
+    openAiApiKey: env.OPENAI_API_KEY ?? '',
+    model: env.OPENAI_EMBEDDING_MODEL,
   };
 }
 
