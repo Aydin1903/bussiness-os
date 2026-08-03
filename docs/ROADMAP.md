@@ -3,7 +3,7 @@
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
 > **Durum:** Faz 4 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.4
+> **Sürüm:** 1.5
 > **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -200,7 +200,7 @@ Bunlar bir faza ait değildir; ya süreklidir ya da belirtilen faza kadar netle�
 | **Yedekleme / felaket kurtarma** | ❌ Yok | **Hosting kararıyla birlikte** (Faz 4 §2.4) |
 | **KVKK / GDPR uyumluluğu** | ❌ Ele alınmadı | **Faz 6 öncesi zorunlu kontrol noktası** |
 | **Playwright e2e** | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu) | Belirsiz; bilinçli borç |
-| **`login_attempts` + `verification_code_requests` retention** | ❌ Yok — **büyüyen borç** (change-password ile iki akış besliyor) | Faz 4 |
+| **Tablo retention politikası** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages` | ❌ Yok — **büyüyen borç**, dört tablo da sınırsız büyüyor | Faz 4 |
 | **Mobil görsel test** — dashboard + change-password ekranı `<768px` | ❌ Yapılmadı | Faz 4 |
 | **Doküman sürüm numarası denetimi** | 🟡 Bilinen tutarsızlık | Faz 4 |
 
@@ -210,7 +210,20 @@ AI çağrısı **maliyet ve token takibi**, diğer iki kalemden farklı bir acil
 
 ### 8.2 KVKK/GDPR neden Faz 6 öncesi
 
-Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılan retention borcu ([§8](#8-yatay--sürekli-kalemler)) bu kontrol noktasının ilk girdisidir.
+Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.3](#83-retention-borcu-dört-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
+
+### 8.3 Retention borcu: dört tablo, tek karar
+
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+
+| Tablo | Neyi biriktiriyor | Kaynak |
+|---|---|---|
+| `login_attempts` | Her başarısız parola denemesi — giriş **ve** change-password akışları besliyor | Faz 3 |
+| `verification_code_requests` | Her doğrulama/sıfırlama kodu isteği | Faz 3 |
+| `daily_report_runs` | Tenant başına günde bir satır, kalıcı olarak | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) |
+| `messages` | Her soru-cevap iki satır — **en hızlı büyüyen** | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
+
+İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Son ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
 ---
 
@@ -252,3 +265,4 @@ Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablos
 | 1.2 | 2026-08-02 | **[§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f) kapatıldı** (commit `b07966f`): tenant outbox drain süreci yazıldı — tüketici + zamanlayıcı + repository + backoff/dead-letter (migration `0009`+`0010`). Faz 4'ün **tek kapı koşulu karşılandı** ([§2.5](#25-kapı-koşulu-faz-4e-giriş)). Yan çıktı: `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı uygulanamaz çıktı ve iki öngörüsü düzeltildi (MT v2.0, superseded notu — metin silinmedi). |
 | 1.3 | 2026-08-02 | **Faz 4 tasarim karari ADR'e baglandi:** [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modulu + AI Context Engine v1. [§2](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine) ve [§2.3](#23-bu-fazda-zorunlu-olarak-karara-bağlanacak-açık-teknik-kararlar) referans aldi. §2.3'teki dort acik karardan **ikisi kapandi** (Vector store → pgvector + HNSW; Object storage → dosya eki kapsam disi kaldigi icin bu fazda gerekmiyor, Faz 5'e devreder), Queue ve Cache acik kaliyor. Search (full-text) ADR-0029'un konusu degil — modul bugun yalnizca anlamsal arama yapiyor. |
 | 1.4 | 2026-08-02 | **Faz 4 kapsamı genişletildi** ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md)): konuşma hafızası, günlük rapor, onboarding. §2.3'teki **Queue kalemi kapandı** — ayrı broker (BullMQ/Redis) kurulmuyor, zamanlanmış işler PostgreSQL tabanlı (`SKIP LOCKED` + backoff, kanıtlanmış outbox deseni). Açık kalan tek teknik karar: **Cache**. Queue kararının dar okunması gerektiği not edildi: "broker yok" ≠ "kuyruk yok"; kuyruk PostgreSQL. |
+| 1.5 | 2026-08-02 | **Retention borcu güncellendi** ([§8](#8-yatay--sürekli-kalemler), yeni [§8.3](#83-retention-borcu-dört-tablo-tek-karar)): iki tablo yerine **dört** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages`. Tek madde altında tutuldu (çözüm tek karar: süre + temizlik mekanizması) ama ilk ikisinin güvenlik/denetim, son ikisinin kullanıcı verisi olduğu ve dolayısıyla "hepsine tek süre" cevabının yanlış olacağı not edildi. §8.2'deki KVKK kontrol noktasına bağlandı. |
