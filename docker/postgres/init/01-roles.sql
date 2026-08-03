@@ -98,6 +98,42 @@ CREATE ROLE businessos_outbox_relay
 
 GRANT businessos_outbox_relay TO businessos_owner;
 
+-- ---------------------------------------------------------------------------
+-- businessos_report_worker — BESINCI rol, ucuncu kontrollu RLS-asim rolu
+-- (ADR-0030 §2.4, migration 0012)
+--
+-- TEK VAROLUS SEBEBI: gunluk rapor zamanlayicisinin uc SECURITY DEFINER
+-- fonksiyonunun (`claim_daily_report_batch`, `mark_daily_report_generated`,
+-- `record_daily_report_failure`) sahibi olmak. `knowledge.daily_report_runs`
+-- FORCE ROW LEVEL SECURITY tasir; zamanlayici tenant'lar ARASI okur ve tenant
+-- context'i yoktur.
+--
+-- NEDEN businessos_outbox_relay YENIDEN KULLANILMADI: o rolun sozlesmesi
+-- "yalnizca platform.outbox" der ve bir entegrasyon testiyle KANITLANIR.
+-- Yetki eklemek o testi ve ADR-0028'in sozlesmesini kirardi. Her asim kendi
+-- dar rolunde ve kendi testinde.
+--
+-- NARROWNESS:
+--   * NOLOGIN — dogrudan baglanamaz; hicbir baglanti dizesine/.env'e girmez.
+--   * BYPASSRLS — tek yetenegi bu.
+--   * Yalnizca yukaridaki uc fonksiyonun sahibidir.
+--   * SELECT + UPDATE YALNIZCA `knowledge.daily_report_runs`'a (migration
+--     0012'de). INSERT/DELETE YOK; baska HICBIR tabloya erisim yok — `notes`,
+--     `note_chunks`, `conversations`, `messages` ve tum `platform.*` dahil.
+--   * Standing sema-yazma yetkisi TUTMAZ (CREATE gecici verilip geri alinir).
+-- Bu kisitlar bir entegrasyon testiyle KANITLANIR (Constraint 2 esdegeri).
+--
+-- ⚠️ ADR-0030 §2.4 KURALI: bu desen bir sonraki ihtiyacta (ALTINCI dar rol)
+-- GENELLESTIRILMEK ZORUNDADIR — ertelenemez.
+CREATE ROLE businessos_report_worker
+  NOLOGIN
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  BYPASSRLS;
+
+GRANT businessos_report_worker TO businessos_owner;
+
 -- Varsayilan genis yetkiler kaldirilir: erisim acikca verilir (deny by default).
 REVOKE ALL ON DATABASE business_os FROM PUBLIC;
 

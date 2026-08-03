@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { POSTGRES_IMAGE } from './support/test-database';
 
 /**
  * Migration hattinin GERCEK PostgreSQL'e karsi calistigini kanitlar.
@@ -23,7 +24,7 @@ describe('veritabani migration hatti', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgres:17-alpine').start();
+    container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
     pool = new Pool({ connectionString: container.getConnectionUri() });
 
     await migrate(drizzle(pool), {
@@ -109,8 +110,13 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0012, 0011'in actigi semanin icindedir (fonksiyonlar + tablo); once o
+      // geri alinir, sonra sema dusurulebilir.
+      '0012_daily_report_runs.down.sql',
+      // 0011 `knowledge` semasini ve dort tabloyu dusurur.
+      '0011_knowledge_schema.down.sql',
       // 0010 outbox'a (0002) bagimlidir: uc SECURITY DEFINER fonksiyonu ve dar
-      // role verilen yetkileri kaldirir. En yeni oldugu icin EN ONCE.
+      // role verilen yetkileri kaldirir.
       '0010_outbox_relay_functions.down.sql',
       // 0009 outbox kolonlarini geri alir; 0010'un fonksiyonlari o kolonlari
       // okudugu icin ONDAN SONRA gelir.

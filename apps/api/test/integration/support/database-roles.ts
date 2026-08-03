@@ -52,6 +52,17 @@ export const RLS_READER_ROLE = 'businessos_rls_reader';
 export const OUTBOX_RELAY_ROLE = 'businessos_outbox_relay';
 
 /**
+ * `businessos_report_worker` — BESINCI rol, ucuncu dar BYPASSRLS rolu
+ * (ADR-0030 §2.4, `01-roles.sql` kopyasi).
+ *
+ * Migration `0012_daily_report_runs` uc rapor fonksiyonunun sahipligini bu role
+ * ATAR; dolayisiyla rol migrate'ten ONCE var olmalidir. Ozellikleri (NOLOGIN +
+ * BYPASSRLS + yalnizca `knowledge.daily_report_runs`'a SELECT/UPDATE) Constraint
+ * 2 esdegeri testiyle DOGRUDAN dogrulanir — bu kopya saparsa o test kirmizi yanar.
+ */
+export const REPORT_WORKER_ROLE = 'businessos_report_worker';
+
+/**
  * Rolleri olusturur. Migration'dan ONCE cagrilmalidir: `0000_init`,
  * `0001_tenant_tables` ve `0008` roller mevcutsa onlara yetki verir.
  */
@@ -88,6 +99,18 @@ export async function createApplicationRole(pool: Pool, databaseName: string): P
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${OUTBOX_RELAY_ROLE}') THEN
         CREATE ROLE ${OUTBOX_RELAY_ROLE} NOLOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE;
+      END IF;
+    END
+    $$;
+  `);
+
+  // Ucuncu dar BYPASSRLS rolu (ADR-0030 §2.4). Migration 0012 uc rapor
+  // fonksiyonunun sahipligini buna atar.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${REPORT_WORKER_ROLE}') THEN
+        CREATE ROLE ${REPORT_WORKER_ROLE} NOLOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE;
       END IF;
     END
     $$;

@@ -26,3 +26,12 @@ export { loginAttempts } from './login-attempts.schema';
 export { verificationCodeRequests } from './verification-code-requests.schema';
 export { passwordResetCodes } from './password-reset-codes.schema';
 export { identityOutbox } from './identity-outbox.schema';
+
+// Knowledge (Faz 4) — `platform` disindaki ILK modul semasi (ADR-0029, ADR-0030).
+// Hepsi tenant-scoped: RLS ENABLE + FORCE, standart sablon (MT §12.2).
+export { knowledgeSchema } from './knowledge.schema';
+export { notes } from './notes.schema';
+export { noteChunks } from './note-chunks.schema';
+export { conversations } from './conversations.schema';
+export { messages } from './messages.schema';
+export { dailyReportRuns } from './daily-report-runs.schema';

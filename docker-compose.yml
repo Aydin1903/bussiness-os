@@ -2,7 +2,16 @@ name: business-os
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # pgvector/pgvector:pg17 — resmi postgres 17 + pgvector eklentisi.
+    #
+    # `postgres:17-alpine` DEGIL: resmi postgres imaji pgvector ICERMEZ ve
+    # `CREATE EXTENSION vector` orada basarisiz olur (migration 0011).
+    # ADR-0029 embedding'i `vector(1536)` + HNSW index olarak tanimliyor.
+    #
+    # Bedeli durustce: Debian tabanli, alpine'dan buyuk (~100MB -> ~400MB).
+    # PG major surumu AYNI (17) oldugu icin mevcut `postgres-data` volume'u
+    # uyumludur; veri dizini yeniden olusturulmaz.
+    image: pgvector/pgvector:pg17
     container_name: business-os-postgres
     restart: unless-stopped
     environment:

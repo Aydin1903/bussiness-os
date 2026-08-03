@@ -5,6 +5,7 @@ import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { APP_ROLE, APP_PASSWORD, createApplicationRole } from './support/database-roles';
+import { POSTGRES_IMAGE } from './support/test-database';
 
 /**
  * MULTI_TENANT_ARCHITECTURE 12.6 — ZORUNLU IZOLASYON TESTLERI.
@@ -32,7 +33,7 @@ describe('tenant izolasyonu (RLS)', () => {
   let appPool: Pool;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgres:17-alpine').start();
+    container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
 
     ownerPool = new Pool({ connectionString: container.getConnectionUri() });
 
