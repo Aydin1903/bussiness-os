@@ -13,7 +13,11 @@ fiyatlar ve yetenekler aylar icinde yer degistiriyor.
 ## Karar
 
 Business logic yalnizca `LLMPort` arayuzunu bilir. OpenAI, Anthropic, Gemini, xAI,
-Azure, OpenRouter, Ollama, LM Studio birer adapter'dir.
+Azure, OpenRouter, Ollama, LM Studio, **DeepSeek** birer adapter'dir.
+
+> **DeepSeek eklendi — Product Owner karari, 2026-08-02, maliyet-performans
+> gerekcesiyle.** Ayrinti: asagidaki "Not — saglayici listesine DeepSeek
+> eklendi" bolumu.
 
 **Kabul testi:** Yeni saglayici eklemek yalnizca yeni adapter yazmayi gerektirmeli.
 Business logic'te tek satir degismemeli.
@@ -66,3 +70,28 @@ donuk yeniden yazmak demektir.
 soyutlamasi, kabul testi ve gerekce aynen gecerlidir. Faz'in one alinmasi bu
 ADR'yi daha da baglayici kilar: saglayici secimi artik yakin bir karardir ve
 business logic'in ona bagimli olmamasi bugun teorik degil pratik bir kisittir.
+
+## Not — saglayici listesine DeepSeek eklendi (2026-08-02)
+
+**Product Owner karari, 2026-08-02, maliyet-performans gerekcesiyle.**
+
+Bu not bir SUREC DUZELTMESIDIR. DeepSeek, ADR-0029 (Faz 4: Knowledge Modulu +
+AI Context Engine) yazilirken `DeepSeekLlmAdapter` adiyla ortaya cikti — ama o
+tarihte bu ADR'nin ve `CLAUDE.md`'nin saglayici listelerinde YOKTU. Yani somut
+bir tasarim dokumaninda, onaylanmis listede bulunmayan bir saglayici adi
+geciyordu.
+
+CLAUDE.md "AI mimarisi"ni danisilmasi zorunlu konular arasinda sayar; bir
+saglayicinin secilmesi ADR'e yazilmadan once tasarim metnine girmemelidir.
+Liste bu notla resmi kayda gecirildi ve `CLAUDE.md` §AI Katmani ile
+senkronlandi.
+
+**KARARIN KENDISI DEGISMEDI.** DeepSeek de digerleri gibi bir ADAPTER'dir;
+port/adapter disiplini, kabul testi ve gerekce aynen gecerlidir. Bir saglayicinin
+listeye girmesi ona ayricalik vermez — business logic hicbirini bilmez.
+
+> **`LLMPort` tek arayuz degil artik.** ADR-0029, port yuzeyini ikiye boldu:
+> `EmbeddingPort` (`embed`) ve `LLMPort` (`complete`). Yukaridaki "yalnizca
+> `LLMPort` arayuzunu bilir" ifadesi bu yuzden LAFZEN degil ILKESEL okunmalidir:
+> business logic saglayici SDK'sini degil, PORT'lari bilir. Bolunmenin gerekcesi
+> ADR-0029'dadir.

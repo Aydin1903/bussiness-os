@@ -206,8 +206,19 @@ Bağımlılık yönü **daima içeri doğru**: `presentation → application →
 
 Claude bu projede **sadece geliştirme aracıdır**. Ürün Claude API'ye bağımlı olmayacaktır.
 
-Business logic `LLMPort` interface'ini kullanır. Sağlayıcılar adapter'dır:
-OpenAI · Anthropic · Google Gemini · xAI · Azure OpenAI · OpenRouter · Ollama · LM Studio
+Business logic port'ları kullanır — `EmbeddingPort` (`embed`) ve `LLMPort`
+(`complete`). Sağlayıcılar adapter'dır:
+OpenAI · Anthropic · Google Gemini · xAI · Azure OpenAI · OpenRouter · Ollama · LM Studio · **DeepSeek**
+
+> **DeepSeek listeye eklendi** — Product Owner kararı, 2026-08-02,
+> maliyet-performans gerekçesiyle (ADR-0007 "Not — sağlayıcı listesine DeepSeek
+> eklendi"). Süreç düzeltmesi: ADR-0029'da `DeepSeekLlmAdapter` adıyla geçiyordu
+> ama onaylanmış listede yoktu.
+
+> **İki port, tek değil** (ADR-0029 §3): embedding'in yaşam döngüsü
+> completion'dan bağımsızdır — model değişince saklanan vektörler yeniden
+> üretilir, completion ise durumsuz bir çağrıdır. Ayrıca bir sağlayıcı ikisini
+> birden sunmayabilir.
 
 **Test:** Yeni sağlayıcı eklemek *yalnızca* yeni bir adapter yazmayı gerektirmeli. Business logic'te tek satır değişmemeli.
 

@@ -33,15 +33,18 @@ Chunk'lar **ayri tabloda** tutulur.
 
 ~500 token esigi, **paragraf sinirina saygili** bolme.
 
-### 3. `LLMPort` arayuzu — ADR-0007'nin ilk somut uygulamasi
+### 3. IKI AYRI PORT — ADR-0007'nin ilk somut uygulamasi
 
 ```
-embed(text): Promise<number[]>
-complete({ systemPrompt, userMessage, context: string[] }): Promise<string>
+EmbeddingPort:  embed(text): Promise<number[]>
+LLMPort:        complete({ systemPrompt, userMessage, context: string[] }): Promise<string>
 ```
 
-Bilerek minimal: **streaming yok, function-calling yok**, DeepSeek'e ozgu hicbir
-parametre arayuze SIZMAZ. `DeepSeekLlmAdapter` bu iki metodu implement eder.
+Ikisi **ayri port'tur** ve ayri cozumlenir. Bir adapter ikisini birden implement
+EDEBILIR, ama etmek ZORUNDA DEGILDIR.
+
+Her ikisi de bilerek minimal: **streaming yok, function-calling yok**, hicbir
+saglayiciya ozgu parametre arayuzlere SIZMAZ.
 
 ### 4. Akis
 
@@ -75,6 +78,27 @@ performansi daha YUMUSAK bozunur. Urun yuz binlerce kullanici hedefliyor.
 **2. Neden ~500 token.** RAG sistemlerinde kanitlanmis bir baslangic noktasidir.
 Cok buyuk chunk **gurultulu baglam**, cok kucuk chunk **parcali baglam** getirir.
 
+**3. Neden IKI PORT, tek `LLMPort` degil.** Embedding'in yasam dongusu
+completion'inkinden BAGIMSIZDIR — ve bu ayrimi bu ADR zaten §1'de
+`notes`/`note_chunks` tablolarini ayirirken gerekce olarak kullaniyor. Ayni akil
+yurutme PORT SINIRINDA da gecerlidir ve orada da uygulanir:
+
+| | Embedding | Completion |
+| --- | --- | --- |
+| Ciktisi | **Saklanan, surumlu veri** — `note_chunks.embedding` | Durumsuz bir yanit |
+| Model degisince | Tum chunk'lar **yeniden uretilir**; `notes` degismez | Hicbir sey yeniden uretilmez |
+| Boyut varsayimi | `vector(1536)` kolonunu BAGLAR | Baglamaz |
+
+Tek port, bu iki bagimsiz karari birbirine yapistirirdi: chat saglayicisi
+degistiginde embedding kolonuna dokunmak gerekmemeli.
+
+Ayrica tek port ortuk bir varsayim tasir — **"bir saglayici iki isi de yapar"** —
+ve bu varsayim garanti degildir. Sunmayan bir saglayici secildiginde elde iki
+kotu secenek kalirdi: (a) `embed()` hata firlatir ve port sozlesmesi yalan
+soyler, (b) adapter'in icine sessizce IKINCI bir saglayicinin istemcisi
+gizlenir — ki bu tam olarak ADR-0007'nin onlemek icin var oldugu gizli
+bagimliliktir.
+
 **3. Neden minimal arayuz.** ADR-0007'nin kabul testi: yeni saglayici eklemek
 yalnizca yeni bir adapter yazmayi gerektirmeli, business logic'te tek satir
 degismemeli. Streaming ve function-calling arayuze bugunden girseydi, ilk
@@ -99,23 +123,32 @@ ele alinacak).
 - **Senkron embedding**, hacim artinca outbox'a tasinacak.
 - **8 chunk / 30 istek-saat rakamlari tahminidir**, kullanim verisiyle kalibre
   edilecek.
+- **Embedding boyutu, gercek saglayici secimi dogrulanana kadar GECICIDIR.**
+  DeepSeek'in embeddings endpoint'i olup olmadigi **canli API testiyle**
+  dogrulanacak; sonucuna gore embedding saglayicisi DeepSeek'ten FARKLI olabilir.
+  `vector(1536)` bu yuzden bugun KESINLESMIS bir karar degildir — 1536, OpenAI
+  embedding ailesinin boyutudur ve secim dogrulanana kadar bir varsayim olarak
+  durur. §3'un iki ayri port'u, embedding saglayicisinin chat saglayicisindan
+  farkli cikmasi ihtimalini zaten karsilar.
 
 ## Sonuclari
 
 **Olumlu**
 
 - Projenin ilk gercek is modulu ve AI'in ilk somut uygulamasi acilir.
-- `LLMPort` (ADR-0007) teoriden cikip ilk kez uygulanir; soyutlamanin gercekten
-  saglayici-bagimsiz olup olmadigi ancak boyle sinanir.
+- ADR-0007'nin port/adapter disiplini teoriden cikip ilk kez uygulanir
+  (`EmbeddingPort` + `LLMPort`); soyutlamanin gercekten saglayici-bagimsiz olup
+  olmadigi ancak boyle sinanir.
 - Dar kapsam, modulun AI'a baglam uretme desenini kucuk bir yuzeyde kanitlar;
   Faz 5 bu deseni ikinci kez uygular.
 
 **Olumsuz / bedeli**
 
-- Senkron embedding, not kaydetme istegini LLM saglayicisinin gecikmesine bagli
-  hale getirir; saglayici yavaslarsa kullanici bekler.
-- `vector(1536)` boyutu bir saglayici/model varsayimi tasir; model degisirse
-  kolon ve tum embedding'ler yeniden uretilir.
+- Senkron embedding, not kaydetme istegini embedding saglayicisinin gecikmesine
+  bagli hale getirir; saglayici yavaslarsa kullanici bekler.
+- `vector(1536)` boyutu bir saglayici/model varsayimi tasir ve bu varsayim
+  HENUZ DOGRULANMADI (bkz. Bilinen sinirlar); model degisirse kolon ve tum
+  embedding'ler yeniden uretilir.
 - Not guncelleme olmadigi icin urun eksik hissettirir; kullanici duzeltme icin
   silip yeniden yazmak zorunda kalir.
 
@@ -127,6 +160,7 @@ ele alinacak).
 | IVFFlat index | Veri buyudukce sorgu performansi daha SERT bozunur; urun yuz binlerce kullanici hedefliyor |
 | Daha buyuk/kucuk chunk esigi | Cok buyuk gurultulu baglam, cok kucuk parcali baglam uretir; ~500 token kanitlanmis baslangic |
 | Streaming + function-calling'i arayuze bugunden koymak | Ilk saglayicinin bicimi soyutlamaya kacardi; ADR-0007'nin kabul testi kirilirdi |
+| **Tek `LLMPort`** (`embed` + `complete` birlikte) | "Bir saglayici iki isi de yapar" varsayimini kodlar; sunmayan bir saglayicida ya port sozlesmesi yalan soyler ya da adapter icine ikinci saglayici gizlenir. Ayrica embedding boyutu kararini chat saglayicisina baglardi |
 | Embedding'i transaction icinde yapmak | Pahali ag cagrisi boyunca DB baglantisi tutulurdu |
 | IP bazli rate limit | Amac maliyet kontrolu; harcamayi yapan kullanicidir, adres degil |
 
@@ -135,7 +169,38 @@ ele alinacak).
 - **Hacim artinca:** senkron embedding outbox'a tasinir (bkz. Bilinen sinirlar).
 - **Kullanim verisi birikince:** 8 chunk ve 30 istek/saat rakamlari kalibre edilir.
 - **Not guncelleme eklenince:** chunk yeniden hesaplama stratejisi karara baglanir.
+- **DeepSeek embeddings dogrulamasi sonuclaninca:** endpoint yoksa embedding
+  saglayicisi ayrica secilir ve `vector(1536)` o secime gore kesinlesir
+  (bkz. Bilinen sinirlar).
 - **Model veya saglayici degisince:** `vector(1536)` boyutu ve embedding yeniden
   uretim yolu yeniden degerlendirilir.
 - **Per-tenant saglayici secimi gundeme gelince:** `LLMPort`'un cozumlenme yolu
   (tenant bazli adapter secimi) ayri bir ADR gerektirir.
+
+## Not — §3 port yuzeyi ikiye bolundu (2026-08-02)
+
+**Product Owner karari.** ADR "Kabul edildi" durumundayken §3 DEGISTI: tek bir
+`LLMPort` yerine `EmbeddingPort` + `LLMPort`. Degisiklik sessizce yapilmadi,
+burada kayda geciyor.
+
+**Neyi degistirdi:** yalnizca port SINIRINI. Veri modeli, chunking, akis ve rate
+limiting kararlarinin hicbiri degismedi. §4'teki akis aynen gecerlidir; tek fark,
+"soru embed edilir" adiminin artik `EmbeddingPort`'a, `complete()` cagrisinin
+`LLMPort`'a gitmesidir.
+
+**Neden ilk yazimda gozden kacti:** ADR, `DeepSeekLlmAdapter`'in iki metodu da
+implement edecegini varsayiyordu. Bu varsayim, **ilk somut saglayicida** kirilma
+riski tasiyor: DeepSeek'in embeddings endpoint'i olup olmadigi dogrulanmis
+DEGIL (bkz. Bilinen sinirlar). Varsayim kirilirsa tek port'la elde iki kotu
+secenek kalirdi — `embed()`'in hata firlatmasi (port sozlesmesi yalan soyler)
+veya adapter icine ikinci bir saglayicinin gizlenmesi (ADR-0007'nin onlemek icin
+var oldugu gizli bagimlilik).
+
+Bolunme, bu riski tasarimla karsilar: embedding saglayicisi chat
+saglayicisindan farkli cikarsa **hicbir sey degismez**, yalnizca iki port farkli
+adapter'lara cozulur.
+
+**Ilgili surec duzeltmesi:** DeepSeek, bu ADR yazildiginda ADR-0007'nin ve
+`CLAUDE.md`'nin onaylanmis saglayici listelerinde YOKTU. Ayni tarihte ikisine de
+eklendi (Product Owner karari, maliyet-performans gerekcesi) — bkz. ADR-0007
+"Not — saglayici listesine DeepSeek eklendi".
