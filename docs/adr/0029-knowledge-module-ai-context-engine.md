@@ -60,6 +60,37 @@ saglayicinin istemcisini birden tasimak zorunda kalirdi.
 Her ikisi de bilerek minimal: **streaming yok, function-calling yok**, hicbir
 saglayiciya ozgu parametre arayuzlere SIZMAZ.
 
+#### 3.1 `DeepSeekLlmAdapter` varsayilani: `thinking` KAPALI
+
+Adapter, `complete()` cagrilarinda varsayilan olarak
+`thinking: {"type": "disabled"}` gonderir.
+
+**Gerekce:** RAG akisinda baglam ZATEN chunk'larla veriliyor (§4). Modelin ayrica
+"dusunmesi" cogu soru icin gereksiz bir maliyet kalemidir — cevabin dayanagi
+modelin ic muhakemesi degil, kendisine verilen chunk'lardir.
+
+**Olculdu** (canli test, ayni trivial soru, tek fark parametre):
+
+| | `thinking: disabled` | varsayilan (`enabled`) |
+| --- | --- | --- |
+| `prompt_tokens` | 19 | **98** |
+| `completion_tokens` | 1 | **45** (43'u reasoning) |
+| `total_tokens` | **20** | **143** |
+
+**~7 kat fark.** Dikkat: maliyet yalnizca ciktida degil GIRDIDE de artiyor —
+thinking modu sunucu tarafinda ek bir sistem promptu enjekte ediyor
+(19 -> 98 prompt token). `reasoning_tokens` ayrica faturalanmiyor,
+`completion_tokens`'in ALT KUMESIDIR ve normal cikti fiyatindan gecer.
+
+**Bu bir ADAPTER-SEVIYESI parametredir ve `LLMPort` imzasina DOKUNMAZ.**
+`thinking` DeepSeek'e ozgudur; port'a girseydi ADR-0007'nin kabul testi
+kirilirdi (baska bir saglayicinin adapter'i onu tasiyamazdi). Ayni sebeple
+`reasoning_effort` (`low` | `high` (varsayilan) | `max`) da adapter icinde kalir;
+gerekirse orada ayarlanir.
+
+> Ihtiyac dogarsa (ornegin "derin analiz" gerektiren bir soru tipi) thinking
+> adapter icinde acilabilir — karar noktasi ADAPTER'dadir, is mantiginda degil.
+
 ### 4. Akis
 
 **`POST /api/v1/knowledge/notes`**
