@@ -176,6 +176,55 @@ ele alinacak).
 - **Iki saglayiciya baglilik**: sistem artik chat icin DeepSeek'e, embedding icin
   OpenAI'a bagli. Biri kesintiye girerse ilgili akis durur (`ask` her ikisine de
   ihtiyac duyar, `notes` yalnizca embedding'e). Fallback zinciri bugun YOK.
+- **"CHUNK'SIZ NOT" MUMKUNDUR** — §4'un iki transaction'li akisinin dogrudan
+  sonucu. Ayrinti asagida.
+
+### Bilinen sinir: chunk'siz not
+
+§4 sunu soyler: T1 (not kaydi) -> transaction DISINDA embedding -> T2 (parcalar).
+T1 COMMIT OLDUKTAN SONRA embedding cokerse ortaya **notu olan ama parcasi olmayan**
+bir kayit cikar.
+
+**Neden boyle birakildi:**
+
+| Alternatif | Neden secilmedi |
+| ---------- | --------------- |
+| Tek transaction | Pahali ag cagrisi boyunca DB baglantisi TUTULURDU — §4'un var olma sebebini iptal eder |
+| Notu geri almak | T1 zaten commit; "geri alma" ikinci bir DELETE demektir ve o da cokebilir |
+| `notes.indexed_at` kolonu | Sema degisikligi; turetilebilir bir bilgiyi kaliciya yazmak (asagi) |
+
+**Davranis:** hata YUZEYE CIKAR (`502`), not **SILINMEZ**. Istemciye donen metin
+acikca "not kaydedildi ancak indekslenemedi" der — genel bir hata donmek,
+kullanicinin notu yeniden yazmasina ve MUKERRER kayda yol acardi.
+
+**Sonucu:** o not `/ask` tarafindan ASLA bulunamaz. Sessiz bir kayip DEGILDIR
+(istek 5xx aldi) ama kalici bir bosluktur.
+
+**Tespit edilebilir kalir — ek kolon GEREKMEZ.** Yetim notlar turetilebilir bir
+sorgudur:
+
+```sql
+SELECT n.id, n.tenant_id, n.created_at
+FROM knowledge.notes n
+LEFT JOIN knowledge.note_chunks c ON c.note_id = n.id
+WHERE c.id IS NULL;
+```
+
+`indexed_at` gibi bir kolon eklemek, bu sorgunun zaten verdigi bilgiyi ikinci bir
+dogruluk kaynagina kopyalamak olurdu — ve iki kaynak zamanla birbirini yalanlar
+(`daily_report_runs`'ta `status` kolonunu reddederken verilen ayni gerekce,
+ADR-0030 §2.1).
+
+> **YENIDEN-INDEKSLEME ISI, FAZ 5 ONCESI AYRI BIR SLICE OLARAK ELE ALINMALIDIR.**
+>
+> Yukaridaki sorgu tespit eder ama DUZELTMEZ. Yetim notlari bulup embedding'lerini
+> yeniden ureten bir surec gerekir ve ayni surec **model degisimi** senaryosunu da
+> karsilar (ADR-0029: "model veya saglayici degistiginde embedding yeniden
+> hesaplanir") — yani iki ihtiyac tek islar.
+>
+> **Neden Faz 5'ten ONCE:** Faz 5 modulleri bu deseni ikinci ve ucuncu kez
+> uygulayacak. Yeniden-indeksleme yoksa her yeni modul ayni boslugu kopyalar ve
+> borc modul sayisiyla carpilir.
 
 ## Sonuclari
 
@@ -219,8 +268,11 @@ ele alinacak).
 - **Hacim artinca:** senkron embedding outbox'a tasinir (bkz. Bilinen sinirlar).
 - **Kullanim verisi birikince:** 8 chunk ve 30 istek/saat rakamlari kalibre edilir.
 - **Not guncelleme eklenince:** chunk yeniden hesaplama stratejisi karara baglanir.
+- **Yeniden-indeksleme slice'i yazilinca:** "chunk'siz not" bilinen siniri
+  KAPANIR (yalnizca tespit edilebilir olmaktan cikip duzeltilebilir olur).
 - **Model veya saglayici degisince:** `vector(1536)` boyutu ve embedding yeniden
-  uretim yolu yeniden degerlendirilir. `text-embedding-3-small` yerine baska bir
+  uretim yolu yeniden degerlendirilir. Yeniden-indeksleme slice'i bu senaryoyu
+  da karsilar — iki ihtiyac tek is. `text-embedding-3-small` yerine baska bir
   model secilirse kolon boyutu ve tum saklanan vektorler etkilenir.
 - **DeepSeek bir embeddings uc noktasi sunarsa:** tek saglayiciya inmek
   degerlendirilebilir — ama port bolunmesi KORUNUR; degisen yalnizca
