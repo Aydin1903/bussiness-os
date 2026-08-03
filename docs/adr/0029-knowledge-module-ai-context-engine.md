@@ -60,6 +60,11 @@ saglayicinin istemcisini birden tasimak zorunda kalirdi.
 Her ikisi de bilerek minimal: **streaming yok, function-calling yok**, hicbir
 saglayiciya ozgu parametre arayuzlere SIZMAZ.
 
+> **GENISLETILDI — [ADR-0030](0030-conversation-memory-daily-report-onboarding.md) §1.3.**
+> `LLMPort.complete()` opsiyonel bir `history` parametresi kazandi (konusma
+> hafizasi). Yukaridaki imza bu yuzden GUNCEL DEGILDIR; guncel hali ADR-0030'dadir.
+> `EmbeddingPort` ve adapter esleme tablosu DEGISMEDI.
+
 #### 3.1 `DeepSeekLlmAdapter` varsayilani: `thinking` KAPALI
 
 Adapter, `complete()` cagrilarinda varsayilan olarak

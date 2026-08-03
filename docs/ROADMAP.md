@@ -3,7 +3,7 @@
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
 > **Durum:** Faz 4 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.3
+> **Sürüm:** 1.4
 > **Son güncelleme:** 2026-08-02
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -84,7 +84,9 @@ Tespit anında kod tabanında `platform.outbox`'tan **okuyan tek satır yoktu**.
 ## 2. Faz 4 — İlk Gerçek Modül + AI Context Engine
 
 > **Durum:** ✅ **Karar verildi** — sıradaki faz.
-> **Tasarım kararı:** [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modülü + AI Context Engine v1 (veri modeli, chunking, `LLMPort` imzası, akış, rate limiting).
+> **Tasarım kararları:**
+> [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modülü + AI Context Engine v1 (veri modeli, chunking, port'lar, akış, rate limiting) ·
+> [ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) — konuşma hafızası, günlük rapor (Queue kararı), onboarding.
 
 ### 2.1 Ne yapılacak
 
@@ -92,7 +94,12 @@ Tespit anında kod tabanında `platform.outbox`'tan **okuyan tek satır yoktu**.
 
 İlk iş modülü olarak CRM, Finans veya İK **seçilmedi**. Seçim Knowledge/Inbox'tır.
 
-Kapsam **bilinçli dar** ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md)): manuel metin girişi + serbest soru-cevap. Dosya eki, email entegrasyonu, otomatik özet kartları, per-tenant sağlayıcı seçimi, hassas veri redaksiyonu — hepsi kapsam dışı ve ayrı ADR gerektirecek.
+Kapsam iki adımda belirlendi:
+
+- **ADR-0029 (dar çekirdek):** manuel metin girişi + serbest soru-cevap.
+- **ADR-0030 (genişleme, Product Owner kararı):** konuşma hafızası · günlük rapor (uygulama içi) · onboarding wizard'ı.
+
+Hâlâ kapsam dışı: dosya eki · email entegrasyonu/bildirimi · per-tenant sağlayıcı seçimi · hassas veri redaksiyonu · tenant bazlı zaman dilimi · konuşma geçmişinin tamamını hatırlama · rapor ve onboarding özelleştirmesi. Hepsi ayrı ADR gerektirir.
 
 ### 2.2 Neden birlikte — bu fazın tek kritik gerekçesi
 
@@ -102,13 +109,15 @@ Bu, `CLAUDE.md`'nin kurucu kısıtının doğrudan sonucudur: *"Modüller ürün
 
 ### 2.3 Bu fazda **zorunlu olarak** karara bağlanacak açık teknik kararlar
 
-Dördü de bu fazın açık kalemleriydi. [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) **ikisini kapattı**, ikisi açık kalıyor.
+Dördü de bu fazın açık kalemleriydi. [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) ikisini, [ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) bir tanesini daha kapattı — **yalnızca Cache açık**.
+
+> **Queue kararının kapsamı dar okunmalı:** "broker kurulmuyor" demek "kuyruk yok" demek değil — **kuyruk PostgreSQL**. İşler çoğalınca, fan-out gerekince veya saniye altı gecikme istenince gerçek bir broker yeniden değerlendirilir ve o gün Cache/Redis kararıyla **birlikte** verilmelidir (ADR-0030 son bölüm).
 
 | Karar | Durum | Ne zaman |
 |---|---|---|
 | **Vector store** | ✅ **Karara bağlandı** — pgvector, `vector(1536)` + **HNSW** index ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §1) | — |
 | **Object storage** | ✅ **Bu fazda gerekmiyor** — ADR-0029 dosya ekini kapsam dışı bıraktı; koşul gerçekleşmedi, **Faz 5'e devreder** | Dosya eki gündeme gelince |
-| **Queue** | 🟡 Ön öneri var (BullMQ), **seçilmedi**. ADR-0029 embedding'i bilinçle **senkron** yaptı; hacim artınca outbox'a taşınacak | Asenkron indeksleme/embedding ihtiyacı netleşince |
+| **Queue** | ✅ **Karara bağlandı** — ayrı bir broker (BullMQ/Redis) **kurulmuyor**; zamanlanmış işler PostgreSQL tabanlı, `SKIP LOCKED` + backoff deseniyle ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) | — |
 | **Cache** | 🟡 Ön öneri var (Redis — [ADR-0010](adr/0010-cache-port.md)), container ayakta ama **uygulama bağlanmıyor**, **seçilmedi** | İlk gerçek önbellek yükü çıkınca |
 
 > **Search (full-text) ayrı bir sorudur ve ADR-0029 ona dokunmadı.** Modül bugün yalnızca **anlamsal** arama yapıyor (embedding + pgvector). PostgreSQL FTS ([ADR-0011](adr/0011-search-port-postgres-fts.md)) hâlâ ön öneridir ve klasik metin araması gerektiğinde gündeme gelir.
@@ -242,3 +251,4 @@ Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablos
 | 1.1 | 2026-08-02 | **[§9.1](#91-architecturemd-2--adr-0007--uzlaştırıldı) uzlaştırıldı** (commit `ba0fb41`): ARCHITECTURE.md §2/§6.2 ve ADR-0007 bu dokümana hizalandı. **[§1.1](#11-faz-3ten-devreden-açık-kalemler)** eklendi — Faz 3'ten devreden iki kalem ayrıştırıldı: Authorization'ın kalanı (ABAC · configurable roller · izin cache) **hiçbir faza bağlanmadı**, *"gerçek ihtiyaç doğunca"* etiketiyle backlog'a alındı; **tenant outbox publisher Faz 4'ün önkoşulu** oldu. **[§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)** durum tespiti eklendi: yazma yolu var, **okuma yolu hiç yazılmadı** — bugün işlevsel hata üretmiyor (V1 provisioning senkron) ama iş modülleri event üretmeye başlayınca sessiz veri kaybı olur. **Object storage** §2.3'e dördüncü açık karar olarak eklendi (koşullu: Knowledge/Inbox dosya eki alacaksa zorunlu). |
 | 1.2 | 2026-08-02 | **[§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f) kapatıldı** (commit `b07966f`): tenant outbox drain süreci yazıldı — tüketici + zamanlayıcı + repository + backoff/dead-letter (migration `0009`+`0010`). Faz 4'ün **tek kapı koşulu karşılandı** ([§2.5](#25-kapı-koşulu-faz-4e-giriş)). Yan çıktı: `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı uygulanamaz çıktı ve iki öngörüsü düzeltildi (MT v2.0, superseded notu — metin silinmedi). |
 | 1.3 | 2026-08-02 | **Faz 4 tasarim karari ADR'e baglandi:** [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modulu + AI Context Engine v1. [§2](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine) ve [§2.3](#23-bu-fazda-zorunlu-olarak-karara-bağlanacak-açık-teknik-kararlar) referans aldi. §2.3'teki dort acik karardan **ikisi kapandi** (Vector store → pgvector + HNSW; Object storage → dosya eki kapsam disi kaldigi icin bu fazda gerekmiyor, Faz 5'e devreder), Queue ve Cache acik kaliyor. Search (full-text) ADR-0029'un konusu degil — modul bugun yalnizca anlamsal arama yapiyor. |
+| 1.4 | 2026-08-02 | **Faz 4 kapsamı genişletildi** ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md)): konuşma hafızası, günlük rapor, onboarding. §2.3'teki **Queue kalemi kapandı** — ayrı broker (BullMQ/Redis) kurulmuyor, zamanlanmış işler PostgreSQL tabanlı (`SKIP LOCKED` + backoff, kanıtlanmış outbox deseni). Açık kalan tek teknik karar: **Cache**. Queue kararının dar okunması gerektiği not edildi: "broker yok" ≠ "kuyruk yok"; kuyruk PostgreSQL. |
