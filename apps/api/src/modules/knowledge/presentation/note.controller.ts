@@ -15,8 +15,10 @@ import {
 } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
+import { AskKnowledgeUseCase } from '../application/ask-knowledge.use-case';
 import { CreateNoteUseCase } from '../application/create-note.use-case';
-import { NOTE_CREATE } from '../knowledge.permissions';
+import { KNOWLEDGE_ASK, NOTE_CREATE } from '../knowledge.permissions';
+import { askKnowledgeSchema, type AskKnowledgeBody } from './ask-knowledge.dto';
 import { createNoteSchema, type CreateNoteBody } from './create-note.dto';
 import { KnowledgeDomainExceptionFilter } from './knowledge-domain-exception.filter';
 
@@ -30,6 +32,20 @@ interface CreateNoteResponse {
   /** Uretilen parca sayisi — indekslemenin gerceklestigini gosterir. */
   readonly chunkCount: number;
 }
+
+interface AskKnowledgeResponse {
+  readonly answer: string;
+  /** Cevabin dayandigi notlar — alaka sirasinda, tekillestirilmis. */
+  readonly sourceNoteIds: readonly string[];
+  /** Verilen ya da yeni acilan konusma. Istemci sonraki soruda bunu gonderir. */
+  readonly conversationId: string;
+}
+
+const ASK_DESCRIPTION =
+  'Soru embed edilir, tenant in notlarindan en yakin parcalar cekilir ve cevap ' +
+  'YALNIZCA o baglamdan uretilir. `conversationId` verilirse son birkac mesaj ' +
+  'gecmis olarak eklenir; verilmezse yeni konusma acilir ve id si yanitta doner. ' +
+  'Tenant-scoped access token gerektirir; viewer rolu SORAMAZ.';
 
 /**
  * `POST /api/v1/knowledge/notes` — kurumsal hafizaya not ekler (ADR-0029 §4).
@@ -48,7 +64,10 @@ interface CreateNoteResponse {
 @Controller({ path: 'knowledge', version: '1' })
 @UseFilters(KnowledgeDomainExceptionFilter)
 export class NoteController {
-  constructor(private readonly createNote: CreateNoteUseCase) {}
+  constructor(
+    private readonly createNote: CreateNoteUseCase,
+    private readonly askKnowledge: AskKnowledgeUseCase,
+  ) {}
 
   /**
    * Not olusturur ve AI aramasi icin indeksler.
@@ -96,6 +115,49 @@ export class NoteController {
     });
 
     return { noteId: result.noteId, chunkCount: result.chunkCount };
+  }
+
+  /**
+   * Kurumsal hafizaya soru sorar (ADR-0029 §4 okuma akisi).
+   *
+   * `200` doner, `201` DEGIL: yeni bir kaynak yaratilmiyor. Konusma ve mesajlar
+   * yan etkidir, istegin URUNU degil — urun cevaptir.
+   *
+   * ⚠️ Bu, projenin EN PAHALI ucudur: her istek 1 embedding + 1 completion
+   * cagrisidir. Oran siniri (ADR-0029 §5) AYRI bir slice'tir ve o gelene kadar
+   * maliyet korumasi YOKTUR.
+   */
+  @Post('ask')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(KNOWLEDGE_ASK)
+  @ApiOperation({ summary: 'Kurumsal hafizaya soru sorar', description: ASK_DESCRIPTION })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Cevap uretildi.' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.',
+  })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  @ApiResponse({
+    status: HttpStatus.BAD_GATEWAY,
+    description: 'Embedding veya completion saglayicisi cevap veremedi.',
+  })
+  async ask(
+    @Body(new ZodValidationPipe(askKnowledgeSchema)) body: AskKnowledgeBody,
+  ): Promise<AskKnowledgeResponse> {
+    const principal = requireTenantPrincipal();
+
+    const result = await this.askKnowledge.execute({
+      tenantId: principal.tenantId,
+      userId: principal.userId,
+      question: body.question,
+      conversationId: body.conversationId ?? null,
+    });
+
+    return {
+      answer: result.answer,
+      sourceNoteIds: result.sourceNoteIds,
+      conversationId: result.conversationId,
+    };
   }
 }
 

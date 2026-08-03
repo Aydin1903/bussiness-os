@@ -8,21 +8,35 @@ import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/aut
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import { AskKnowledgeUseCase } from './application/ask-knowledge.use-case';
+import {
+  CONVERSATION_REPOSITORY,
+  type ConversationRepository,
+} from './application/conversation.repository.port';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
   DAILY_REPORT_RUN_REPOSITORY,
   type DailyReportRunRepository,
 } from './application/daily-report-run.repository.port';
 import { EMBEDDING_PORT, type EmbeddingPort } from './application/embedding.port';
+import { LLM_PORT, type LLMPort } from './application/llm.port';
+import {
+  NOTE_CHUNK_SEARCH,
+  type NoteChunkSearch,
+} from './application/note-chunk-search.port';
 import {
   NOTE_CHUNK_REPOSITORY,
   type NoteChunkRepository,
 } from './application/note-chunk.repository.port';
 import { NOTE_REPOSITORY, type NoteRepository } from './application/note.repository.port';
+import { DeepSeekLlmAdapter } from './infrastructure/deepseek-llm.adapter';
+import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
 import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-report-run.repository';
+import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
 import { DrizzleNoteChunkRepository } from './infrastructure/drizzle-note-chunk.repository';
 import { DrizzleNoteRepository } from './infrastructure/drizzle-note.repository';
 import { FakeEmbeddingAdapter } from './infrastructure/fake-embedding.adapter';
+import { FakeLlmAdapter } from './infrastructure/fake-llm.adapter';
 import { OpenAiEmbeddingAdapter } from './infrastructure/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
 import { NoteController } from './presentation/note.controller';
@@ -54,6 +68,8 @@ import { NoteController } from './presentation/note.controller';
     { provide: NOTE_REPOSITORY, useClass: DrizzleNoteRepository },
     { provide: NOTE_CHUNK_REPOSITORY, useClass: DrizzleNoteChunkRepository },
     { provide: DAILY_REPORT_RUN_REPOSITORY, useClass: DrizzleDailyReportRunRepository },
+    { provide: NOTE_CHUNK_SEARCH, useClass: DrizzleNoteChunkSearchRepository },
+    { provide: CONVERSATION_REPOSITORY, useClass: DrizzleConversationRepository },
 
     // --- Embedding saglayicisi ------------------------------------------------
     {
@@ -77,6 +93,28 @@ import { NoteController } from './presentation/note.controller';
           'EMBEDDING_PROVIDER=fake — embedding ler SAHTE, anlamsal arama calismaz.',
         );
         return new FakeEmbeddingAdapter();
+      },
+    },
+
+    // --- Sohbet/completion saglayicisi ---------------------------------------
+    {
+      // Embedding'den AYRI cozulur: iki port GERCEKTEN iki farkli saglayiciya
+      // gidiyor (DeepSeek chat, OpenAI embedding) — ADR-0030 §1.3'un bolunme
+      // gerekcesinin somut karsiligi.
+      provide: LLM_PORT,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig): LLMPort => {
+        if (config.llm.provider === 'deepseek') {
+          return new DeepSeekLlmAdapter({
+            apiKey: config.llm.deepSeekApiKey,
+            model: config.llm.model,
+          });
+        }
+
+        new Logger(KnowledgeModule.name).warn(
+          'LLM_PROVIDER=fake — cevaplar SAHTE, soru-cevap anlamli calismaz.',
+        );
+        return new FakeLlmAdapter();
       },
     },
 
@@ -113,6 +151,39 @@ import { NoteController } from './presentation/note.controller';
           transactionManager,
           idGenerator,
           clock,
+        }),
+    },
+    {
+      provide: AskKnowledgeUseCase,
+      inject: [
+        NOTE_CHUNK_SEARCH,
+        CONVERSATION_REPOSITORY,
+        EMBEDDING_PORT,
+        LLM_PORT,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        APP_CONFIG,
+      ],
+      // eslint-disable-next-line max-params
+      useFactory: (
+        noteChunkSearch: NoteChunkSearch,
+        conversationRepository: ConversationRepository,
+        embeddingPort: EmbeddingPort,
+        llmPort: LLMPort,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        config: AppConfig,
+      ): AskKnowledgeUseCase =>
+        new AskKnowledgeUseCase({
+          noteChunkSearch,
+          conversationRepository,
+          embeddingPort,
+          llmPort,
+          transactionManager,
+          idGenerator,
+          // ADR-0030 §1.2: bu sayilar ADR'de SABITLENMEZ, config'ten gelir.
+          retrievalLimit: config.knowledge.retrievalLimit,
+          historyMessages: config.knowledge.historyMessages,
         }),
     },
   ],

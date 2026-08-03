@@ -155,6 +155,39 @@ const baseEnvSchema = z.object({
    * vektorleri yeniden uretmeyi gerektirir (ADR-0029 "Bilinen sinirlar").
    */
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+
+  // --- Sohbet/completion saglayicisi (ADR-0029 §3, ADR-0030 §1.3) ----------
+  //
+  // `EmbeddingPort`'tan AYRI yapilandirilir cunku AYRI bir port'tur ve pratikte
+  // AYRI bir saglayiciya cozulur: chat DeepSeek'te, embedding OpenAI'da
+  // (DeepSeek'in embeddings uc noktasi YOK — canli testle olculdu).
+  //
+  // `fake` varsayilandir: her gelistirici makinesinde ve CI'da anahtar bulunmaz.
+  LLM_PROVIDER: z.enum(['fake', 'deepseek']).default('fake'),
+
+  /** DeepSeek API anahtari — SIRDIR, varsayilani yoktur. */
+  DEEPSEEK_API_KEY: z.string().optional(),
+
+  /**
+   * Sohbet modeli. `deepseek-chat` ve `deepseek-reasoner` 2026-07-24'te emekliye
+   * ayrildi; gecerli modeller `deepseek-v4-flash` ve `deepseek-v4-pro`
+   * (`GET /models` ile dogrulandi).
+   */
+  LLM_MODEL: z.string().default('deepseek-v4-flash'),
+
+  // --- Knowledge retrieval ayarlari (ADR-0029 §4, ADR-0030 §1.2) ----------
+  //
+  // ADR-0030 §1.2 acikca "bu sayi ADR'de SABITLENMEZ" der: token butcesine gore
+  // ayarlanabilir olmalidir. Bu yuzden kodda sabit DEGIL, config'tedir.
+
+  /** `/ask` sorgusunda cekilecek en yakin parca sayisi (ADR-0029 §4). */
+  KNOWLEDGE_RETRIEVAL_LIMIT: z.coerce.number().int().min(1).max(50).default(8),
+
+  /**
+   * Sistem promptuna eklenecek gecmis MESAJ sayisi (cift degil, tekil mesaj).
+   * Varsayilan 8 = 4 mesaj cifti (ADR-0030 §1.2'nin "3-4 cift" araligi).
+   */
+  KNOWLEDGE_HISTORY_MESSAGES: z.coerce.number().int().min(0).max(50).default(8),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
@@ -164,6 +197,7 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
     // gerektirmez.
     requireResendCredentials(env, ctx);
     requireOpenAiCredentials(env, ctx);
+    requireDeepSeekCredentials(env, ctx);
     forbidConsoleEmailInProduction(env, ctx);
   });
 
@@ -210,6 +244,21 @@ function requireOpenAiCredentials(env: RawEnv, ctx: RefinementContext): void {
       code: 'custom',
       path: ['OPENAI_API_KEY'],
       message: 'EMBEDDING_PROVIDER=openai secildiginde OPENAI_API_KEY zorunludur.',
+    });
+  }
+}
+
+/**
+ * `deepseek` secildiyse anahtar ZORUNLUDUR — `requireOpenAiCredentials` ile ayni
+ * gerekce: anahtarsiz bir adapter ilk soru sorulana kadar SESSIZ kalir, sonra
+ * 401 ile patlar.
+ */
+function requireDeepSeekCredentials(env: RawEnv, ctx: RefinementContext): void {
+  if (env.LLM_PROVIDER === 'deepseek' && isBlank(env.DEEPSEEK_API_KEY)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['DEEPSEEK_API_KEY'],
+      message: 'LLM_PROVIDER=deepseek secildiginde DEEPSEEK_API_KEY zorunludur.',
     });
   }
 }

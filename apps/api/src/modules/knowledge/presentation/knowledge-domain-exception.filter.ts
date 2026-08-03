@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { EmbeddingFailedError } from '../application/embedding.port';
+import { CompletionFailedError } from '../application/llm.port';
 import { KnowledgeDomainError } from '../domain/knowledge.error';
 
 /**
@@ -48,11 +49,28 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
 const EMBEDDING_FAILED_DETAIL =
   'Not kaydedildi ancak arama icin indekslenemedi; daha sonra tekrar deneyin.';
 
-@Catch(KnowledgeDomainError, EmbeddingFailedError)
+/**
+ * `/ask` akisinda yan etki YOKTUR: konusma ve mesajlar yalnizca completion
+ * BASARILI olduktan sonra yazilir. Dolayisiyla "kaydedildi ama..." demeye gerek
+ * yok — istek tumuyle sonucsuz kaldi ve tekrar denenebilir.
+ */
+const COMPLETION_FAILED_DETAIL = 'Cevap uretilemedi; lutfen tekrar deneyin.';
+
+@Catch(KnowledgeDomainError, EmbeddingFailedError, CompletionFailedError)
 export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
   // `_host` kullanilmiyor: bu filtre yaniti KENDISI yazmaz, cevrilmis hatayi
   // global filtreye birakir. Imza ExceptionFilter sozlesmesi geregi durur.
-  catch(exception: KnowledgeDomainError | EmbeddingFailedError, _host: ArgumentsHost): never {
+  catch(
+    exception: KnowledgeDomainError | EmbeddingFailedError | CompletionFailedError,
+    _host: ArgumentsHost,
+  ): never {
+    if (exception instanceof CompletionFailedError) {
+      // ISTEMCI hatasi DEGIL: istek gecerliydi, DIS SAGLAYICI cevap veremedi.
+      // `/ask` bir yan etki BIRAKMAZ (mesajlar yalnizca basaridan sonra
+      // yazilir), bu yuzden mesaj `/notes`'unkinden farkli ve daha basittir.
+      throw new HttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+    }
+
     if (exception instanceof EmbeddingFailedError) {
       // Saglayicinin mesaji ISTEMCIYE VERILMEZ (ic detay tasiyabilir); global
       // filtre traceId ile loglar.

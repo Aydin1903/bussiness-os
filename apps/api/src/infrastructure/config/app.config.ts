@@ -73,6 +73,20 @@ export interface AppConfig {
     readonly openAiApiKey: string;
     readonly model: string;
   };
+
+  /** Sohbet/completion saglayicisi (ADR-0029 §3). Embedding'den AYRI. */
+  readonly llm: {
+    readonly provider: 'fake' | 'deepseek';
+    /** Yalnizca `provider === 'deepseek'` iken dolu (env semasi zorlar). */
+    readonly deepSeekApiKey: string;
+    readonly model: string;
+  };
+
+  /** Knowledge retrieval ayarlari (ADR-0029 §4, ADR-0030 §1.2). */
+  readonly knowledge: {
+    readonly retrievalLimit: number;
+    readonly historyMessages: number;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -112,6 +126,8 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     outboxRelay: toOutboxRelayConfig(env),
     email: toEmailConfig(env),
     embedding: toEmbeddingConfig(env),
+    llm: toLlmConfig(env),
+    knowledge: toKnowledgeConfig(env),
   };
 }
 
@@ -147,6 +163,23 @@ function toEmbeddingConfig(env: Env): AppConfig['embedding'] {
     provider: env.EMBEDDING_PROVIDER,
     openAiApiKey: env.OPENAI_API_KEY ?? '',
     model: env.OPENAI_EMBEDDING_MODEL,
+  };
+}
+
+/** Sohbet saglayicisi. `?? ''`: anahtar yalnizca `fake` modunda bos olabilir. */
+function toLlmConfig(env: Env): AppConfig['llm'] {
+  return {
+    provider: env.LLM_PROVIDER,
+    deepSeekApiKey: env.DEEPSEEK_API_KEY ?? '',
+    model: env.LLM_MODEL,
+  };
+}
+
+/** Retrieval ayarlari. Deger DONUSTURMEZ; yalnizca eslestirir. */
+function toKnowledgeConfig(env: Env): AppConfig['knowledge'] {
+  return {
+    retrievalLimit: env.KNOWLEDGE_RETRIEVAL_LIMIT,
+    historyMessages: env.KNOWLEDGE_HISTORY_MESSAGES,
   };
 }
 

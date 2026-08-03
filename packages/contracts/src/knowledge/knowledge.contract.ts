@@ -38,3 +38,34 @@ export const createNoteResponseSchema = z.object({
   chunkCount: z.number().int().nonnegative(),
 });
 export type CreateNoteResponse = z.infer<typeof createNoteResponseSchema>;
+
+/**
+ * `POST /knowledge/ask` istek gövdesi (ADR-0029 §4, ADR-0030 §1.2).
+ *
+ * `conversationId` OPSİYONELDİR: verilmezse yeni bir konuşma açılır ve id'si
+ * yanıtta döner. İstemci sonraki soruda o id'yi göndererek konuşmayı sürdürür.
+ *
+ * `context`/`chunkIds` YOK: hangi parçaların kullanılacağını istemci seçemez —
+ * seçim retrieval'ın işidir. `systemPrompt` de yok: iş kuralıdır.
+ */
+export const askKnowledgeRequestSchema = z
+  .object({
+    question: z.string().trim().min(1, 'Soru boş olamaz').max(4_000, 'Soru çok uzun'),
+    conversationId: z.string().uuid('conversationId geçerli bir UUID olmalı').nullish(),
+  })
+  .strict();
+export type AskKnowledgeRequest = z.infer<typeof askKnowledgeRequestSchema>;
+
+/**
+ * `POST /knowledge/ask` yanıtı.
+ *
+ * `sourceNoteIds` MODELDEN gelmez — retrieval'ın döndürdüğü gerçek satırlardan
+ * türetilir. Modele kaynak atfı yaptırmak, uydurma bir id'nin yanıta girmesine
+ * kapı açardı.
+ */
+export const askKnowledgeResponseSchema = z.object({
+  answer: z.string().min(1),
+  sourceNoteIds: z.array(z.string()),
+  conversationId: z.string().min(1),
+});
+export type AskKnowledgeResponse = z.infer<typeof askKnowledgeResponseSchema>;
