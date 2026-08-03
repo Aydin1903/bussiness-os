@@ -1,0 +1,24 @@
+# Satir sonlari REPO'da sabittir, gelistiricinin `core.autocrlf` ayarina
+# BIRAKILMAZ.
+#
+# Bu dosya yokken: git LF sakliyor, Windows'ta calisma agacina CRLF yaziliyor,
+# Prettier ise LF bekliyor. Sonuc `pnpm format:check`in PLATFORMA GORE farkli
+# karar vermesiydi — Linux CI'da yesil, gelistiricinin Windows makinesinde 255
+# dosyada kirmizi. `pnpm verify`in ortadan kaldirmak icin var oldugu ayrisma
+# tam olarak buydu (DEVELOPMENT_RULES 5.4).
+#
+# `eol=lf`: metin dosyalari her platformda LF ile CHECKOUT edilir.
+* text=auto eol=lf
+
+# Ikili dosyalar donusturulmez — donusturulurse BOZULURLAR.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
