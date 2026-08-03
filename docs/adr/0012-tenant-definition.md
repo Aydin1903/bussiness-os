@@ -24,19 +24,19 @@ Bir `Tenant` **tam olarak bir sirkete** karsilik gelir.
 
 Tenant, ayni anda uc sinirin **kesisimidir** ve bu uc sinir ayni varliga baglidir:
 
-| Sinir | Anlami |
-| ------------------- | ------------------------------------------------ |
-| Izolasyon siniri | Veri buradan disari cikmaz |
-| Faturalama siniri | Plan, kota ve fatura buraya kesilir |
-| Yonetim siniri | Roller, davetler ve ayarlar burada tanimlanir |
+| Sinir             | Anlami                                        |
+| ----------------- | --------------------------------------------- |
+| Izolasyon siniri  | Veri buradan disari cikmaz                    |
+| Faturalama siniri | Plan, kota ve fatura buraya kesilir           |
+| Yonetim siniri    | Roller, davetler ve ayarlar burada tanimlanir |
 
 Kimlik alanlari uc tanedir ve **rolleri karistirilamaz**:
 
-| Alan | Rol | Degisebilir mi |
-| -------------- | ------------------------------------------------------------- | -------------- |
-| `id` (UUIDv7) | Kalici teknik kimlik. RLS anahtari, FK hedefi, JWT claim'i | Asla |
-| `slug` | Subdomain etiketi. Yalnizca routing/branding | Kontrollu |
-| `customDomain` | Tenant'in kendi alan adi. Dogrulanmadan aktif olmaz | Evet |
+| Alan           | Rol                                                        | Degisebilir mi |
+| -------------- | ---------------------------------------------------------- | -------------- |
+| `id` (UUIDv7)  | Kalici teknik kimlik. RLS anahtari, FK hedefi, JWT claim'i | Asla           |
+| `slug`         | Subdomain etiketi. Yalnizca routing/branding               | Kontrollu      |
+| `customDomain` | Tenant'in kendi alan adi. Dogrulanmadan aktif olmaz        | Evet           |
 
 `slug` ve `customDomain` **routing kimlikleridir, guvenlik kimligi degildir.**
 Veri erisimi daima `id` uzerinden ve daima dogrulanmis JWT claim'inden gelen
@@ -77,12 +77,12 @@ ve subdomain'i istemci kontrolunde bir yetki kaynagi haline getirir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                    | Neden secilmedi                                                                                 |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Tenant = calisma alani (workspace), sirket ust varlik | Faturalama ile izolasyonu ayirir; hiyerarsi ve capraz-tenant raporlama bugunden gerekir      |
-| Tenant = departman/ekip                       | Izolasyon sinirini asiri paralar; kullanici sayisi kadar tenant, yonetilemez                     |
-| Slug'i birincil kimlik yapmak                 | Yeniden adlandirma veri migrasyonuna doner; subdomain istemci kontrolunde bir yetki kaynagi olur |
-| Tenant'i faturalama disinda tutmak            | "Bu maliyeti kim odeyecek" sorusu cevapsiz kalir; kota zorlamasi dayanaksiz olur                 |
+| Alternatif                                            | Neden secilmedi                                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Tenant = calisma alani (workspace), sirket ust varlik | Faturalama ile izolasyonu ayirir; hiyerarsi ve capraz-tenant raporlama bugunden gerekir          |
+| Tenant = departman/ekip                               | Izolasyon sinirini asiri paralar; kullanici sayisi kadar tenant, yonetilemez                     |
+| Slug'i birincil kimlik yapmak                         | Yeniden adlandirma veri migrasyonuna doner; subdomain istemci kontrolunde bir yetki kaynagi olur |
+| Tenant'i faturalama disinda tutmak                    | "Bu maliyeti kim odeyecek" sorusu cevapsiz kalir; kota zorlamasi dayanaksiz olur                 |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

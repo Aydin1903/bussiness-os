@@ -24,9 +24,7 @@ export function toEmailVerificationCode(row: EmailVerificationCodeRow): EmailVer
   });
 }
 
-export function toEmailVerificationCodeRow(
-  code: EmailVerificationCode,
-): EmailVerificationCodeRow {
+export function toEmailVerificationCodeRow(code: EmailVerificationCode): EmailVerificationCodeRow {
   return {
     id: code.id.value,
     userId: code.userId.value,

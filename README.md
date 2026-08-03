@@ -85,23 +85,23 @@ curl http://localhost:3001/api/v1/health
 
 ## Uc noktalar
 
-| Yol | Aciklama |
-| --- | --- |
-| `GET /api/v1/health` | Saglik durumu (200 / 503) |
-| **Kimlik** | |
-| `POST /api/v1/auth/register` | Yeni kullanici kaydeder (202). Yanit hesap varligindan bagimsizdir (P2) |
-| `POST /api/v1/auth/verify-email` | 6 haneli kodla e-postayi dogrular (200 / 400) |
-| `POST /api/v1/auth/resend-verification` | Dogrulama kodunu yeniden gonderir (202; hesap sinirlari sessiz) |
-| `POST /api/v1/auth/login` | Giris — kimlik token'i + refresh token doner (tenant claim'i YOK) |
-| `POST /api/v1/auth/refresh` | Refresh token rotation; yeniden kullanim tum aileyi iptal eder |
-| `POST /api/v1/auth/logout` | Sunulan token'in ailesini iptal eder (daima 204) |
-| `POST /api/v1/auth/logout-all` | Kullanicinin tum oturumlarini sonlandirir (204 / 401) |
-| **Tenant** | |
-| `POST /api/v1/auth/switch-tenant` | Tenant secer, tenant-scoped access token uretir (200 / 403) |
-| `POST /api/v1/tenants` | Yeni tenant acar. Kimliksiz `401`, e-posta dogrulanmamis `403`, aksi `202` |
-| `GET /api/v1/memberships` | Tenant uye listesi — **RBAC**: `member:read` (owner/admin), aksi `403` |
-| **Dokumantasyon** | |
-| `/api/docs` · `/api/docs/json` | Swagger UI · OpenAPI spec |
+| Yol                                     | Aciklama                                                                   |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `GET /api/v1/health`                    | Saglik durumu (200 / 503)                                                  |
+| **Kimlik**                              |                                                                            |
+| `POST /api/v1/auth/register`            | Yeni kullanici kaydeder (202). Yanit hesap varligindan bagimsizdir (P2)    |
+| `POST /api/v1/auth/verify-email`        | 6 haneli kodla e-postayi dogrular (200 / 400)                              |
+| `POST /api/v1/auth/resend-verification` | Dogrulama kodunu yeniden gonderir (202; hesap sinirlari sessiz)            |
+| `POST /api/v1/auth/login`               | Giris — kimlik token'i + refresh token doner (tenant claim'i YOK)          |
+| `POST /api/v1/auth/refresh`             | Refresh token rotation; yeniden kullanim tum aileyi iptal eder             |
+| `POST /api/v1/auth/logout`              | Sunulan token'in ailesini iptal eder (daima 204)                           |
+| `POST /api/v1/auth/logout-all`          | Kullanicinin tum oturumlarini sonlandirir (204 / 401)                      |
+| **Tenant**                              |                                                                            |
+| `POST /api/v1/auth/switch-tenant`       | Tenant secer, tenant-scoped access token uretir (200 / 403)                |
+| `POST /api/v1/tenants`                  | Yeni tenant acar. Kimliksiz `401`, e-posta dogrulanmamis `403`, aksi `202` |
+| `GET /api/v1/memberships`               | Tenant uye listesi — **RBAC**: `member:read` (owner/admin), aksi `403`     |
+| **Dokumantasyon**                       |                                                                            |
+| `/api/docs` · `/api/docs/json`          | Swagger UI · OpenAPI spec                                                  |
 
 ## Yapi
 

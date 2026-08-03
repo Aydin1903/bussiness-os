@@ -23,11 +23,7 @@ const MAX_QUESTION_LENGTH = 4_000;
 
 export const askKnowledgeSchema = z
   .object({
-    question: z
-      .string()
-      .trim()
-      .min(1, 'Soru bos olamaz')
-      .max(MAX_QUESTION_LENGTH, 'Soru cok uzun'),
+    question: z.string().trim().min(1, 'Soru bos olamaz').max(MAX_QUESTION_LENGTH, 'Soru cok uzun'),
 
     /**
      * Opsiyonel (ADR-0030 §1.2). Verilmezse yeni konusma acilir.

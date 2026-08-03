@@ -12,7 +12,10 @@ import { CLOCK, type Clock } from '../../shared/clock.port';
 import { CURRENT_USER_PROVIDER } from '../../shared/current-user.port';
 import { DELAY } from '../../shared/delay.port';
 import { ID_GENERATOR } from '../../shared/id-generator.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import { CREDENTIAL_REPOSITORY } from './application/credential.repository.port';
 import { EMAIL_VERIFICATION_CODE_REPOSITORY } from './application/email-verification-code.repository.port';
 import { PASSWORD_RESET_CODE_REPOSITORY } from './application/password-reset-code.repository.port';
@@ -98,7 +101,10 @@ function decodePem(base64: string): string {
     // --- Kalicilik ----------------------------------------------------------
     { provide: USER_REPOSITORY, useClass: DrizzleUserRepository },
     { provide: CREDENTIAL_REPOSITORY, useClass: DrizzleCredentialRepository },
-    { provide: EMAIL_VERIFICATION_CODE_REPOSITORY, useClass: DrizzleEmailVerificationCodeRepository },
+    {
+      provide: EMAIL_VERIFICATION_CODE_REPOSITORY,
+      useClass: DrizzleEmailVerificationCodeRepository,
+    },
     { provide: PASSWORD_RESET_CODE_REPOSITORY, useClass: DrizzlePasswordResetCodeRepository },
     { provide: TOKEN_FAMILY_REPOSITORY, useClass: DrizzleTokenFamilyRepository },
     { provide: REFRESH_TOKEN_REPOSITORY, useClass: DrizzleRefreshTokenRepository },

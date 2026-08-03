@@ -14,7 +14,9 @@ describe('VerificationCodeHash — sarmalama', () => {
 
 describe('VerificationCodeHash — reddedilen girdiler', () => {
   it('ham 6 haneli kodu reddeder (hash bicimine uymaz)', () => {
-    expect(() => VerificationCodeHash.fromDigest('000042')).toThrow(InvalidVerificationCodeHashError);
+    expect(() => VerificationCodeHash.fromDigest('000042')).toThrow(
+      InvalidVerificationCodeHashError,
+    );
   });
 
   it('kisa/uzun degeri reddeder', () => {

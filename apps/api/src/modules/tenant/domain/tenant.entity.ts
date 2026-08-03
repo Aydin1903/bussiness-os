@@ -278,9 +278,7 @@ function assertArchivedAtConsistency(state: TenantState): void {
     }
     assertValidDate(state.archivedAt, (reason) => new InvalidArchivedAtError(reason));
     if (state.archivedAt.getTime() < state.createdAt.getTime()) {
-      throw new InconsistentTenantStateError(
-        'arsivleme zamani olusturulma zamanindan once olamaz',
-      );
+      throw new InconsistentTenantStateError('arsivleme zamani olusturulma zamanindan once olamaz');
     }
     return;
   }

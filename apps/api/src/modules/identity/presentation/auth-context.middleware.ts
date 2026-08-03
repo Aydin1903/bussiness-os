@@ -1,7 +1,10 @@
 import { Inject, Injectable, UnauthorizedException, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 
-import { runWithPrincipal, type AuthenticatedPrincipal } from '../../../infrastructure/auth/auth-context';
+import {
+  runWithPrincipal,
+  type AuthenticatedPrincipal,
+} from '../../../infrastructure/auth/auth-context';
 import { TOKEN_SIGNER, type TokenSigner } from '../application/token-signer.port';
 
 /** `Authorization: Bearer <token>` — tek mesru tasima bicimi. */

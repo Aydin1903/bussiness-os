@@ -59,10 +59,7 @@ export class DrizzleVerificationCodeRequestRepository implements VerificationCod
   async #count(scope: ReturnType<typeof and>): Promise<number> {
     const { db } = requireTransaction();
 
-    const rows = await db
-      .select({ value: count() })
-      .from(verificationCodeRequests)
-      .where(scope);
+    const rows = await db.select({ value: count() }).from(verificationCodeRequests).where(scope);
 
     return rows[0]?.value ?? 0;
   }

@@ -27,11 +27,11 @@ haksiz yere engellenir.
 
 **Uc katmanli model:**
 
-| Katman | Anahtar | Esik | Etki |
-| ------ | ------- | ---- | ---- |
-| 1 — birincil | `(e-posta, IP)` | 5 hata / 15 dk | O CIFT icin 15 dk kilit |
-| 2 — yayilma | e-posta | 20 hata / saat | **Ustel gecikme** (1s -> 2s -> 4s...), kilit YOK |
-| 3 — kaynak | IP | 50 hata / saat | `429`, ileride CAPTCHA |
+| Katman       | Anahtar         | Esik           | Etki                                             |
+| ------------ | --------------- | -------------- | ------------------------------------------------ |
+| 1 — birincil | `(e-posta, IP)` | 5 hata / 15 dk | O CIFT icin 15 dk kilit                          |
+| 2 — yayilma  | e-posta         | 20 hata / saat | **Ustel gecikme** (1s -> 2s -> 4s...), kilit YOK |
+| 3 — kaynak   | IP              | 50 hata / saat | `429`, ileride CAPTCHA                           |
 
 **Degismez:** kilitli hesap ile yanlis parola AYNI yaniti ve AYNI sureyi uretir.
 
@@ -95,14 +95,14 @@ yuzeyini BUYUTUR. Iki parametre birlikte kararlastirilir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Yalnizca e-posta bazli kilit | Hedefli DoS + hesap numaralandirma; kilit saldiri aracina doner |
-| Yalnizca IP bazli kilit | Botnet/proxy ile atlanir; NAT arkasindaki mesru kullanicilari engeller |
-| Kilit yerine yalnizca CAPTCHA | Ucuncu taraf bagimliligi; erisilebilirlik sorunu; bot cozucu servisler ucuz |
-| Kalici kilit (manuel acma) | Destek yuku ve DoS etkisi; hicbir esikte hakli degil |
-| Kilit durumunu kullaniciya soylemek | Hesap varlik oracle'i |
-| Tek katman, yuksek esik | Ya DoS'a acik ya da puskurtmeyi kaciran bir denge; tek sayac ikisini birden cozemez |
+| Alternatif                          | Neden secilmedi                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| Yalnizca e-posta bazli kilit        | Hedefli DoS + hesap numaralandirma; kilit saldiri aracina doner                     |
+| Yalnizca IP bazli kilit             | Botnet/proxy ile atlanir; NAT arkasindaki mesru kullanicilari engeller              |
+| Kilit yerine yalnizca CAPTCHA       | Ucuncu taraf bagimliligi; erisilebilirlik sorunu; bot cozucu servisler ucuz         |
+| Kalici kilit (manuel acma)          | Destek yuku ve DoS etkisi; hicbir esikte hakli degil                                |
+| Kilit durumunu kullaniciya soylemek | Hesap varlik oracle'i                                                               |
+| Tek katman, yuksek esik             | Ya DoS'a acik ya da puskurtmeyi kaciran bir denge; tek sayac ikisini birden cozemez |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

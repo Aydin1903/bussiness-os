@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  CompletionFailedError,
-  type CompleteInput,
-  type LLMPort,
-} from '../application/llm.port';
+import { CompletionFailedError, type CompleteInput, type LLMPort } from '../application/llm.port';
 
 /** DeepSeek sohbet uc noktasi — canli testle dogrulandi (ADR-0029). */
 const DEEPSEEK_CHAT_ENDPOINT = 'https://api.deepseek.com/chat/completions';

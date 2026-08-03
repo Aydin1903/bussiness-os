@@ -3,10 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { type Clock } from '../../../shared/clock.port';
 import { InvalidTokenError } from '../domain/identity.error';
-import {
-  EddsaTokenSigner,
-  type EddsaTokenSignerConfig,
-} from './eddsa-token-signer.adapter';
+import { EddsaTokenSigner, type EddsaTokenSignerConfig } from './eddsa-token-signer.adapter';
 
 const ISSUER = 'https://api.businessos.com';
 const AUDIENCE = 'businessos-api';

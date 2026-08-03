@@ -1,8 +1,5 @@
 import { type TokenSigner } from '../application/token-signer.port';
-import {
-  type IssueTenantAccessTokenInput,
-  type TenantAccessTokenIssuer,
-} from '../identity.public';
+import { type IssueTenantAccessTokenInput, type TenantAccessTokenIssuer } from '../identity.public';
 
 /**
  * `TenantAccessTokenIssuer`'in implementasyonu — `TOKEN_SIGNER`'i sarar.

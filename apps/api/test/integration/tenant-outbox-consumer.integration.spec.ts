@@ -11,7 +11,11 @@ import {
 } from '../../src/modules/tenant/application/tenant-outbox-retry.policy';
 import { DrizzleTenantOutboxRepository } from '../../src/modules/tenant/infrastructure/drizzle-tenant-outbox.repository';
 import { TenantOutboxRelay } from '../../src/modules/tenant/infrastructure/tenant-outbox-relay';
-import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateTenantTables,
+  type TestDatabase,
+} from './support/test-database';
 
 /**
  * Tenant outbox tuketicisi — gercek PostgreSQL (ADR-0006, MT 12.4.2).

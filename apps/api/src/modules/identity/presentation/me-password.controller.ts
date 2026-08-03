@@ -80,11 +80,17 @@ export class MePasswordController {
    */
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Giris yapmis kullanicinin parolasini degistirir', description: DESCRIPTION })
+  @ApiOperation({
+    summary: 'Giris yapmis kullanicinin parolasini degistirir',
+    description: DESCRIPTION,
+  })
   @ApiResponse({ status: HttpStatus.OK, description: 'Parola degistirildi.' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Mevcut parola dogrulanamadi.' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Kimlik dogrulanmadi.' })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde veya parola politikasi gecersiz.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Govde veya parola politikasi gecersiz.',
+  })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Cok fazla deneme (IP).' })
   async change(
     @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordBody,

@@ -152,7 +152,9 @@ export class RequestPasswordResetUseCase {
       await this.deps.passwordResetCodeRepository.save(previous);
     }
 
-    await this.deps.passwordResetCodeRepository.save(this.#buildCode(user.id, rawCode, context.now));
+    await this.deps.passwordResetCodeRepository.save(
+      this.#buildCode(user.id, rawCode, context.now),
+    );
 
     // Teslimat outbox uzerinden; use case EmailPort'u DOGRUDAN cagirmaz (§7.7).
     await this.deps.eventPublisher.publish(

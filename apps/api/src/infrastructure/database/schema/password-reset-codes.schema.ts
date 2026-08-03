@@ -31,7 +31,5 @@ export const passwordResetCodes = platformSchema.table(
     /** Tek kullanimlik: sifirlaninca (veya supersede edilince) dolar. */
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
   },
-  (table) => [
-    index('password_reset_codes_user_id_idx').on(table.userId),
-  ],
+  (table) => [index('password_reset_codes_user_id_idx').on(table.userId)],
 );

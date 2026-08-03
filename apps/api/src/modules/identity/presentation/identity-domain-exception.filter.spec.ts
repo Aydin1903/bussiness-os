@@ -58,9 +58,7 @@ describe('IdentityDomainExceptionFilter — kimlik dogrulama sonuclari', () => {
 
 describe('IdentityDomainExceptionFilter — girdi dogrulama', () => {
   it('parola politikasi ihlalini 422 ye cevirir', () => {
-    expect(statusOf(new PasswordPolicyError(['too-short']))).toBe(
-      HttpStatus.UNPROCESSABLE_ENTITY,
-    );
+    expect(statusOf(new PasswordPolicyError(['too-short']))).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
   });
 
   it('gecersiz e-posta bicimini 422 ye cevirir', () => {

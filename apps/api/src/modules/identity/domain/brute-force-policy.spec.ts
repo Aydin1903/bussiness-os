@@ -93,7 +93,9 @@ describe('evaluateBruteForce — katman 3 (429)', () => {
   });
 
   it('katman 2 gecikmesini katman 3 karariyla birlikte tasir', () => {
-    const decision = evaluateBruteForce(counts({ emailFailures: 22, ipFailures: LAYER3_MAX_FAILURES }));
+    const decision = evaluateBruteForce(
+      counts({ emailFailures: 22, ipFailures: LAYER3_MAX_FAILURES }),
+    );
 
     expect(decision).toEqual({ action: 'rate-limited', throttleDelayMs: 4000 });
   });

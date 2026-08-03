@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  type Permission,
-  type PermissionRegistry,
-  type PermissionRule,
-} from '../authz.public';
+import { type Permission, type PermissionRegistry, type PermissionRule } from '../authz.public';
 
 /**
  * `PermissionRegistry`'nin bellek-ici implementasyonu (ADR-0025).

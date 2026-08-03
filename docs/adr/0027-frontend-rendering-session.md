@@ -23,12 +23,12 @@ modelinden turer:
 
 ### 1. Rendering: pragmatik RSC/Client bolumu
 
-| Sayfa sinifi | Tip |
-| ------------ | --- |
-| Pazarlama / public | Server Component (statik) |
-| Auth akisi (`login`, `verify-email`, `forgot/reset`, tenant secimi) | Client Component |
-| Uygulama kabugu (authenticated) | Client Component + memory session provider |
-| RSC ile server-side tenant-scoped veri | **V1'de HARIC** — ADR-0026 cookie'sine bagli sonraki is |
+| Sayfa sinifi                                                        | Tip                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------- |
+| Pazarlama / public                                                  | Server Component (statik)                               |
+| Auth akisi (`login`, `verify-email`, `forgot/reset`, tenant secimi) | Client Component                                        |
+| Uygulama kabugu (authenticated)                                     | Client Component + memory session provider              |
+| RSC ile server-side tenant-scoped veri                              | **V1'de HARIC** — ADR-0026 cookie'sine bagli sonraki is |
 
 Authenticated veri cekme V1'de ISTEMCI TARAFLIDIR. Sunucunun tenant-scoped access
 token uretmesi hem refresh cookie'sini (henuz yok) hem de secili tenant'i
@@ -107,12 +107,12 @@ yukledigi bir zorunluluktur, bir optimizasyon degil.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Her seyi Server Component + RSC-veri-cekme | Tenant-scoped access token'i sunucuda uretmek ADR-0026 cookie'sini gerektirir; henuz yok |
-| Auth-gate'i middleware'de gercek dogrulamayla yapmak | Token dogrulama sunucunun isi; middleware'de tekrar etmek yetkiyi iki yere boler |
-| Tek adimli yenileme (`refresh` → access token varsay) | ADR-0020 ile celisir; `refresh` access token dondurmez |
-| Single-flight olmadan her 401'de refresh | ADR-0021 aile iptalini tetikler → kullanici sebepsiz duser |
+| Alternatif                                            | Neden secilmedi                                                                          |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Her seyi Server Component + RSC-veri-cekme            | Tenant-scoped access token'i sunucuda uretmek ADR-0026 cookie'sini gerektirir; henuz yok |
+| Auth-gate'i middleware'de gercek dogrulamayla yapmak  | Token dogrulama sunucunun isi; middleware'de tekrar etmek yetkiyi iki yere boler         |
+| Tek adimli yenileme (`refresh` → access token varsay) | ADR-0020 ile celisir; `refresh` access token dondurmez                                   |
+| Single-flight olmadan her 401'de refresh              | ADR-0021 aile iptalini tetikler → kullanici sebepsiz duser                               |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

@@ -156,10 +156,7 @@ export class PublishTenantEventsUseCase {
     };
   }
 
-  async #deliverAll(
-    records: readonly TenantOutboxRecord[],
-    now: Date,
-  ): Promise<BatchOutcome> {
+  async #deliverAll(records: readonly TenantOutboxRecord[], now: Date): Promise<BatchOutcome> {
     const outcome: BatchOutcome = {
       publishedIds: [],
       deliveryFailures: [],

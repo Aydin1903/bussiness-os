@@ -107,9 +107,7 @@ class FakeProvisioningPolicy implements TenantProvisioningPolicy {
   rejectionReason: Error | null = null;
 
   assertCanProvision(): Promise<void> {
-    return this.rejectionReason === null
-      ? Promise.resolve()
-      : Promise.reject(this.rejectionReason);
+    return this.rejectionReason === null ? Promise.resolve() : Promise.reject(this.rejectionReason);
   }
 }
 
@@ -384,9 +382,7 @@ describe('ProvisionTenantUseCase — onkosullar', () => {
     const harness = createHarness();
     harness.provisioningPolicy.rejectionReason = new Error('Once e-postanizi dogrulayin');
 
-    await expect(harness.useCase.execute(command())).rejects.toThrow(
-      'Once e-postanizi dogrulayin',
-    );
+    await expect(harness.useCase.execute(command())).rejects.toThrow('Once e-postanizi dogrulayin');
   });
 
   it('politika reddederse hicbir sey kaydetmez', async () => {
@@ -438,8 +434,6 @@ describe('ProvisionTenantUseCase — onkosullar', () => {
     harness.provisioningPolicy.rejectionReason = new Error('Once e-postanizi dogrulayin');
     harness.tenantRepository.takenSlugs.add('acme');
 
-    await expect(harness.useCase.execute(command())).rejects.toThrow(
-      'Once e-postanizi dogrulayin',
-    );
+    await expect(harness.useCase.execute(command())).rejects.toThrow('Once e-postanizi dogrulayin');
   });
 });

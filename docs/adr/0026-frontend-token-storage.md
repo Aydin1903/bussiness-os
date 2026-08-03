@@ -24,11 +24,11 @@ okunabilir bir yerde durmasidir.
 
 **Hibrit saklama:**
 
-| Token | Nerede | Neden |
-| ----- | ------ | ----- |
-| **refresh token** | `HttpOnly` + `Secure` + `SameSite` cookie, `Path=/api/v1/auth` | JS okuyamaz; XSS sizdiramaz |
-| **access token** | JS memory (React state / modul degiskeni) | kisa omurlu, Bearer tasima gerektirir, CSRF'e bagisik |
-| **identity token** | JS memory | yalnizca tenant secimi; kalici deger tasimaz |
+| Token              | Nerede                                                         | Neden                                                 |
+| ------------------ | -------------------------------------------------------------- | ----------------------------------------------------- |
+| **refresh token**  | `HttpOnly` + `Secure` + `SameSite` cookie, `Path=/api/v1/auth` | JS okuyamaz; XSS sizdiramaz                           |
+| **access token**   | JS memory (React state / modul degiskeni)                      | kisa omurlu, Bearer tasima gerektirir, CSRF'e bagisik |
+| **identity token** | JS memory                                                      | yalnizca tenant secimi; kalici deger tasimaz          |
 
 **`localStorage` / `sessionStorage` HICBIR token icin kullanilmaz.**
 
@@ -90,13 +90,13 @@ mikroservise gecis hedefi korunur. Yalnizca refresh TASIMASI cookie'ye tasinir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Tum token'lar `localStorage`/JS | Refresh token XSS ile okunur → 30 gun hesap ele gecirme; kabul edilemez |
-| Tum token'lar JS memory (persist yok) | Guvenli ama her reload = yeniden giris; "beni hatirla" imkansiz, kotu UX |
-| Access token da cookie'de | CSRF yuzeyi her isteme yayilir; Bearer stateless modeli bozulur |
-| Refresh token'i normal (non-httpOnly) cookie | JS okur → localStorage ile ayni XSS zafiyeti |
-| Backend'i degistirmeyip govde modelinde kalmak | Refresh token JS'e goruunur kalir; bu ADR'nin cozdugu sorun cozulmez |
+| Alternatif                                     | Neden secilmedi                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------ |
+| Tum token'lar `localStorage`/JS                | Refresh token XSS ile okunur → 30 gun hesap ele gecirme; kabul edilemez  |
+| Tum token'lar JS memory (persist yok)          | Guvenli ama her reload = yeniden giris; "beni hatirla" imkansiz, kotu UX |
+| Access token da cookie'de                      | CSRF yuzeyi her isteme yayilir; Bearer stateless modeli bozulur          |
+| Refresh token'i normal (non-httpOnly) cookie   | JS okur → localStorage ile ayni XSS zafiyeti                             |
+| Backend'i degistirmeyip govde modelinde kalmak | Refresh token JS'e goruunur kalir; bu ADR'nin cozdugu sorun cozulmez     |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

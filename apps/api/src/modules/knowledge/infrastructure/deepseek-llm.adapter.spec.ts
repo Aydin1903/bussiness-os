@@ -19,7 +19,11 @@ function stubFetch(impl: () => FetchResult | Promise<FetchResult>) {
 }
 
 function okResponse(content: unknown): FetchResult {
-  return { ok: true, status: 200, json: () => Promise.resolve({ choices: [{ message: { content } }] }) };
+  return {
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ choices: [{ message: { content } }] }),
+  };
 }
 
 /** Gonderilen JSON govde. `body` daima string'dir (JSON.stringify). */
@@ -172,7 +176,11 @@ describe('DeepSeekLlmAdapter — basarili yanit', () => {
 
 describe('DeepSeekLlmAdapter — hata siniflandirmasi', () => {
   it('HTTP hatasi CompletionFailedError e cevrilir', async () => {
-    stubFetch(() => ({ ok: false, status: 402, text: () => Promise.resolve('Insufficient Balance') }));
+    stubFetch(() => ({
+      ok: false,
+      status: 402,
+      text: () => Promise.resolve('Insufficient Balance'),
+    }));
 
     await expect(new DeepSeekLlmAdapter(OPTIONS).complete(input())).rejects.toThrow(
       CompletionFailedError,
@@ -180,11 +188,13 @@ describe('DeepSeekLlmAdapter — hata siniflandirmasi', () => {
   });
 
   it('hata mesaji durum kodunu tasir (teshis)', async () => {
-    stubFetch(() => ({ ok: false, status: 402, text: () => Promise.resolve('Insufficient Balance') }));
+    stubFetch(() => ({
+      ok: false,
+      status: 402,
+      text: () => Promise.resolve('Insufficient Balance'),
+    }));
 
-    await expect(new DeepSeekLlmAdapter(OPTIONS).complete(input())).rejects.toThrow(
-      /DeepSeek 402/,
-    );
+    await expect(new DeepSeekLlmAdapter(OPTIONS).complete(input())).rejects.toThrow(/DeepSeek 402/);
   });
 
   it('SORU ve BAGLAM hataya KONMAZ (kullanici verisi log a sizmaz)', async () => {

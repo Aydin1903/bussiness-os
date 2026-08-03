@@ -11,7 +11,11 @@ import { TenantId } from '../../src/modules/tenant/domain/tenant-id.value-object
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
 import { TenantSlugAlreadyTakenError } from '../../src/modules/tenant/domain/tenant.error';
 import { UserId } from '../../src/shared/user-id.value-object';
-import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateTenantTables,
+  type TestDatabase,
+} from './support/test-database';
 
 /**
  * Repository adapter'larinin GERCEK PostgreSQL'e ve GERCEK RLS'e karsi

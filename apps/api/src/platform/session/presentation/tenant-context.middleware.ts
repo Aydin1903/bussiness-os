@@ -4,10 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { getCorrelationId } from '../../../infrastructure/logging/request-context';
 import { runWithTenantContext } from '../../../infrastructure/tenant/tenant-context';
-import {
-  TENANT_ACCESS_QUERY,
-  type TenantAccessQuery,
-} from '../../../modules/tenant/tenant.public';
+import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from '../../../modules/tenant/tenant.public';
 
 /**
  * Tenant-scoped access token'i TENANT CONTEXT'ine cevirir
@@ -52,9 +49,7 @@ import {
  */
 @Injectable()
 export class TenantContextMiddleware implements NestMiddleware {
-  constructor(
-    @Inject(TENANT_ACCESS_QUERY) private readonly tenantAccess: TenantAccessQuery,
-  ) {}
+  constructor(@Inject(TENANT_ACCESS_QUERY) private readonly tenantAccess: TenantAccessQuery) {}
 
   // `_request` bugun KULLANILMIYOR: §8.2 adim 3 (host ipucu <-> claim capraz
   // kontrolu) ertelendigi icin istek nesnesine ihtiyac yok. Imza NestMiddleware

@@ -265,46 +265,54 @@ describe('Tenant durum gecisleri', () => {
   });
 
   it('provisioning durumundaki tenant.i askiya almayi reddeder', () => {
-    expect(() => { provisionTenant().suspend(); }).toThrow(InvalidTenantStatusTransitionError);
+    expect(() => {
+      provisionTenant().suspend();
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('provisioning durumundaki tenant.i arsivlemeyi reddeder', () => {
-    expect(() => { provisionTenant().archive(LATER); }).toThrow(InvalidTenantStatusTransitionError);
+    expect(() => {
+      provisionTenant().archive(LATER);
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('aktif tenant.i tekrar aktiflestirmeyi reddeder', () => {
-    expect(() => { tenantInStatus('active').markProvisioned(); }).toThrow(
-      InvalidTenantStatusTransitionError,
-    );
+    expect(() => {
+      tenantInStatus('active').markProvisioned();
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('aktif tenant.i basarisiz olarak isaretlemeyi reddeder', () => {
-    expect(() => { tenantInStatus('active').markProvisioningFailed(); }).toThrow(
-      InvalidTenantStatusTransitionError,
-    );
+    expect(() => {
+      tenantInStatus('active').markProvisioningFailed();
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('basarisiz tenant.i aktiflestirmeyi reddeder', () => {
     // failed terminal: duzeltilmez, kayit silinir (ADR-0016).
-    expect(() => { tenantInStatus('failed').markProvisioned(); }).toThrow(
-      InvalidTenantStatusTransitionError,
-    );
+    expect(() => {
+      tenantInStatus('failed').markProvisioned();
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('basarisiz tenant.i arsivlemeyi reddeder', () => {
-    expect(() => { tenantInStatus('failed').archive(LATER); }).toThrow(
-      InvalidTenantStatusTransitionError,
-    );
+    expect(() => {
+      tenantInStatus('failed').archive(LATER);
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('arsivlenmis tenant.i askiya almayi reddeder', () => {
-    expect(() => { tenantInStatus('archived').suspend(); }).toThrow(InvalidTenantStatusTransitionError);
+    expect(() => {
+      tenantInStatus('archived').suspend();
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('gecersiz gecis denendiginde durumu degistirmeden birakir', () => {
     const tenant = provisionTenant();
 
-    expect(() => { tenant.suspend(); }).toThrow(InvalidTenantStatusTransitionError);
+    expect(() => {
+      tenant.suspend();
+    }).toThrow(InvalidTenantStatusTransitionError);
     expect(tenant.status).toBe('provisioning');
   });
 
@@ -312,19 +320,25 @@ describe('Tenant durum gecisleri', () => {
     const tenant = tenantInStatus('active');
     const beforeCreation = new Date('2026-07-20T10:00:00.000Z');
 
-    expect(() => { tenant.archive(beforeCreation); }).toThrow(InvalidArchivedAtError);
+    expect(() => {
+      tenant.archive(beforeCreation);
+    }).toThrow(InvalidArchivedAtError);
   });
 
   it('gecersiz arsivleme zamanini reddeder', () => {
     const tenant = tenantInStatus('active');
 
-    expect(() => { tenant.archive(new Date('gecersiz')); }).toThrow(InvalidArchivedAtError);
+    expect(() => {
+      tenant.archive(new Date('gecersiz'));
+    }).toThrow(InvalidArchivedAtError);
   });
 
   it('arsivleme reddedildiginde durumu degistirmeden birakir', () => {
     const tenant = tenantInStatus('active');
 
-    expect(() => { tenant.archive(new Date('gecersiz')); }).toThrow(InvalidArchivedAtError);
+    expect(() => {
+      tenant.archive(new Date('gecersiz'));
+    }).toThrow(InvalidArchivedAtError);
     expect(tenant.status).toBe('active');
     expect(tenant.archivedAt).toBeNull();
   });
@@ -348,7 +362,9 @@ describe('Tenant ad ve slug degisikligi', () => {
   it('bos ada degistirmeyi reddeder', () => {
     const tenant = tenantInStatus('active');
 
-    expect(() => { tenant.rename('  '); }).toThrow(InvalidTenantNameError);
+    expect(() => {
+      tenant.rename('  ');
+    }).toThrow(InvalidTenantNameError);
     expect(tenant.name).toBe('Acme Ltd.');
   });
 
@@ -371,17 +387,21 @@ describe('Tenant ad ve slug degisikligi', () => {
   });
 
   it('arsivlenmis tenant.in adini degistirmeyi reddeder', () => {
-    expect(() => { tenantInStatus('archived').rename('Yeni Ad'); }).toThrow(TenantNotModifiableError);
+    expect(() => {
+      tenantInStatus('archived').rename('Yeni Ad');
+    }).toThrow(TenantNotModifiableError);
   });
 
   it('arsivlenmis tenant.in slug.ini degistirmeyi reddeder', () => {
-    expect(() => { tenantInStatus('archived').changeSlug(TenantSlug.create('globex')); }).toThrow(
-      TenantNotModifiableError,
-    );
+    expect(() => {
+      tenantInStatus('archived').changeSlug(TenantSlug.create('globex'));
+    }).toThrow(TenantNotModifiableError);
   });
 
   it('basarisiz tenant.in adini degistirmeyi reddeder', () => {
-    expect(() => { tenantInStatus('failed').rename('Yeni Ad'); }).toThrow(TenantNotModifiableError);
+    expect(() => {
+      tenantInStatus('failed').rename('Yeni Ad');
+    }).toThrow(TenantNotModifiableError);
   });
 
   it('provisioning durumundaki tenant.in adini degistirmeye izin verir', () => {

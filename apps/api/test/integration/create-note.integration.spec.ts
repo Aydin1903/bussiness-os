@@ -155,7 +155,9 @@ describe.skipIf(!HAS_OPENAI_KEY)('POST /knowledge/notes (uctan uca, gercek OpenA
 
   function createNote(token: string | undefined, body: object) {
     const call = request(httpServer(app)).post('/api/v1/knowledge/notes');
-    return token === undefined ? call.send(body) : call.set('Authorization', `Bearer ${token}`).send(body);
+    return token === undefined
+      ? call.send(body)
+      : call.set('Authorization', `Bearer ${token}`).send(body);
   }
 
   interface ChunkRow {
@@ -187,7 +189,10 @@ describe.skipIf(!HAS_OPENAI_KEY)('POST /knowledge/notes (uctan uca, gercek OpenA
   it('notu kaydeder ve 201 + noteId + chunkCount doner', async () => {
     const token = await signInAs('owner', 'owner@example.com');
 
-    const response = await createNote(token, { title: 'Ilk not', body: 'Sirketimiz yazilim gelistiriyor.' });
+    const response = await createNote(token, {
+      title: 'Ilk not',
+      body: 'Sirketimiz yazilim gelistiriyor.',
+    });
 
     expect(response.status).toBe(201);
     expect(response.body.noteId).toMatch(/^[0-9a-f-]{36}$/);
@@ -230,9 +235,7 @@ describe.skipIf(!HAS_OPENAI_KEY)('POST /knowledge/notes (uctan uca, gercek OpenA
     const chunks = await readChunks();
     expect(chunks).toHaveLength(Number(response.body.chunkCount));
     expect(chunks.every((chunk) => chunk.dims === EMBEDDING_DIMENSIONS)).toBe(true);
-    expect(chunks.map((chunk) => chunk.chunk_index)).toEqual(
-      chunks.map((_, index) => index),
-    );
+    expect(chunks.map((chunk) => chunk.chunk_index)).toEqual(chunks.map((_, index) => index));
     expect(chunks.every((chunk) => chunk.content.length <= TARGET_CHUNK_CHARS)).toBe(true);
   });
 

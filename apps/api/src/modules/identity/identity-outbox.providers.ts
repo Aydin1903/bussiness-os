@@ -3,7 +3,10 @@ import { type Provider } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { EMAIL_PORT, type EmailPort } from '../../shared/email.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import {
   IDENTITY_OUTBOX_REPOSITORY,
   type IdentityOutboxRepository,
@@ -19,38 +22,38 @@ import { IdentityOutboxRelay } from './infrastructure/identity-outbox-relay';
  * Ayrim ayrica `identity-use-case.providers.ts`'i 300 satir sinirinin altinda tutar.
  */
 export const identityOutboxProviders: Provider[] = [
-    {
-      provide: PublishIdentityEventsUseCase,
-      inject: [IDENTITY_OUTBOX_REPOSITORY, EMAIL_PORT, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
-      // eslint-disable-next-line max-params
-      useFactory: (
-        outboxRepository: IdentityOutboxRepository,
-        emailPort: EmailPort,
-        transactionManager: TransactionManager,
-        clock: Clock,
-        config: AppConfig,
-      ): PublishIdentityEventsUseCase =>
-        new PublishIdentityEventsUseCase({
-          outboxRepository,
-          emailPort,
-          transactionManager,
-          clock,
-          batchSize: config.outboxRelay.batchSize,
-        }),
-    },
+  {
+    provide: PublishIdentityEventsUseCase,
+    inject: [IDENTITY_OUTBOX_REPOSITORY, EMAIL_PORT, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
+    // eslint-disable-next-line max-params
+    useFactory: (
+      outboxRepository: IdentityOutboxRepository,
+      emailPort: EmailPort,
+      transactionManager: TransactionManager,
+      clock: Clock,
+      config: AppConfig,
+    ): PublishIdentityEventsUseCase =>
+      new PublishIdentityEventsUseCase({
+        outboxRepository,
+        emailPort,
+        transactionManager,
+        clock,
+        batchSize: config.outboxRelay.batchSize,
+      }),
+  },
 
-    // --- Arka plan sureci ---------------------------------------------------
-    {
-      // Zamanlama config'ten gelir; relay'in kendisi yalnizca zamanlayicidir.
-      provide: IdentityOutboxRelay,
-      inject: [PublishIdentityEventsUseCase, APP_CONFIG],
-      useFactory: (
-        publishEvents: PublishIdentityEventsUseCase,
-        config: AppConfig,
-      ): IdentityOutboxRelay =>
-        new IdentityOutboxRelay(publishEvents, {
-          enabled: config.outboxRelay.enabled,
-          intervalMs: config.outboxRelay.intervalMs,
-        }),
-    }
+  // --- Arka plan sureci ---------------------------------------------------
+  {
+    // Zamanlama config'ten gelir; relay'in kendisi yalnizca zamanlayicidir.
+    provide: IdentityOutboxRelay,
+    inject: [PublishIdentityEventsUseCase, APP_CONFIG],
+    useFactory: (
+      publishEvents: PublishIdentityEventsUseCase,
+      config: AppConfig,
+    ): IdentityOutboxRelay =>
+      new IdentityOutboxRelay(publishEvents, {
+        enabled: config.outboxRelay.enabled,
+        intervalMs: config.outboxRelay.intervalMs,
+      }),
+  },
 ];

@@ -98,8 +98,18 @@ describe('ListMembershipsUseCase', () => {
     const result = await harness.useCase.execute({ limit: 20, offset: 0 });
 
     expect(result.items).toEqual([
-      { userId: '018f3a2b-7c4d-7e1f-9b3c-0000000000a1', role: 'owner', status: 'active', joinedAt: NOW },
-      { userId: '018f3a2b-7c4d-7e1f-9b3c-0000000000a2', role: 'member', status: 'active', joinedAt: NOW },
+      {
+        userId: '018f3a2b-7c4d-7e1f-9b3c-0000000000a1',
+        role: 'owner',
+        status: 'active',
+        joinedAt: NOW,
+      },
+      {
+        userId: '018f3a2b-7c4d-7e1f-9b3c-0000000000a2',
+        role: 'member',
+        status: 'active',
+        joinedAt: NOW,
+      },
     ]);
   });
 

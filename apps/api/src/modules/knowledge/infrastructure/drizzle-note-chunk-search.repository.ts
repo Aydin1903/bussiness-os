@@ -3,10 +3,7 @@ import { asc, cosineDistance } from 'drizzle-orm';
 
 import { noteChunks } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
-import type {
-  NoteChunkSearch,
-  SimilarChunk,
-} from '../application/note-chunk-search.port';
+import type { NoteChunkSearch, SimilarChunk } from '../application/note-chunk-search.port';
 import type { TenantId } from '../domain/tenant-id.value-object';
 
 /**

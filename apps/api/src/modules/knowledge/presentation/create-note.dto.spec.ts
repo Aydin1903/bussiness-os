@@ -39,7 +39,10 @@ describe('createNoteSchema', () => {
       createNoteSchema.parse({ body: 'metin', tenantId: '018f3a2b-7c4d-7e1f-9b3c-0000000000a1' }),
     ).toThrow();
     expect(() =>
-      createNoteSchema.parse({ body: 'metin', authorUserId: '018f3a2b-7c4d-7e1f-9b3c-00000000000a' }),
+      createNoteSchema.parse({
+        body: 'metin',
+        authorUserId: '018f3a2b-7c4d-7e1f-9b3c-00000000000a',
+      }),
     ).toThrow();
   });
 

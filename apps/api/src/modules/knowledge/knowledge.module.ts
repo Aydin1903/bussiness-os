@@ -7,7 +7,10 @@ import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import { AskKnowledgeUseCase } from './application/ask-knowledge.use-case';
 import {
   CONVERSATION_REPOSITORY,
@@ -20,10 +23,7 @@ import {
 } from './application/daily-report-run.repository.port';
 import { EMBEDDING_PORT, type EmbeddingPort } from './application/embedding.port';
 import { LLM_PORT, type LLMPort } from './application/llm.port';
-import {
-  NOTE_CHUNK_SEARCH,
-  type NoteChunkSearch,
-} from './application/note-chunk-search.port';
+import { NOTE_CHUNK_SEARCH, type NoteChunkSearch } from './application/note-chunk-search.port';
 import {
   NOTE_CHUNK_REPOSITORY,
   type NoteChunkRepository,

@@ -18,10 +18,7 @@ import { User } from '../domain/user.entity';
 import { type RefreshTokenGenerator } from './refresh-token-generator.port';
 import { type RefreshTokenHasher } from './refresh-token-hasher.port';
 import { type RefreshTokenRepository } from './refresh-token.repository.port';
-import {
-  RefreshSessionUseCase,
-  type RefreshSessionDependencies,
-} from './refresh-session.use-case';
+import { RefreshSessionUseCase, type RefreshSessionDependencies } from './refresh-session.use-case';
 import { type TokenFamilyRepository } from './token-family.repository.port';
 import {
   type AccessTokenInput,
@@ -48,7 +45,11 @@ function digestOf(token: string): RefreshTokenHash {
 }
 
 function activeUser(): User {
-  const user = User.register({ id: USER_ID, email: Email.create('user@example.com'), createdAt: NOW });
+  const user = User.register({
+    id: USER_ID,
+    email: Email.create('user@example.com'),
+    createdAt: NOW,
+  });
   user.verifyEmail();
   return user;
 }
@@ -239,7 +240,10 @@ function createHarness(): Harness {
     refreshTokenHasher: new FakeRefreshTokenHasher(),
     tokenSigner,
     eventPublisher,
-    transactionManager: new FakeTransactionManager([familyRepository.saved, eventPublisher.published]),
+    transactionManager: new FakeTransactionManager([
+      familyRepository.saved,
+      eventPublisher.published,
+    ]),
     idGenerator: new SequentialIdGenerator(),
     clock: new FixedClock(),
   };
@@ -369,7 +373,9 @@ describe('RefreshSessionUseCase — redler AYIRT EDILEMEZ (hepsi 401)', () => {
   it('bilinmeyen token i reddeder', async () => {
     const harness = createHarness();
 
-    await expect(harness.useCase.execute(command('baska-token'))).rejects.toThrow(InvalidTokenError);
+    await expect(harness.useCase.execute(command('baska-token'))).rejects.toThrow(
+      InvalidTokenError,
+    );
   });
 
   it('suresi dolmus token i reddeder', async () => {

@@ -58,9 +58,9 @@ describe('Credential.fromPersistence', () => {
   });
 
   it('gecersiz passwordChangedAt.i reddeder', () => {
-    expect(() => Credential.fromPersistence(persisted({ passwordChangedAt: new Date('x') }))).toThrow(
-      InvalidPasswordChangedAtError,
-    );
+    expect(() =>
+      Credential.fromPersistence(persisted({ passwordChangedAt: new Date('x') })),
+    ).toThrow(InvalidPasswordChangedAtError);
   });
 
   it('passwordChangedAt getter kopya doner', () => {

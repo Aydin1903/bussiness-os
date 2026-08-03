@@ -11,7 +11,11 @@ import { TenantSlugAlreadyTakenError } from '../../src/modules/tenant/domain/ten
 import { UserId } from '../../src/shared/user-id.value-object';
 import { DrizzleMembershipRepository } from '../../src/modules/tenant/infrastructure/drizzle-membership.repository';
 import { DrizzleTenantRepository } from '../../src/modules/tenant/infrastructure/drizzle-tenant.repository';
-import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateTenantTables,
+  type TestDatabase,
+} from './support/test-database';
 
 /**
  * ADR-0016'nin cekirdek garantisinin GERCEK VERITABANINDA kaniti:

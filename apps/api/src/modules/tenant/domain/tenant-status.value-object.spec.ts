@@ -40,7 +40,9 @@ describe('tenant durum gecisleri', () => {
 
   it.each(ALLOWED)('%s durumundan %s durumuna gecise izin verir', (from, to) => {
     expect(canTransition(from, to)).toBe(true);
-    expect(() => { assertTransition(from, to); }).not.toThrow();
+    expect(() => {
+      assertTransition(from, to);
+    }).not.toThrow();
   });
 
   /**
@@ -56,16 +58,18 @@ describe('tenant durum gecisleri', () => {
 
   it.each(FORBIDDEN)('%s durumundan %s durumuna gecisi reddeder', (from, to) => {
     expect(canTransition(from, to)).toBe(false);
-    expect(() => { assertTransition(from, to); }).toThrow(InvalidTenantStatusTransitionError);
+    expect(() => {
+      assertTransition(from, to);
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('provisioning durumundan dogrudan archived durumuna gecisi reddeder', () => {
     // Yarim kurulmus bir tenant arsivlenemez: once active veya failed olmali.
     // Aksi halde hicbir zaman tamamlanmamis bir tenant, tamamlanmis gibi
     // saklama surecine girer.
-    expect(() => { assertTransition('provisioning', 'archived'); }).toThrow(
-      InvalidTenantStatusTransitionError,
-    );
+    expect(() => {
+      assertTransition('provisioning', 'archived');
+    }).toThrow(InvalidTenantStatusTransitionError);
   });
 
   it('failed durumunu terminal kabul eder', () => {

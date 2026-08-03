@@ -21,16 +21,16 @@ Bu doküman, Business OS'un multi-tenancy tasarımı için **Single Source of Tr
 
 ### Referans verilen ADR'ler
 
-| ADR | Karar | Durum |
-|---|---|---|
-| [0002](../adr/0002-multi-tenancy-shared-db-rls.md) | Multi-tenancy: Shared DB + Row Level Security | ✅ Kabul edildi |
-| [0004](../adr/0004-auth-own-module.md) | Authentication: Kendi modülümüz | ✅ Kabul edildi |
-| [0006](../adr/0006-event-transactional-outbox.md) | Event: Transactional Outbox | ✅ Kabul edildi |
-| [0012](../adr/0012-tenant-definition.md) | Tenant Definition — One Company = One Tenant | ✅ Kabul edildi |
-| [0013](../adr/0013-organization-strategy.md) | Organization Strategy — V1'de Organization entity yok | ✅ Kabul edildi |
-| [0014](../adr/0014-global-user-membership.md) | Global User & Membership (+ Role Value Object) | ✅ Kabul edildi |
-| [0015](../adr/0015-tenant-resolution.md) | Tenant Resolution — Hybrid (Custom Domain → Subdomain → JWT) | ✅ Kabul edildi |
-| [0016](../adr/0016-tenant-provisioning.md) | Tenant Provisioning — Email verification önce | ✅ Kabul edildi |
+| ADR                                                | Karar                                                        | Durum           |
+| -------------------------------------------------- | ------------------------------------------------------------ | --------------- |
+| [0002](../adr/0002-multi-tenancy-shared-db-rls.md) | Multi-tenancy: Shared DB + Row Level Security                | ✅ Kabul edildi |
+| [0004](../adr/0004-auth-own-module.md)             | Authentication: Kendi modülümüz                              | ✅ Kabul edildi |
+| [0006](../adr/0006-event-transactional-outbox.md)  | Event: Transactional Outbox                                  | ✅ Kabul edildi |
+| [0012](../adr/0012-tenant-definition.md)           | Tenant Definition — One Company = One Tenant                 | ✅ Kabul edildi |
+| [0013](../adr/0013-organization-strategy.md)       | Organization Strategy — V1'de Organization entity yok        | ✅ Kabul edildi |
+| [0014](../adr/0014-global-user-membership.md)      | Global User & Membership (+ Role Value Object)               | ✅ Kabul edildi |
+| [0015](../adr/0015-tenant-resolution.md)           | Tenant Resolution — Hybrid (Custom Domain → Subdomain → JWT) | ✅ Kabul edildi |
+| [0016](../adr/0016-tenant-provisioning.md)         | Tenant Provisioning — Email verification önce                | ✅ Kabul edildi |
 
 ---
 
@@ -66,15 +66,15 @@ Bu, düzeltilebilir bir bug değildir. Gerçekleştiği anda güven kaybedilir, 
 
 Bu doküman şu soruları **kesin olarak** yanıtlamak için vardır:
 
-| Soru | Bölüm |
-|---|---|
-| Tenant nedir, sınırı nerede biter? | [§6](#6-tenant-model) |
-| Bir kullanıcı birden fazla şirkette çalışabilir mi? | [§7](#7-user--membership-model) |
-| Gelen isteğin hangi tenant'a ait olduğuna nasıl karar verilir? | [§8](#8-tenant-resolution-strategy) |
-| Yeni bir şirket sisteme nasıl girer? | [§9](#9-tenant-provisioning-flow) |
-| İzolasyon teknik olarak nasıl garanti edilir? | [§12](#12-postgresql-row-level-security-strategy) |
+| Soru                                                                  | Bölüm                                                                           |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Tenant nedir, sınırı nerede biter?                                    | [§6](#6-tenant-model)                                                           |
+| Bir kullanıcı birden fazla şirkette çalışabilir mi?                   | [§7](#7-user--membership-model)                                                 |
+| Gelen isteğin hangi tenant'a ait olduğuna nasıl karar verilir?        | [§8](#8-tenant-resolution-strategy)                                             |
+| Yeni bir şirket sisteme nasıl girer?                                  | [§9](#9-tenant-provisioning-flow)                                               |
+| İzolasyon teknik olarak nasıl garanti edilir?                         | [§12](#12-postgresql-row-level-security-strategy)                               |
 | Bir geliştirici yanlışlıkla tenant filtresi yazmayı unutursa ne olur? | [§12](#12-postgresql-row-level-security-strategy), [§13](#13-repository-design) |
-| Tenant context kurulamazsa sistem ne yapar? | [§16](#16-failure-handling) |
+| Tenant context kurulamazsa sistem ne yapar?                           | [§16](#16-failure-handling)                                                     |
 
 **Hedef okuyucu:** Bu kod tabanında iş modülü yazacak her geliştirici. Bir modül yazmadan önce bu doküman okunmuş sayılır.
 
@@ -100,13 +100,13 @@ Bu doküman şu soruları **kesin olarak** yanıtlamak için vardır:
 
 Aşağıdakiler ayrı dokümanlarda ele alınır; burada yalnızca tenant ile kesiştikleri noktada anılırlar.
 
-| Konu | Nerede |
-|---|---|
-| RBAC — rol, izin, policy değerlendirme | `ARCHITECTURE.md` §10.1, Faz 3 Authorization dokümanı |
-| Authentication akışı — login, token rotation, parola | ADR-0004, Faz 3 Identity dokümanı |
-| Faturalama, plan ve kota zorlaması | Faz 6 |
-| İş modüllerinin domain modelleri | İlgili modül dokümanları |
-| Deployment, hosting, DNS operasyonu | Faz 7 |
+| Konu                                                 | Nerede                                                |
+| ---------------------------------------------------- | ----------------------------------------------------- |
+| RBAC — rol, izin, policy değerlendirme               | `ARCHITECTURE.md` §10.1, Faz 3 Authorization dokümanı |
+| Authentication akışı — login, token rotation, parola | ADR-0004, Faz 3 Identity dokümanı                     |
+| Faturalama, plan ve kota zorlaması                   | Faz 6                                                 |
+| İş modüllerinin domain modelleri                     | İlgili modül dokümanları                              |
+| Deployment, hosting, DNS operasyonu                  | Faz 7                                                 |
 
 ---
 
@@ -114,26 +114,26 @@ Aşağıdakiler ayrı dokümanlarda ele alınır; burada yalnızca tenant ile ke
 
 ### Goals
 
-| # | Hedef | Nasıl ölçülür |
-|---|---|---|
-| G1 | **İzolasyon veritabanı seviyesinde zorunlu olsun.** Uygulama katmanındaki bir hata veri sızdırmasın. | Her tenant-scoped tablo için, tenant A'nın tenant B verisini okuyamadığını/yazamadığını kanıtlayan entegrasyon testi yeşil. |
-| G2 | **Tenant context'i unutmak imkânsız olsun.** Geliştirici `tenant_id` yazmayı unutursa sistem veri sızdırmaz — çalışmaz. | Context'siz sorgu boş sonuç veya hata döner; asla başka tenant'ın verisi dönmez. |
-| G3 | **Bir kullanıcı birden fazla tenant'ta çalışabilsin**, kimliğini tekrar oluşturmak zorunda kalmasın. | Tek `User` kaydı, N adet `Membership`. |
-| G4 | **Enterprise'a geçiş yeniden yazma gerektirmesin.** | Dedicated DB'ye geçiş yalnızca `TenantConnectionResolver` adapter'ını değiştirmekle olsun; business logic'te tek satır değişmesin. |
-| G5 | **Tenant sınırı denetlenebilir olsun.** | Tenant yaşam döngüsü olayları immutable audit kaydı üretir. |
-| G6 | **Yeni modül yazmak tenant güvenliğini yeniden düşünmeyi gerektirmesin.** | Modül, tenant-scoped repository tabanını kullanır; izolasyon "bedava" gelir. |
+| #   | Hedef                                                                                                                   | Nasıl ölçülür                                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | **İzolasyon veritabanı seviyesinde zorunlu olsun.** Uygulama katmanındaki bir hata veri sızdırmasın.                    | Her tenant-scoped tablo için, tenant A'nın tenant B verisini okuyamadığını/yazamadığını kanıtlayan entegrasyon testi yeşil.        |
+| G2  | **Tenant context'i unutmak imkânsız olsun.** Geliştirici `tenant_id` yazmayı unutursa sistem veri sızdırmaz — çalışmaz. | Context'siz sorgu boş sonuç veya hata döner; asla başka tenant'ın verisi dönmez.                                                   |
+| G3  | **Bir kullanıcı birden fazla tenant'ta çalışabilsin**, kimliğini tekrar oluşturmak zorunda kalmasın.                    | Tek `User` kaydı, N adet `Membership`.                                                                                             |
+| G4  | **Enterprise'a geçiş yeniden yazma gerektirmesin.**                                                                     | Dedicated DB'ye geçiş yalnızca `TenantConnectionResolver` adapter'ını değiştirmekle olsun; business logic'te tek satır değişmesin. |
+| G5  | **Tenant sınırı denetlenebilir olsun.**                                                                                 | Tenant yaşam döngüsü olayları immutable audit kaydı üretir.                                                                        |
+| G6  | **Yeni modül yazmak tenant güvenliğini yeniden düşünmeyi gerektirmesin.**                                               | Modül, tenant-scoped repository tabanını kullanır; izolasyon "bedava" gelir.                                                       |
 
 ### Non-Goals (V1'de bilinçli olarak yapılmıyor)
 
-| # | Yapılmayan | Neden | Ne zaman gündeme gelir |
-|---|---|---|---|
-| N1 | **Tenant hiyerarşisi / Organization entity** | Holding–bağlı şirket modeli, V1'de karşılığı olmayan bir karmaşıklık ekler: hiyerarşik RLS, devralınan roller, çapraz-tenant raporlama. Yanlış kurulursa geri alınması pahalıdır. (ADR-0013) | Gerçek bir holding müşterisi geldiğinde — [§17.1](#171-organization-katmanı) |
-| N2 | **Tenant başına ayrı veritabanı** | Birkaç yüz tenant'ta migration, yedekleme ve connection pool operasyonel olarak taşınamaz hâle gelir. (ADR-0002) | Veri ikametgâhı/izole yedekleme talebi — [§17.2](#172-dedicated-database-aşama-2) |
-| N3 | **Tenant başına ayrı schema** | Migration sayısı tenant sayısıyla büyür. (ADR-0002) | Gündeme alınmayacak |
-| N4 | **Çapraz tenant veri paylaşımı** | Bir tenant'ın verisini diğerine açan hiçbir mekanizma V1'de yoktur. İzolasyon mutlaktır. | [§17.3](#173-çapraz-tenant-i̇şbirliği) |
-| N5 | **Tenant başına özel şema/alan (custom fields)** | Şema esnekliği RLS ve migration disiplinini zorlaştırır. | Faz 5+, JSONB tabanlı |
-| N6 | **Self-service tenant silme** | Yıkıcı ve geri alınamaz; V1'de yalnızca arşivleme vardır, kalıcı silme operatör onayıyla yapılır. | [§6.4](#64-silme-ve-veri-saklama) |
-| N7 | **Kullanıcının aynı anda iki tenant'ta aktif olması** | Bir token, bir tenant. Eşzamanlı çok-tenant oturum, context sızıntısının en kolay yoludur. | Gündeme alınmayacak — [§7.4](#74-tenant-değiştirme-switching) |
+| #   | Yapılmayan                                            | Neden                                                                                                                                                                                        | Ne zaman gündeme gelir                                                            |
+| --- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| N1  | **Tenant hiyerarşisi / Organization entity**          | Holding–bağlı şirket modeli, V1'de karşılığı olmayan bir karmaşıklık ekler: hiyerarşik RLS, devralınan roller, çapraz-tenant raporlama. Yanlış kurulursa geri alınması pahalıdır. (ADR-0013) | Gerçek bir holding müşterisi geldiğinde — [§17.1](#171-organization-katmanı)      |
+| N2  | **Tenant başına ayrı veritabanı**                     | Birkaç yüz tenant'ta migration, yedekleme ve connection pool operasyonel olarak taşınamaz hâle gelir. (ADR-0002)                                                                             | Veri ikametgâhı/izole yedekleme talebi — [§17.2](#172-dedicated-database-aşama-2) |
+| N3  | **Tenant başına ayrı schema**                         | Migration sayısı tenant sayısıyla büyür. (ADR-0002)                                                                                                                                          | Gündeme alınmayacak                                                               |
+| N4  | **Çapraz tenant veri paylaşımı**                      | Bir tenant'ın verisini diğerine açan hiçbir mekanizma V1'de yoktur. İzolasyon mutlaktır.                                                                                                     | [§17.3](#173-çapraz-tenant-i̇şbirliği)                                             |
+| N5  | **Tenant başına özel şema/alan (custom fields)**      | Şema esnekliği RLS ve migration disiplinini zorlaştırır.                                                                                                                                     | Faz 5+, JSONB tabanlı                                                             |
+| N6  | **Self-service tenant silme**                         | Yıkıcı ve geri alınamaz; V1'de yalnızca arşivleme vardır, kalıcı silme operatör onayıyla yapılır.                                                                                            | [§6.4](#64-silme-ve-veri-saklama)                                                 |
+| N7  | **Kullanıcının aynı anda iki tenant'ta aktif olması** | Bir token, bir tenant. Eşzamanlı çok-tenant oturum, context sızıntısının en kolay yoludur.                                                                                                   | Gündeme alınmayacak — [§7.4](#74-tenant-değiştirme-switching)                     |
 
 ---
 
@@ -174,10 +174,10 @@ Katman 1 bir *disiplin*dir ve unutulabilir. Katman 2 bir *garanti*dir ve unutula
 
 ### P5 — Tenant sınırı ile yetki sınırı ayrı katmanlardır
 
-| Soru | Cevaplayan |
-|---|---|
-| Bu veri hangi tenant'a ait? | **RLS** |
-| Bu kullanıcı bu veriye ne yapabilir? | **RBAC** |
+| Soru                                 | Cevaplayan |
+| ------------------------------------ | ---------- |
+| Bu veri hangi tenant'a ait?          | **RLS**    |
+| Bu kullanıcı bu veriye ne yapabilir? | **RBAC**   |
 
 Biri diğerinin yerine geçmez, biri diğerini gereksiz kılmaz. RLS geçmiş bir sorgu hâlâ RBAC'e takılabilir; RBAC geçmiş bir işlem hâlâ RLS'e takılır.
 
@@ -199,14 +199,14 @@ ARCHITECTURE.md'nin yön veren cümlesi burada da geçerlidir. V1 sade tutulur (
 
 ### 5.1 Kavramlar
 
-| Kavram | Tanım | Modül |
-|---|---|---|
-| **Tenant** | İzolasyon, faturalama ve yönetim sınırı. Bir şirkete karşılık gelir. | Tenant |
-| **User** | Sistemdeki bir insan. Tenant'lardan **bağımsız**, global bir kimlik. | Identity |
-| **Membership** | Bir `User`'ın bir `Tenant` içindeki üyeliği. Rol ve durum burada yaşar. | Tenant ↔ Identity köprüsü |
-| **TenantDomain** | Bir tenant'a ait doğrulanmış custom domain. | Tenant |
-| **Invitation** | Bir kullanıcıyı tenant'a davet eden, süreli ve tek kullanımlık kayıt. | Tenant |
-| **TenantContext** | Bir isteğin/işin çalıştığı tenant kimliği. Persist edilmez; runtime kavramıdır. | Platform |
+| Kavram            | Tanım                                                                           | Modül                     |
+| ----------------- | ------------------------------------------------------------------------------- | ------------------------- |
+| **Tenant**        | İzolasyon, faturalama ve yönetim sınırı. Bir şirkete karşılık gelir.            | Tenant                    |
+| **User**          | Sistemdeki bir insan. Tenant'lardan **bağımsız**, global bir kimlik.            | Identity                  |
+| **Membership**    | Bir `User`'ın bir `Tenant` içindeki üyeliği. Rol ve durum burada yaşar.         | Tenant ↔ Identity köprüsü |
+| **TenantDomain**  | Bir tenant'a ait doğrulanmış custom domain.                                     | Tenant                    |
+| **Invitation**    | Bir kullanıcıyı tenant'a davet eden, süreli ve tek kullanımlık kayıt.           | Tenant                    |
+| **TenantContext** | Bir isteğin/işin çalıştığı tenant kimliği. Persist edilmez; runtime kavramıdır. | Platform                  |
 
 ### 5.2 İlişki diyagramı
 
@@ -278,11 +278,11 @@ erDiagram
 
 Bir tenant, tam olarak **bir şirkete** karşılık gelir. Tenant aynı anda üç sınırın kesişimidir:
 
-| Sınır | Anlamı |
-|---|---|
-| **İzolasyon sınırı** | Veri buradan dışarı çıkmaz |
-| **Faturalama sınırı** | Plan, kota ve fatura buraya kesilir |
-| **Yönetim sınırı** | Roller, davetler ve ayarlar burada tanımlanır |
+| Sınır                 | Anlamı                                        |
+| --------------------- | --------------------------------------------- |
+| **İzolasyon sınırı**  | Veri buradan dışarı çıkmaz                    |
+| **Faturalama sınırı** | Plan, kota ve fatura buraya kesilir           |
+| **Yönetim sınırı**    | Roller, davetler ve ayarlar burada tanımlanır |
 
 Bu üçünün **aynı** sınır olması, modelin tüm sadeliğinin kaynağıdır. Ayrıştıkları an (örneğin "bir fatura, üç izolasyon alanı") hiyerarşi kaçınılmaz olur.
 
@@ -306,11 +306,11 @@ Kimlik globaldir, üyelik tenant-scoped'tur. Bu ayrım [§7](#7-user--membership
 
 ### 6.1 Kimlik alanları
 
-| Alan | Rol | Değişebilir mi | Kural |
-|---|---|---|---|
-| `id` (UUIDv7) | **Kalıcı teknik kimlik.** RLS anahtarı, tüm FK'ların hedefi, JWT claim'i. | ❌ Asla | Dışarıya sızabilir ama tek başına yetki vermez |
-| `slug` | Subdomain etiketi (`acme` → `acme.businessos.app`). Routing ve branding. | ⚠️ Kontrollü | Global tekil, DNS-safe, rezerve liste dışı |
-| `customDomain` | Tenant'ın kendi alan adı (`app.acme.com`). | ✅ Evet | Doğrulanmadan aktif olmaz ([§8.3](#83-custom-domain-doğrulaması)) |
+| Alan           | Rol                                                                       | Değişebilir mi | Kural                                                             |
+| -------------- | ------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------- |
+| `id` (UUIDv7)  | **Kalıcı teknik kimlik.** RLS anahtarı, tüm FK'ların hedefi, JWT claim'i. | ❌ Asla        | Dışarıya sızabilir ama tek başına yetki vermez                    |
+| `slug`         | Subdomain etiketi (`acme` → `acme.businessos.app`). Routing ve branding.  | ⚠️ Kontrollü   | Global tekil, DNS-safe, rezerve liste dışı                        |
+| `customDomain` | Tenant'ın kendi alan adı (`app.acme.com`).                                | ✅ Evet        | Doğrulanmadan aktif olmaz ([§8.3](#83-custom-domain-doğrulaması)) |
 
 > **Kritik ayrım:** `slug` ve `customDomain` **routing kimlikleridir**, güvenlik kimliği değil. Veri erişimi daima `id` üzerinden, daima JWT'den gelen değerle yapılır. `slug` değişse bile hiçbir veri satırı etkilenmez — çünkü hiçbir satır `slug`'a bağlı değildir.
 
@@ -355,13 +355,13 @@ stateDiagram-v2
 
 ### 6.3 Durumların erişim etkisi
 
-| Durum | Login | Veri okuma | Veri yazma | Arka plan işleri |
-|---|:---:|:---:|:---:|:---:|
-| `provisioning` | ❌ | ❌ | ❌ (yalnız provisioning işi) | ❌ |
-| `active` | ✅ | ✅ | ✅ | ✅ |
-| `suspended` | ❌ | ⚠️ yalnız dışa aktarım | ❌ | ❌ |
-| `archived` | ❌ | ❌ | ❌ | ❌ |
-| `failed` | ❌ | ❌ | ❌ | ❌ |
+| Durum          | Login |       Veri okuma       |          Veri yazma          | Arka plan işleri |
+| -------------- | :---: | :--------------------: | :--------------------------: | :--------------: |
+| `provisioning` |  ❌   |           ❌           | ❌ (yalnız provisioning işi) |        ❌        |
+| `active`       |  ✅   |           ✅           |              ✅              |        ✅        |
+| `suspended`    |  ❌   | ⚠️ yalnız dışa aktarım |              ❌              |        ❌        |
+| `archived`     |  ❌   |           ❌           |              ❌              |        ❌        |
+| `failed`       |  ❌   |           ❌           |              ❌              |        ❌        |
 
 `failed`, provisioning'in asenkron tamamlama adımı başarısız olduğunda oluşur ([ADR-0016](../adr/0016-tenant-provisioning.md)) ve **terminaldir**: oradan çıkış yoktur, kayıt bir telafi işiyle silinir ve slug serbest bırakılır. Erişim açısından `archived` ile aynıdır — hiçbir yol açık değildir.
 
@@ -421,9 +421,9 @@ flowchart LR
 
 **Sözleşme**
 
-| Katman | Kural |
-|---|---|
-| `User` | Global tekil `email`. Parola, MFA, e-posta doğrulaması burada. **Rol taşımaz.** |
+| Katman       | Kural                                                                            |
+| ------------ | -------------------------------------------------------------------------------- |
+| `User`       | Global tekil `email`. Parola, MFA, e-posta doğrulaması burada. **Rol taşımaz.**  |
 | `Membership` | `(tenant_id, user_id)` üzerinde tekil. Rol ve üyelik durumu **yalnızca burada**. |
 
 > **Neden `User` rol taşımaz:** Rol tenant'a görelidir. Aynı kişi bir tenant'ta `owner`, diğerinde `viewer` olabilir. Rolü `User`'a koymak, bu iki bağlamı birbirine karıştırır — ve karıştığı gün yetki yükseltmeye dönüşür.
@@ -461,11 +461,11 @@ Yalnızca `active` üyelik erişim verir. `invited`, `suspended`, `revoked` duru
 
 Global `User` tablosu, tasarımın en dikkat isteyen noktasıdır: kimlik globaldir ama **tenant'lar birbirinin kullanıcı listesini görmemelidir**.
 
-| Risk | Önlem |
-|---|---|
+| Risk                                                                          | Önlem                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tenant A, `users` tablosunu okuyup tüm platformun kullanıcı listesini çıkarır | `users` doğrudan sorgulanmaz. Kullanıcı listeleme daima `memberships` üzerinden başlar (tenant-scoped, RLS korumalı) ve `users`'a yalnızca `JOIN` ile ulaşır. Bkz. [§12.4](#124-platform-tabloları--i̇stisna-listesi) |
-| Davet akışı, bir e-postanın platformda kayıtlı olup olmadığını sızdırır | Davet yanıtı **daima aynıdır**: "davet gönderildi". Kullanıcının var olup olmadığı istemciye bildirilmez. |
-| Login akışı, e-posta varlığını sızdırır | Hatalı kimlik bilgisi yanıtı e-posta ve parola için ayırt edilemez; yanıt süresi sabitlenir. |
+| Davet akışı, bir e-postanın platformda kayıtlı olup olmadığını sızdırır       | Davet yanıtı **daima aynıdır**: "davet gönderildi". Kullanıcının var olup olmadığı istemciye bildirilmez.                                                                                                            |
+| Login akışı, e-posta varlığını sızdırır                                       | Hatalı kimlik bilgisi yanıtı e-posta ve parola için ayırt edilemez; yanıt süresi sabitlenir.                                                                                                                         |
 
 ### 7.4 Tenant değiştirme (switching)
 
@@ -473,12 +473,12 @@ Global `User` tablosu, tasarımın en dikkat isteyen noktasıdır: kimlik global
 
 Bunun doğrudan sonucu **iki aşamalı token modelidir** ([`AUTH_ARCHITECTURE.md` §10.1](AUTH_ARCHITECTURE.md), ADR-0020):
 
-| Aşama | Token | `tenant` claim'i | Ne yapabilir |
-|---|---|:---:|---|
-| 1 — giriş | **Kimlik token'ı** | ❌ yok | Yalnızca "hangi tenant'lara üyeyim" ve tenant seçimi |
-| 2 — seçim | **Tenant-scoped access token** | ✅ var | Tenant verisine erişim |
+| Aşama     | Token                          | `tenant` claim'i | Ne yapabilir                                         |
+| --------- | ------------------------------ | :--------------: | ---------------------------------------------------- |
+| 1 — giriş | **Kimlik token'ı**             |      ❌ yok      | Yalnızca "hangi tenant'lara üyeyim" ve tenant seçimi |
+| 2 — seçim | **Tenant-scoped access token** |      ✅ var      | Tenant verisine erişim                               |
 
-**Neden iki aşama:** Kullanıcı birden fazla tenant'a üye olabilir ([ADR-0014](../adr/0014-global-user-membership.md)) ve giriş anında hangisini istediği **bilinmez**. Tek aşama olsaydı ya giriş bir tenant *tahmin etmek* zorunda kalırdı ya da tenant kimliği token dışından — yani `Host` başlığından — gelirdi. İkincisi [P1](#p1--tenant-kimliğinin-tek-meşru-kaynağı-doğrulanmış-jwt-claimidir)'in doğrudan ihlalidir.
+**Neden iki aşama:** Kullanıcı birden fazla tenant'a üye olabilir ([ADR-0014](../adr/0014-global-user-membership.md)) ve giriş anında hangisini istediği **bilinmez**. Tek aşama olsaydı ya giriş bir tenant _tahmin etmek_ zorunda kalırdı ya da tenant kimliği token dışından — yani `Host` başlığından — gelirdi. İkincisi [P1](#p1--tenant-kimliğinin-tek-meşru-kaynağı-doğrulanmış-jwt-claimidir)'in doğrudan ihlalidir.
 
 > Model, "token tenant **seçmez**" ile "token tenant **taşır**" ifadelerini uzlaştırır: seçimi yapan token değil, **membership doğrulamasıdır**; token yalnızca doğrulanmış sonucu taşır.
 
@@ -510,8 +510,9 @@ sequenceDiagram
 **Kritik kural:** Tenant değişimi **sunucuda** üyelik doğrulamasından geçer. İstemcinin gönderdiği `tenantId` bir *talep*tir, karar değil. Yeni token yalnızca doğrulama başarılıysa üretilir.
 
 > **Uygulandı (2026-07-23).** `POST /api/v1/auth/switch-tenant` çalışıyor. Akış, iki modülün orkestrasyonu olduğu için ne Identity ne Tenant içinde — `platform/session` modülünde yaşar ve ikisini de public arayüzlerinden tüketir (Identity↔Tenant döngüsü bu yolla önlendi; `forwardRef` yok). Uygulama diyagramdan iki noktada bilinçli olarak ayrılır:
-> - **Kimlik token'ı** kullanılır, refresh token değil: switch-tenant kimlik oturumunu tenant'a scope eder, oturumu *yenilemez*. `userId` ve `sessionId`, auth middleware'inin doğruladığı kimlik token'ından gelir; refresh token rotasyona uğramaz.
-> - **Access token'a `role` claim'i KONMAZ** ([`AUTH_ARCHITECTURE.md` §10.3](AUTH_ARCHITECTURE.md), [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)): token bir *iddia* taşır, *yetki* değil. Rol, `TENANT_ACCESS_QUERY` tarafından çözülür ve her istekte kaynaktan yeniden doğrulanır; token'a gömmek onu bayatlatırdı. (Yukarıdaki diagram v1.9'dan kalma "role claim" ifadesi bu ilkeyle çelişir; **kod doğru, diyagram notu eskidir**.)
+>
+> - **Kimlik token'ı** kullanılır, refresh token değil: switch-tenant kimlik oturumunu tenant'a scope eder, oturumu _yenilemez_. `userId` ve `sessionId`, auth middleware'inin doğruladığı kimlik token'ından gelir; refresh token rotasyona uğramaz.
+> - **Access token'a `role` claim'i KONMAZ** ([`AUTH_ARCHITECTURE.md` §10.3](AUTH_ARCHITECTURE.md), [P3](#p3--token-bir-iddia-taşır-yetki-taşımaz)): token bir _iddia_ taşır, _yetki_ değil. Rol, `TENANT_ACCESS_QUERY` tarafından çözülür ve her istekte kaynaktan yeniden doğrulanır; token'a gömmek onu bayatlatırdı. (Yukarıdaki diagram v1.9'dan kalma "role claim" ifadesi bu ilkeyle çelişir; **kod doğru, diyagram notu eskidir**.)
 
 Eşzamanlı çok-tenant oturum ([N7](#non-goals-v1de-bilinçli-olarak-yapılmıyor)) desteklenmez: iki tenant'ta aynı anda "aktif" olmak, `AsyncLocalStorage` context'inin hangi tenant'a ait olduğunu belirsizleştirir ve sızıntının en kolay yolunu açar.
 
@@ -521,11 +522,11 @@ Rol `Membership` üzerinde yaşar ([§7.1](#71-neden-global-user-adr-0014)). V1'
 
 Ancak **rol persistence'ta enum, domain'de value object'tir**:
 
-| Katman | Temsil |
-|---|---|
-| Domain / Application | `Role` **value object** |
-| Persistence | `string` / `enum` kolon |
-| Gelecek | `roles` tablosuna minimum kırılımla geçiş |
+| Katman               | Temsil                                    |
+| -------------------- | ----------------------------------------- |
+| Domain / Application | `Role` **value object**                   |
+| Persistence          | `string` / `enum` kolon                   |
+| Gelecek              | `roles` tablosuna minimum kırılımla geçiş |
 
 **Neden VO:** `ARCHITECTURE.md` §10.1'in nihai vizyonu tenant-scoped, veri-tabanlı rollerdir — her tenant kendi rollerini tanımlar. V1'de bu karmaşıklığı üstlenmiyoruz ([ADR-0013](../adr/0013-organization-strategy.md) ile aynı "gereksiz karmaşıklığı erteleme" ilkesi). Rolü en baştan VO olarak modellemek, ileride `enum → roles` tablosu FK geçişini **business logic'e dokunmadan** yapılabilir kılar; yalnızca persistence adapter'ı değişir.
 
@@ -547,10 +548,10 @@ Karar kaydı: [ADR-0014](../adr/0014-global-user-membership.md).
 
 Tenant resolution, birbirine benzeyen ama **tamamen farklı** iki sorunun cevabıdır:
 
-| # | Soru | Kaynak | Güven seviyesi |
-|---|---|---|---|
-| 1 | Bu istek hangi tenant'ın *arayüzüne* geldi? | `Host` başlığı (custom domain / subdomain) | ⚠️ **Güvenilmez** — istemci kontrolünde |
-| 2 | Bu istek hangi tenant'ın *verisine* erişebilir? | Doğrulanmış JWT claim + membership | ✅ **Güvenlik sınırı** |
+| #   | Soru                                            | Kaynak                                     | Güven seviyesi                          |
+| --- | ----------------------------------------------- | ------------------------------------------ | --------------------------------------- |
+| 1   | Bu istek hangi tenant'ın _arayüzüne_ geldi?     | `Host` başlığı (custom domain / subdomain) | ⚠️ **Güvenilmez** — istemci kontrolünde |
+| 2   | Bu istek hangi tenant'ın _verisine_ erişebilir? | Doğrulanmış JWT claim + membership         | ✅ **Güvenlik sınırı**                  |
 
 Soru 1'in cevabı branding ve routing içindir. **Tek başına hiçbir veri açmaz.** Soru 2'nin cevabı tek yetki kaynağıdır.
 
@@ -657,17 +658,17 @@ sequenceDiagram
 
 ### 8.4 Neden bu zincir — ve dürüst bedeli
 
-| Avantaj | |
-|---|---|
-| Güvenlik sınırı tek yerde | Yalnızca JWT. Host manipülasyonu hiçbir kapı açmaz. |
-| Enterprise beklentisi karşılanır | Custom domain kurumsal satışta sık bir taleptir. |
+| Avantaj                                |                                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Güvenlik sınırı tek yerde              | Yalnızca JWT. Host manipülasyonu hiçbir kapı açmaz.                                          |
+| Enterprise beklentisi karşılanır       | Custom domain kurumsal satışta sık bir taleptir.                                             |
 | Yanlış-tenant hataları erken yakalanır | Host ↔ claim uyuşmazlığı 403 üretir ve loglanır — token çalınmasının erken sinyali olabilir. |
-| Domain'siz istemciler desteklenir | Mobil/API istemcisi apex domain'den gelir; hint yoktur, JWT tek başına yeter. |
+| Domain'siz istemciler desteklenir      | Mobil/API istemcisi apex domain'den gelir; hint yoktur, JWT tek başına yeter.                |
 
-| Dezavantaj / bedel | |
-|---|---|
-| Operasyonel yük | Wildcard DNS + wildcard TLS + custom domain başına sertifika sağlama. |
-| Cache anahtarları Host'a duyarlı | CDN/edge cache tenant'lar arası karışabilir; `Vary: Host` ve tenant'lı cache anahtarı zorunlu. |
+| Dezavantaj / bedel                       |                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Operasyonel yük                          | Wildcard DNS + wildcard TLS + custom domain başına sertifika sağlama.                                                                |
+| Cache anahtarları Host'a duyarlı         | CDN/edge cache tenant'lar arası karışabilir; `Vary: Host` ve tenant'lı cache anahtarı zorunlu.                                       |
 | Çapraz kontrol yanlış pozitif üretebilir | Kullanıcı tenant değiştirip eski sekmede işlem yaparsa 403 alır. UX'te "oturumunuz başka bir tenant'a geçti" olarak ele alınmalıdır. |
 
 ---
@@ -680,14 +681,14 @@ sequenceDiagram
 
 Doğrulanmamış bir e-posta ile tenant açılırsa:
 
-| Risk | Sonuç |
-|---|---|
-| Bot kaydı | Çöp tenant'lar, tüketilmiş slug'lar, şişmiş veritabanı |
-| Başkasının e-postasıyla kayıt | Gerçek sahip sisteme girdiğinde e-postası "alınmış" olur |
-| Slug squatting | Değerli slug'lar sahte kayıtlarla rezerve edilir |
-| Sahipsiz tenant | `owner` rolü, erişilemeyen bir e-postaya bağlı kalır — kurtarma yolu yok |
+| Risk                          | Sonuç                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| Bot kaydı                     | Çöp tenant'lar, tüketilmiş slug'lar, şişmiş veritabanı                   |
+| Başkasının e-postasıyla kayıt | Gerçek sahip sisteme girdiğinde e-postası "alınmış" olur                 |
+| Slug squatting                | Değerli slug'lar sahte kayıtlarla rezerve edilir                         |
+| Sahipsiz tenant               | `owner` rolü, erişilemeyen bir e-postaya bağlı kalır — kurtarma yolu yok |
 
-Bunların hepsi *sonradan temizlenebilir* görünür. Değildir: tenant açıldığı anda veri, davet ve fatura kaydı doğurur.
+Bunların hepsi _sonradan temizlenebilir_ görünür. Değildir: tenant açıldığı anda veri, davet ve fatura kaydı doğurur.
 
 > **Kural:** `Tenant` kaydı, `User.emailVerified == true` olmadan **oluşturulmaz**. Doğrulama öncesi var olan tek kayıt `User`'dır ve o kullanıcının hiçbir tenant'a erişimi yoktur.
 
@@ -774,12 +775,12 @@ sequenceDiagram
 
 ### 9.3 Transaction sınırları
 
-| Adım | Sınır | Gerekçe |
-|---|---|---|
-| Tenant + owner Membership + outbox kaydı | **Tek transaction** | Sahipsiz tenant asla var olamaz. Bu atomiklik pazarlık konusu değildir. |
-| Storage/search/örnek veri hazırlığı | Ayrı, asenkron, idempotent | Dış sistem çağrısı DB transaction'ını uzatamaz. |
-| Slug tekilliği | **Veritabanı unique index** | Uygulama seviyesinde "önce kontrol et sonra yaz" bir yarış koşuludur. Kısıt ihlali yakalanıp 409'a çevrilir. |
-| Slug nezaket kontrolü (`existsBySlug`) | **Aynı transaction'ın içinde** | Repository çağrıları aktif transaction gerektirir ([§11.4](#114-zorunlu-kurallar) kural 2). Ayrıntı: [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
+| Adım                                     | Sınır                          | Gerekçe                                                                                                                                                          |
+| ---------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tenant + owner Membership + outbox kaydı | **Tek transaction**            | Sahipsiz tenant asla var olamaz. Bu atomiklik pazarlık konusu değildir.                                                                                          |
+| Storage/search/örnek veri hazırlığı      | Ayrı, asenkron, idempotent     | Dış sistem çağrısı DB transaction'ını uzatamaz.                                                                                                                  |
+| Slug tekilliği                           | **Veritabanı unique index**    | Uygulama seviyesinde "önce kontrol et sonra yaz" bir yarış koşuludur. Kısıt ihlali yakalanıp 409'a çevrilir.                                                     |
+| Slug nezaket kontrolü (`existsBySlug`)   | **Aynı transaction'ın içinde** | Repository çağrıları aktif transaction gerektirir ([§11.4](#114-zorunlu-kurallar) kural 2). Ayrıntı: [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
 
 > **Nezaket kontrolü neden transaction'ın içinde.** İlk implementasyonda kontrol transaction'dan **önce** yapılıyordu; bu, [§11.4](#114-zorunlu-kurallar) kural 2 ile çelişti: `SET LOCAL`'sız bir bağlantıda çalışan sorgu ya RLS'e takılır ya da filtresiz çalışır, ve ikincisi tüm veritabanını açar. Bu yüzden repository havuza düşmez, **hata fırlatır**.
 >
@@ -841,16 +842,16 @@ flowchart TD
 
 ### 10.1 Adım kuralları
 
-| Adım | Kritik kural |
-|---|---|
-| 2 · Tenant Resolver | Host **yetki kaynağı değildir**. Tek başına hiçbir veri erişimi açamaz. |
-| 3 · Authentication | `tenant_id`'nin tek meşru kaynağı doğrulanmış JWT claim'idir. Header/body/query'den **asla** alınmaz. |
-| 4 · Tenant Context | Üç kontrol de burada: çapraz kontrol, membership, tenant durumu. Use case'lerin tekrar kontrol etmesi beklenmez. |
-| 5 · Authorization | Controller'da dağınık `if` yasak. Karar merkezî policy engine'de. |
-| 6 · Validation | Doğrulama **yetkilendirmeden sonra** çalışır: yetkisiz kullanıcıya şema detayı sızdırılmaz. |
-| 7 · Use Case | Transaction sınırı burasıdır. Repository kendi başına transaction açmaz. |
-| 8 · Repository | Metot imzasında `tenantId` **bulunmaz**. Context'ten gelir. Bkz. [§13](#13-repository-design) |
-| 11 · Response | Domain nesnesi serialize edilmez — sızıntı yüzeyi budur. |
+| Adım                | Kritik kural                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 2 · Tenant Resolver | Host **yetki kaynağı değildir**. Tek başına hiçbir veri erişimi açamaz.                                          |
+| 3 · Authentication  | `tenant_id`'nin tek meşru kaynağı doğrulanmış JWT claim'idir. Header/body/query'den **asla** alınmaz.            |
+| 4 · Tenant Context  | Üç kontrol de burada: çapraz kontrol, membership, tenant durumu. Use case'lerin tekrar kontrol etmesi beklenmez. |
+| 5 · Authorization   | Controller'da dağınık `if` yasak. Karar merkezî policy engine'de.                                                |
+| 6 · Validation      | Doğrulama **yetkilendirmeden sonra** çalışır: yetkisiz kullanıcıya şema detayı sızdırılmaz.                      |
+| 7 · Use Case        | Transaction sınırı burasıdır. Repository kendi başına transaction açmaz.                                         |
+| 8 · Repository      | Metot imzasında `tenantId` **bulunmaz**. Context'ten gelir. Bkz. [§13](#13-repository-design)                    |
+| 11 · Response       | Domain nesnesi serialize edilmez — sızıntı yüzeyi budur.                                                         |
 
 ### 10.2 HTTP dışı giriş noktaları
 
@@ -882,23 +883,23 @@ flowchart LR
 
 Tenant kimliğini her fonksiyona parametre olarak taşımak teoride en açık yoldur; pratikte **unutulur**. Node.js'te `AsyncLocalStorage`, bir async çağrı ağacının tamamına görünmez ama güvenilir bir bağlam taşır.
 
-| Alternatif | Neden seçilmedi |
-|---|---|
-| Her metoda `tenantId` parametresi | 40 katman derinlikte bir çağrı zincirinde bir yerde unutulur; unutulduğu yer sızıntıdır |
-| NestJS `REQUEST` scoped provider | Her istekte DI ağacını yeniden kurar (performans); HTTP dışı işlerde (cron/queue) çalışmaz |
-| Global değişken | Eşzamanlı isteklerde tenant'lar birbirine karışır — kabul edilemez |
+| Alternatif                        | Neden seçilmedi                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| Her metoda `tenantId` parametresi | 40 katman derinlikte bir çağrı zincirinde bir yerde unutulur; unutulduğu yer sızıntıdır    |
+| NestJS `REQUEST` scoped provider  | Her istekte DI ağacını yeniden kurar (performans); HTTP dışı işlerde (cron/queue) çalışmaz |
+| Global değişken                   | Eşzamanlı isteklerde tenant'lar birbirine karışır — kabul edilemez                         |
 
 ### 11.2 Context içeriği
 
 `TenantContext` **immutable**'dır. Bir kez kurulur, istek boyunca değişmez.
 
-| Alan | Açıklama |
-|---|---|
-| `tenantId` | Doğrulanmış JWT claim'inden. RLS anahtarı. |
-| `userId` | Eylemi yapan kullanıcı. |
-| `role` | Kullanıcının bu tenant'taki rolü (membership'ten). |
-| `correlationId` | İstek/iş izleme kimliği. |
-| `source` | `http` · `job` · `outbox` — denetim ve hata ayıklama için. |
+| Alan            | Açıklama                                                   |
+| --------------- | ---------------------------------------------------------- |
+| `tenantId`      | Doğrulanmış JWT claim'inden. RLS anahtarı.                 |
+| `userId`        | Eylemi yapan kullanıcı.                                    |
+| `role`          | Kullanıcının bu tenant'taki rolü (membership'ten).         |
+| `correlationId` | İstek/iş izleme kimliği.                                   |
+| `source`        | `http` · `job` · `outbox` — denetim ve hata ayıklama için. |
 
 > Context **salt-okunurdur**. Middleware'den sonra hiçbir katman `tenantId` değiştiremez. "Bu use case için tenant'ı değiştir" ihtiyacı doğuyorsa tasarım yanlıştır — o iş ayrı bir context ile çalıştırılır.
 
@@ -943,14 +944,14 @@ sequenceDiagram
 
 ### 11.4 Zorunlu kurallar
 
-| # | Kural | İhlalin sonucu |
-|---|---|---|
-| 1 | `SET LOCAL` kullanılır, `SET` **yasaktır** | Bağlantı havuza döner, sonraki tenant önceki tenant'ın kimliğiyle sorgu çalıştırır → doğrudan sızıntı |
-| 2 | Context olmadan bağlantı alınamaz | Filtresiz sorgu → tüm veritabanı açılır |
-| 3 | Context yoksa **hata** fırlatılır, boş sonuç dönülmez | Sessiz boş sonuç, hatayı üretimde aylarca gizler |
-| 4 | Tek transaction içinde tek tenant | Çapraz-tenant yazma |
-| 5 | `tenantId` context'e yazıldıktan sonra değiştirilemez | Yetki yükseltme |
-| 6 | Havuzdan alınan her bağlantı `SET LOCAL` almadan sorgu çalıştıramaz | RLS `current_setting` bulunamayınca ya hata verir ya boş döner — ikisi de üretimde sürpriz |
+| #   | Kural                                                               | İhlalin sonucu                                                                                        |
+| --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1   | `SET LOCAL` kullanılır, `SET` **yasaktır**                          | Bağlantı havuza döner, sonraki tenant önceki tenant'ın kimliğiyle sorgu çalıştırır → doğrudan sızıntı |
+| 2   | Context olmadan bağlantı alınamaz                                   | Filtresiz sorgu → tüm veritabanı açılır                                                               |
+| 3   | Context yoksa **hata** fırlatılır, boş sonuç dönülmez               | Sessiz boş sonuç, hatayı üretimde aylarca gizler                                                      |
+| 4   | Tek transaction içinde tek tenant                                   | Çapraz-tenant yazma                                                                                   |
+| 5   | `tenantId` context'e yazıldıktan sonra değiştirilemez               | Yetki yükseltme                                                                                       |
+| 6   | Havuzdan alınan her bağlantı `SET LOCAL` almadan sorgu çalıştıramaz | RLS `current_setting` bulunamayınca ya hata verir ya boş döner — ikisi de üretimde sürpriz            |
 
 > **Bilinen tuzak:** Manuel `pool.connect()` ile alınan ve transaction açmadan kullanılan bağlantı, `SET LOCAL`'ın kapsamı dışında kalır. Bu yüzden bağlantı erişimi **yalnızca** transaction manager üzerinden yapılır; ham havuz erişimi lint kuralıyla engellenir.
 
@@ -999,12 +1000,12 @@ flowchart TD
 
 Bağlantı dizeleri de bu ayrımı yansıtır: uygulama runtime'ı `DATABASE_URL` (→ `businessos_app`), migration hattı `DATABASE_MIGRATION_URL` (→ `businessos_owner`) kullanır. Uygulama, migration bağlantı dizesini **asla görmez**.
 
-| Kural | |
-|---|---|
-| Uygulama **asla** tablo sahibi rolle bağlanmaz | `businessos_app` ≠ `businessos_owner` |
-| Her iki rol de `BYPASSRLS` yetkisi **taşımaz** | İkisi de `NOBYPASSRLS` ile yaratılır |
-| `businessos_app` süper kullanıcı **değildir** | Süper kullanıcı RLS'i atlar |
-| Bu ayrım **test edilir** | Bir entegrasyon testi, uygulama rolünün RLS'e tabi olduğunu doğrular |
+| Kural                                          |                                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| Uygulama **asla** tablo sahibi rolle bağlanmaz | `businessos_app` ≠ `businessos_owner`                                |
+| Her iki rol de `BYPASSRLS` yetkisi **taşımaz** | İkisi de `NOBYPASSRLS` ile yaratılır                                 |
+| `businessos_app` süper kullanıcı **değildir**  | Süper kullanıcı RLS'i atlar                                          |
+| Bu ayrım **test edilir**                       | Bir entegrasyon testi, uygulama rolünün RLS'e tabi olduğunu doğrular |
 
 > **`NOBYPASSRLS` yeterli değildir — nüans önemli.** `businessos_owner` da `NOBYPASSRLS` ile yaratılmıştır, ama bu onu RLS'e tabi kılmaz: sahip rol politikaları **`BYPASSRLS` yetkisiyle değil, tablo sahipliğiyle** atlar. `FORCE ROW LEVEL SECURITY` tam olarak bu boşluğu kapatmak için vardır ([§12.2](#122-politika-standardı)).
 >
@@ -1024,11 +1025,11 @@ CREATE POLICY tenant_isolation ON <schema>.<table>
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
 
-| Parça | Neden zorunlu |
-|---|---|
-| `ENABLE` | Politikayı devreye alır |
-| `FORCE` | **Tablo sahibi için de** uygular. Olmadan sahip rol politikayı atlar. |
-| `USING` | **Okumayı** korur — `SELECT`, `UPDATE`/`DELETE`'in hedef satır seçimi |
+| Parça        | Neden zorunlu                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `ENABLE`     | Politikayı devreye alır                                                                    |
+| `FORCE`      | **Tablo sahibi için de** uygular. Olmadan sahip rol politikayı atlar.                      |
+| `USING`      | **Okumayı** korur — `SELECT`, `UPDATE`/`DELETE`'in hedef satır seçimi                      |
 | `WITH CHECK` | **Yazmayı** korur — `INSERT` ve `UPDATE` sonrası satırın hâlâ tenant'a ait olmasını zorlar |
 
 > `WITH CHECK` olmadan bir kullanıcı, kendi tenant'ındaki satırın `tenant_id`'sini başka bir tenant'a **taşıyabilir**. Bu, sızıntının tersidir ama aynı derecede yıkıcıdır. İkisi de zorunludur.
@@ -1037,31 +1038,31 @@ CREATE POLICY tenant_isolation ON <schema>.<table>
 
 Her tenant-scoped tablo:
 
-| Gereklilik | Detay |
-|---|---|
-| `tenant_id uuid NOT NULL` | Nullable olamaz — `NULL` politikayı belirsizleştirir |
-| `REFERENCES platform.tenants(id)` | Referans bütünlüğü. **Not:** bu, modüller arası değil, modül→platform yönlü tek istisnadır |
-| Index: `(tenant_id, …)` | Her sorgu `tenant_id` ile filtrelenir; bileşik index'lerde **daima ilk kolon** |
-| Unique kısıtlar tenant-scoped | `UNIQUE(name)` değil, `UNIQUE(tenant_id, name)`. Aksi hâlde bir tenant'ın kaydı diğerinin yazmasını engeller (ve varlığını sızdırır) |
-| İzolasyon testi | Tenant A ↔ B okuma/yazma testi olmadan tablo merge edilmez |
+| Gereklilik                        | Detay                                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `tenant_id uuid NOT NULL`         | Nullable olamaz — `NULL` politikayı belirsizleştirir                                                                                 |
+| `REFERENCES platform.tenants(id)` | Referans bütünlüğü. **Not:** bu, modüller arası değil, modül→platform yönlü tek istisnadır                                           |
+| Index: `(tenant_id, …)`           | Her sorgu `tenant_id` ile filtrelenir; bileşik index'lerde **daima ilk kolon**                                                       |
+| Unique kısıtlar tenant-scoped     | `UNIQUE(name)` değil, `UNIQUE(tenant_id, name)`. Aksi hâlde bir tenant'ın kaydı diğerinin yazmasını engeller (ve varlığını sızdırır) |
+| İzolasyon testi                   | Tenant A ↔ B okuma/yazma testi olmadan tablo merge edilmez                                                                           |
 
 ### 12.4 Platform tabloları — istisna listesi
 
 Bazı tablolar doğaları gereği tenant-scoped değildir. Bu liste **kapalıdır**; ekleme yapmak mimari karar gerektirir.
 
-| Tablo | Neden tenant-scoped değil | Telafi edici kontrol |
-|---|---|---|
-| `platform.tenants` | Tenant'ın kendisi | Yalnızca kendi tenant satırını gösteren RLS politikası (`id = current_setting(...)`); listeleme endpoint'i yok. **`FORCE` yoktur** — gerekçe [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
-| `platform.users` | Kimlik globaldir ([ADR-0014](../adr/0014-global-user-membership.md)) | **İki ayrı erişim yolu** — bkz. [§12.4.3](#1243-identity-tabloları) |
-| `platform.credentials` | `users` ile 1:1; parola hash'i | Yalnızca Identity modülünün kimlik doğrulama repository'sinden erişilir; hiçbir DTO/event/log'a girmez |
-| `platform.email_verification_codes` | Kullanıcı henüz hiçbir tenant'a ait olmayabilir | Kod HMAC+pepper ile saklanır; deneme sayacı atomik artar |
-| `platform.token_families` · `platform.refresh_tokens` | Oturum, tenant seçiminden **önce** başlar | Token SHA-256 hash'iyle saklanır; iptal sunucu tarafında |
-| `platform.login_attempts` | Başarısız giriş var olmayan bir kullanıcıya ait olabilir | Yalnızca kilit kararında okunur; kullanıcıya yansıtılmaz |
-| `platform.identity_outbox` | Identity event'leri `tenantId: null` taşır ([§15.1](#151-ortak-sözleşme)) | Ayrı tablo — `platform.outbox`'ın `NOT NULL` kısıtı ve RLS politikası **gevşetilmedi** |
-| `platform.memberships` | Tenant ↔ user köprüsü | `tenant_id` taşır → **standart RLS uygulanır** |
-| `platform.tenant_domains` | Resolution, auth'tan önce çalışır | Yalnızca `domain → tenant_id` çözümü için okunur; başka alan dönmez |
-| `platform.outbox` | Publisher tenant'lar arası okur | `tenant_id` taşır → **standart RLS uygulanır** (`ENABLE` + `FORCE`). Yazma tarafı tenant context'i altında çalışır. Okuma tarafı için bkz. [§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) |
-| `platform.audit_log` | Değişmez denetim kaydı | `tenant_id` taşır → **standart RLS uygulanır**; `UPDATE`/`DELETE` yetkisi hiçbir role verilmez |
+| Tablo                                                 | Neden tenant-scoped değil                                                 | Telafi edici kontrol                                                                                                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform.tenants`                                    | Tenant'ın kendisi                                                         | Yalnızca kendi tenant satırını gösteren RLS politikası (`id = current_setting(...)`); listeleme endpoint'i yok. **`FORCE` yoktur** — gerekçe [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı) |
+| `platform.users`                                      | Kimlik globaldir ([ADR-0014](../adr/0014-global-user-membership.md))      | **İki ayrı erişim yolu** — bkz. [§12.4.3](#1243-identity-tabloları)                                                                                                                                      |
+| `platform.credentials`                                | `users` ile 1:1; parola hash'i                                            | Yalnızca Identity modülünün kimlik doğrulama repository'sinden erişilir; hiçbir DTO/event/log'a girmez                                                                                                   |
+| `platform.email_verification_codes`                   | Kullanıcı henüz hiçbir tenant'a ait olmayabilir                           | Kod HMAC+pepper ile saklanır; deneme sayacı atomik artar                                                                                                                                                 |
+| `platform.token_families` · `platform.refresh_tokens` | Oturum, tenant seçiminden **önce** başlar                                 | Token SHA-256 hash'iyle saklanır; iptal sunucu tarafında                                                                                                                                                 |
+| `platform.login_attempts`                             | Başarısız giriş var olmayan bir kullanıcıya ait olabilir                  | Yalnızca kilit kararında okunur; kullanıcıya yansıtılmaz                                                                                                                                                 |
+| `platform.identity_outbox`                            | Identity event'leri `tenantId: null` taşır ([§15.1](#151-ortak-sözleşme)) | Ayrı tablo — `platform.outbox`'ın `NOT NULL` kısıtı ve RLS politikası **gevşetilmedi**                                                                                                                   |
+| `platform.memberships`                                | Tenant ↔ user köprüsü                                                     | `tenant_id` taşır → **standart RLS uygulanır**                                                                                                                                                           |
+| `platform.tenant_domains`                             | Resolution, auth'tan önce çalışır                                         | Yalnızca `domain → tenant_id` çözümü için okunur; başka alan dönmez                                                                                                                                      |
+| `platform.outbox`                                     | Publisher tenant'lar arası okur                                           | `tenant_id` taşır → **standart RLS uygulanır** (`ENABLE` + `FORCE`). Yazma tarafı tenant context'i altında çalışır. Okuma tarafı için bkz. [§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım)         |
+| `platform.audit_log`                                  | Değişmez denetim kaydı                                                    | `tenant_id` taşır → **standart RLS uygulanır**; `UPDATE`/`DELETE` yetkisi hiçbir role verilmez                                                                                                           |
 
 > Bu tablo, dokümanın en dikkatle okunması gereken yeridir. RLS'in kapsamadığı her satır, savunmanın delik olduğu yerdir — ve her deliğin adı burada yazılıdır.
 
@@ -1081,13 +1082,13 @@ AS $$ SELECT t.id, t.status FROM platform.tenants t WHERE t.slug = p_slug; $$;
 
 **Aşımın neden dar olduğu:**
 
-| Kısıt | Etkisi |
-|---|---|
-| Yalnızca `(id, status)` döner | Ad, sahip, plan — hiçbir alan sızmaz |
-| Tek `slug` alır | **Listeleme yazılamaz.** `findAll` imkânsızdır |
-| `STABLE`, salt-okunur | Hiçbir şey değiştiremez |
-| `search_path` sabit | `SECURITY DEFINER` fonksiyonlarında bilinen bir saldırı yolu kapatılır |
-| `REVOKE ALL FROM PUBLIC` | Yalnızca uygulama rolüne `EXECUTE` verilir |
+| Kısıt                         | Etkisi                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| Yalnızca `(id, status)` döner | Ad, sahip, plan — hiçbir alan sızmaz                                   |
+| Tek `slug` alır               | **Listeleme yazılamaz.** `findAll` imkânsızdır                         |
+| `STABLE`, salt-okunur         | Hiçbir şey değiştiremez                                                |
+| `search_path` sabit           | `SECURITY DEFINER` fonksiyonlarında bilinen bir saldırı yolu kapatılır |
+| `REVOKE ALL FROM PUBLIC`      | Yalnızca uygulama rolüne `EXECUTE` verilir                             |
 
 Dönen tenant bir **ipucudur, yetki kaynağı değildir**: erişim kararı daima doğrulanmış JWT claim'iyle verilir ([ADR-0015](../adr/0015-tenant-resolution.md)).
 
@@ -1103,10 +1104,10 @@ Kaybın sınırı: uygulama zaten tablo sahibi **olmayan** `businessos_app` rol�
 
 İlk bakışta `existsBySlug`, `platform.tenants` üzerinde basit bir `SELECT` gibi görünür. Değildir — ve yanlış yazılırsa **sessizce yanlış cevap verir**:
 
-| Yaklaşım | Sonuç |
-|---|---|
-| Tabloyu doğrudan sorgula | Başka bir tenant'ın satırı RLS yüzünden **görünmez**. Sorgu daima "slug boş" der. Kontrol hiçbir şey yakalamaz |
-| `resolve_tenant` üzerinden sor | Doğru cevap. Fonksiyon RLS'i kontrollü biçimde aştığı için tüm slug'ları görür |
+| Yaklaşım                       | Sonuç                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Tabloyu doğrudan sorgula       | Başka bir tenant'ın satırı RLS yüzünden **görünmez**. Sorgu daima "slug boş" der. Kontrol hiçbir şey yakalamaz |
+| `resolve_tenant` üzerinden sor | Doğru cevap. Fonksiyon RLS'i kontrollü biçimde aştığı için tüm slug'ları görür                                 |
 
 Bu, RLS'in doğrudan bir sonucudur ama **sezgiye aykırıdır**: tenant izolasyonu, "global tekil bir alan kullanımda mı?" sorusunu normal yoldan yanıtlanamaz hâle getirir. Aynı durum ileride eklenecek her global-tekil alan için geçerli olacaktır (örneğin custom domain).
 
@@ -1129,13 +1130,13 @@ AS $$ SELECT t.id, t.name, t.slug, m.role, m.status
 
 **`memberships`'te `FORCE` KALDIRILMAZ** — bu, `tenants`'tan farkı. FORCE korunur; aşım bunun yerine, TEK amacı bu fonksiyonu sahiplenmek olan dar bir role verilir:
 
-| `businessos_rls_reader` kısıtı | Değer |
-|---|---|
-| `NOLOGIN` | Doğrudan bağlanamaz; yalnızca fonksiyon içinde çalışır |
-| `BYPASSRLS` | Tek yeteneği — FORCE-RLS `memberships`'i aşmak |
-| SELECT | **Yalnızca** `memberships` + `tenants`; başka hiçbir tablo değil |
-| Sahiplik | **Yalnızca** `list_user_memberships` |
-| Yazma / diğer fonksiyon | Hiçbiri |
+| `businessos_rls_reader` kısıtı | Değer                                                            |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `NOLOGIN`                      | Doğrudan bağlanamaz; yalnızca fonksiyon içinde çalışır           |
+| `BYPASSRLS`                    | Tek yeteneği — FORCE-RLS `memberships`'i aşmak                   |
+| SELECT                         | **Yalnızca** `memberships` + `tenants`; başka hiçbir tablo değil |
+| Sahiplik                       | **Yalnızca** `list_user_memberships`                             |
+| Yazma / diğer fonksiyon        | Hiçbiri                                                          |
 
 Bu kısıtlar bir entegrasyon testiyle **kanıtlanır** (ADR-0028 Constraint 2): rol `users`/`credentials`/`refresh_tokens`'ı okuyamaz, `resolve_tenant`'ı çalıştıramaz. `p_user_id` **doğrulanmış identity token'dan** gelir — kullanıcı yalnızca kendi üyeliklerini görür. Uç nokta: `GET /api/v1/me/memberships` (sayfalı, yalnızca switchable tenant'lar).
 
@@ -1163,11 +1164,11 @@ Bugün yazılmamasının sebebi: tüketen bir süreç yok. **Test edilemeyecek b
 >
 > Metin tarihî kayıt olarak **bilerek silinmedi** — neyin, ne zaman, hangi gerekçeyle öngörüldüğü ve nerede yanıldığı görünür kalmalıdır. Düzeltme:
 >
-> **1. "`resolve_tenant` deseninin aynısı" olmadı — olamazdı.** §12.4.4 (bu bölümden *sonra* yazıldı) gerekçeyi zaten veriyor: `FORCE`, `SECURITY DEFINER` fonksiyonunu **sahibi için de** politikaya tabi kılar ve `businessos_owner` bilinçle `NOBYPASSRLS`'tir. `resolve_tenant` yalnızca `platform.tenants` **`FORCE` taşımadığı** için çalışır; `platform.outbox` taşır. Sade bir `SECURITY DEFINER` bu tabloda hiçbir satır göremez.
+> **1. "`resolve_tenant` deseninin aynısı" olmadı — olamazdı.** §12.4.4 (bu bölümden _sonra_ yazıldı) gerekçeyi zaten veriyor: `FORCE`, `SECURITY DEFINER` fonksiyonunu **sahibi için de** politikaya tabi kılar ve `businessos_owner` bilinçle `NOBYPASSRLS`'tir. `resolve_tenant` yalnızca `platform.tenants` **`FORCE` taşımadığı** için çalışır; `platform.outbox` taşır. Sade bir `SECURITY DEFINER` bu tabloda hiçbir satır göremez.
 >
-> **2. "Üçüncü bir rol eklenmeyecektir" iddiası iki kez düştü.** Üçüncü rol (`businessos_rls_reader`) §12.4.4 ile, dördüncüsü (`businessos_outbox_relay`) bu işle eklendi. Reddin gerekçesi — *"docker init, README, `.env` ve config'e yayılan bir değişiklik"* — **`NOLOGIN` bir rol için geçerli değil**: rol hiçbir zaman bağlanmaz, dolayısıyla hiçbir bağlantı dizesine, `.env`'e veya config'e girmez. Değişiklik `01-roles.sql` + migration `GRANT`'ları ile sınırlı kaldı; §12.4.4 aynı işi tam olarak bu bedelle yapmıştı.
+> **2. "Üçüncü bir rol eklenmeyecektir" iddiası iki kez düştü.** Üçüncü rol (`businessos_rls_reader`) §12.4.4 ile, dördüncüsü (`businessos_outbox_relay`) bu işle eklendi. Reddin gerekçesi — _"docker init, README, `.env` ve config'e yayılan bir değişiklik"_ — **`NOLOGIN` bir rol için geçerli değil**: rol hiçbir zaman bağlanmaz, dolayısıyla hiçbir bağlantı dizesine, `.env`'e veya config'e girmez. Değişiklik `01-roles.sql` + migration `GRANT`'ları ile sınırlı kaldı; §12.4.4 aynı işi tam olarak bu bedelle yapmıştı.
 >
-> **Öngörünün doğru çıkan tek kısmı:** aşım gerçekten *"tek bir fonksiyon imzasında"* toplandı — üç imzada (`claim_outbox_batch`, `mark_outbox_published`, `record_outbox_failure`), genel bir "outbox'ı oku" yetkisi olmadan.
+> **Öngörünün doğru çıkan tek kısmı:** aşım gerçekten _"tek bir fonksiyon imzasında"_ toplandı — üç imzada (`claim_outbox_batch`, `mark_outbox_published`, `record_outbox_failure`), genel bir "outbox'ı oku" yetkisi olmadan.
 >
 > **"Test edilemeyecek aşım yüzeyi açma" kuralı ise doğruydu ve bugün karşılandı:** tüketici ve testleri birlikte yazıldı. Dar rolün sınırları — yalnızca `platform.outbox`, `INSERT`/`DELETE` yok, başka tabloya/fonksiyona erişim yok, standing `CREATE` yok — §12.4.4'ün Constraint 2 testiyle simetrik bir entegrasyon testiyle **doğrudan kanıtlanır**.
 >
@@ -1177,14 +1178,14 @@ Bugün yazılmamasının sebebi: tüketen bir süreç yok. **Test edilemeyecek b
 
 #### 12.4.3 Identity tabloları
 
-Faz 3 ile gelen Identity tabloları **tenant-scoped değildir** ve olamaz: kimlik, tenant'ların *üstünde* yaşar ([ADR-0014](../adr/0014-global-user-membership.md)). Tam tasarım [`AUTH_ARCHITECTURE.md` §13](AUTH_ARCHITECTURE.md)'tedir; burada yalnızca **izolasyon modelini ilgilendiren** kısım vardır.
+Faz 3 ile gelen Identity tabloları **tenant-scoped değildir** ve olamaz: kimlik, tenant'ların _üstünde_ yaşar ([ADR-0014](../adr/0014-global-user-membership.md)). Tam tasarım [`AUTH_ARCHITECTURE.md` §13](AUTH_ARCHITECTURE.md)'tedir; burada yalnızca **izolasyon modelini ilgilendiren** kısım vardır.
 
 **`platform.users` iki farklı amaçla sorgulanır ve ikisi aynı kural altında değildir:**
 
-| Erişim | Tenant context | Kural |
-|---|---|---|
-| **Kimlik doğrulama** (login, kayıt, doğrulama, sıfırlama) | **Yok — olamaz** | Identity repository'si `users`'ı **doğrudan** sorgular |
-| **Tenant içi kullanıcı listeleme** | Var | Önceki kural aynen geçerli: `memberships` üzerinden `JOIN`, RLS korumalı |
+| Erişim                                                    | Tenant context   | Kural                                                                    |
+| --------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------ |
+| **Kimlik doğrulama** (login, kayıt, doğrulama, sıfırlama) | **Yok — olamaz** | Identity repository'si `users`'ı **doğrudan** sorgular                   |
+| **Tenant içi kullanıcı listeleme**                        | Var              | Önceki kural aynen geçerli: `memberships` üzerinden `JOIN`, RLS korumalı |
 
 Ayrım şudur: birincisi **kimlik** sorgusudur ve tenant'tan **öncedir**; ikincisi **tenant verisi** sorgusudur.
 
@@ -1200,14 +1201,14 @@ Bu, [§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı)'deki `re
 
 RLS yalnızca PostgreSQL'i korur. Tenant verisi başka yerlere de gider:
 
-| Yol | Koruma | Kural |
-|---|---|---|
-| **Cache** | ❌ RLS yok | Anahtar daima tenant içerir: `t:<tenantId>:<module>:<entity>:<id>` |
-| **Object storage** | ❌ RLS yok | Anahtar daima tenant ile başlar: `tenants/<tenantId>/<module>/…` |
-| **Search index** | ❌ RLS yok | `SearchQuery.tenantId` **zorunlu alandır**, opsiyonel yapılamaz |
-| **Loglar** | ❌ RLS yok | Log satırı `tenantId` taşır; PII maskelenir |
+| Yol                | Koruma     | Kural                                                                       |
+| ------------------ | ---------- | --------------------------------------------------------------------------- |
+| **Cache**          | ❌ RLS yok | Anahtar daima tenant içerir: `t:<tenantId>:<module>:<entity>:<id>`          |
+| **Object storage** | ❌ RLS yok | Anahtar daima tenant ile başlar: `tenants/<tenantId>/<module>/…`            |
+| **Search index**   | ❌ RLS yok | `SearchQuery.tenantId` **zorunlu alandır**, opsiyonel yapılamaz             |
+| **Loglar**         | ❌ RLS yok | Log satırı `tenantId` taşır; PII maskelenir                                 |
 | **AI prompt'ları** | ❌ RLS yok | Prompt tenant verisi içerir; loglama maskelenir, maliyet tenant'a atfedilir |
-| **Metrikler** | ❌ RLS yok | Tenant bazlı etiket kardinaliteye dikkat edilerek eklenir |
+| **Metrikler**      | ❌ RLS yok | Tenant bazlı etiket kardinaliteye dikkat edilerek eklenir                   |
 
 > **Bunu bir cümlede tutun:** RLS'in dışına çıkan her veri yolunda tenant izolasyonu **elle** sağlanır ve **test edilir**. RLS bir güvenlik ağıdır, evrensel bir kalkan değil.
 
@@ -1215,14 +1216,14 @@ RLS yalnızca PostgreSQL'i korur. Tenant verisi başka yerlere de gider:
 
 Her tenant-scoped tablo için aşağıdakileri kanıtlayan entegrasyon testi yazılır. **Bu test olmadan modül merge edilmez. Pazarlık konusu değildir.**
 
-| # | Kanıtlanan |
-|---|---|
-| 1 | Tenant A context'i, tenant B satırını **okuyamaz** (boş sonuç) |
-| 2 | Tenant A context'i, `tenant_id = B` ile satır **yazamaz** (`WITH CHECK` ihlali) |
-| 3 | Tenant A, kendi satırının `tenant_id`'sini B'ye **taşıyamaz** |
-| 4 | Context **kurulmadan** sorgu çalıştırılamaz (hata alır) |
-| 5 | Uygulama rolü tablo sahibi **değildir** ve `BYPASSRLS` taşımaz |
-| 6 | Transaction bittikten sonra havuza dönen bağlantıda `app.current_tenant_id` **kalmamıştır** |
+| #   | Kanıtlanan                                                                                  |
+| --- | ------------------------------------------------------------------------------------------- |
+| 1   | Tenant A context'i, tenant B satırını **okuyamaz** (boş sonuç)                              |
+| 2   | Tenant A context'i, `tenant_id = B` ile satır **yazamaz** (`WITH CHECK` ihlali)             |
+| 3   | Tenant A, kendi satırının `tenant_id`'sini B'ye **taşıyamaz**                               |
+| 4   | Context **kurulmadan** sorgu çalıştırılamaz (hata alır)                                     |
+| 5   | Uygulama rolü tablo sahibi **değildir** ve `BYPASSRLS` taşımaz                              |
+| 6   | Transaction bittikten sonra havuza dönen bağlantıda `app.current_tenant_id` **kalmamıştır** |
 
 ---
 
@@ -1234,11 +1235,11 @@ Her tenant-scoped tablo için aşağıdakileri kanıtlayan entegrasyon testi yaz
 
 Bu, dokümanın en çok itiraz alan kuralıdır, o yüzden gerekçesi nettir:
 
-| `tenantId` parametre olsaydı | Bu tasarımda |
-|---|---|
-| Çağıran doğru değeri geçmeyi **hatırlamak** zorunda | Değer context'ten gelir, hatırlanacak bir şey yok |
-| Yanlış değer geçmek **mümkün** | Yanlış değer geçmek **imkânsız** — geçilecek yer yok |
-| Yetki yükseltme bir parametre uzaklıkta | Yetki yükseltme için context'i değiştirmek gerekir; context immutable |
+| `tenantId` parametre olsaydı                        | Bu tasarımda                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| Çağıran doğru değeri geçmeyi **hatırlamak** zorunda | Değer context'ten gelir, hatırlanacak bir şey yok                     |
+| Yanlış değer geçmek **mümkün**                      | Yanlış değer geçmek **imkânsız** — geçilecek yer yok                  |
+| Yetki yükseltme bir parametre uzaklıkta             | Yetki yükseltme için context'i değiştirmek gerekir; context immutable |
 
 Tenant kimliği bir **ortam gerçeğidir**, bir argüman değil. Argüman olduğu an, yanlış olabilir hâle gelir.
 
@@ -1265,18 +1266,18 @@ Bağımlılık yönü **içeri doğrudur**: `infrastructure` → `application`. 
 
 ### 13.3 Repository kuralları
 
-| # | Kural | Gerekçe |
-|---|---|---|
-| 1 | Metot imzasında `tenantId` yok | [§13.1](#131-temel-sözleşme) |
-| 2 | Repository **transaction açmaz** | Transaction sınırı use case'tedir; repository'nin açması iç içe transaction ve kısmi commit üretir |
-| 3 | Ham havuz erişimi yok | Yalnızca transaction manager üzerinden bağlantı; lint kuralıyla zorlanır |
-| 4 | Ham SQL yalnızca gerekçeli ve parametreli | String birleştirme **yasak**; SQL injection RLS'i de delebilir |
-| 5 | Repository **domain nesnesi** döner, satır değil | Sızıntı yüzeyi ve katman ihlali önlenir |
-| 6 | Modül kendi schema'sının dışına **yazmaz** | Modül sınırı kuralı (`CLAUDE.md` §5) |
-| 7 | Cross-schema FK **yasak** | Referans `id` ile tutulur |
-| 8 | `WHERE tenant_id = ?` **yazılmaz** | RLS zaten filtreler. Elle yazmak, RLS'in çalıştığı yanılsamasını gizler ve unutulduğunda kimse fark etmez |
+| #   | Kural                                            | Gerekçe                                                                                                   |
+| --- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| 1   | Metot imzasında `tenantId` yok                   | [§13.1](#131-temel-sözleşme)                                                                              |
+| 2   | Repository **transaction açmaz**                 | Transaction sınırı use case'tedir; repository'nin açması iç içe transaction ve kısmi commit üretir        |
+| 3   | Ham havuz erişimi yok                            | Yalnızca transaction manager üzerinden bağlantı; lint kuralıyla zorlanır                                  |
+| 4   | Ham SQL yalnızca gerekçeli ve parametreli        | String birleştirme **yasak**; SQL injection RLS'i de delebilir                                            |
+| 5   | Repository **domain nesnesi** döner, satır değil | Sızıntı yüzeyi ve katman ihlali önlenir                                                                   |
+| 6   | Modül kendi schema'sının dışına **yazmaz**       | Modül sınırı kuralı (`CLAUDE.md` §5)                                                                      |
+| 7   | Cross-schema FK **yasak**                        | Referans `id` ile tutulur                                                                                 |
+| 8   | `WHERE tenant_id = ?` **yazılmaz**               | RLS zaten filtreler. Elle yazmak, RLS'in çalıştığı yanılsamasını gizler ve unutulduğunda kimse fark etmez |
 
-> Kural 8'in nüansı: elle filtre yazmak *zararsız* görünür ama tehlikelidir — çünkü RLS bozulduğunda (yanlış rol, eksik `FORCE`) elle yazılmış filtreler hatayı maskeler ve testler yeşil kalır. RLS'in **tek** filtre olması, bozulduğunda görünür olmasını sağlar.
+> Kural 8'in nüansı: elle filtre yazmak _zararsız_ görünür ama tehlikelidir — çünkü RLS bozulduğunda (yanlış rol, eksik `FORCE`) elle yazılmış filtreler hatayı maskeler ve testler yeşil kalır. RLS'in **tek** filtre olması, bozulduğunda görünür olmasını sağlar.
 
 #### Kural 1'in istisnası: platform repository'leri
 
@@ -1284,10 +1285,10 @@ Bağımlılık yönü **içeri doğrudur**: `infrastructure` → `application`. 
 
 `TenantRepository` bunun kanonik örneğidir:
 
-| Metot | Context neden yok |
-|---|---|
-| `findBySlug(slug)` | Tenant resolution sırasında çalışır ([§8.2](#82-çözüm-zinciri)) — context henüz kurulmadı |
-| `save(tenant)` | Provisioning sırasında çalışır ([ADR-0016](../adr/0016-tenant-provisioning.md)) — tenant'ın kendi context'i yok |
+| Metot                | Context neden yok                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `findBySlug(slug)`   | Tenant resolution sırasında çalışır ([§8.2](#82-çözüm-zinciri)) — context henüz kurulmadı                                                                                         |
+| `save(tenant)`       | Provisioning sırasında çalışır ([ADR-0016](../adr/0016-tenant-provisioning.md)) — tenant'ın kendi context'i yok                                                                   |
 | `existsBySlug(slug)` | Tenant sınırının **dışını** sorar: "bu slug başka birinde var mı?" RLS altında bu soru normal sorguyla yanıtlanamaz ([§12.4.1](#1241-tenant-resolution-i̇çin-kontrollü-rls-aşımı)) |
 
 Bu bir kural ihlali **değildir**; kuralın kapsamadığı bir alandır. Ancak istisna sessiz kalmamalıdır:
@@ -1318,35 +1319,35 @@ Business logic hangi modda çalıştığını **bilmez**. Bu, Aşama 2'nin maliy
 
 ### 14.1 Tehdit modeli
 
-| # | Tehdit | Etki | Önlem | Kalan risk |
-|---|---|---|---|---|
-| T1 | **Çapraz tenant veri okuma** | Kritik | RLS + `FORCE` + sahip olmayan rol + zorunlu testler | RLS dışı yollar ([§12.5](#125-rlsin-koruyamadığı-yollar)) |
-| T2 | **Host/header manipülasyonu ile tenant değiştirme** | Kritik | Tenant kimliği yalnızca imzalı JWT claim'inden ([P1](#p1--tenant-kimliğinin-tek-meşru-kaynağı-doğrulanmış-jwt-claimidir)) | Token çalınması |
-| T3 | **Token yeniden kullanımı / çalınmış token** | Yüksek | Kısa ömürlü access + refresh rotation; her istekte membership doğrulaması | Access token ömrü boyunca pencere |
-| T4 | **Membership iptali sonrası erişimin sürmesi** | Yüksek | Membership her istekte kontrol edilir; cache TTL kısa ve iptalde açıkça invalidate | Cache TTL kadar pencere |
-| T5 | **Tenant enumeration** (slug/domain tarama) | Orta | Var olmayan tenant ve yetkisiz tenant **aynı** 404'ü döner; rate limit | Zamanlama analizi |
-| T6 | **Kullanıcı enumeration** (davet/login üzerinden) | Orta | Sabit yanıt ve sabitlenmiş yanıt süresi ([§7.3](#73-global-kimlik-ile-tenant-izolasyonunun-kesişimi)) | — |
-| T7 | **Custom domain devralma** | Yüksek | TXT doğrulaması + periyodik yeniden kontrol ([§8.3](#83-custom-domain-doğrulaması)) | DNS kaydı sonradan silinirse gecikme penceresi |
-| T8 | **Cache/storage/search üzerinden sızıntı** | Kritik | Tenant-prefix'li anahtar zorunluluğu; `SearchQuery.tenantId` zorunlu alan | Elle disiplin — test ile zorlanır |
-| T9 | **Yetki yükseltme (tenant içi)** | Yüksek | Merkezî policy engine, deny-by-default; `owner` rolü değiştirilemez | RBAC dokümanının konusu |
-| T10 | **Noisy neighbor / kaynak tüketimi** | Orta | Tenant + IP bazlı rate limit; sorgu zaman aşımı; plan kotaları | Paylaşılan DB'de doğal risk |
-| T11 | **Arka plan işinin yanlış tenant'ta çalışması** | Kritik | Job context'i açıkça kurar; context'siz iş fail-closed | Payload'ın kaynağına güven |
+| #   | Tehdit                                              | Etki   | Önlem                                                                                                                     | Kalan risk                                                |
+| --- | --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| T1  | **Çapraz tenant veri okuma**                        | Kritik | RLS + `FORCE` + sahip olmayan rol + zorunlu testler                                                                       | RLS dışı yollar ([§12.5](#125-rlsin-koruyamadığı-yollar)) |
+| T2  | **Host/header manipülasyonu ile tenant değiştirme** | Kritik | Tenant kimliği yalnızca imzalı JWT claim'inden ([P1](#p1--tenant-kimliğinin-tek-meşru-kaynağı-doğrulanmış-jwt-claimidir)) | Token çalınması                                           |
+| T3  | **Token yeniden kullanımı / çalınmış token**        | Yüksek | Kısa ömürlü access + refresh rotation; her istekte membership doğrulaması                                                 | Access token ömrü boyunca pencere                         |
+| T4  | **Membership iptali sonrası erişimin sürmesi**      | Yüksek | Membership her istekte kontrol edilir; cache TTL kısa ve iptalde açıkça invalidate                                        | Cache TTL kadar pencere                                   |
+| T5  | **Tenant enumeration** (slug/domain tarama)         | Orta   | Var olmayan tenant ve yetkisiz tenant **aynı** 404'ü döner; rate limit                                                    | Zamanlama analizi                                         |
+| T6  | **Kullanıcı enumeration** (davet/login üzerinden)   | Orta   | Sabit yanıt ve sabitlenmiş yanıt süresi ([§7.3](#73-global-kimlik-ile-tenant-izolasyonunun-kesişimi))                     | —                                                         |
+| T7  | **Custom domain devralma**                          | Yüksek | TXT doğrulaması + periyodik yeniden kontrol ([§8.3](#83-custom-domain-doğrulaması))                                       | DNS kaydı sonradan silinirse gecikme penceresi            |
+| T8  | **Cache/storage/search üzerinden sızıntı**          | Kritik | Tenant-prefix'li anahtar zorunluluğu; `SearchQuery.tenantId` zorunlu alan                                                 | Elle disiplin — test ile zorlanır                         |
+| T9  | **Yetki yükseltme (tenant içi)**                    | Yüksek | Merkezî policy engine, deny-by-default; `owner` rolü değiştirilemez                                                       | RBAC dokümanının konusu                                   |
+| T10 | **Noisy neighbor / kaynak tüketimi**                | Orta   | Tenant + IP bazlı rate limit; sorgu zaman aşımı; plan kotaları                                                            | Paylaşılan DB'de doğal risk                               |
+| T11 | **Arka plan işinin yanlış tenant'ta çalışması**     | Kritik | Job context'i açıkça kurar; context'siz iş fail-closed                                                                    | Payload'ın kaynağına güven                                |
 
 ### 14.2 Güvenlik değişmezleri (invariants)
 
 Bunlar her zaman doğru olmalıdır. Biri yanlışsa üretim durdurulur.
 
-| # | Değişmez |
-|---|---|
-| I1 | Uygulamanın bağlandığı DB rolü, tablo sahibi **değildir** ve `BYPASSRLS` **taşımaz** |
-| I2 | Tenant-scoped her tablo `ENABLE` **ve** `FORCE ROW LEVEL SECURITY` ile korunur |
-| I3 | Tenant-scoped her politikada hem `USING` hem `WITH CHECK` bulunur |
-| I4 | `tenant_id` yalnızca doğrulanmış JWT claim'inden gelir |
-| I5 | Tenant context olmadan hiçbir sorgu çalışmaz |
-| I6 | `SET` (LOCAL'sız) kod tabanında **hiç geçmez** |
-| I7 | Her cache anahtarı, storage anahtarı ve arama sorgusu tenant taşır |
-| I8 | Tenant sınırını ilgilendiren her işlem audit kaydı üretir |
-| I9 | Platform tablosu istisna listesi ([§12.4](#124-platform-tabloları--i̇stisna-listesi)) dışında tenant-scoped olmayan tablo yoktur |
+| #   | Değişmez                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- |
+| I1  | Uygulamanın bağlandığı DB rolü, tablo sahibi **değildir** ve `BYPASSRLS` **taşımaz**                                            |
+| I2  | Tenant-scoped her tablo `ENABLE` **ve** `FORCE ROW LEVEL SECURITY` ile korunur                                                  |
+| I3  | Tenant-scoped her politikada hem `USING` hem `WITH CHECK` bulunur                                                               |
+| I4  | `tenant_id` yalnızca doğrulanmış JWT claim'inden gelir                                                                          |
+| I5  | Tenant context olmadan hiçbir sorgu çalışmaz                                                                                    |
+| I6  | `SET` (LOCAL'sız) kod tabanında **hiç geçmez**                                                                                  |
+| I7  | Her cache anahtarı, storage anahtarı ve arama sorgusu tenant taşır                                                              |
+| I8  | Tenant sınırını ilgilendiren her işlem audit kaydı üretir                                                                       |
+| I9  | Platform tablosu istisna listesi ([§12.4](#124-platform-tabloları--i̇stisna-listesi)) dışında tenant-scoped olmayan tablo yoktur |
 
 > Bu değişmezlerden mekanik olarak doğrulanabilenler CI'da kontrol edilir. Doğrulanamayanlar code review kontrol listesindedir.
 
@@ -1374,22 +1375,22 @@ Kurallar: isimler **geçmiş zaman** · event'ler immutable ve versiyonlanabilir
 
 ### 15.2 Tenant modülü event'leri
 
-| Event | Ne zaman | Tipik tüketiciler |
-|---|---|---|
-| `TenantProvisioningRequested` | Tenant kaydı oluşturuldu (`provisioning`) | Provisioning handler |
-| `TenantProvisioned` | Provisioning tamamlandı (`active`) | Mail · analytics · billing |
-| `TenantProvisioningFailed` | Provisioning başarısız (`failed`) | Alarm · temizlik işi |
-| `TenantSuspended` | Askıya alındı | Oturum iptali · job durdurma |
-| `TenantReactivated` | Yeniden aktif | Job yeniden başlatma |
-| `TenantArchived` | Arşivlendi | Erişim kapatma · saklama sayacı |
-| `TenantPurged` | Kalıcı olarak silindi | Storage/search/cache temizliği |
-| `TenantSlugChanged` | Slug değişti | Cache/CDN invalidation |
-| `TenantDomainVerified` | Custom domain doğrulandı | TLS sağlama · resolution cache |
-| `MemberInvited` | Davet gönderildi | Mail |
-| `MemberJoined` | Davet kabul edildi | Onboarding · analytics |
-| `MemberRoleChanged` | Rol değişti | **Yetki cache invalidation** |
-| `MemberSuspended` | Üyelik askıya alındı | Oturum iptali |
-| `MemberRemoved` | Üyelik sonlandırıldı | Oturum iptali · yetki cache |
+| Event                         | Ne zaman                                  | Tipik tüketiciler               |
+| ----------------------------- | ----------------------------------------- | ------------------------------- |
+| `TenantProvisioningRequested` | Tenant kaydı oluşturuldu (`provisioning`) | Provisioning handler            |
+| `TenantProvisioned`           | Provisioning tamamlandı (`active`)        | Mail · analytics · billing      |
+| `TenantProvisioningFailed`    | Provisioning başarısız (`failed`)         | Alarm · temizlik işi            |
+| `TenantSuspended`             | Askıya alındı                             | Oturum iptali · job durdurma    |
+| `TenantReactivated`           | Yeniden aktif                             | Job yeniden başlatma            |
+| `TenantArchived`              | Arşivlendi                                | Erişim kapatma · saklama sayacı |
+| `TenantPurged`                | Kalıcı olarak silindi                     | Storage/search/cache temizliği  |
+| `TenantSlugChanged`           | Slug değişti                              | Cache/CDN invalidation          |
+| `TenantDomainVerified`        | Custom domain doğrulandı                  | TLS sağlama · resolution cache  |
+| `MemberInvited`               | Davet gönderildi                          | Mail                            |
+| `MemberJoined`                | Davet kabul edildi                        | Onboarding · analytics          |
+| `MemberRoleChanged`           | Rol değişti                               | **Yetki cache invalidation**    |
+| `MemberSuspended`             | Üyelik askıya alındı                      | Oturum iptali                   |
+| `MemberRemoved`               | Üyelik sonlandırıldı                      | Oturum iptali · yetki cache     |
 
 ### 15.3 Güvenlikle bağlantılı event'ler
 
@@ -1424,19 +1425,19 @@ flowchart LR
 
 ### 16.2 Hata matrisi
 
-| Durum | Yanıt | Loglama | Neden bu yanıt |
-|---|---|---|---|
-| JWT yok / geçersiz / süresi dolmuş | `401` | info | Standart kimlik doğrulama hatası |
-| JWT geçerli, `tenant_id` claim'i yok | `401` | **warn** | Token yanlış üretilmiş — sistemsel hata sinyali |
-| Host doğrulanmamış/bilinmeyen domain | `404` | info | Tenant varlığı sızdırılmaz |
-| Host ↔ claim uyuşmazlığı | `403` | **⚠️ security** | Token çalınması veya keşif sinyali → alarm |
-| Membership yok / `active` değil | `403` | warn | Üyeliğin varlığı sızdırılmaz |
-| Tenant `suspended` | `403` + `problem.type: tenant-suspended` | info | İstemcinin doğru ekran gösterebilmesi için ayırt edilebilir |
-| Tenant `archived` / `provisioning` | `403` | info | — |
-| **Tenant context kurulamadı** | `500` | **error** | Bu bir istemci hatası değil, sistemsel hatadır. Asla filtresiz devam edilmez |
-| RLS politika ihlali (DB hatası) | `500` | **⚠️ error + alarm** | Uygulama katmanı **bunu üretmemeliydi**. 403 dönmek hatayı normalleştirir |
-| Slug/domain çakışması | `409` | info | Yarış koşulu DB kısıtından yakalanır |
-| Provisioning başarısız | `202` verilmişti → durum `failed` | **error** | Asenkron; istemci durum sorgusuyla öğrenir |
+| Durum                                | Yanıt                                    | Loglama              | Neden bu yanıt                                                               |
+| ------------------------------------ | ---------------------------------------- | -------------------- | ---------------------------------------------------------------------------- |
+| JWT yok / geçersiz / süresi dolmuş   | `401`                                    | info                 | Standart kimlik doğrulama hatası                                             |
+| JWT geçerli, `tenant_id` claim'i yok | `401`                                    | **warn**             | Token yanlış üretilmiş — sistemsel hata sinyali                              |
+| Host doğrulanmamış/bilinmeyen domain | `404`                                    | info                 | Tenant varlığı sızdırılmaz                                                   |
+| Host ↔ claim uyuşmazlığı             | `403`                                    | **⚠️ security**      | Token çalınması veya keşif sinyali → alarm                                   |
+| Membership yok / `active` değil      | `403`                                    | warn                 | Üyeliğin varlığı sızdırılmaz                                                 |
+| Tenant `suspended`                   | `403` + `problem.type: tenant-suspended` | info                 | İstemcinin doğru ekran gösterebilmesi için ayırt edilebilir                  |
+| Tenant `archived` / `provisioning`   | `403`                                    | info                 | —                                                                            |
+| **Tenant context kurulamadı**        | `500`                                    | **error**            | Bu bir istemci hatası değil, sistemsel hatadır. Asla filtresiz devam edilmez |
+| RLS politika ihlali (DB hatası)      | `500`                                    | **⚠️ error + alarm** | Uygulama katmanı **bunu üretmemeliydi**. 403 dönmek hatayı normalleştirir    |
+| Slug/domain çakışması                | `409`                                    | info                 | Yarış koşulu DB kısıtından yakalanır                                         |
+| Provisioning başarısız               | `202` verilmişti → durum `failed`        | **error**            | Asenkron; istemci durum sorgusuyla öğrenir                                   |
 
 > **RLS ihlalinin neden `500` olduğu** özellikle önemlidir: RLS'e takılan bir sorgu, uygulama katmanının **zaten engellemesi gereken** bir şeyi denediği anlamına gelir. `403` dönmek bunu "beklenen bir yetki hatası" gibi gösterir ve gerçek bir bug'ı gürültüye gömer. `500` + alarm, doğru sinyaldir.
 
@@ -1460,14 +1461,14 @@ flowchart TD
 
 ### 16.4 Kısmi başarısızlıklar
 
-| Senaryo | Davranış |
-|---|---|
-| Provisioning yarıda kaldı | Tenant `failed` durumunda kalır; telafi işi kaydı temizler, slug serbest bırakılır. **Yarım tenant `active` olmaz.** |
-| Outbox publisher çöktü | Event'ler outbox'ta bekler; publisher ayağa kalkınca kaldığı yerden devam eder. Handler'lar idempotent olduğu için tekrar teslim güvenlidir. |
-| Cache düştü | Sistem **yavaşlar, çalışmaz hâle gelmez**. Cache'e bağımlı business logic yazılamaz. |
-| Search index bayatladı | Arama eksik sonuç döner; index yeniden kurulabilir (türetilmiş veri). **PostgreSQL kaynak-of-truth'tur.** |
-| Membership kontrolü için DB erişilemez | İstek **reddedilir**. Cache'lenmiş izinle devam etmek fail-open'dır. |
-| Custom domain DNS kaydı kaldırıldı | Periyodik kontrol domain'i devre dışı bırakır; tenant subdomain'den erişilebilir kalır. |
+| Senaryo                                | Davranış                                                                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provisioning yarıda kaldı              | Tenant `failed` durumunda kalır; telafi işi kaydı temizler, slug serbest bırakılır. **Yarım tenant `active` olmaz.**                         |
+| Outbox publisher çöktü                 | Event'ler outbox'ta bekler; publisher ayağa kalkınca kaldığı yerden devam eder. Handler'lar idempotent olduğu için tekrar teslim güvenlidir. |
+| Cache düştü                            | Sistem **yavaşlar, çalışmaz hâle gelmez**. Cache'e bağımlı business logic yazılamaz.                                                         |
+| Search index bayatladı                 | Arama eksik sonuç döner; index yeniden kurulabilir (türetilmiş veri). **PostgreSQL kaynak-of-truth'tur.**                                    |
+| Membership kontrolü için DB erişilemez | İstek **reddedilir**. Cache'lenmiş izinle devam etmek fail-open'dır.                                                                         |
+| Custom domain DNS kaydı kaldırıldı     | Periyodik kontrol domain'i devre dışı bırakır; tenant subdomain'den erişilebilir kalır.                                                      |
 
 ### 16.5 Geri alma (rollback) duruşu
 
@@ -1483,7 +1484,7 @@ Bu bölüm gelecek çalışmaları kaydeder. **Hiçbiri bugün yapılmıyor.** H
 
 **Tetikleyici:** Gerçek bir holding/çok-şirketli müşteri talebi.
 
-`Tenant` üzerinde, birden fazla tenant'ı gruplayan bir `Organization` varlığı. Bugünkü model bunu **destekleyecek şekilde** hazırlanmıştır: `tenant_id` düz kaldığı için mevcut RLS politikaları değişmez; Organization yalnızca *üstte* bir gruplama ve çapraz-tenant *raporlama* katmanı olarak eklenir.
+`Tenant` üzerinde, birden fazla tenant'ı gruplayan bir `Organization` varlığı. Bugünkü model bunu **destekleyecek şekilde** hazırlanmıştır: `tenant_id` düz kaldığı için mevcut RLS politikaları değişmez; Organization yalnızca _üstte_ bir gruplama ve çapraz-tenant _raporlama_ katmanı olarak eklenir.
 
 > Kritik kısıt: Organization eklendiğinde de **veri erişimi tenant sınırında kalmalıdır**. Organization, çapraz-tenant veri okuma yetkisi vermez; yalnızca yönetim ve toplu raporlama sağlar. Bu kısıt gevşetilirse tüm izolasyon modeli yeniden değerlendirilmelidir.
 
@@ -1505,15 +1506,15 @@ V1'de **kesinlikle yoktur** ([N4](#non-goals-v1de-bilinçli-olarak-yapılmıyor)
 
 ### 17.4 Diğer
 
-| Genişleme | Tetikleyici | Not |
-|---|---|---|
-| **Tenant başına custom field'lar** | Ürün esneklik talebi | JSONB tabanlı; şema değişmez, RLS etkilenmez |
-| **SSO / SAML / OIDC** | Kurumsal talep | Tenant başına kimlik sağlayıcı; federasyon bir port arkasında (ADR-0004'ün öngördüğü genişleme) |
-| **SCIM ile kullanıcı sağlama** | Kurumsal talep | Membership'lerin otomatik senkronizasyonu |
-| **Tenant başına şifreleme anahtarı (BYOK)** | Uyumluluk talebi | Sütun bazlı şifreleme; anahtar yönetimi ayrı bir port |
-| **Tenant taşıma / birleştirme** | M&A senaryosu | Operasyonel araç; `tenant_id` yeniden yazma gerektirir, dikkatli tasarım ister |
-| **Bölgesel yerleşim (data residency)** | AB/ABD veri ikametgâhı | Bölge başına ayrı deployment; resolution katmanı bölge-farkında hâle gelir |
-| **Tenant başına kota ve rate limit ayarı** | Plan farklılaşması | Faz 6 faturalama ile birlikte |
+| Genişleme                                   | Tetikleyici            | Not                                                                                             |
+| ------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| **Tenant başına custom field'lar**          | Ürün esneklik talebi   | JSONB tabanlı; şema değişmez, RLS etkilenmez                                                    |
+| **SSO / SAML / OIDC**                       | Kurumsal talep         | Tenant başına kimlik sağlayıcı; federasyon bir port arkasında (ADR-0004'ün öngördüğü genişleme) |
+| **SCIM ile kullanıcı sağlama**              | Kurumsal talep         | Membership'lerin otomatik senkronizasyonu                                                       |
+| **Tenant başına şifreleme anahtarı (BYOK)** | Uyumluluk talebi       | Sütun bazlı şifreleme; anahtar yönetimi ayrı bir port                                           |
+| **Tenant taşıma / birleştirme**             | M&A senaryosu          | Operasyonel araç; `tenant_id` yeniden yazma gerektirir, dikkatli tasarım ister                  |
+| **Bölgesel yerleşim (data residency)**      | AB/ABD veri ikametgâhı | Bölge başına ayrı deployment; resolution katmanı bölge-farkında hâle gelir                      |
+| **Tenant başına kota ve rate limit ayarı**  | Plan farklılaşması     | Faz 6 faturalama ile birlikte                                                                   |
 
 ### 17.5 Agent ekosistemi — tenant sınırı açısından
 
@@ -1559,33 +1560,33 @@ Tenant verisine dokunan bir modül yazıyorsanız, PR açmadan önce:
 
 ## Ek B — Terimler
 
-| Terim | Anlam |
-|---|---|
-| **Tenant** | İzolasyon, faturalama ve yönetim sınırı — bir şirket |
-| **Membership** | Bir kullanıcının bir tenant içindeki üyeliği; rol ve durumu taşır |
+| Terim              | Anlam                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **Tenant**         | İzolasyon, faturalama ve yönetim sınırı — bir şirket                                     |
+| **Membership**     | Bir kullanıcının bir tenant içindeki üyeliği; rol ve durumu taşır                        |
 | **Tenant context** | Bir isteğin/işin çalıştığı tenant kimliği; `AsyncLocalStorage`'da yaşar, persist edilmez |
-| **Resolution** | Gelen isteğin hangi tenant'a ait olduğunun belirlenmesi |
-| **Provisioning** | Yeni bir tenant'ın oluşturulup kullanıma hazır hâle getirilmesi |
-| **RLS** | Row Level Security — PostgreSQL'in satır bazlı erişim denetimi |
-| **`FORCE RLS`** | Politikaların tablo sahibi rol için de uygulanmasını zorlayan ayar |
-| **Fail closed** | Belirsizlik durumunda erişimi reddetme duruşu |
-| **Hint** | Host'tan türetilen, güvenilmeyen tenant ipucu |
-| **Claim** | Doğrulanmış JWT içindeki alan — tenant kimliğinin tek meşru kaynağı |
+| **Resolution**     | Gelen isteğin hangi tenant'a ait olduğunun belirlenmesi                                  |
+| **Provisioning**   | Yeni bir tenant'ın oluşturulup kullanıma hazır hâle getirilmesi                          |
+| **RLS**            | Row Level Security — PostgreSQL'in satır bazlı erişim denetimi                           |
+| **`FORCE RLS`**    | Politikaların tablo sahibi rol için de uygulanmasını zorlayan ayar                       |
+| **Fail closed**    | Belirsizlik durumunda erişimi reddetme duruşu                                            |
+| **Hint**           | Host'tan türetilen, güvenilmeyen tenant ipucu                                            |
+| **Claim**          | Doğrulanmış JWT içindeki alan — tenant kimliğinin tek meşru kaynağı                      |
 
 ---
 
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih | Değişiklik |
-|---|---|---|
-| 1.0 | 2026-07-21 | İlk sürüm — Faz 2 girişi. ADR-0012…0016 `Planned` olarak referanslandı. |
-| 1.1 | 2026-07-21 | ADR-0012…0016 yazıldı, referanslar `Kabul edildi` olarak güncellendi. §12.1 düzeltmesi: rol isimleri kanonik hâle getirildi (`businessos_owner` / `businessos_app`), var olmayan üçüncü rol kaldırıldı, `NOBYPASSRLS` ile `FORCE` arasındaki ayrım netleştirildi. |
-| 1.2 | 2026-07-21 | §7.5 eklendi — Role modeli (domain'de value object, persistence'ta enum). ADR-0014 ile doküman arasındaki sapma kapatıldı. |
-| 1.3 | 2026-07-21 | §13.3'e "Kural 1'in istisnası: platform repository'leri" alt bölümü eklendi. §7.2 düzeltmesi: `revoked → active` yerine `revoked → invited` — diyagramın etiketi ("yeniden davet edildi") ile hedefi çelişiyordu. |
-| 1.4 | 2026-07-21 | §17.5 eklendi — agent ekosisteminin tenant sınırı kısıtı. Vizyonun kendisi `ARCHITECTURE.md` §13'te. |
-| 1.5 | 2026-07-21 | §12.4.1 eklendi — tenant resolution ile `platform.tenants` RLS politikası arasındaki çelişki çözüldü: `SECURITY DEFINER` çözüm fonksiyonu ve `FORCE`'un neden bu tabloda bulunmadığı. İlk implementasyonda ortaya çıkan gerçek bir boşluktu. |
-| 1.6 | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar. |
-| 1.7 | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi). |
-| 1.8 | 2026-07-21 | §6.3 erisim tablosuna `failed` satiri eklendi — kod bes durumluydu, tablo dordunu listeliyordu. Faz 2 kapanis denetiminde bulundu. |
-| 1.9 | 2026-07-21 | Faz 3 (Identity) kararlarıyla hizalandı: §7.4'e **iki aşamalı token modeli**, §9.2'ye **6 haneli kod** akışı (bağlantı yerine), §12.4'e Identity tabloları ve **§12.4.3** eklendi. Kaynak: `AUTH_ARCHITECTURE.md` v1.0, ADR-0019/0020. |
-| 2.0 | 2026-08-02 | **[§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) uygulandı ve düzeltildi** (migration `0009`+`0010`, commit `b07966f`). Tenant outbox tüketicisi yazıldı: `claim_outbox_batch` / `mark_outbox_published` / `record_outbox_failure` + dördüncü dar rol `businessos_outbox_relay` (NOLOGIN + BYPASSRLS). §12.4.2'nin iki öngörüsü **yanlış çıktı** ve üstlerine superseded notu eklendi (metin silinmedi): (a) `resolve_tenant` deseni `FORCE RLS` altında çalışmaz — gerekçe §12.4.4'te zaten vardı, (b) "üçüncü rol eklenmeyecek" iddiası ikinci kez düştü; `NOLOGIN` rol için reddin gerekçesi geçerli değil. Dar rolün sınırları Constraint 2 eşdeğeri entegrasyon testiyle kanıtlanır. |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1.0   | 2026-07-21 | İlk sürüm — Faz 2 girişi. ADR-0012…0016 `Planned` olarak referanslandı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 1.1   | 2026-07-21 | ADR-0012…0016 yazıldı, referanslar `Kabul edildi` olarak güncellendi. §12.1 düzeltmesi: rol isimleri kanonik hâle getirildi (`businessos_owner` / `businessos_app`), var olmayan üçüncü rol kaldırıldı, `NOBYPASSRLS` ile `FORCE` arasındaki ayrım netleştirildi.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 1.2   | 2026-07-21 | §7.5 eklendi — Role modeli (domain'de value object, persistence'ta enum). ADR-0014 ile doküman arasındaki sapma kapatıldı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 1.3   | 2026-07-21 | §13.3'e "Kural 1'in istisnası: platform repository'leri" alt bölümü eklendi. §7.2 düzeltmesi: `revoked → active` yerine `revoked → invited` — diyagramın etiketi ("yeniden davet edildi") ile hedefi çelişiyordu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 1.4   | 2026-07-21 | §17.5 eklendi — agent ekosisteminin tenant sınırı kısıtı. Vizyonun kendisi `ARCHITECTURE.md` §13'te.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 1.5   | 2026-07-21 | §12.4.1 eklendi — tenant resolution ile `platform.tenants` RLS politikası arasındaki çelişki çözüldü: `SECURITY DEFINER` çözüm fonksiyonu ve `FORCE`'un neden bu tabloda bulunmadığı. İlk implementasyonda ortaya çıkan gerçek bir boşluktu.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 1.6   | 2026-07-21 | §12.4.1'e `existsBySlug` notu ve §9.3'e nezaket kontrolunun transaction icinde oldugu eklendi — ikisi de implementasyonun ortaya cikardigi sonuclar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 1.7   | 2026-07-21 | §12.4.2 eklendi — outbox standart RLS kullanir; publisher'in okuma yolu icin ucuncu bir DB rolu yerine kontrollu asim fonksiyonu kullanilacagi karara baglandi (henuz uygulanmadi).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 1.8   | 2026-07-21 | §6.3 erisim tablosuna `failed` satiri eklendi — kod bes durumluydu, tablo dordunu listeliyordu. Faz 2 kapanis denetiminde bulundu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 1.9   | 2026-07-21 | Faz 3 (Identity) kararlarıyla hizalandı: §7.4'e **iki aşamalı token modeli**, §9.2'ye **6 haneli kod** akışı (bağlantı yerine), §12.4'e Identity tabloları ve **§12.4.3** eklendi. Kaynak: `AUTH_ARCHITECTURE.md` v1.0, ADR-0019/0020.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2.0   | 2026-08-02 | **[§12.4.2](#1242-outbox-publisher-i̇çin-planlanan-aşım) uygulandı ve düzeltildi** (migration `0009`+`0010`, commit `b07966f`). Tenant outbox tüketicisi yazıldı: `claim_outbox_batch` / `mark_outbox_published` / `record_outbox_failure` + dördüncü dar rol `businessos_outbox_relay` (NOLOGIN + BYPASSRLS). §12.4.2'nin iki öngörüsü **yanlış çıktı** ve üstlerine superseded notu eklendi (metin silinmedi): (a) `resolve_tenant` deseni `FORCE RLS` altında çalışmaz — gerekçe §12.4.4'te zaten vardı, (b) "üçüncü rol eklenmeyecek" iddiası ikinci kez düştü; `NOLOGIN` rol için reddin gerekçesi geçerli değil. Dar rolün sınırları Constraint 2 eşdeğeri entegrasyon testiyle kanıtlanır. |

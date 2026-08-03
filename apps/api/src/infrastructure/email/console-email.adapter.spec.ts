@@ -21,7 +21,11 @@ describe('ConsoleEmailAdapter', () => {
   it('icerigi loglar (dev/CI kolayligi)', async () => {
     const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
 
-    await adapter.send({ to: 'user@example.com', subject: 'Dogrulama', textBody: 'Kodunuz: 999999' });
+    await adapter.send({
+      to: 'user@example.com',
+      subject: 'Dogrulama',
+      textBody: 'Kodunuz: 999999',
+    });
 
     expect(log).toHaveBeenCalledOnce();
     const logged = String(log.mock.calls[0]?.[0]);

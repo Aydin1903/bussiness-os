@@ -36,12 +36,10 @@ describe('ContextCurrentUserProvider', () => {
   it('ic ice baglamda en yakin kimligi dondurur', () => {
     const other = '018f3a2b-7c4d-7e1f-9b3c-000000000abc';
 
-    const seen = runWithPrincipal(
-      { userId: USER_ID, sessionId: SESSION_ID, tenantId: null },
-      () =>
-        runWithPrincipal({ userId: other, sessionId: SESSION_ID, tenantId: null }, () =>
-          provider.requireUserId(),
-        ),
+    const seen = runWithPrincipal({ userId: USER_ID, sessionId: SESSION_ID, tenantId: null }, () =>
+      runWithPrincipal({ userId: other, sessionId: SESSION_ID, tenantId: null }, () =>
+        provider.requireUserId(),
+      ),
     );
 
     expect(seen).toBe(other);

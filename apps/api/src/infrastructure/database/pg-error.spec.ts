@@ -29,7 +29,9 @@ describe('isPgError', () => {
 
   it('farkli kisit adini eslestirmez', () => {
     // Yanlis kisiti yakalayan bir ceviri, kullaniciya yanlis mesaj gosterir.
-    expect(isPgError(wrapped(uniqueViolation), PG_UNIQUE_VIOLATION, 'memberships_pkey')).toBe(false);
+    expect(isPgError(wrapped(uniqueViolation), PG_UNIQUE_VIOLATION, 'memberships_pkey')).toBe(
+      false,
+    );
   });
 
   it('kisit adi verilmezse yalnizca koda bakar', () => {

@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { type Clock } from '../../../shared/clock.port';
-import {
-  EmailDeliveryError,
-  type EmailMessage,
-  type EmailPort,
-} from '../../../shared/email.port';
+import { EmailDeliveryError, type EmailMessage, type EmailPort } from '../../../shared/email.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import {
   type IdentityOutboxRecord,

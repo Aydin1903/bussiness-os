@@ -42,7 +42,9 @@ export function Sidebar({
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className={`flex h-14 shrink-0 items-center ${collapsed ? 'justify-center' : 'px-5'}`}>
-        <span className="text-sm font-semibold tracking-tight">{collapsed ? 'BO' : 'Business OS'}</span>
+        <span className="text-sm font-semibold tracking-tight">
+          {collapsed ? 'BO' : 'Business OS'}
+        </span>
       </div>
 
       <nav className="flex flex-col gap-1 px-3 py-2" aria-label="Ana gezinme">

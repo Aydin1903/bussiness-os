@@ -26,16 +26,20 @@ describe('evaluatePasswordResetRequest — bekleme suresi resend in IKI KATI', (
   });
 
   it('119 saniyede sessizce atlar', () => {
-    expect(evaluatePasswordResetRequest(counts({ lastRequestedAt: secondsAgo(119) }), NOW)).toEqual({
-      action: 'skip-silently',
-      reason: 'cooldown',
-    });
+    expect(evaluatePasswordResetRequest(counts({ lastRequestedAt: secondsAgo(119) }), NOW)).toEqual(
+      {
+        action: 'skip-silently',
+        reason: 'cooldown',
+      },
+    );
   });
 
   it('TAM 120 saniyede izin verir', () => {
-    expect(evaluatePasswordResetRequest(counts({ lastRequestedAt: secondsAgo(120) }), NOW)).toEqual({
-      action: 'allow',
-    });
+    expect(evaluatePasswordResetRequest(counts({ lastRequestedAt: secondsAgo(120) }), NOW)).toEqual(
+      {
+        action: 'allow',
+      },
+    );
   });
 });
 
@@ -46,7 +50,10 @@ describe('evaluatePasswordResetRequest — sinirlar (resend ile ayni)', () => {
 
   it('saatlik hesap siniri dolduysa SESSIZCE atlar (429 degil, P2)', () => {
     expect(
-      evaluatePasswordResetRequest(counts({ accountRequestsInWindow: RESEND_MAX_PER_ACCOUNT_HOURLY }), NOW),
+      evaluatePasswordResetRequest(
+        counts({ accountRequestsInWindow: RESEND_MAX_PER_ACCOUNT_HOURLY }),
+        NOW,
+      ),
     ).toEqual({ action: 'skip-silently', reason: 'account-hourly-limit' });
   });
 

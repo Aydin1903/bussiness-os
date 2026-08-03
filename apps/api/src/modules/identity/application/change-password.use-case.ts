@@ -273,11 +273,7 @@ export class ChangePasswordUseCase {
     return { outcome: 'changed', revokedSessionCount };
   }
 
-  async #persist(
-    target: Target,
-    newHash: PasswordHash,
-    context: ChangeContext,
-  ): Promise<number> {
+  async #persist(target: Target, newHash: PasswordHash, context: ChangeContext): Promise<number> {
     const { user, credential } = target;
 
     credential.changePassword(newHash, context.now);

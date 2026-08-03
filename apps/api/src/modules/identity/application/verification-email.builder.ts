@@ -50,9 +50,7 @@ function parse(payload: Readonly<Record<string, unknown>>): UserRegisteredFields
  * Metin duz tutuldu: HTML sablonu bir sunum karari ve bugun bir degeri yok.
  * Kod TEK basina bir satirda durur — kullanici onu kopyalayacak.
  */
-export function buildVerificationEmail(
-  payload: Readonly<Record<string, unknown>>,
-): EmailMessage {
+export function buildVerificationEmail(payload: Readonly<Record<string, unknown>>): EmailMessage {
   const { email, verificationCode } = parse(payload);
 
   return {

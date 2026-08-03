@@ -62,11 +62,7 @@ class FakeDailyReportRunRepository implements DailyReportRunRepository {
 
   constructor(private readonly calls: CallLog) {}
 
-  ensureScheduled(input: {
-    id: string;
-    tenantId: TenantId;
-    reportDate: string;
-  }): Promise<void> {
+  ensureScheduled(input: { id: string; tenantId: TenantId; reportDate: string }): Promise<void> {
     this.calls.push('report.ensureScheduled');
     this.scheduled.push({ tenantId: input.tenantId.value, reportDate: input.reportDate });
     return Promise.resolve();
@@ -393,9 +389,7 @@ describe('CreateNoteUseCase — girdi dogrulama domain de', () => {
   it('gecersiz tenant id transaction ACMADAN reddedilir', async () => {
     const harness = createHarness();
 
-    await expect(
-      harness.useCase.execute({ ...command(), tenantId: 'gecersiz' }),
-    ).rejects.toThrow();
+    await expect(harness.useCase.execute({ ...command(), tenantId: 'gecersiz' })).rejects.toThrow();
 
     expect(harness.transactionManager.opened).toBe(0);
   });

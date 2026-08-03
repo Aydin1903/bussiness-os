@@ -24,9 +24,9 @@ describe('EmailVerificationCodeId', () => {
   });
 
   it('ayni degeri esit, farkli degeri esit degil sayar', () => {
-    expect(EmailVerificationCodeId.create(VALID).equals(EmailVerificationCodeId.create(VALID))).toBe(
-      true,
-    );
+    expect(
+      EmailVerificationCodeId.create(VALID).equals(EmailVerificationCodeId.create(VALID)),
+    ).toBe(true);
     expect(
       EmailVerificationCodeId.create(VALID).equals(EmailVerificationCodeId.create(OTHER)),
     ).toBe(false);

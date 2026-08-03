@@ -19,14 +19,14 @@ sey olmamis gibi devam eder — saldirgan ise iceridedir.
 
 ## Karar
 
-| Kural | Deger |
-| ----- | ----- |
-| Bicim | 256 bit kriptografik rastgele deger — **JWT degil** |
-| Saklama | Veritabaninda **SHA-256 hash'i** |
-| Token omru (kayan pencere) | 30 gun — **her rotasyonda yeniden baslar** |
-| **Ailenin mutlak omru (tavan)** | **90 gun** — rotasyon bunu SIFIRLAMAZ |
-| Rotation | **Her kullanimda**; eski token aninda gecersizlesir |
-| **Yeniden kullanim** | **Tum AILE iptal edilir** + guvenlik alarmi |
+| Kural                           | Deger                                               |
+| ------------------------------- | --------------------------------------------------- |
+| Bicim                           | 256 bit kriptografik rastgele deger — **JWT degil** |
+| Saklama                         | Veritabaninda **SHA-256 hash'i**                    |
+| Token omru (kayan pencere)      | 30 gun — **her rotasyonda yeniden baslar**          |
+| **Ailenin mutlak omru (tavan)** | **90 gun** — rotasyon bunu SIFIRLAMAZ               |
+| Rotation                        | **Her kullanimda**; eski token aninda gecersizlesir |
+| **Yeniden kullanim**            | **Tum AILE iptal edilir** + guvenlik alarmi         |
 
 **Aile (token family):** bir giristen dogan refresh token zinciri. Hirsizlik
 tespitinin birimidir.
@@ -89,14 +89,14 @@ almaya devam etmesi, iptalin anlamini yok ederdi.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Rotasyonsuz, uzun omurlu refresh token | Calinan token 30 gun boyunca gecerli; tespit imkani yok |
+| Alternatif                                                      | Neden secilmedi                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Rotasyonsuz, uzun omurlu refresh token                          | Calinan token 30 gun boyunca gecerli; tespit imkani yok                        |
 | Rotasyon var ama yeniden kullanimda yalnizca O TOKEN reddedilir | Saldirgan zinciri devralir, mesru kullanici disarida kalir ve kimse fark etmez |
-| Refresh token'i JWT yapmak | Iptal edilebilirlik kaybedilir; her kullanimda DB'ye zaten bakiliyor |
-| Argon2 ile hash'leme | Yuksek entropili token icin gereksiz; her yenilemeye 100+ ms ekler |
-| Token'i duz saklamak | Veritabani sizintisi dogrudan oturum ele gecirmeye donusur |
-| Yenilemede yetki dogrulamamak | Iptal edilmis uyelik sonsuza kadar token uretmeye devam eder |
+| Refresh token'i JWT yapmak                                      | Iptal edilebilirlik kaybedilir; her kullanimda DB'ye zaten bakiliyor           |
+| Argon2 ile hash'leme                                            | Yuksek entropili token icin gereksiz; her yenilemeye 100+ ms ekler             |
+| Token'i duz saklamak                                            | Veritabani sizintisi dogrudan oturum ele gecirmeye donusur                     |
+| Yenilemede yetki dogrulamamak                                   | Iptal edilmis uyelik sonsuza kadar token uretmeye devam eder                   |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 
@@ -118,10 +118,10 @@ bunu gizler, cunku her sey normal gorunur.
 
 Bu yuzden ailenin uzerine **90 gunluk, asilamaz bir tavan** konur:
 
-| Sinir | Anlami |
-| ----- | ------ |
-| 30 gun (token) | Kayan pencere; aktif kullanicinin oturumu kendiliginden dusmez |
-| 90 gun (aile) | Tavan; hicbir oturum bunu gecemez, kullanici yeniden giris yapar |
+| Sinir          | Anlami                                                           |
+| -------------- | ---------------------------------------------------------------- |
+| 30 gun (token) | Kayan pencere; aktif kullanicinin oturumu kendiliginden dusmez   |
+| 90 gun (aile)  | Tavan; hicbir oturum bunu gecemez, kullanici yeniden giris yapar |
 
 **Tavan SAKLANMAZ, turetilir:** `token_families.created_at + 90 gun`. Ayri bir
 `expires_at` kolonu ayni gercegi iki yerde tutar ve sure degistiginde hangisinin

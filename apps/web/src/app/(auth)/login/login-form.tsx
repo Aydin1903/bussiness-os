@@ -164,10 +164,7 @@ export function LoginForm({
       </Button>
 
       <div className="flex flex-col gap-2 text-center text-sm text-fg-muted">
-        <Link
-          href="/forgot-password"
-          className="underline-offset-2 hover:text-fg hover:underline"
-        >
+        <Link href="/forgot-password" className="underline-offset-2 hover:text-fg hover:underline">
           Şifreni mi unuttun?
         </Link>
         <p>

@@ -199,7 +199,12 @@ describe('switch-tenant (uctan uca)', () => {
   it('SUSPENDED uyelige 403 doner', async () => {
     const { identityToken, userId } = await signIn();
     await createTenant(TENANT_ID, 'active', userId);
-    await addMembership({ tenantId: TENANT_ID, userId: userId, role: 'member', status: 'suspended' });
+    await addMembership({
+      tenantId: TENANT_ID,
+      userId: userId,
+      role: 'member',
+      status: 'suspended',
+    });
 
     const response = await switchTenant(identityToken, TENANT_ID);
 
@@ -236,7 +241,12 @@ describe('switch-tenant (uctan uca)', () => {
     const { identityToken, userId } = await signIn();
     await createTenant(TENANT_ID, 'active', userId); // uyelik yok -> no-membership
     await createTenant(OTHER_TENANT_ID, 'suspended', userId);
-    await addMembership({ tenantId: OTHER_TENANT_ID, userId: userId, role: 'member', status: 'active' }); // tenant-inactive
+    await addMembership({
+      tenantId: OTHER_TENANT_ID,
+      userId: userId,
+      role: 'member',
+      status: 'active',
+    }); // tenant-inactive
 
     const noMembership = await switchTenant(identityToken, TENANT_ID);
     const tenantInactive = await switchTenant(identityToken, OTHER_TENANT_ID);

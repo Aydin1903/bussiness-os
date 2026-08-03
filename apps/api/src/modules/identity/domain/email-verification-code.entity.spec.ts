@@ -23,10 +23,17 @@ const EXPIRES = new Date('2026-07-22T10:15:00.000Z');
 const AFTER_EXPIRY = new Date('2026-07-22T10:20:00.000Z');
 
 function issued(): EmailVerificationCode {
-  return EmailVerificationCode.issue({ id: CODE_ID, userId: USER_ID, codeHash: HASH, expiresAt: EXPIRES });
+  return EmailVerificationCode.issue({
+    id: CODE_ID,
+    userId: USER_ID,
+    codeHash: HASH,
+    expiresAt: EXPIRES,
+  });
 }
 
-function persisted(overrides: Partial<EmailVerificationCodeState> = {}): EmailVerificationCodeState {
+function persisted(
+  overrides: Partial<EmailVerificationCodeState> = {},
+): EmailVerificationCodeState {
   return {
     id: CODE_ID,
     userId: USER_ID,
@@ -60,7 +67,12 @@ describe('EmailVerificationCode.issue', () => {
 
   it('expiresAt.i kopyalar', () => {
     const expiresAt = new Date(EXPIRES.getTime());
-    const code = EmailVerificationCode.issue({ id: CODE_ID, userId: USER_ID, codeHash: HASH, expiresAt });
+    const code = EmailVerificationCode.issue({
+      id: CODE_ID,
+      userId: USER_ID,
+      codeHash: HASH,
+      expiresAt,
+    });
 
     expiresAt.setFullYear(1990);
 
@@ -185,7 +197,9 @@ describe('EmailVerificationCode.fromPersistence', () => {
 
   it('araligin disindaki sayaci tutarsiz sayar', () => {
     expect(() =>
-      EmailVerificationCode.fromPersistence(persisted({ attemptCount: MAX_VERIFICATION_ATTEMPTS + 1 })),
+      EmailVerificationCode.fromPersistence(
+        persisted({ attemptCount: MAX_VERIFICATION_ATTEMPTS + 1 }),
+      ),
     ).toThrow(InconsistentVerificationCodeStateError);
 
     expect(() => EmailVerificationCode.fromPersistence(persisted({ attemptCount: -1 }))).toThrow(
@@ -200,9 +214,9 @@ describe('EmailVerificationCode.fromPersistence', () => {
   });
 
   it('gecersiz expiresAt.i reddeder', () => {
-    expect(() => EmailVerificationCode.fromPersistence(persisted({ expiresAt: new Date('x') }))).toThrow(
-      InvalidVerificationCodeExpiryError,
-    );
+    expect(() =>
+      EmailVerificationCode.fromPersistence(persisted({ expiresAt: new Date('x') })),
+    ).toThrow(InvalidVerificationCodeExpiryError);
   });
 
   it('gecersiz consumedAt.i reddeder', () => {

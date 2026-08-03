@@ -23,20 +23,20 @@ zaten isaretlenmisti; karsiligi tanimlanmamisti.
 
 ### Cikis SUNUCUDA gerceklesir
 
-| Islem | Etki |
-| ----- | ---- |
-| `POST /auth/logout` | Sunulan refresh token'in **ailesi** iptal edilir |
-| `POST /auth/logout-all` | Kullanicinin **tum** aileleri iptal edilir |
+| Islem                   | Etki                                             |
+| ----------------------- | ------------------------------------------------ |
+| `POST /auth/logout`     | Sunulan refresh token'in **ailesi** iptal edilir |
+| `POST /auth/logout-all` | Kullanicinin **tum** aileleri iptal edilir       |
 
 ### Iptal tetikleyicileri
 
-| Olay | Kapsam |
-| ---- | ------ |
-| Parola degisikligi / sifirlama | Kullanicinin TUM aileleri |
-| Refresh token yeniden kullanimi | Ilgili aile (ADR-0021) |
-| Kullanici `deactivated` / `locked` | Tum aileler |
-| `MemberRemoved` / `MemberSuspended` | Ilgili TENANT'a bagli oturumlar |
-| `TenantSuspended` / `TenantArchived` | O tenant'a bagli oturumlar |
+| Olay                                 | Kapsam                          |
+| ------------------------------------ | ------------------------------- |
+| Parola degisikligi / sifirlama       | Kullanicinin TUM aileleri       |
+| Refresh token yeniden kullanimi      | Ilgili aile (ADR-0021)          |
+| Kullanici `deactivated` / `locked`   | Tum aileler                     |
+| `MemberRemoved` / `MemberSuspended`  | Ilgili TENANT'a bagli oturumlar |
+| `TenantSuspended` / `TenantArchived` | O tenant'a bagli oturumlar      |
 
 ### Access token'in iptal edilemezligi — KABUL EDILDI
 
@@ -90,13 +90,13 @@ olarak kabul edilmistir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Yalnizca istemci tarafi cikis | Calinan token kopyasini hic etkilemez; guvenlik gorunumu uretir, guvenlik uretmez |
-| Her istekte access token deny-list kontrolu | Durumsuz dogrulamayi ortadan kaldirir; her istege ek okuma |
-| Access token omrunu 1-2 dakikaya dusurmek | Pencereyi daraltir ama yenileme trafigini 7-15 kat artirir |
-| Refresh token'i silmek yerine yalnizca isaretlemek | Secildi zaten (iptal isareti); fiziksel silme denetim izini yok ederdi |
-| Cikista yalnizca sunulan token'i iptal etmek | Ayni aileden tureyen digerleri gecerli kalirdi |
+| Alternatif                                         | Neden secilmedi                                                                   |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Yalnizca istemci tarafi cikis                      | Calinan token kopyasini hic etkilemez; guvenlik gorunumu uretir, guvenlik uretmez |
+| Her istekte access token deny-list kontrolu        | Durumsuz dogrulamayi ortadan kaldirir; her istege ek okuma                        |
+| Access token omrunu 1-2 dakikaya dusurmek          | Pencereyi daraltir ama yenileme trafigini 7-15 kat artirir                        |
+| Refresh token'i silmek yerine yalnizca isaretlemek | Secildi zaten (iptal isareti); fiziksel silme denetim izini yok ederdi            |
+| Cikista yalnizca sunulan token'i iptal etmek       | Ayni aileden tureyen digerleri gecerli kalirdi                                    |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

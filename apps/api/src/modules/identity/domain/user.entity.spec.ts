@@ -171,9 +171,7 @@ describe('User.fromPersistence — tutarlilik invariant.i', () => {
   });
 
   it('deactivated + dogrulanmamis e-posta gecerlidir (dogrulanmadan kapatilmis hesap)', () => {
-    const user = User.fromPersistence(
-      persisted({ status: 'deactivated', emailVerified: false }),
-    );
+    const user = User.fromPersistence(persisted({ status: 'deactivated', emailVerified: false }));
 
     expect(user.status).toBe('deactivated');
     expect(user.emailVerified).toBe(false);

@@ -192,16 +192,16 @@ const baseEnvSchema = z.object({
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
-    // Kural basina bir fonksiyon: `superRefine` govdesi buyudukce okunamaz hale
-    // gelir ve her yeni saglayici onu biraz daha uzatir. Kurallar ayri
-    // fonksiyonlarda durunca, eklenen bir saglayici MEVCUT kurallari okumayi
-    // gerektirmez.
-    requireResendCredentials(env, ctx);
-    requireOpenAiCredentials(env, ctx);
-    requireDeepSeekCredentials(env, ctx);
-    forbidConsoleEmailInProduction(env, ctx);
-    forbidFakeProvidersInProduction(env, ctx);
-  });
+  // Kural basina bir fonksiyon: `superRefine` govdesi buyudukce okunamaz hale
+  // gelir ve her yeni saglayici onu biraz daha uzatir. Kurallar ayri
+  // fonksiyonlarda durunca, eklenen bir saglayici MEVCUT kurallari okumayi
+  // gerektirmez.
+  requireResendCredentials(env, ctx);
+  requireOpenAiCredentials(env, ctx);
+  requireDeepSeekCredentials(env, ctx);
+  forbidConsoleEmailInProduction(env, ctx);
+  forbidFakeProvidersInProduction(env, ctx);
+});
 
 /** Zod'un `superRefine` baglami — kurallarin ortak imzasi. */
 type RefinementContext = z.RefinementCtx;

@@ -82,10 +82,7 @@ export class DrizzleTransactionManager implements TransactionManager {
         await client.query('SELECT set_config($1, $2, true)', [TENANT_SETTING, tenantId]);
       }
 
-      const result = await runWithTransaction(
-        { db: drizzle(client, { schema }), tenantId },
-        fn,
-      );
+      const result = await runWithTransaction({ db: drizzle(client, { schema }), tenantId }, fn);
 
       await client.query('COMMIT');
       return result;

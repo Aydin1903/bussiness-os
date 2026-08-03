@@ -6,7 +6,11 @@ import { Email } from '../../src/modules/identity/domain/email.value-object';
 import { UserRegistered } from '../../src/modules/identity/domain/user-registered.event';
 import { UserId } from '../../src/shared/user-id.value-object';
 import type { DomainEvent } from '../../src/shared/domain-event';
-import { startTestDatabase, truncateIdentityTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateIdentityTables,
+  type TestDatabase,
+} from './support/test-database';
 
 const USER_ID = '018f3a2b-7c4d-7e1f-9b3c-00000000000a';
 const NOW = new Date('2026-07-22T10:00:00.000Z');

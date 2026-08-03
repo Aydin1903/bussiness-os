@@ -23,10 +23,10 @@ degistirmek tum kimlik verisinin migrasyonu demektir.
 
 **Kimlik globaldir, uyelik tenant-scoped'tur.**
 
-| Varlik       | Kapsam            | Tasidigi                                                  |
-| ------------ | ----------------- | --------------------------------------------------------- |
-| `User`       | Global            | Global tekil `email`, parola (Argon2id), MFA, dogrulama    |
-| `Membership` | Tenant-scoped     | `(tenant_id, user_id)` uzerinde tekil; **rol ve durum**    |
+| Varlik       | Kapsam        | Tasidigi                                                |
+| ------------ | ------------- | ------------------------------------------------------- |
+| `User`       | Global        | Global tekil `email`, parola (Argon2id), MFA, dogrulama |
+| `Membership` | Tenant-scoped | `(tenant_id, user_id)` uzerinde tekil; **rol ve durum** |
 
 `User` **rol tasimaz.** Rol yalnizca `Membership` uzerinde yasar.
 
@@ -74,11 +74,11 @@ ulasmadan once uygulanir.
 
 **Sonuc**
 
-| Katman        | Temsil                                        |
-| ------------- | --------------------------------------------- |
-| Domain        | `Role` value object                           |
-| Persistence   | `string` / `enum` kolon                       |
-| Gelecek       | `roles` tablosuna minimum kirilimla gecis     |
+| Katman      | Temsil                                    |
+| ----------- | ----------------------------------------- |
+| Domain      | `Role` value object                       |
+| Persistence | `string` / `enum` kolon                   |
+| Gelecek     | `roles` tablosuna minimum kirilimla gecis |
 
 ## Ek: Uyelik yasam dongusunde `revoked -> invited`
 
@@ -133,14 +133,14 @@ etiketi "yeniden davet edildi" idi — hedef ile etiket celisiyordu.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                  | Neden secilmedi                                                                                    |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Tenant basina ayri kullanici kaydi          | Ayni kisi icin N parola, N MFA; parola sifirlama ve guvenlik olaylari tenant sayisi kadar coklanir  |
-| `User` uzerinde tek rol alani               | Rol tenant'a gorelidir; tek alan iki baglami karistirir ve yetki yukseltme uretir                   |
-| `Membership` yerine `user_tenants` join tablosu (rolsuz) | Rolun nerede yasayacagi cevapsiz kalir; rol yine `User`'a veya ayri bir tabloya kacar    |
-| Rolu bastan `roles` tablosuna almak         | ADR-0013 ile ayni gerekce: bugun karsiligi olmayan karmasiklik. Role VO gecisi zaten ucuz kiliyor   |
-| Rolu ciplak string/enum olarak kullanmak    | Primitive obsession (DEVELOPMENT_RULES §2.4); `roles` tablosuna gecis business logic'i kirar        |
-| Es zamanli cok-tenant oturum                | Tenant context'ini belirsizlestirir; sizintinin en kolay yolu                                       |
+| Alternatif                                               | Neden secilmedi                                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Tenant basina ayri kullanici kaydi                       | Ayni kisi icin N parola, N MFA; parola sifirlama ve guvenlik olaylari tenant sayisi kadar coklanir |
+| `User` uzerinde tek rol alani                            | Rol tenant'a gorelidir; tek alan iki baglami karistirir ve yetki yukseltme uretir                  |
+| `Membership` yerine `user_tenants` join tablosu (rolsuz) | Rolun nerede yasayacagi cevapsiz kalir; rol yine `User`'a veya ayri bir tabloya kacar              |
+| Rolu bastan `roles` tablosuna almak                      | ADR-0013 ile ayni gerekce: bugun karsiligi olmayan karmasiklik. Role VO gecisi zaten ucuz kiliyor  |
+| Rolu ciplak string/enum olarak kullanmak                 | Primitive obsession (DEVELOPMENT_RULES §2.4); `roles` tablosuna gecis business logic'i kirar       |
+| Es zamanli cok-tenant oturum                             | Tenant context'ini belirsizlestirir; sizintinin en kolay yolu                                      |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

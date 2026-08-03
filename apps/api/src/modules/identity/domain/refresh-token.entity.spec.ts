@@ -5,7 +5,11 @@ import {
   InvalidRefreshTokenUsedAtError,
   RefreshTokenAlreadyUsedError,
 } from './identity.error';
-import { RefreshToken, REFRESH_TOKEN_TTL_DAYS, type RefreshTokenState } from './refresh-token.entity';
+import {
+  RefreshToken,
+  REFRESH_TOKEN_TTL_DAYS,
+  type RefreshTokenState,
+} from './refresh-token.entity';
 import { RefreshTokenHash } from './refresh-token-hash.value-object';
 import { RefreshTokenId } from './refresh-token-id.value-object';
 import { TokenFamilyId } from './token-family-id.value-object';
@@ -30,27 +34,47 @@ function persisted(overrides: Partial<RefreshTokenState> = {}): RefreshTokenStat
 
 describe('RefreshToken.issue', () => {
   it('kullanilmamis baslar ve kullanilabilir', () => {
-    const token = RefreshToken.issue({ id: TOKEN_ID, familyId: FAMILY_ID, tokenHash: HASH, expiresAt: EXPIRES });
+    const token = RefreshToken.issue({
+      id: TOKEN_ID,
+      familyId: FAMILY_ID,
+      tokenHash: HASH,
+      expiresAt: EXPIRES,
+    });
 
     expect(token.isUsed).toBe(false);
     expect(token.isUsable(NOW)).toBe(true);
   });
 
   it('ailesine familyId ile referans verir', () => {
-    const token = RefreshToken.issue({ id: TOKEN_ID, familyId: FAMILY_ID, tokenHash: HASH, expiresAt: EXPIRES });
+    const token = RefreshToken.issue({
+      id: TOKEN_ID,
+      familyId: FAMILY_ID,
+      tokenHash: HASH,
+      expiresAt: EXPIRES,
+    });
 
     expect(token.familyId.equals(FAMILY_ID)).toBe(true);
   });
 
   it('gecersiz sona erme zamanini reddeder', () => {
     expect(() =>
-      RefreshToken.issue({ id: TOKEN_ID, familyId: FAMILY_ID, tokenHash: HASH, expiresAt: new Date('x') }),
+      RefreshToken.issue({
+        id: TOKEN_ID,
+        familyId: FAMILY_ID,
+        tokenHash: HASH,
+        expiresAt: new Date('x'),
+      }),
     ).toThrow(InvalidRefreshTokenExpiryError);
   });
 
   it('expiresAt.i kopyalar', () => {
     const expiresAt = new Date(EXPIRES.getTime());
-    const token = RefreshToken.issue({ id: TOKEN_ID, familyId: FAMILY_ID, tokenHash: HASH, expiresAt });
+    const token = RefreshToken.issue({
+      id: TOKEN_ID,
+      familyId: FAMILY_ID,
+      tokenHash: HASH,
+      expiresAt,
+    });
 
     expiresAt.setFullYear(1990);
 

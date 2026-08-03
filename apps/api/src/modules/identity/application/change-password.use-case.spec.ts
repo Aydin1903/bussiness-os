@@ -18,10 +18,7 @@ import { type TokenFamilyId } from '../domain/token-family-id.value-object';
 import { type TokenFamilyRevocationReason } from '../domain/token-family-revocation-reason.value-object';
 import { User } from '../domain/user.entity';
 import { UserPasswordChanged } from '../domain/user-password-changed.event';
-import {
-  ChangePasswordUseCase,
-  type ChangePasswordDependencies,
-} from './change-password.use-case';
+import { ChangePasswordUseCase, type ChangePasswordDependencies } from './change-password.use-case';
 import { type CredentialRepository } from './credential.repository.port';
 import { type LoginAttemptRepository } from './login-attempt.repository.port';
 import { type PasswordHasher } from './password-hasher.port';

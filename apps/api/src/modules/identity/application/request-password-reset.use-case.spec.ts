@@ -222,8 +222,9 @@ describe('RequestPasswordResetUseCase — P2 (hesap varligi sizmaz)', () => {
     const harness = createHarness();
     harness.userRepository.user = null;
 
-    await expect(harness.useCase.execute(command({ email: 'yok@example.com' }))).resolves
-      .toBeUndefined();
+    await expect(
+      harness.useCase.execute(command({ email: 'yok@example.com' })),
+    ).resolves.toBeUndefined();
 
     expect(harness.codeRepository.saved).toHaveLength(0);
     expect(harness.eventPublisher.published).toHaveLength(0);

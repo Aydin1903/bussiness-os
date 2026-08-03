@@ -50,9 +50,7 @@ describe('decideTenantDeliveryRetry — yeniden deneme', () => {
 
     expect(decision.action).toBe('retry');
     if (decision.action === 'retry') {
-      expect(decision.nextAttemptAt).toEqual(
-        new Date(NOW.getTime() + TENANT_RETRY_BASE_DELAY_MS),
-      );
+      expect(decision.nextAttemptAt).toEqual(new Date(NOW.getTime() + TENANT_RETRY_BASE_DELAY_MS));
     }
   });
 });

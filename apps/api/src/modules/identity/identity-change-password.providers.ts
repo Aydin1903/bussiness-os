@@ -4,7 +4,10 @@ import { CLOCK, type Clock } from '../../shared/clock.port';
 import { DELAY, type Delay } from '../../shared/delay.port';
 import { type DomainEventPublisher } from '../../shared/domain-event-publisher.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import { ChangePasswordUseCase } from './application/change-password.use-case';
 import {
   CREDENTIAL_REPOSITORY,

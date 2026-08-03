@@ -45,13 +45,13 @@ listedeki her tenant, switch-tenant'in gercekten erisim verecegi bir tenant'tir.
 
 Fonksiyonun sahibi, TEK amaci bu olan dar bir roldur:
 
-| Ozellik | Deger |
-| ------- | ----- |
-| `LOGIN` | **NOLOGIN** — dogrudan baglanamaz; yalnizca fonksiyon icinde "canlanir" |
-| `BYPASSRLS` | **VAR** — tek yetenegi; FORCE-RLS memberships'i asmak icin |
-| SELECT | **YALNIZCA** `platform.memberships` ve `platform.tenants` |
-| Sahiplik | **YALNIZCA** `list_user_memberships` fonksiyonu |
-| Diger | INSERT/UPDATE/DELETE **yok**, baska tabloya erisim **yok**, baska fonksiyona EXECUTE **yok** |
+| Ozellik     | Deger                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `LOGIN`     | **NOLOGIN** — dogrudan baglanamaz; yalnizca fonksiyon icinde "canlanir"                      |
+| `BYPASSRLS` | **VAR** — tek yetenegi; FORCE-RLS memberships'i asmak icin                                   |
+| SELECT      | **YALNIZCA** `platform.memberships` ve `platform.tenants`                                    |
+| Sahiplik    | **YALNIZCA** `list_user_memberships` fonksiyonu                                              |
+| Diger       | INSERT/UPDATE/DELETE **yok**, baska tabloya erisim **yok**, baska fonksiyona EXECUTE **yok** |
 
 `CREATE ON SCHEMA` yalnizca migration icinde sahiplik atamak icin GECICI verilir
 ve hemen `REVOKE` edilir — standing bir sema-yazma yetkisi kalmaz.
@@ -104,12 +104,12 @@ erisim kriteriyle (MT §7.4) birebir tutarlidir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
+| Alternatif                                                                  | Neden secilmedi                                                                                                                                                         |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `app.current_user_id` GUC + memberships'e kullanici-scope'lu RLS politikasi | Mevcut `tenant_isolation`'in "unset'te hata ver" davranisiyla cakisir (sentinel gerekir); izolasyon modelinin yuzeyini genisletir. Transaction manager + policy degisir |
-| `memberships`'ten FORCE'u kaldirmak (tenants gibi) | Test edilen bir izolasyon invariantini (MT §12.6 madde 5) zayiflatir; "tek istisna tenants" ilkesini bozar |
-| `businessos_owner`'a BYPASSRLS vermek | Tum DDL/migration akisi RLS'i bypass eder; asim tek fonksiyonda toplanmaz |
-| Event-driven read-model (user_tenants projeksiyonu) | Cok daha buyuk insaat (projeksiyon tablosu + handler'lar + backfill); V1 icin gereksiz karmasiklik (ADR-0013) |
+| `memberships`'ten FORCE'u kaldirmak (tenants gibi)                          | Test edilen bir izolasyon invariantini (MT §12.6 madde 5) zayiflatir; "tek istisna tenants" ilkesini bozar                                                              |
+| `businessos_owner`'a BYPASSRLS vermek                                       | Tum DDL/migration akisi RLS'i bypass eder; asim tek fonksiyonda toplanmaz                                                                                               |
+| Event-driven read-model (user_tenants projeksiyonu)                         | Cok daha buyuk insaat (projeksiyon tablosu + handler'lar + backfill); V1 icin gereksiz karmasiklik (ADR-0013)                                                           |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

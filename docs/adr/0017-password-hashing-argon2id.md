@@ -81,13 +81,13 @@ onermedigi bir uygulamadir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| bcrypt | 72 bayt girdi siniri (uzun parola cumleleri sessizce kirpilir); bellek maliyeti ayarlanamaz, GPU'ya Argon2 kadar direncli degil |
-| scrypt | Argon2'den once iyi bir secimdi; Argon2 sifre yarismasini kazandi ve daha iyi analiz edildi |
-| PBKDF2 | Yalnizca uyumluluk gerektiginde. Bellek zorlugu yok — GPU ile cok daha ucuz kirilir |
-| Daha yuksek `p` (paralellik) | Sunucu tarafinda ek karmasiklik; tek istek icin cok cekirdek kullanmak, es zamanli istekler altinda avantaj saglamaz |
-| Cok daha yuksek `m` (orn. 64 MiB) | Guvenlik acisindan iyi ama DoS yuzeyini buyutur; olcum yapilmadan secilmemeli |
+| Alternatif                        | Neden secilmedi                                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| bcrypt                            | 72 bayt girdi siniri (uzun parola cumleleri sessizce kirpilir); bellek maliyeti ayarlanamaz, GPU'ya Argon2 kadar direncli degil |
+| scrypt                            | Argon2'den once iyi bir secimdi; Argon2 sifre yarismasini kazandi ve daha iyi analiz edildi                                     |
+| PBKDF2                            | Yalnizca uyumluluk gerektiginde. Bellek zorlugu yok — GPU ile cok daha ucuz kirilir                                             |
+| Daha yuksek `p` (paralellik)      | Sunucu tarafinda ek karmasiklik; tek istek icin cok cekirdek kullanmak, es zamanli istekler altinda avantaj saglamaz            |
+| Cok daha yuksek `m` (orn. 64 MiB) | Guvenlik acisindan iyi ama DoS yuzeyini buyutur; olcum yapilmadan secilmemeli                                                   |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  EmailDeliveryError,
-  type EmailMessage,
-  type EmailPort,
-} from '../../shared/email.port';
+import { EmailDeliveryError, type EmailMessage, type EmailPort } from '../../shared/email.port';
 
 /** Resend REST API'sinin gonderim ucu. */
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';

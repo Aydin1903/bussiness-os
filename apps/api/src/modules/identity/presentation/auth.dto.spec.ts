@@ -17,9 +17,9 @@ describe('registerSchema', () => {
   });
 
   it('e-postanin bosluklarini temizler', () => {
-    expect(registerSchema.parse({ email: '  user@example.com  ', password: 'parola123' }).email).toBe(
-      'user@example.com',
-    );
+    expect(
+      registerSchema.parse({ email: '  user@example.com  ', password: 'parola123' }).email,
+    ).toBe('user@example.com');
   });
 
   it('tanimsiz alani REDDEDER (strict)', () => {
@@ -141,7 +141,11 @@ describe('forgotPasswordSchema', () => {
 describe('resetPasswordSchema', () => {
   it('gecerli govdeyi kabul eder', () => {
     expect(
-      resetPasswordSchema.parse({ email: 'user@example.com', code: '123456', password: 'parola123' }),
+      resetPasswordSchema.parse({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'parola123',
+      }),
     ).toEqual({ email: 'user@example.com', code: '123456', password: 'parola123' });
   });
 

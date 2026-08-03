@@ -3,7 +3,10 @@ import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it } from 'vitest';
 
 import { runWithPrincipal } from '../../../infrastructure/auth/auth-context';
-import { getTenantContext, type TenantContext } from '../../../infrastructure/tenant/tenant-context';
+import {
+  getTenantContext,
+  type TenantContext,
+} from '../../../infrastructure/tenant/tenant-context';
 import {
   type ResolveMemberAccessInput,
   type TenantAccessQuery,

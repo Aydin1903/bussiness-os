@@ -25,10 +25,10 @@ Ayrica imzalama algoritmasi hic karara baglanmamisti.
 
 ### Iki asamali token
 
-| Asama | Token | `tenant` claim'i | Omur | Ne yapabilir |
-| ----- | ----- | ---------------- | ---- | ------------ |
-| 1 — giris | **Kimlik token'i** | YOK | 5 dk | Yalnizca uyelik listesi ve tenant secimi |
-| 2 — secim | **Tenant-scoped access token** | VAR | 15 dk | Tenant verisine erisim |
+| Asama     | Token                          | `tenant` claim'i | Omur  | Ne yapabilir                             |
+| --------- | ------------------------------ | ---------------- | ----- | ---------------------------------------- |
+| 1 — giris | **Kimlik token'i**             | YOK              | 5 dk  | Yalnizca uyelik listesi ve tenant secimi |
+| 2 — secim | **Tenant-scoped access token** | VAR              | 15 dk | Tenant verisine erisim                   |
 
 Tenant secimi MULTI_TENANT_ARCHITECTURE 7.4'teki `switch-tenant` akisidir ve
 **membership dogrulamasindan gecer**.
@@ -102,15 +102,15 @@ uretttigi tum access token'lar ayni `sid`'i tasir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Tek token, tenant claim'li | Giris aninda tenant tahmin etmek zorunda kalir; cok-tenant kullanici icin yanlis tenant secilebilir |
-| Tek token, tenant claim'siz | `SET LOCAL` kaynagi kalmaz; tenant `Host`'tan gelirdi — P1 ihlali, RLS modeli comer |
-| Tenant'i header'da tasimak (`X-Tenant-Id`) | Istemciden gelen deger; DEVELOPMENT_RULES 4.5 geregi acikca yasak |
-| Role/izinleri token'a koymak | Bayat yetki; MULTI_TENANT_ARCHITECTURE 14.1 T4 |
-| HS256 | Dogrulayan her servis token uretebilir; mikroservis gecisinde pahali migrasyon |
-| RS256 | Calisir ama Ed25519'a gore daha buyuk anahtar/imza ve daha yavas; yeni sistemde tercih sebebi yok |
-| Opak (JWT olmayan) access token | Her istekte veritabani okumasi; JWT'nin tek avantaji olan durumsuz dogrulamayi kaybederdik |
+| Alternatif                                 | Neden secilmedi                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Tek token, tenant claim'li                 | Giris aninda tenant tahmin etmek zorunda kalir; cok-tenant kullanici icin yanlis tenant secilebilir |
+| Tek token, tenant claim'siz                | `SET LOCAL` kaynagi kalmaz; tenant `Host`'tan gelirdi — P1 ihlali, RLS modeli comer                 |
+| Tenant'i header'da tasimak (`X-Tenant-Id`) | Istemciden gelen deger; DEVELOPMENT_RULES 4.5 geregi acikca yasak                                   |
+| Role/izinleri token'a koymak               | Bayat yetki; MULTI_TENANT_ARCHITECTURE 14.1 T4                                                      |
+| HS256                                      | Dogrulayan her servis token uretebilir; mikroservis gecisinde pahali migrasyon                      |
+| RS256                                      | Calisir ama Ed25519'a gore daha buyuk anahtar/imza ve daha yavas; yeni sistemde tercih sebebi yok   |
+| Opak (JWT olmayan) access token            | Her istekte veritabani okumasi; JWT'nin tek avantaji olan durumsuz dogrulamayi kaybederdik          |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

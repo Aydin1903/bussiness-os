@@ -77,8 +77,8 @@ export function ChangePasswordForm() {
       <header className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold">Şifre değiştir</h1>
         <p className="text-sm text-fg-muted">
-          Değişiklikten sonra bu cihazdaki oturumun devam eder; diğer tüm
-          cihazlardaki oturumların kapanır.
+          Değişiklikten sonra bu cihazdaki oturumun devam eder; diğer tüm cihazlardaki oturumların
+          kapanır.
         </p>
       </header>
 
@@ -89,8 +89,8 @@ export function ChangePasswordForm() {
           role="status"
           className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-fg"
         >
-          Parolan değiştirildi. Diğer cihazlardaki oturumların kapatıldı; bu
-          cihazda oturumun açık kalmaya devam ediyor.
+          Parolan değiştirildi. Diğer cihazlardaki oturumların kapatıldı; bu cihazda oturumun açık
+          kalmaya devam ediyor.
         </p>
       ) : null}
 

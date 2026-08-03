@@ -65,12 +65,12 @@ yerlestirilmis olur.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                        | Neden secilmedi                                                                                      |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Bugunden Organization entity eklemek              | Hiyerarsik RLS, devralinan roller ve capraz-dugum raporlama; olmayan bir ihtiyac icin erken bedel     |
-| Tenant'a `parent_tenant_id` (self-referans agac)  | En ucuz gorunen secenek ama en tehlikelisi: RLS'i sessizce alt-agac sorgusuna cevirir                 |
-| Membership'e opsiyonel `department` alani         | Yarim cozum: yetki ve izolasyon uzerinde hicbir etkisi olmayan, yalniz kozmetik bir alan              |
-| Etiket (tag) tabanli gruplama                     | Yetkilendirme dayanagi olamaz; "grup" gorunumu verir ama izolasyon saglamaz — yanlis guven uretir      |
+| Alternatif                                       | Neden secilmedi                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Bugunden Organization entity eklemek             | Hiyerarsik RLS, devralinan roller ve capraz-dugum raporlama; olmayan bir ihtiyac icin erken bedel |
+| Tenant'a `parent_tenant_id` (self-referans agac) | En ucuz gorunen secenek ama en tehlikelisi: RLS'i sessizce alt-agac sorgusuna cevirir             |
+| Membership'e opsiyonel `department` alani        | Yarim cozum: yetki ve izolasyon uzerinde hicbir etkisi olmayan, yalniz kozmetik bir alan          |
+| Etiket (tag) tabanli gruplama                    | Yetkilendirme dayanagi olamaz; "grup" gorunumu verir ama izolasyon saglamaz — yanlis guven uretir |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

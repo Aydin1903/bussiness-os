@@ -9,7 +9,11 @@ import { TenantId } from '../../src/modules/tenant/domain/tenant-id.value-object
 import { TenantSlug } from '../../src/modules/tenant/domain/tenant-slug.value-object';
 import { UserId } from '../../src/shared/user-id.value-object';
 import type { DomainEvent } from '../../src/shared/domain-event';
-import { startTestDatabase, truncateTenantTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateTenantTables,
+  type TestDatabase,
+} from './support/test-database';
 
 /**
  * Transactional outbox'in GERCEK PostgreSQL'e karsi dogrulanmasi (ADR-0006).
@@ -193,7 +197,10 @@ describe('transactional outbox (gercek PostgreSQL)', () => {
   it('tenant siz event i acikca reddeder', async () => {
     await seedTenant(TENANT_A_ID, 'acme');
 
-    const tenantlessEvent: DomainEvent = { ...eventFor(TENANT_A_ID, '018f3a2b-7c4d-7e1f-8a2b-000000000007'), tenantId: null };
+    const tenantlessEvent: DomainEvent = {
+      ...eventFor(TENANT_A_ID, '018f3a2b-7c4d-7e1f-8a2b-000000000007'),
+      tenantId: null,
+    };
 
     // Sessizce yutulmaz: Identity modulu geldiginde bu hata, karar verilmesi
     // gereken yeri gosterir (15.1).
@@ -224,10 +231,7 @@ describe('transactional outbox (gercek PostgreSQL)', () => {
     const client = await database.appPool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', [
-        'app.current_tenant_id',
-        TENANT_A_ID,
-      ]);
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', TENANT_A_ID]);
       const rows = await client.query('SELECT id FROM platform.outbox');
       await client.query('COMMIT');
 

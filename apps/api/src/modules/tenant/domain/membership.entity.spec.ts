@@ -304,9 +304,7 @@ describe('Membership.fromPersistence', () => {
   });
 
   it('davet asamasindaki uyeligi katilma zamani olmadan geri getirir', () => {
-    const membership = Membership.fromPersistence(
-      persisted({ status: 'invited', joinedAt: null }),
-    );
+    const membership = Membership.fromPersistence(persisted({ status: 'invited', joinedAt: null }));
 
     expect(membership.joinedAt).toBeNull();
   });

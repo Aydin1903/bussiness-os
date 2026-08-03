@@ -31,7 +31,11 @@ export const loginAttempts = platformSchema.table(
   },
   (table) => [
     // Katman 1: (e-posta, IP) — 5 hata / 15 dk.
-    index('login_attempts_email_ip_idx').on(table.emailNormalized, table.ipAddress, table.attemptedAt),
+    index('login_attempts_email_ip_idx').on(
+      table.emailNormalized,
+      table.ipAddress,
+      table.attemptedAt,
+    ),
 
     // Katman 2: e-posta — 20 hata / saat (ustel gecikme).
     index('login_attempts_email_idx').on(table.emailNormalized, table.attemptedAt),

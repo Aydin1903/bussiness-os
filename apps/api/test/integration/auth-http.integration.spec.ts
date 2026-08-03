@@ -10,7 +10,11 @@ import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
 import { setIdentityTestEnv } from './support/identity-env';
-import { startTestDatabase, truncateIdentityTables, type TestDatabase } from './support/test-database';
+import {
+  startTestDatabase,
+  truncateIdentityTables,
+  type TestDatabase,
+} from './support/test-database';
 
 /**
  * `POST /api/v1/auth/register` ve `/login` — uctan uca.
@@ -149,9 +153,7 @@ describe('auth uc noktalari (uctan uca)', () => {
     await register({ email: EMAIL, password: PASSWORD });
 
     const credentials = await database.ownerPool.query('SELECT 1 FROM platform.credentials');
-    const codes = await database.ownerPool.query(
-      'SELECT 1 FROM platform.email_verification_codes',
-    );
+    const codes = await database.ownerPool.query('SELECT 1 FROM platform.email_verification_codes');
     const events = await database.ownerPool.query<{ event_type: string }>(
       'SELECT event_type FROM platform.identity_outbox',
     );

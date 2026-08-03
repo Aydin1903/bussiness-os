@@ -71,9 +71,9 @@ describe('createAppConfig', () => {
   });
 
   it('cok kisa dogrulama kodu pepper ini reddeder', () => {
-    expect(() =>
-      createAppConfig({ ...validEnv, VERIFICATION_CODE_PEPPER: 'kisa' }),
-    ).toThrow(/VERIFICATION_CODE_PEPPER/);
+    expect(() => createAppConfig({ ...validEnv, VERIFICATION_CODE_PEPPER: 'kisa' })).toThrow(
+      /VERIFICATION_CODE_PEPPER/,
+    );
   });
 
   it('Identity sirlarini yapilandirmaya tasir', () => {
@@ -279,9 +279,9 @@ describe('createAppConfig', () => {
     it('URETIMDE fake embedding i REDDEDER', () => {
       // Sir sizdirmaz — daha sinsi: arama CALISIYOR gorunur, sonuclari
       // anlamsizdir. Sessiz islevsizlik, acilista patlamaktan kotudur.
-      expect(() =>
-        createAppConfig({ ...productionEnv, EMBEDDING_PROVIDER: 'fake' }),
-      ).toThrow(/EMBEDDING_PROVIDER/);
+      expect(() => createAppConfig({ ...productionEnv, EMBEDDING_PROVIDER: 'fake' })).toThrow(
+        /EMBEDDING_PROVIDER/,
+      );
     });
 
     it('URETIMDE fake LLM i REDDEDER', () => {

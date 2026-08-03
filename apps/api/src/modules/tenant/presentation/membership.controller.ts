@@ -61,7 +61,10 @@ export class MembershipController {
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Uye listesi.' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Yetki yok veya tenant secilmemis.' })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Sayfalama parametreleri gecersiz.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Sayfalama parametreleri gecersiz.',
+  })
   async list(
     @Query(new ZodValidationPipe(listMembershipsSchema)) query: ListMembershipsQueryDto,
   ): Promise<ListMembershipsResponse> {

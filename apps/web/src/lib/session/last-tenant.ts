@@ -26,9 +26,7 @@ export function getLastTenant(): string | undefined {
   if (typeof document === 'undefined') {
     return undefined;
   }
-  const match = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith(`${LAST_TENANT_COOKIE}=`));
+  const match = document.cookie.split('; ').find((row) => row.startsWith(`${LAST_TENANT_COOKIE}=`));
   if (match === undefined) {
     return undefined;
   }

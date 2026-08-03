@@ -58,10 +58,7 @@ export {
   provisionTenantRequestSchema,
   provisionTenantResponseSchema,
 } from './tenants/tenants.contract';
-export type {
-  ProvisionTenantRequest,
-  ProvisionTenantResponse,
-} from './tenants/tenants.contract';
+export type { ProvisionTenantRequest, ProvisionTenantResponse } from './tenants/tenants.contract';
 
 export {
   membershipRoleSchema,

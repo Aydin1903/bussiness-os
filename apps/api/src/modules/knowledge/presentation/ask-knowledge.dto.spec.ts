@@ -20,13 +20,15 @@ describe('askKnowledgeSchema', () => {
   });
 
   it('conversationId null gecilebilir', () => {
-    expect(askKnowledgeSchema.parse({ question: 'soru', conversationId: null }).conversationId)
-      .toBeNull();
+    expect(
+      askKnowledgeSchema.parse({ question: 'soru', conversationId: null }).conversationId,
+    ).toBeNull();
   });
 
   it('gecerli UUID kabul edilir', () => {
-    expect(askKnowledgeSchema.parse({ question: 'soru', conversationId: UUID }).conversationId)
-      .toBe(UUID);
+    expect(
+      askKnowledgeSchema.parse({ question: 'soru', conversationId: UUID }).conversationId,
+    ).toBe(UUID);
   });
 
   it('UUID OLMAYAN conversationId reddedilir', () => {
@@ -50,9 +52,7 @@ describe('askKnowledgeSchema', () => {
   });
 
   it('KIMLIK alani KABUL ETMEZ — tenantId/userId token dan gelir (strict)', () => {
-    expect(() =>
-      askKnowledgeSchema.parse({ question: 'soru', tenantId: UUID }),
-    ).toThrow();
+    expect(() => askKnowledgeSchema.parse({ question: 'soru', tenantId: UUID })).toThrow();
     expect(() => askKnowledgeSchema.parse({ question: 'soru', userId: UUID })).toThrow();
   });
 

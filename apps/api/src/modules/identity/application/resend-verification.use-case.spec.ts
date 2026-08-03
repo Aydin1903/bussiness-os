@@ -355,8 +355,9 @@ describe('ResendVerificationUseCase — hesap durumu (P2)', () => {
     const harness = createHarness();
     harness.userRepository.user = null;
 
-    await expect(harness.useCase.execute(command({ email: 'yok@example.com' }))).resolves
-      .toBeUndefined();
+    await expect(
+      harness.useCase.execute(command({ email: 'yok@example.com' })),
+    ).resolves.toBeUndefined();
 
     expect(harness.codeRepository.saved).toHaveLength(0);
   });

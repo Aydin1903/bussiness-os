@@ -27,9 +27,7 @@ function readString(payload: Readonly<Record<string, unknown>>, field: string): 
   return value;
 }
 
-export function buildPasswordResetEmail(
-  payload: Readonly<Record<string, unknown>>,
-): EmailMessage {
+export function buildPasswordResetEmail(payload: Readonly<Record<string, unknown>>): EmailMessage {
   const email = readString(payload, 'email');
   const resetCode = readString(payload, 'resetCode');
 

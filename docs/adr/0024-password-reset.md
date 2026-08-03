@@ -24,12 +24,12 @@ kullanir ve marjinal maliyeti dusuktur.
 Parola sifirlama **Faz 3 kapsamindadir** ve ADR-0019'un kod desenini
 **daha siki parametrelerle** kullanir.
 
-| Parametre | Dogrulama (0019) | **Sifirlama** |
-| --------- | ---------------- | ------------- |
-| Kod omru | 15 dk | **10 dk** |
-| Yanlis deneme | 5 | **3** |
-| Resend bekleme | 60 sn | **120 sn** |
-| Saklama | HMAC + pepper | Ayni |
+| Parametre      | Dogrulama (0019) | **Sifirlama** |
+| -------------- | ---------------- | ------------- |
+| Kod omru       | 15 dk            | **10 dk**     |
+| Yanlis deneme  | 5                | **3**         |
+| Resend bekleme | 60 sn            | **120 sn**    |
+| Saklama        | HMAC + pepper    | Ayni          |
 
 **Sifirlama tamamlandiginda zorunlu yan etkiler:**
 
@@ -82,14 +82,14 @@ anlamsizlasir. Zincirin en zayif halkasi belirleyicidir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Sifirlamayi V1'e almamak | Parolasini unutan kullanici icin kurtarma yolu kalmaz; destek bile cozemez |
-| Baglanti tabanli sifirlama | ADR-0019 ile ayni gerekceler: oturum bolunmesi, e-posta tarayicilarinin tuketmesi |
-| Dogrulama ile ayni parametreler | Sifirlama daha yuksek riskli; ayni esikler ya birini gevsek ya digerini asiri siki yapar |
-| Sifirlama sonrasi oturumlari korumak | Ele gecirme senaryosunda islemi anlamsiz kilar |
-| Guvenlik sorulari | Cevaplari sosyal medyadan bulunabilir; NIST acikca onermiyor |
-| Destek ekibi uzerinden manuel sifirlama | Sosyal muhendislige acik; denetlenemez |
+| Alternatif                              | Neden secilmedi                                                                          |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Sifirlamayi V1'e almamak                | Parolasini unutan kullanici icin kurtarma yolu kalmaz; destek bile cozemez               |
+| Baglanti tabanli sifirlama              | ADR-0019 ile ayni gerekceler: oturum bolunmesi, e-posta tarayicilarinin tuketmesi        |
+| Dogrulama ile ayni parametreler         | Sifirlama daha yuksek riskli; ayni esikler ya birini gevsek ya digerini asiri siki yapar |
+| Sifirlama sonrasi oturumlari korumak    | Ele gecirme senaryosunda islemi anlamsiz kilar                                           |
+| Guvenlik sorulari                       | Cevaplari sosyal medyadan bulunabilir; NIST acikca onermiyor                             |
+| Destek ekibi uzerinden manuel sifirlama | Sosyal muhendislige acik; denetlenemez                                                   |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

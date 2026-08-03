@@ -236,7 +236,11 @@ describe('parola sifirlama (uctan uca)', () => {
       await post('reset-password').send({ email: EMAIL, code: '000000', password: NEW_PASSWORD });
     }
 
-    const response = await post('reset-password').send({ email: EMAIL, code, password: NEW_PASSWORD });
+    const response = await post('reset-password').send({
+      email: EMAIL,
+      code,
+      password: NEW_PASSWORD,
+    });
     expect(response.status).toBe(400);
   });
 

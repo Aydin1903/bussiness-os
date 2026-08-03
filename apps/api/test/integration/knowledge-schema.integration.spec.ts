@@ -68,10 +68,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
    * sahibi OLMAYAN rol icin uygulanir. Sahip rolle yapilan bir "izolasyon
    * testi" FORCE olmasa her zaman yesil yanar ve hicbir sey kanitlamaz.
    */
-  async function asTenant<T>(
-    tenantId: string,
-    fn: (client: PoolClient) => Promise<T>,
-  ): Promise<T> {
+  async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await database.appPool.connect();
     try {
       await client.query('BEGIN');
@@ -210,7 +207,10 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
 
   describe('RLS izolasyonu', () => {
     it.each(TENANT_SCOPED)('%s: ENABLE + FORCE tasiyor', async (table) => {
-      const rows = await database.ownerPool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+      const rows = await database.ownerPool.query<{
+        relrowsecurity: boolean;
+        relforcerowsecurity: boolean;
+      }>(
         `SELECT c.relrowsecurity, c.relforcerowsecurity
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'knowledge' AND c.relname = $1`,
@@ -385,9 +385,10 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
 
       await expect(
         asTenant(TENANT_A, (client) =>
-          client.query('UPDATE knowledge.daily_report_runs SET generated_at = now() WHERE id = $1', [
-            id,
-          ]),
+          client.query(
+            'UPDATE knowledge.daily_report_runs SET generated_at = now() WHERE id = $1',
+            [id],
+          ),
         ),
       ).rejects.toThrow(/daily_report_runs_summary_when_generated/);
     });
@@ -505,9 +506,9 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
       await expect(asReportWorker("SELECT platform.resolve_tenant('x')")).rejects.toThrow(
         /permission denied/i,
       );
-      await expect(
-        asReportWorker(`SELECT platform.claim_outbox_batch(1, now())`),
-      ).rejects.toThrow(/permission denied/i);
+      await expect(asReportWorker(`SELECT platform.claim_outbox_batch(1, now())`)).rejects.toThrow(
+        /permission denied/i,
+      );
     });
 
     it('standing sema-yazma yetkisi TUTMAZ (CREATE gecici verilip geri alindi)', async () => {

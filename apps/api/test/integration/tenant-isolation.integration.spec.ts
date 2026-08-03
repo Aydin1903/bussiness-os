@@ -169,9 +169,10 @@ describe('tenant izolasyonu (RLS)', () => {
     // Satir gorunmedigi icin silinecek bir sey de yoktur.
     expect(deleted).toBe(0);
 
-    const stillThere = await ownerPool.query('SELECT id FROM platform.memberships WHERE tenant_id = $1', [
-      TENANT_B,
-    ]);
+    const stillThere = await ownerPool.query(
+      'SELECT id FROM platform.memberships WHERE tenant_id = $1',
+      [TENANT_B],
+    );
     expect(stillThere.rowCount).toBe(1);
   });
 
@@ -282,11 +283,15 @@ describe('tenant izolasyonu (RLS)', () => {
     // Havuzdan alinan baglanti geri donup baskasina verildiginde dogru
     // calismali. Bu, madde 6'nin pratikteki karsiligidir.
     const first = await inTenantContext(TENANT_A, async (client) => {
-      const r = await client.query<{ tenant_id: string }>('SELECT tenant_id FROM platform.memberships');
+      const r = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM platform.memberships',
+      );
       return r.rows[0]?.tenant_id;
     });
     const second = await inTenantContext(TENANT_B, async (client) => {
-      const r = await client.query<{ tenant_id: string }>('SELECT tenant_id FROM platform.memberships');
+      const r = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM platform.memberships',
+      );
       return r.rows[0]?.tenant_id;
     });
 

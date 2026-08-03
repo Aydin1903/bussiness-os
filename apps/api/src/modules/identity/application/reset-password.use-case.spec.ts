@@ -121,10 +121,7 @@ class FakeTokenFamilyRepository implements TokenFamilyRepository {
   save(): Promise<void> {
     return Promise.resolve();
   }
-  revokeAllActiveByUserId(
-    userId: UserId,
-    reason: TokenFamilyRevocationReason,
-  ): Promise<number> {
+  revokeAllActiveByUserId(userId: UserId, reason: TokenFamilyRevocationReason): Promise<number> {
     this.bulkRevocations.push({ userId: userId.value, reason });
     return Promise.resolve(2);
   }
@@ -258,7 +255,13 @@ function createHarness(): Harness {
 }
 
 function command(overrides: Partial<{ email: string; code: string; password: string }> = {}) {
-  return { email: EMAIL.value, code: CODE, password: NEW_PASSWORD, correlationId: 'c-1', ...overrides };
+  return {
+    email: EMAIL.value,
+    code: CODE,
+    password: NEW_PASSWORD,
+    correlationId: 'c-1',
+    ...overrides,
+  };
 }
 
 describe('ResetPasswordUseCase — basari', () => {

@@ -19,7 +19,9 @@ function vector(length = EMBEDDING_DIMENSIONS): number[] {
   return Array.from({ length }, (_, index) => index / length);
 }
 
-function create(overrides: Partial<{ chunkIndex: number; content: string; embedding: number[] }> = {}) {
+function create(
+  overrides: Partial<{ chunkIndex: number; content: string; embedding: number[] }> = {},
+) {
   return NoteChunk.create({
     id: CHUNK_ID,
     tenantId: TENANT_ID,

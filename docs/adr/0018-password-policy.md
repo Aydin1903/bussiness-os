@@ -17,16 +17,16 @@ DAYANIKLILIKLA ilgilidir.
 
 ## Karar
 
-| Kural | Deger |
-| ----- | ----- |
-| Minimum uzunluk | 8 karakter |
-| Maksimum uzunluk | **128 karakter** |
-| Bilesim | En az bir harf + bir rakam |
-| Buyuk/kucuk harf, sembol zorunlulugu | **YOK** |
-| Periyodik zorunlu degisim | **YOK** |
-| Parola gecmisi (son N parolayi kullanma) | **YOK** |
-| Uzunluk sayimi | **Kod noktasi** (byte degil) |
-| Normalizasyon | **NFKC**, hash'lemeden once |
+| Kural                                    | Deger                        |
+| ---------------------------------------- | ---------------------------- |
+| Minimum uzunluk                          | 8 karakter                   |
+| Maksimum uzunluk                         | **128 karakter**             |
+| Bilesim                                  | En az bir harf + bir rakam   |
+| Buyuk/kucuk harf, sembol zorunlulugu     | **YOK**                      |
+| Periyodik zorunlu degisim                | **YOK**                      |
+| Parola gecmisi (son N parolayi kullanma) | **YOK**                      |
+| Uzunluk sayimi                           | **Kod noktasi** (byte degil) |
+| Normalizasyon                            | **NFKC**, hash'lemeden once  |
 
 ## Gerekce
 
@@ -80,13 +80,13 @@ anlayamaz.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Min 12 karakter | Guvenlik acisindan daha iyi; ancak onaylanan gereksinim 8. Sizmis parola kontrolu eklendiginde bu tekrar tartisilmali |
-| Karmasiklik kurallari (buyuk/kucuk/sembol) | Entropi artirmaz, ongorulebilir kaliplar uretir (NIST SP 800-63B) |
-| Ust sinir yok | Kimliksiz uc noktada acik bir kaynak tuketim yuzeyi |
-| bcrypt uyumlulugu icin 72 bayt siniri | Argon2id kullaniyoruz; bcrypt'in kisitini tasimamiz icin sebep yok |
-| Zorunlu 90 gunluk rotasyon | NIST onermiyor; zayif kaliplara ve parola yazmaya iter |
+| Alternatif                                 | Neden secilmedi                                                                                                       |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Min 12 karakter                            | Guvenlik acisindan daha iyi; ancak onaylanan gereksinim 8. Sizmis parola kontrolu eklendiginde bu tekrar tartisilmali |
+| Karmasiklik kurallari (buyuk/kucuk/sembol) | Entropi artirmaz, ongorulebilir kaliplar uretir (NIST SP 800-63B)                                                     |
+| Ust sinir yok                              | Kimliksiz uc noktada acik bir kaynak tuketim yuzeyi                                                                   |
+| bcrypt uyumlulugu icin 72 bayt siniri      | Argon2id kullaniyoruz; bcrypt'in kisitini tasimamiz icin sebep yok                                                    |
+| Zorunlu 90 gunluk rotasyon                 | NIST onermiyor; zayif kaliplara ve parola yazmaya iter                                                                |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

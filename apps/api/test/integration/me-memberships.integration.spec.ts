@@ -87,7 +87,9 @@ describe('GET /me/memberships (uctan uca)', () => {
 
   /** Kayit + dogrulama + giris -> { identityToken, userId }. */
   async function signIn(email: string): Promise<{ identityToken: string; userId: string }> {
-    await request(httpServer(app)).post('/api/v1/auth/register').send({ email, password: PASSWORD });
+    await request(httpServer(app))
+      .post('/api/v1/auth/register')
+      .send({ email, password: PASSWORD });
     await markVerified(email);
     const login = await request(httpServer(app))
       .post('/api/v1/auth/login')
@@ -153,15 +155,55 @@ describe('GET /me/memberships (uctan uca)', () => {
 
     await createTenant({ id: T_ACTIVE_1, name: 'Alpha', status: 'active', ownerUserId: me.userId });
     await createTenant({ id: T_ACTIVE_2, name: 'Beta', status: 'active', ownerUserId: me.userId });
-    await createTenant({ id: T_PROVISIONING, name: 'Gamma', status: 'provisioning', ownerUserId: me.userId });
-    await createTenant({ id: T_SUSPENDED_MEM, name: 'Delta', status: 'active', ownerUserId: me.userId });
-    await createTenant({ id: T_OTHER, name: 'Epsilon', status: 'active', ownerUserId: other.userId });
+    await createTenant({
+      id: T_PROVISIONING,
+      name: 'Gamma',
+      status: 'provisioning',
+      ownerUserId: me.userId,
+    });
+    await createTenant({
+      id: T_SUSPENDED_MEM,
+      name: 'Delta',
+      status: 'active',
+      ownerUserId: me.userId,
+    });
+    await createTenant({
+      id: T_OTHER,
+      name: 'Epsilon',
+      status: 'active',
+      ownerUserId: other.userId,
+    });
 
-    await addMembership({ tenantId: T_ACTIVE_1, userId: me.userId, role: 'owner', status: 'active' });
-    await addMembership({ tenantId: T_ACTIVE_2, userId: me.userId, role: 'member', status: 'active' });
-    await addMembership({ tenantId: T_PROVISIONING, userId: me.userId, role: 'owner', status: 'active' });
-    await addMembership({ tenantId: T_SUSPENDED_MEM, userId: me.userId, role: 'member', status: 'suspended' });
-    await addMembership({ tenantId: T_OTHER, userId: other.userId, role: 'owner', status: 'active' });
+    await addMembership({
+      tenantId: T_ACTIVE_1,
+      userId: me.userId,
+      role: 'owner',
+      status: 'active',
+    });
+    await addMembership({
+      tenantId: T_ACTIVE_2,
+      userId: me.userId,
+      role: 'member',
+      status: 'active',
+    });
+    await addMembership({
+      tenantId: T_PROVISIONING,
+      userId: me.userId,
+      role: 'owner',
+      status: 'active',
+    });
+    await addMembership({
+      tenantId: T_SUSPENDED_MEM,
+      userId: me.userId,
+      role: 'member',
+      status: 'suspended',
+    });
+    await addMembership({
+      tenantId: T_OTHER,
+      userId: other.userId,
+      role: 'owner',
+      status: 'active',
+    });
 
     return me;
   }
@@ -265,7 +307,9 @@ describe('GET /me/memberships (uctan uca)', () => {
   describe('businessos_rls_reader dar rolu BASKA hicbir seye erisemez', () => {
     it('kendi fonksiyonunun okudugu tablolara SELECT verebilir (memberships, tenants)', async () => {
       // Bunlar IZINLIDIR — fonksiyonun calismasi icin gereklidir.
-      await expect(asRlsReader('SELECT 1 FROM platform.memberships LIMIT 1')).resolves.toBeDefined();
+      await expect(
+        asRlsReader('SELECT 1 FROM platform.memberships LIMIT 1'),
+      ).resolves.toBeDefined();
       await expect(asRlsReader('SELECT 1 FROM platform.tenants LIMIT 1')).resolves.toBeDefined();
     });
 

@@ -4,7 +4,10 @@ import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { type Credential } from '../domain/credential.entity';
 import { Email } from '../domain/email.value-object';
-import { MAX_PASSWORD_RESET_ATTEMPTS, type PasswordResetCode } from '../domain/password-reset-code.entity';
+import {
+  MAX_PASSWORD_RESET_ATTEMPTS,
+  type PasswordResetCode,
+} from '../domain/password-reset-code.entity';
 import { assertPasswordPolicy } from '../domain/password-policy';
 import { type User } from '../domain/user.entity';
 import { UserPasswordChanged } from '../domain/user-password-changed.event';
@@ -92,7 +95,9 @@ export class ResetPasswordUseCase {
     // Yeni hash pahali (Argon2); transaction'in DISINDA hesaplanir.
     const newHash = await this.deps.passwordHasher.hash(command.password);
 
-    return this.deps.transactionManager.runInTransaction(() => this.#reset(email, command, newHash));
+    return this.deps.transactionManager.runInTransaction(() =>
+      this.#reset(email, command, newHash),
+    );
   }
 
   async #reset(

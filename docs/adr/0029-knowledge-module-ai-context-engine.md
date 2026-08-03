@@ -20,9 +20,9 @@ Cache — kapsam disi, ayri ADR'ler gerektirecek.
 
 Tenant-scoped; RLS `ENABLE` + `FORCE` (MT §12.2 standart sablonu).
 
-| Tablo | Kolonlar |
-| ----- | -------- |
-| `knowledge.notes` | `id`, `tenant_id`, `author_user_id`, `title` (nullable), `body`, `created_at`, `updated_at` |
+| Tablo                   | Kolonlar                                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `knowledge.notes`       | `id`, `tenant_id`, `author_user_id`, `title` (nullable), `body`, `created_at`, `updated_at`                       |
 | `knowledge.note_chunks` | `id`, `tenant_id` (denormalize), `note_id` (FK), `chunk_index`, `content`, `embedding vector(1536)`, `created_at` |
 
 Chunk'lar **ayri tabloda** tutulur.
@@ -43,9 +43,9 @@ LLMPort:        complete({ systemPrompt, userMessage, context: string[] }): Prom
 Ikisi **ayri port'tur** ve ayri cozumlenir. Bir adapter ikisini birden implement
 EDEBILIR, ama etmek ZORUNDA DEGILDIR — **ve bu projede etmiyor:**
 
-| Port | Adapter | Saglayici / model |
-| ---- | ------- | ----------------- |
-| `LLMPort` (`complete`) | `DeepSeekLlmAdapter` | DeepSeek — `deepseek-v4-flash` |
+| Port                      | Adapter                  | Saglayici / model                 |
+| ------------------------- | ------------------------ | --------------------------------- |
+| `LLMPort` (`complete`)    | `DeepSeekLlmAdapter`     | DeepSeek — `deepseek-v4-flash`    |
 | `EmbeddingPort` (`embed`) | `OpenAiEmbeddingAdapter` | OpenAI — `text-embedding-3-small` |
 
 `DeepSeekLlmAdapter` **YALNIZCA** `LLMPort`'u implement eder; `embed` metodu
@@ -76,11 +76,11 @@ modelin ic muhakemesi degil, kendisine verilen chunk'lardir.
 
 **Olculdu** (canli test, ayni trivial soru, tek fark parametre):
 
-| | `thinking: disabled` | varsayilan (`enabled`) |
-| --- | --- | --- |
-| `prompt_tokens` | 19 | **98** |
-| `completion_tokens` | 1 | **45** (43'u reasoning) |
-| `total_tokens` | **20** | **143** |
+|                     | `thinking: disabled` | varsayilan (`enabled`)  |
+| ------------------- | -------------------- | ----------------------- |
+| `prompt_tokens`     | 19                   | **98**                  |
+| `completion_tokens` | 1                    | **45** (43'u reasoning) |
+| `total_tokens`      | **20**               | **143**                 |
 
 **~7 kat fark.** Dikkat: maliyet yalnizca ciktida degil GIRDIDE de artiyor —
 thinking modu sunucu tarafinda ek bir sistem promptu enjekte ediyor
@@ -133,11 +133,11 @@ completion'inkinden BAGIMSIZDIR — ve bu ayrimi bu ADR zaten §1'de
 `notes`/`note_chunks` tablolarini ayirirken gerekce olarak kullaniyor. Ayni akil
 yurutme PORT SINIRINDA da gecerlidir ve orada da uygulanir:
 
-| | Embedding | Completion |
-| --- | --- | --- |
-| Ciktisi | **Saklanan, surumlu veri** — `note_chunks.embedding` | Durumsuz bir yanit |
+|                 | Embedding                                            | Completion                   |
+| --------------- | ---------------------------------------------------- | ---------------------------- |
+| Ciktisi         | **Saklanan, surumlu veri** — `note_chunks.embedding` | Durumsuz bir yanit           |
 | Model degisince | Tum chunk'lar **yeniden uretilir**; `notes` degismez | Hicbir sey yeniden uretilmez |
-| Boyut varsayimi | `vector(1536)` kolonunu BAGLAR | Baglamaz |
+| Boyut varsayimi | `vector(1536)` kolonunu BAGLAR                       | Baglamaz                     |
 
 Tek port, bu iki bagimsiz karari birbirine yapistirirdi: chat saglayicisi
 degistiginde embedding kolonuna dokunmak gerekmemeli.
@@ -187,11 +187,11 @@ bir kayit cikar.
 
 **Neden boyle birakildi:**
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Tek transaction | Pahali ag cagrisi boyunca DB baglantisi TUTULURDU — §4'un var olma sebebini iptal eder |
-| Notu geri almak | T1 zaten commit; "geri alma" ikinci bir DELETE demektir ve o da cokebilir |
-| `notes.indexed_at` kolonu | Sema degisikligi; turetilebilir bir bilgiyi kaliciya yazmak (asagi) |
+| Alternatif                | Neden secilmedi                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| Tek transaction           | Pahali ag cagrisi boyunca DB baglantisi TUTULURDU — §4'un var olma sebebini iptal eder |
+| Notu geri almak           | T1 zaten commit; "geri alma" ikinci bir DELETE demektir ve o da cokebilir              |
+| `notes.indexed_at` kolonu | Sema degisikligi; turetilebilir bir bilgiyi kaliciya yazmak (asagi)                    |
 
 **Davranis:** hata YUZEYE CIKAR (`502`), not **SILINMEZ**. Istemciye donen metin
 acikca "not kaydedildi ancak indekslenemedi" der — genel bir hata donmek,
@@ -253,15 +253,15 @@ ADR-0030 §2.1).
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Embedding'i `notes` tablosunda tutmak | Embedding'in yasam dongusu note'unkinden bagimsiz; model degisince tum satirlar yeniden yazilirdi |
-| IVFFlat index | Veri buyudukce sorgu performansi daha SERT bozunur; urun yuz binlerce kullanici hedefliyor |
-| Daha buyuk/kucuk chunk esigi | Cok buyuk gurultulu baglam, cok kucuk parcali baglam uretir; ~500 token kanitlanmis baslangic |
-| Streaming + function-calling'i arayuze bugunden koymak | Ilk saglayicinin bicimi soyutlamaya kacardi; ADR-0007'nin kabul testi kirilirdi |
-| **Tek `LLMPort`** (`embed` + `complete` birlikte) | "Bir saglayici iki isi de yapar" varsayimini kodlar; sunmayan bir saglayicida ya port sozlesmesi yalan soyler ya da adapter icine ikinci saglayici gizlenir. Ayrica embedding boyutu kararini chat saglayicisina baglardi |
-| Embedding'i transaction icinde yapmak | Pahali ag cagrisi boyunca DB baglantisi tutulurdu |
-| IP bazli rate limit | Amac maliyet kontrolu; harcamayi yapan kullanicidir, adres degil |
+| Alternatif                                             | Neden secilmedi                                                                                                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Embedding'i `notes` tablosunda tutmak                  | Embedding'in yasam dongusu note'unkinden bagimsiz; model degisince tum satirlar yeniden yazilirdi                                                                                                                         |
+| IVFFlat index                                          | Veri buyudukce sorgu performansi daha SERT bozunur; urun yuz binlerce kullanici hedefliyor                                                                                                                                |
+| Daha buyuk/kucuk chunk esigi                           | Cok buyuk gurultulu baglam, cok kucuk parcali baglam uretir; ~500 token kanitlanmis baslangic                                                                                                                             |
+| Streaming + function-calling'i arayuze bugunden koymak | Ilk saglayicinin bicimi soyutlamaya kacardi; ADR-0007'nin kabul testi kirilirdi                                                                                                                                           |
+| **Tek `LLMPort`** (`embed` + `complete` birlikte)      | "Bir saglayici iki isi de yapar" varsayimini kodlar; sunmayan bir saglayicida ya port sozlesmesi yalan soyler ya da adapter icine ikinci saglayici gizlenir. Ayrica embedding boyutu kararini chat saglayicisina baglardi |
+| Embedding'i transaction icinde yapmak                  | Pahali ag cagrisi boyunca DB baglantisi tutulurdu                                                                                                                                                                         |
+| IP bazli rate limit                                    | Amac maliyet kontrolu; harcamayi yapan kullanicidir, adres degil                                                                                                                                                          |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 
@@ -318,10 +318,10 @@ eklendi (Product Owner karari, maliyet-performans gerekcesi) — bkz. ADR-0007
 §3'un adapter esleme tablosu ve `vector(1536)` boyutu **varsayim degil, olculmus
 gercektir**. Iki canli API cagrisiyla dogrulandi:
 
-| Test | Istek | Sonuc |
-| ---- | ----- | ----- |
+| Test            | Istek                                                                        | Sonuc                                                                                  |
+| --------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Chat/completion | `POST https://api.deepseek.com/chat/completions`, `model: deepseek-v4-flash` | **HTTP 200** — gercek yanit dondu (`object: chat.completion`, `finish_reason: length`) |
-| Embeddings | `POST https://api.openai.com/v1/embeddings`, `model: text-embedding-3-small` | **HTTP 200** — `data[0].embedding` **1536 eleman**, tipi `number` |
+| Embeddings      | `POST https://api.openai.com/v1/embeddings`, `model: text-embedding-3-small` | **HTTP 200** — `data[0].embedding` **1536 eleman**, tipi `number`                      |
 
 **DeepSeek'in embeddings uc noktasi YOKTUR.** Ayni oturumda dogrulandi:
 `POST /embeddings` ve `POST /v1/embeddings` -> **HTTP 404, bos govde**; var
@@ -337,6 +337,6 @@ boyutu 1536'dir ve olculerek dogrulanmistir. Kolon bir OpenAI varsayimi tasiyord
 ve o varsayim artik ONAYLANMIS bir karardir (Product Owner: embedding saglayicisi
 OpenAI). Chat completion DeepSeek'te KALIYOR.
 
-> Bu not, ADR'nin daha onceki "Bilinen sinirlar" maddesindeki *"embedding boyutu,
-> gercek saglayici secimi dogrulanana kadar GECICIDIR"* ifadesini KAPATIR. O
+> Bu not, ADR'nin daha onceki "Bilinen sinirlar" maddesindeki _"embedding boyutu,
+> gercek saglayici secimi dogrulanana kadar GECICIDIR"_ ifadesini KAPATIR. O
 > madde kaldirildi; yerini iki saglayiciya baglilik riski aldi.

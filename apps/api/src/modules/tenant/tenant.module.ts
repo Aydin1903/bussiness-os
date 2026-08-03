@@ -8,7 +8,10 @@ import { CURRENT_USER_PROVIDER } from '../../shared/current-user.port';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import {
   DOMAIN_EVENT_PUBLISHER,
   type DomainEventPublisher,

@@ -23,17 +23,17 @@ Faz 3 tasariminda bu yeniden degerlendirildi. Baglantinin iki pratik sorunu var:
 
 Dogrulama **6 haneli kod** ile yapilir.
 
-| Ozellik | Deger |
-| ------- | ----- |
-| Bicim | 6 hane, `000000`-`999999` |
-| Uretim | Kriptografik RNG (`crypto.randomInt`), duzgun dagilimli |
-| Omur | **15 dakika** |
-| Kullanim | Tek kullanimlik |
-| Ayni anda gecerli kod | Bir tane; yeni kod oncekini gecersizlestirir |
-| Saklama | **HMAC-SHA256 + sunucu tarafi pepper** |
-| Maksimum yanlis deneme | **5** — sonra kod gecersizlesir |
-| Sayac artirimi | **Atomik**, dogrulama ile ayni transaction'da |
-| Yeniden gonderme | 60 sn bekleme · 5/saat (hesap) · 20/saat (IP) |
+| Ozellik                | Deger                                                   |
+| ---------------------- | ------------------------------------------------------- |
+| Bicim                  | 6 hane, `000000`-`999999`                               |
+| Uretim                 | Kriptografik RNG (`crypto.randomInt`), duzgun dagilimli |
+| Omur                   | **15 dakika**                                           |
+| Kullanim               | Tek kullanimlik                                         |
+| Ayni anda gecerli kod  | Bir tane; yeni kod oncekini gecersizlestirir            |
+| Saklama                | **HMAC-SHA256 + sunucu tarafi pepper**                  |
+| Maksimum yanlis deneme | **5** — sonra kod gecersizlesir                         |
+| Sayac artirimi         | **Atomik**, dogrulama ile ayni transaction'da           |
+| Yeniden gonderme       | 60 sn bekleme · 5/saat (hesap) · 20/saat (IP)           |
 
 Parola sifirlama ayni deseni **daha siki** parametrelerle kullanir (ADR-0024).
 
@@ -48,12 +48,12 @@ Asil koruma sure DEGIL, deneme siniridir — bu yuzden 15 dakika guvenli.
 
 **Neden HMAC + pepper, duz veya Argon2 degil.**
 
-| Yaklasim | Sonuc |
-| -------- | ----- |
-| Duz sakla | Veritabani okuma yetkisi olan herkes dogrudan hesap ele gecirir |
-| Duz SHA-256 | Arama uzayi yalnizca 10^6; sizan hash siradan bir makinede MILISANIYELER icinde geri cevrilir. Hash'lemek neredeyse hicbir sey kazandirmaz |
-| Argon2id | Guvenli ama YANLIS ARAC: her denemede 100+ ms maliyet, kod zaten kisa omurlu ve deneme sinirli |
-| **HMAC-SHA256 + pepper** | Pepper veritabaninda DEGILDIR. Sizan bir veritabani tek basina yetmez; saldirganin uygulama sirrina da erismesi gerekir |
+| Yaklasim                 | Sonuc                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Duz sakla                | Veritabani okuma yetkisi olan herkes dogrudan hesap ele gecirir                                                                            |
+| Duz SHA-256              | Arama uzayi yalnizca 10^6; sizan hash siradan bir makinede MILISANIYELER icinde geri cevrilir. Hash'lemek neredeyse hicbir sey kazandirmaz |
+| Argon2id                 | Guvenli ama YANLIS ARAC: her denemede 100+ ms maliyet, kod zaten kisa omurlu ve deneme sinirli                                             |
+| **HMAC-SHA256 + pepper** | Pepper veritabaninda DEGILDIR. Sizan bir veritabani tek basina yetmez; saldirganin uygulama sirrina da erismesi gerekir                    |
 
 Bu, parola ile kodun FARKLI TEHDIT MODELLERI oldugunun kabuludur: parola dusuk
 entropili ve uzun omurludur (yavas KDF sart); kod yuksek oranda kisitli, tek
@@ -96,14 +96,14 @@ gonderme siniri BIRLIKTE calisir; biri olmadan digeri yetersizdir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Baglanti tabanli dogrulama (onceki karar) | Oturum bolunmesi ve e-posta tarayicilarinin baglantiyi tuketmesi |
-| 8 haneli kod | Arama uzayi 100x buyur ama kullanilabilirlik duser; deneme siniri zaten asil korumayi sagliyor |
-| Alfanumerik kod | Buyuk/kucuk harf ve benzer karakter (O/0, l/1) karisikligi; destek yuku |
-| Kodu duz saklamak | Veritabani okuma yetkisi dogrudan hesap ele gecirmeye donusur |
-| Argon2id ile kod hash'leme | Her denemede gereksiz 100+ ms; yanlis arac |
-| Hem kod hem baglanti sunmak | Iki akis, iki saldiri yuzeyi, iki kat test |
+| Alternatif                                | Neden secilmedi                                                                                |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Baglanti tabanli dogrulama (onceki karar) | Oturum bolunmesi ve e-posta tarayicilarinin baglantiyi tuketmesi                               |
+| 8 haneli kod                              | Arama uzayi 100x buyur ama kullanilabilirlik duser; deneme siniri zaten asil korumayi sagliyor |
+| Alfanumerik kod                           | Buyuk/kucuk harf ve benzer karakter (O/0, l/1) karisikligi; destek yuku                        |
+| Kodu duz saklamak                         | Veritabani okuma yetkisi dogrudan hesap ele gecirmeye donusur                                  |
+| Argon2id ile kod hash'leme                | Her denemede gereksiz 100+ ms; yanlis arac                                                     |
+| Hem kod hem baglanti sunmak               | Iki akis, iki saldiri yuzeyi, iki kat test                                                     |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

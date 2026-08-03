@@ -76,8 +76,7 @@
   --color-danger: var(--danger);
 
   /* Tipografi — Apple platformlarında yerel SF; diğerlerinde temiz alternatif. */
-  --font-sans:
-    -apple-system, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: -apple-system, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
 
   /* Yumuşak köşeler; gölge yerine ince kenarlıkla derinlik. */
   --radius-card: 0.75rem; /* 12px */

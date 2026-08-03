@@ -2,7 +2,10 @@ import { type Provider } from '@nestjs/common';
 
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { CLOCK, type Clock } from '../../shared/clock.port';
-import { TRANSACTION_MANAGER, type TransactionManager } from '../../shared/transaction-manager.port';
+import {
+  TRANSACTION_MANAGER,
+  type TransactionManager,
+} from '../../shared/transaction-manager.port';
 import { PublishTenantEventsUseCase } from './application/publish-tenant-events.use-case';
 import {
   TENANT_OUTBOX_REPOSITORY,
@@ -57,10 +60,7 @@ export const tenantOutboxProviders: Provider[] = [
     // Zamanlama config'ten gelir; relay'in kendisi yalnizca zamanlayicidir.
     provide: TenantOutboxRelay,
     inject: [PublishTenantEventsUseCase, APP_CONFIG],
-    useFactory: (
-      publishEvents: PublishTenantEventsUseCase,
-      config: AppConfig,
-    ): TenantOutboxRelay =>
+    useFactory: (publishEvents: PublishTenantEventsUseCase, config: AppConfig): TenantOutboxRelay =>
       new TenantOutboxRelay(publishEvents, {
         enabled: config.outboxRelay.enabled,
         intervalMs: config.outboxRelay.intervalMs,

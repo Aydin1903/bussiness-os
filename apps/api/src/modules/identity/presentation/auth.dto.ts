@@ -63,9 +63,7 @@ export const forgotPasswordSchema = z.object({ email }).strict();
  * tek dogruluk kaynagi `password-policy.ts`'tir, Zod yalnizca uzunlukla DoS'u
  * sinirda keser (register ile ayni disiplin).
  */
-export const resetPasswordSchema = z
-  .object({ email, code: verificationCode, password })
-  .strict();
+export const resetPasswordSchema = z.object({ email, code: verificationCode, password }).strict();
 
 /**
  * Parola DEGISTIRME — mevcut parola + yeni parola (§7.6).

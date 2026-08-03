@@ -444,9 +444,9 @@ describe('LoginUseCase — basarisiz kimlik dogrulama', () => {
     const harness = createHarness();
     seedUser(harness);
 
-    await expect(
-      harness.useCase.execute(command({ password: 'yanlisparola1' })),
-    ).rejects.toThrow(InvalidCredentialsError);
+    await expect(harness.useCase.execute(command({ password: 'yanlisparola1' }))).rejects.toThrow(
+      InvalidCredentialsError,
+    );
 
     expect(harness.loginAttemptRepository.saved).toHaveLength(1);
     expect(harness.loginAttemptRepository.saved[0]?.succeeded).toBe(false);
@@ -458,9 +458,7 @@ describe('LoginUseCase — basarisiz kimlik dogrulama', () => {
     const harness = createHarness();
     seedUser(harness);
 
-    await expect(
-      harness.useCase.execute(command({ password: 'yanlisparola1' })),
-    ).rejects.toThrow();
+    await expect(harness.useCase.execute(command({ password: 'yanlisparola1' }))).rejects.toThrow();
 
     expect(harness.loginAttemptRepository.saved).toHaveLength(1);
     expect(harness.tokenFamilyRepository.saved).toHaveLength(0);

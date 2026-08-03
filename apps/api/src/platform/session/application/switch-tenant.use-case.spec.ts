@@ -101,18 +101,17 @@ describe('SwitchTenantUseCase — erisim verildi', () => {
 });
 
 describe('SwitchTenantUseCase — erisim reddedildi (fail closed)', () => {
-  it.each([
-    ['no-membership'],
-    ['membership-inactive'],
-    ['tenant-inactive'],
-  ] as const)('%s icin token URETMEZ ve sebebi tasir', async (reason) => {
-    const harness = createHarness();
-    harness.accessQuery.result = { granted: false, reason };
+  it.each([['no-membership'], ['membership-inactive'], ['tenant-inactive']] as const)(
+    '%s icin token URETMEZ ve sebebi tasir',
+    async (reason) => {
+      const harness = createHarness();
+      harness.accessQuery.result = { granted: false, reason };
 
-    const result = await harness.useCase.execute(command());
+      const result = await harness.useCase.execute(command());
 
-    expect(result).toEqual({ granted: false, reason });
-    // FAIL CLOSED: reddedilen bir sonuctan token dogmaz.
-    expect(harness.issuer.issued).toHaveLength(0);
-  });
+      expect(result).toEqual({ granted: false, reason });
+      // FAIL CLOSED: reddedilen bir sonuctan token dogmaz.
+      expect(harness.issuer.issued).toHaveLength(0);
+    },
+  );
 });

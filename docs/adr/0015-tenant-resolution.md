@@ -14,9 +14,9 @@ erisimi yapilamaz. Bu belirlemenin kaynagi birden fazla olabilir: `Host` basligi
 Buradaki tehlike, birbirine benzeyen ama **tamamen farkli** iki sorunun
 karistirilmasidir:
 
-| Soru                                              | Kaynak                       | Guven          |
-| ------------------------------------------------- | ---------------------------- | -------------- |
-| Bu istek hangi tenant'in **arayuzune** geldi?     | `Host` basligi               | Guvenilmez     |
+| Soru                                              | Kaynak                       | Guven           |
+| ------------------------------------------------- | ---------------------------- | --------------- |
+| Bu istek hangi tenant'in **arayuzune** geldi?     | `Host` basligi               | Guvenilmez      |
 | Bu istek hangi tenant'in **verisine** erisebilir? | Dogrulanmis JWT + membership | Guvenlik siniri |
 
 Bu iki soru karistirilirsa, istemci kontrolundeki bir baslik yetki kaynagi haline
@@ -94,13 +94,13 @@ yuzden TXT kaniti pazarlik konusu degildir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                   | Neden secilmedi                                                                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Yalnizca subdomain'den cozme                 | `Host` istemci kontrolundedir; tek basina yetki kaynagi yapmak tum veritabanini bir baslik uzakligina getirir |
-| Yalnizca JWT, Host tumden yok sayilir        | Calisir ama capraz kontrolun urettigi erken uyari sinyali kaybedilir; custom domain branding'i de zorlasir |
-| `X-Tenant-Id` header'i                       | Istemciden gelen deger; DEVELOPMENT_RULES §4.5 geregi acikca yasak                                    |
-| URL path'inde tenant (`/t/<slug>/...`)       | Slug'i her URL'e yayar; ADR-0012'nin slug'i degistirilebilir tutma karari ile celisir                 |
-| Custom domain'i dogrulamasiz kabul           | Bir tenant baska bir tenant'in alan adini kendine baglayabilir                                        |
+| Alternatif                             | Neden secilmedi                                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Yalnizca subdomain'den cozme           | `Host` istemci kontrolundedir; tek basina yetki kaynagi yapmak tum veritabanini bir baslik uzakligina getirir |
+| Yalnizca JWT, Host tumden yok sayilir  | Calisir ama capraz kontrolun urettigi erken uyari sinyali kaybedilir; custom domain branding'i de zorlasir    |
+| `X-Tenant-Id` header'i                 | Istemciden gelen deger; DEVELOPMENT_RULES §4.5 geregi acikca yasak                                            |
+| URL path'inde tenant (`/t/<slug>/...`) | Slug'i her URL'e yayar; ADR-0012'nin slug'i degistirilebilir tutma karari ile celisir                         |
+| Custom domain'i dogrulamasiz kabul     | Bir tenant baska bir tenant'in alan adini kendine baglayabilir                                                |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

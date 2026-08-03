@@ -35,7 +35,8 @@ import {
 const USER_ID = '018f3a2b-7c4d-7e1f-9b3c-00000000000a';
 const USER_ID_2 = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
 const EMAIL = 'user@example.com';
-const HASH = '$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzYWx0$RdescudvJCsgt3ubuqfdP0mNSKwQnQBs1flkS5j3Vhg';
+const HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzYWx0$RdescudvJCsgt3ubuqfdP0mNSKwQnQBs1flkS5j3Vhg';
 const DIGEST = '0123456789abcdef'.repeat(4);
 const NOW = new Date('2026-07-22T10:00:00.000Z');
 const EXPIRES = new Date('2026-07-22T10:15:00.000Z');
@@ -353,7 +354,10 @@ describe('identity repository adapter (gercek PostgreSQL)', () => {
   }
 
   async function runSqlFile(file: string): Promise<void> {
-    const sql = readFileSync(join('drizzle', file), 'utf8').replaceAll('--> statement-breakpoint', '');
+    const sql = readFileSync(join('drizzle', file), 'utf8').replaceAll(
+      '--> statement-breakpoint',
+      '',
+    );
     await database.ownerPool.query(sql);
   }
 

@@ -73,14 +73,14 @@ transaction siniri, asenkron tamamlama) DEGISMEDI.
 
 Dogrulanmamis e-posta ile acilan tenant dort risk dogurur:
 
-| Risk                              | Sonuc                                                            |
-| --------------------------------- | ---------------------------------------------------------------- |
-| Bot kaydi                         | Cop tenant'lar, tuketilmis slug'lar, sismis veritabani            |
-| Baskasinin e-postasiyla kayit     | Gercek sahip sisteme girdiginde e-postasi "alinmis" olur          |
-| Slug squatting                    | Degerli slug'lar sahte kayitlarla rezerve edilir                  |
-| Sahipsiz tenant                   | `owner` rolu erisilemeyen bir e-postaya baglanir; kurtarma yolu yok |
+| Risk                          | Sonuc                                                               |
+| ----------------------------- | ------------------------------------------------------------------- |
+| Bot kaydi                     | Cop tenant'lar, tuketilmis slug'lar, sismis veritabani              |
+| Baskasinin e-postasiyla kayit | Gercek sahip sisteme girdiginde e-postasi "alinmis" olur            |
+| Slug squatting                | Degerli slug'lar sahte kayitlarla rezerve edilir                    |
+| Sahipsiz tenant               | `owner` rolu erisilemeyen bir e-postaya baglanir; kurtarma yolu yok |
 
-Bunlarin hepsi *sonradan temizlenebilir* gorunur; degildir. Tenant acildigi anda
+Bunlarin hepsi _sonradan temizlenebilir_ gorunur; degildir. Tenant acildigi anda
 veri, davet ve fatura kaydi dogurur — temizlik bir satir silme islemi olmaktan
 cikar.
 
@@ -121,13 +121,13 @@ veri degisikligiyle ayni transaction'da kaydedilmesini garanti ettigi icin
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                          | Neden secilmedi                                                                                       |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Tenant'i hemen ac, e-postayi sonra dogrula          | Bot kaydi, slug squatting ve sahipsiz tenant; tenant acildigi anda veri/davet/fatura dogurdugu icin temizlik pahali |
-| Tenant'i ac ama `unverified` durumunda tut          | Ayni riskler daha yumusak bicimde surer: slug yine tuketilir, cop kayit yine olusur                     |
-| Tum provisioning'i tek senkron transaction'da yapmak | Dis sistem cagrilarini transaction icine sokar; kilit sureleri ve zaman asimi riski                      |
-| Provisioning'i tumden asenkron yapmak (tenant kaydi dahil) | Istemci hangi tenant'i actigini ogrenemez; slug catismasi gec yakalanir                          |
-| Slug tekilligini uygulamada kontrol etmek           | "Once kontrol et sonra yaz" bir yaris kosuludur; tekillik veritabani kisitinda olmalidir                |
+| Alternatif                                                 | Neden secilmedi                                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Tenant'i hemen ac, e-postayi sonra dogrula                 | Bot kaydi, slug squatting ve sahipsiz tenant; tenant acildigi anda veri/davet/fatura dogurdugu icin temizlik pahali |
+| Tenant'i ac ama `unverified` durumunda tut                 | Ayni riskler daha yumusak bicimde surer: slug yine tuketilir, cop kayit yine olusur                                 |
+| Tum provisioning'i tek senkron transaction'da yapmak       | Dis sistem cagrilarini transaction icine sokar; kilit sureleri ve zaman asimi riski                                 |
+| Provisioning'i tumden asenkron yapmak (tenant kaydi dahil) | Istemci hangi tenant'i actigini ogrenemez; slug catismasi gec yakalanir                                             |
+| Slug tekilligini uygulamada kontrol etmek                  | "Once kontrol et sonra yaz" bir yaris kosuludur; tekillik veritabani kisitinda olmalidir                            |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

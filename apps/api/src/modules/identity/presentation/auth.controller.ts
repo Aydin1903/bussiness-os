@@ -74,7 +74,8 @@ const FORGOT_PASSWORD_MESSAGE = 'Parola sifirlama kodu gonderildi.';
 const RESET_PASSWORD_MESSAGE = 'Parola sifirlandi.';
 
 /** Sifirlama TAMAMLAMA reddi — tek metin (P2: hangi sebep sizmaz). */
-const RESET_PASSWORD_REJECTION = 'Sifirlama kodu gecersiz veya suresi dolmus. Yeni bir kod isteyin.';
+const RESET_PASSWORD_REJECTION =
+  'Sifirlama kodu gecersiz veya suresi dolmus. Yeni bir kod isteyin.';
 
 /**
  * TEK ret metni — hicbir red sebebi digerinden ayirt edilemez.
@@ -434,7 +435,10 @@ export class AuthController {
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Parola sifirlandi.' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Kod gecersiz veya kullanilamaz.' })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde veya parola politikasi gecersiz.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Govde veya parola politikasi gecersiz.',
+  })
   async resetPasswordEndpoint(
     @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordBody,
   ): Promise<RegisterResponse> {

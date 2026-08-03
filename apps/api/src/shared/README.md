@@ -23,7 +23,7 @@ Bu proje hataları **exception fırlatarak** bildirir. `Result<T, E>` /
 - Domain invariant ihlalleri `TenantDomainError` gibi domain hata sınıfları
   fırlatır.
 - Repository port'ları "bulunamadı" durumunu `null` ile bildirir — bu bir hata
-  değil, geçerli bir sonuçtur. Exception yalnızca *beklenmeyen* durumlar
+  değil, geçerli bir sonuçtur. Exception yalnızca _beklenmeyen_ durumlar
   içindir.
 - HTTP'ye çeviri tek noktada, global exception filter'da yapılır (RFC 7807).
 - Hata sınıfları `code` alanı taşır; çeviri mesaj metnine değil koda bakar.

@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { AskKnowledgeUseCase, type AskKnowledgeDependencies } from './ask-knowledge.use-case';
-import {
-  type ConversationRepository,
-  type NewMessage,
-} from './conversation.repository.port';
+import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
 import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
@@ -151,7 +148,9 @@ interface Harness {
   readonly useCase: AskKnowledgeUseCase;
 }
 
-function createHarness(overrides: Partial<{ retrievalLimit: number; historyMessages: number }> = {}): Harness {
+function createHarness(
+  overrides: Partial<{ retrievalLimit: number; historyMessages: number }> = {},
+): Harness {
   const calls: CallLog = [];
   const search = new FakeNoteChunkSearch(calls);
   const conversations = new FakeConversationRepository(calls);
@@ -556,9 +555,7 @@ describe('AskKnowledgeUseCase — hata yollari', () => {
   it('gecersiz tenant id transaction ACMADAN reddedilir', async () => {
     const harness = createHarness();
 
-    await expect(
-      harness.useCase.execute({ ...command(), tenantId: 'gecersiz' }),
-    ).rejects.toThrow();
+    await expect(harness.useCase.execute({ ...command(), tenantId: 'gecersiz' })).rejects.toThrow();
     expect(harness.calls).toHaveLength(0);
   });
 });

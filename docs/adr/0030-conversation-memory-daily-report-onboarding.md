@@ -32,10 +32,10 @@ not olusturma akisinin uzerine oturur — ayri ADR'ler yapay bir bolme olurdu.
 `knowledge` semasinda, RLS `ENABLE` + `FORCE` (MT §12.2 standart sablonu —
 ADR-0029'un `notes`/`note_chunks`'i ile BIREBIR ayni desen).
 
-| Tablo | Kolonlar |
-| ----- | -------- |
-| `knowledge.conversations` | `id`, `tenant_id`, `user_id`, `created_at` |
-| `knowledge.messages` | `id`, `tenant_id` (denormalize), `conversation_id` (FK), `role`, `content`, `created_at` |
+| Tablo                     | Kolonlar                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `knowledge.conversations` | `id`, `tenant_id`, `user_id`, `created_at`                                               |
+| `knowledge.messages`      | `id`, `tenant_id` (denormalize), `conversation_id` (FK), `role`, `content`, `created_at` |
 
 `messages.tenant_id` denormalizasyonu `note_chunks` ile AYNI gerekcedir: RLS
 politikasi JOIN'siz calisabilsin.
@@ -71,12 +71,12 @@ Konusma gecmisi `context: string[]` dizisine **EKLENMEZ**; ayri bir parametredir
 
 ROADMAP'in acik kalemi olan **Queue**, bu isle karara baglandi:
 
-| | Karar |
-| --- | --- |
-| Mekanizma | `knowledge.daily_report_runs` tablosu + `TenantOutboxRelay` deseninde worker |
-| Es zamanlilik | `FOR UPDATE SKIP LOCKED` (outbox tuketicisiyle ayni) |
-| Hata yolu | `attempt_count` + `last_error` + ustel backoff + dead-letter (migration `0009` deseni) |
-| Idempotency anahtari | **`(tenant_id, report_date)`** — unique |
+|                      | Karar                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| Mekanizma            | `knowledge.daily_report_runs` tablosu + `TenantOutboxRelay` deseninde worker           |
+| Es zamanlilik        | `FOR UPDATE SKIP LOCKED` (outbox tuketicisiyle ayni)                                   |
+| Hata yolu            | `attempt_count` + `last_error` + ustel backoff + dead-letter (migration `0009` deseni) |
+| Idempotency anahtari | **`(tenant_id, report_date)`** — unique                                                |
 
 Ayri bir mesaj kuyrugu teknolojisi (BullMQ, Redis) **KURULMAZ**.
 
@@ -135,8 +135,8 @@ soru-cevap-soru-cevap akisi, hepsi bir arada bir form DEGIL:
 7. Bu urunden beklentiniz ne?
 
 - Her soru **"Atla"** ile gecilebilir.
-- Son soruda kapanis mesaji gosterilir: *"istediginiz zaman daha fazla not
-  ekleyebilirsiniz, sistem kullandikca sizi daha iyi taniyacak"*.
+- Son soruda kapanis mesaji gosterilir: _"istediginiz zaman daha fazla not
+  ekleyebilirsiniz, sistem kullandikca sizi daha iyi taniyacak"_.
 - **Cevaplar 7 AYRI not olur** (atlanmayanlar): **baslik = soru, govde = cevap**.
   Tek birlesik not DEGIL.
 - **Tetikleme kosulu: tenant'in HIC notu yoksa** wizard gosterilir.
@@ -148,11 +148,11 @@ soru-cevap-soru-cevap akisi, hepsi bir arada bir form DEGIL:
 
 **1.3 Neden `history` AYRI parametre, `context` dizisine eklenmiyor.** Uc sebep:
 
-| | `context` | `history` |
-| --- | --- | --- |
-| Ne | Getirilen **kanit** (chunk'lar) | **Diyalog** turleri |
-| Sira | Alaka skoruna gore | Kronolojik, anlamli |
-| Rol atfi | Yok | **Var ve yapisal** |
+|          | `context`                       | `history`           |
+| -------- | ------------------------------- | ------------------- |
+| Ne       | Getirilen **kanit** (chunk'lar) | **Diyalog** turleri |
+| Sira     | Alaka skoruna gore              | Kronolojik, anlamli |
+| Rol atfi | Yok                             | **Var ve yapisal**  |
 
 - **Rol bilgisi yapisaldir.** Tek diziye koymak, rolleri string'e gomeyi zorunlu
   kilar (`"Kullanici: ...", "Asistan: ..."`). Yapiyi metne gommek, sonradan
@@ -265,17 +265,17 @@ entegrasyonu, per-tenant saglayici secimi, Cache, hassas veri redaksiyonu).
 
 ## Degerlendirilen alternatifler
 
-| Alternatif | Neden secilmedi |
-| ---------- | --------------- |
-| Konusma gecmisini `context: string[]`'e eklemek | Rol bilgisi string'e gomulurdu (geri donusu olmayan kayip); token butcesinde "eski mesaj" ile "dusuk skorlu chunk" ayirt edilemezdi; formatlama is mantigina kacardi |
-| Gecmisi `systemPrompt`'a yapistirmak | Yukaridakinin daha kotusu: yapiyi da formatlama sorumlulugunu da cagirana yukler |
-| Konusmanin TAMAMINI gondermek | Token maliyeti sinirsiz buyur; uzun konusmalarda baglam penceresi tasar. v1 icin son birkac cift yeterli |
-| **BullMQ + Redis** | Tenant basina gunde bir is icin orantisiz; Cache/Redis karari dolayli olarak verilmis olurdu; yeni operasyon yuzeyi |
-| Naif cron (`node-cron` vb.) | Kacirilan tick, yeniden baslatma ve cok-instance sorunlarini COZMEZ; idempotency yine elle yazilirdi |
-| `notifications` genel tablosu | Tek bildirim turu icin genel bildirim altyapisi — erken soyutlama |
-| `businessos_outbox_relay`'i genisletmek | Constraint 2 testini ve ADR-0028 sozlesmesini kirardi |
-| Onboarding cevaplarini TEK not yapmak | Farkli konulardaki cevaplar ayni chunk'a sikisirdi; retrieval granularitesi bozulurdu, kullanici tek tek duzenleyemezdi |
-| Onboarding icin `users`/`memberships`'e "tamamlandi" alani | Kalici sema degisikligi; "hic not yok" kosulu ayni sinyali bedelsiz veriyor |
+| Alternatif                                                 | Neden secilmedi                                                                                                                                                      |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Konusma gecmisini `context: string[]`'e eklemek            | Rol bilgisi string'e gomulurdu (geri donusu olmayan kayip); token butcesinde "eski mesaj" ile "dusuk skorlu chunk" ayirt edilemezdi; formatlama is mantigina kacardi |
+| Gecmisi `systemPrompt`'a yapistirmak                       | Yukaridakinin daha kotusu: yapiyi da formatlama sorumlulugunu da cagirana yukler                                                                                     |
+| Konusmanin TAMAMINI gondermek                              | Token maliyeti sinirsiz buyur; uzun konusmalarda baglam penceresi tasar. v1 icin son birkac cift yeterli                                                             |
+| **BullMQ + Redis**                                         | Tenant basina gunde bir is icin orantisiz; Cache/Redis karari dolayli olarak verilmis olurdu; yeni operasyon yuzeyi                                                  |
+| Naif cron (`node-cron` vb.)                                | Kacirilan tick, yeniden baslatma ve cok-instance sorunlarini COZMEZ; idempotency yine elle yazilirdi                                                                 |
+| `notifications` genel tablosu                              | Tek bildirim turu icin genel bildirim altyapisi — erken soyutlama                                                                                                    |
+| `businessos_outbox_relay`'i genisletmek                    | Constraint 2 testini ve ADR-0028 sozlesmesini kirardi                                                                                                                |
+| Onboarding cevaplarini TEK not yapmak                      | Farkli konulardaki cevaplar ayni chunk'a sikisirdi; retrieval granularitesi bozulurdu, kullanici tek tek duzenleyemezdi                                              |
+| Onboarding icin `users`/`memberships`'e "tamamlandi" alani | Kalici sema degisikligi; "hic not yok" kosulu ayni sinyali bedelsiz veriyor                                                                                          |
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

@@ -47,8 +47,7 @@ import { TenantContextMiddleware } from './presentation/tenant-context.middlewar
       useFactory: (
         tenantAccessQuery: TenantAccessQuery,
         accessTokenIssuer: TenantAccessTokenIssuer,
-      ): SwitchTenantUseCase =>
-        new SwitchTenantUseCase({ tenantAccessQuery, accessTokenIssuer }),
+      ): SwitchTenantUseCase => new SwitchTenantUseCase({ tenantAccessQuery, accessTokenIssuer }),
     },
     {
       // "Hangi tenant'lara uyeyim" (ADR-0028). Tenant'in public port'undan

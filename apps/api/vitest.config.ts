@@ -26,12 +26,7 @@ export default defineConfig({
        * Sonuc, gercek bir kapsam kaybi olmadigi halde dusen bir yuzde olurdu —
        * yani kapsam raporunu ise yaramaz hale getiren gurultu.
        */
-      exclude: [
-        'src/**/*.spec.ts',
-        'src/**/*.module.ts',
-        'src/**/*.port.ts',
-        'src/main.ts',
-      ],
+      exclude: ['src/**/*.spec.ts', 'src/**/*.module.ts', 'src/**/*.port.ts', 'src/main.ts'],
     },
   },
   plugins: [swc.vite({ module: { type: 'es6' } })],

@@ -88,7 +88,9 @@ export default function SelectTenantPage() {
               >
                 <span className="text-sm font-medium text-fg">{item.tenantName}</span>
                 <span className="text-xs text-fg-muted">
-                  {selectingId === item.tenantId ? 'Geçiliyor…' : (ROLE_LABELS[item.role] ?? item.role)}
+                  {selectingId === item.tenantId
+                    ? 'Geçiliyor…'
+                    : (ROLE_LABELS[item.role] ?? item.role)}
                 </span>
               </button>
             </li>
@@ -101,7 +103,10 @@ export default function SelectTenantPage() {
       ) : null}
 
       <p className="text-center text-sm text-fg-muted">
-        <Link href="/create-tenant" className="font-medium text-fg underline-offset-2 hover:underline">
+        <Link
+          href="/create-tenant"
+          className="font-medium text-fg underline-offset-2 hover:underline"
+        >
           Yeni şirket oluştur
         </Link>
       </p>

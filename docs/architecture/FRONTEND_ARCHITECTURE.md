@@ -18,19 +18,20 @@ Bu doküman, Business OS **web istemcisinin (Next.js)** mimari tasarımı için 
 - Bu dokümanı değiştiren her PR, karşılık gelen ADR'yi de günceller.
 
 **Kardeş dokümanlar:**
+
 - [`AUTH_ARCHITECTURE.md`](AUTH_ARCHITECTURE.md) — kimlik doğrulama, iki aşamalı token modeli, refresh rotation. Backend tarafı **orada** tanımlıdır ve **burada tekrarlanmaz**; bu doküman onun istemci karşılığıdır.
 - [`MULTI_TENANT_ARCHITECTURE.md`](MULTI_TENANT_ARCHITECTURE.md) — tenant çözümleme, `switch-tenant` akışı (§7.4).
 
 ### Referans verilen ADR'ler
 
-| ADR | Karar | Durum |
-|---|---|---|
-| [0020](../adr/0020-jwt-structure-and-signing.md) | İki aşamalı token, EdDSA | ✅ Kabul edildi |
-| [0021](../adr/0021-refresh-token-rotation.md) | Refresh rotation + yeniden kullanım tespiti | ✅ Kabul edildi |
-| [0023](../adr/0023-session-termination.md) | Oturum sonlandırma ve iptal | ✅ Kabul edildi |
-| [0026](../adr/0026-frontend-token-storage.md) | Frontend token saklama ve taşıma (hibrit cookie) | ✅ Kabul edildi |
-| [0027](../adr/0027-frontend-rendering-session.md) | Frontend rendering + session/API-client mimarisi | ✅ Kabul edildi |
-| [0028](../adr/0028-my-memberships-query.md) | `GET /me/memberships` (tenant seçim akışının kaynağı) | ✅ Kabul edildi |
+| ADR                                               | Karar                                                 | Durum           |
+| ------------------------------------------------- | ----------------------------------------------------- | --------------- |
+| [0020](../adr/0020-jwt-structure-and-signing.md)  | İki aşamalı token, EdDSA                              | ✅ Kabul edildi |
+| [0021](../adr/0021-refresh-token-rotation.md)     | Refresh rotation + yeniden kullanım tespiti           | ✅ Kabul edildi |
+| [0023](../adr/0023-session-termination.md)        | Oturum sonlandırma ve iptal                           | ✅ Kabul edildi |
+| [0026](../adr/0026-frontend-token-storage.md)     | Frontend token saklama ve taşıma (hibrit cookie)      | ✅ Kabul edildi |
+| [0027](../adr/0027-frontend-rendering-session.md) | Frontend rendering + session/API-client mimarisi      | ✅ Kabul edildi |
+| [0028](../adr/0028-my-memberships-query.md)       | `GET /me/memberships` (tenant seçim akışının kaynağı) | ✅ Kabul edildi |
 
 ---
 
@@ -38,10 +39,10 @@ Bu doküman, Business OS **web istemcisinin (Next.js)** mimari tasarımı için 
 
 Bu dokümanın kararlarından biri artık **kodda gerçekleşmiştir**, biri hâlâ hedeftir:
 
-| Karar | Durum |
-|---|---|
+| Karar                                                        | Durum                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **§2 — refresh token `HttpOnly` cookie taşıması** (ADR-0026) | ✅ **Backend uyguladı** (2026-07-26). `login`/`refresh` `Set-Cookie` yazar, `refresh`/`logout` cookie'den okur, `logout`/`logout-all` temizler. Bkz. [`refresh-cookie.ts`](../../apps/api/src/modules/identity/presentation/refresh-cookie.ts), `AUTH_ARCHITECTURE.md` §10.5 |
-| **§3.1 — RSC ile server-side tenant-scoped veri çekme** | ⏳ **Hedef.** Tenant-scoped access token'ı sunucuda üretmek ek altyapı ister; V1'de authenticated veri çekme istemci taraflıdır |
+| **§3.1 — RSC ile server-side tenant-scoped veri çekme**      | ⏳ **Hedef.** Tenant-scoped access token'ı sunucuda üretmek ek altyapı ister; V1'de authenticated veri çekme istemci taraflıdır                                                                                                                                              |
 
 Bu sıralama bilinçliydi: token saklama gibi güvenlik kritik bir karar, istemci kodu yazıldıktan sonra değiştirilirse çok daha pahalıdır. Karar önce verildi, backend ona göre kuruldu; frontend artık hazır bir cookie taşımasının üzerine oturacak.
 
@@ -59,13 +60,13 @@ Kalan "hedef" işaretleri (§3.1) açıkça belirtilir.
 
 Frontend tasarımının çıpası budur. Access/identity token **JSON gövdesinde** döner; refresh token **`HttpOnly` cookie** ile taşınır (ADR-0026, artık kod):
 
-| Uç | İstemciye dönen | İstemciden gelen |
-|---|---|---|
-| `POST /auth/login` | gövdede `identityToken` (5 dk) + `Set-Cookie: refresh_token` (HttpOnly) | e-posta + parola |
-| `POST /auth/switch-tenant` | gövdede `accessToken` (15 dk, `tenant` claim'li) | `Authorization: Bearer <identityToken>` + `tenantId` |
-| `POST /auth/refresh` | gövdede **`identityToken`** + `Set-Cookie: refresh_token` (rotasyonlu) | `Cookie: refresh_token` (gövde YOK) |
-| `POST /auth/logout` · `/logout-all` | `Set-Cookie` ile cookie temizlenir | `Cookie: refresh_token` (logout) / `Bearer` (logout-all) |
-| Korunan uçlar | — | `Authorization: Bearer <accessToken>` |
+| Uç                                  | İstemciye dönen                                                         | İstemciden gelen                                         |
+| ----------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------- |
+| `POST /auth/login`                  | gövdede `identityToken` (5 dk) + `Set-Cookie: refresh_token` (HttpOnly) | e-posta + parola                                         |
+| `POST /auth/switch-tenant`          | gövdede `accessToken` (15 dk, `tenant` claim'li)                        | `Authorization: Bearer <identityToken>` + `tenantId`     |
+| `POST /auth/refresh`                | gövdede **`identityToken`** + `Set-Cookie: refresh_token` (rotasyonlu)  | `Cookie: refresh_token` (gövde YOK)                      |
+| `POST /auth/logout` · `/logout-all` | `Set-Cookie` ile cookie temizlenir                                      | `Cookie: refresh_token` (logout) / `Bearer` (logout-all) |
+| Korunan uçlar                       | —                                                                       | `Authorization: Bearer <accessToken>`                    |
 
 ### 1.3 İki aşamalı token modeli (ADR-0020) — istemci sonuçları
 
@@ -88,11 +89,11 @@ Frontend tasarımının çıpası budur. Access/identity token **JSON gövdesind
 
 ### 2.1 Karar: hibrit
 
-| Token | Nerede | Ömür | Neden orada |
-|---|---|---|---|
-| **refresh token** | **`httpOnly` + `Secure` + `SameSite` cookie** | 30 gün (kayan), 90 gün tavan | JavaScript **okuyamaz** → XSS onu sızdıramaz |
-| **access token** | **JS memory** (React state / modül değişkeni) | 15 dk | kısa ömürlü, tek tenant scope; reload'da kaybolur, sessizce yeniden türetilir |
-| **identity token** | **JS memory** | 5 dk | yalnızca tenant seçimi için; kalıcı değer taşımaz |
+| Token              | Nerede                                        | Ömür                         | Neden orada                                                                   |
+| ------------------ | --------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
+| **refresh token**  | **`httpOnly` + `Secure` + `SameSite` cookie** | 30 gün (kayan), 90 gün tavan | JavaScript **okuyamaz** → XSS onu sızdıramaz                                  |
+| **access token**   | **JS memory** (React state / modül değişkeni) | 15 dk                        | kısa ömürlü, tek tenant scope; reload'da kaybolur, sessizce yeniden türetilir |
+| **identity token** | **JS memory**                                 | 5 dk                         | yalnızca tenant seçimi için; kalıcı değer taşımaz                             |
 
 **`localStorage` / `sessionStorage` HİÇBİR token için kullanılmaz.** Diske yazılan bir token, herhangi bir script tarafından okunabilir; bu modelin bütün savunması buna izin vermemektir.
 
@@ -101,6 +102,7 @@ Frontend tasarımının çıpası budur. Access/identity token **JSON gövdesind
 Bu modelin tehlikeli olan **tek** şeyi 30 gün ömürlü refresh token'dır: çalınırsa saldırgan yeniden kullanım tespit edilene kadar (ADR-0021) hesabı elinde tutar. Onu `httpOnly` cookie'ye koymak JS erişimini tamamen keser — bir XSS açığı bile elde edemez.
 
 Access token memory'de kalır çünkü:
+
 - **Bearer taşıması gerektirir:** korunan uçlar `Authorization: Bearer` bekler (ADR-0020 stateless doğrulama). Cookie'ye konsa CSRF yüzeyi her isteğe yayılırdı; memory + explicit header ise CSRF'e **bağışıktır** (ambient olarak gönderilmez).
 - **Maruz kalma penceresi dardır:** XSS sayfa ömrü boyunca memory'deki access token'ı okuyabilir — ama yalnızca 15 dk ve tek tenant scope; refresh token'a **ulaşamaz**, yani kalıcı ele geçirme olmaz.
 
@@ -108,13 +110,13 @@ Access token memory'de kalır çünkü:
 
 Refresh cookie ambient gönderildiği için CSRF korunur:
 
-| Önlem | Değer / neden |
-|---|---|
-| `HttpOnly` | JS okuyamaz |
-| `Secure` | yalnızca HTTPS |
-| `SameSite=Strict` (en fazla `Lax`) | cross-site isteklerde cookie gönderilmez → CSRF'in temel taşıması kesilir |
-| `Path=/api/v1/auth` | cookie yalnızca yenileme uçlarına gider; her isteğe değil |
-| Double-submit CSRF token | `SameSite` desteklemeyen eski tarayıcı ve gereksiz rotasyon tetiklemesine karşı ek kat |
+| Önlem                              | Değer / neden                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `HttpOnly`                         | JS okuyamaz                                                                            |
+| `Secure`                           | yalnızca HTTPS                                                                         |
+| `SameSite=Strict` (en fazla `Lax`) | cross-site isteklerde cookie gönderilmez → CSRF'in temel taşıması kesilir              |
+| `Path=/api/v1/auth`                | cookie yalnızca yenileme uçlarına gider; her isteğe değil                              |
+| Double-submit CSRF token           | `SameSite` desteklemeyen eski tarayıcı ve gereksiz rotasyon tetiklemesine karşı ek kat |
 
 **CSRF neden burada zaten zayıf:** cross-site tetiklenen bir `refresh` çağrısının döndürdüğü yeni token **gövdede** gelir ve saldırganın cross-origin JS'i onu **CORS nedeniyle okuyamaz**. En fazla gereksiz bir rotasyon olur (bu da double-submit token ile kapanır). Yani saldırgana okunabilir bir kazanç bırakılmaz.
 
@@ -132,13 +134,13 @@ Refresh cookie ambient gönderildiği için CSRF korunur:
 
 İki aşamalı token + memory'deki access token, saf RSC (React Server Component) veri çekmeyi sınırlar. Pragmatik bölüm:
 
-| Sayfa sınıfı | Tip | Gerekçe |
-|---|---|---|
-| Pazarlama / public | **Server Component** (statik) | auth yok; SEO değerli; en hızlı |
-| Auth akışı: `register` · `login` · `verify-email` · `forgot/reset-password` | **Client Component** (bir kısmı server sarmalayıcı `?param` okur) | form state, doğrudan API'ye POST; SSR faydası yok |
-| Tenant kapısı: `create-tenant` · `select-tenant` | **Client Component** | tenant-öncesi, identity token ile; gerçek veri (`/me/memberships`) client'ta çekilir |
-| Uygulama kabuğu (`/app`) | **Server layout + Client `AppShell`** (§3.5) | access token memory'de; kabuk bootstrap + sidebar/header client'ta |
-| RSC ile server-side tenant-scoped veri | **V1'de HARİÇ** — ⏳ hedef (§0) | refresh cookie **artık var**; kalan iş sunucuda seçili tenant'ı bilip access token türetmektir |
+| Sayfa sınıfı                                                                | Tip                                                               | Gerekçe                                                                                        |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Pazarlama / public                                                          | **Server Component** (statik)                                     | auth yok; SEO değerli; en hızlı                                                                |
+| Auth akışı: `register` · `login` · `verify-email` · `forgot/reset-password` | **Client Component** (bir kısmı server sarmalayıcı `?param` okur) | form state, doğrudan API'ye POST; SSR faydası yok                                              |
+| Tenant kapısı: `create-tenant` · `select-tenant`                            | **Client Component**                                              | tenant-öncesi, identity token ile; gerçek veri (`/me/memberships`) client'ta çekilir           |
+| Uygulama kabuğu (`/app`)                                                    | **Server layout + Client `AppShell`** (§3.5)                      | access token memory'de; kabuk bootstrap + sidebar/header client'ta                             |
+| RSC ile server-side tenant-scoped veri                                      | **V1'de HARİÇ** — ⏳ hedef (§0)                                   | refresh cookie **artık var**; kalan iş sunucuda seçili tenant'ı bilip access token türetmektir |
 
 **Login sonrası yönlendirme (iki aşamalı model, ADR-0028):** login yalnızca identity token verir; ardından `/me/memberships` sorulup **0 üyelik → `/create-tenant`**, **1 → otomatik `switch-tenant` + `/app`**, **2+ → `/select-tenant`**. `create-tenant` başarıda (V1 senkron `active` tenant, ADR-0016) doğrudan `switch-tenant` + `/app`.
 
@@ -153,7 +155,7 @@ Next.js `middleware.ts`, kimliksiz kullanıcıyı `/app` altından login'e yönl
 - **`bo_session_hint`** F2'de başarılı login sonrası **istemci tarafından** set edilir, logout'ta silinir. Güvenlik değeri **yoktur**: yalnızca "muhtemelen girişli" tahminidir.
 - **Varlık ≠ geçerlilik.** Middleware token doğrulamaz; ipucunun varlığına bakıp yönlendirir. İpucu kurcalanabilir — bu önemsizdir, çünkü hiçbir yetki kararı ona dayanmaz.
 - **Gerçek yetki daima sunucudadır** (API + RLS + permission guard). Middleware bir **UX routing** katmanıdır.
-- Bu, backend'in kendi dersini yansıtır: *middleware sırası/varlığı bir güvenlik kararı değildir* (`CLAUDE.md` "Kalıcı ders"). İstemci middleware'ini güvenlik sınırı sanmak, aynı hatanın frontend versiyonudur.
+- Bu, backend'in kendi dersini yansıtır: _middleware sırası/varlığı bir güvenlik kararı değildir_ (`CLAUDE.md` "Kalıcı ders"). İstemci middleware'ini güvenlik sınırı sanmak, aynı hatanın frontend versiyonudur.
 
 ### 3.3 Session state
 
@@ -174,6 +176,7 @@ SessionState = {
 **Sorun.** §3.3 state memory'de olduğundan, `/app`'e hard reload → identity/access token ve `currentTenantId` **sıfırlanır**. Ama `HttpOnly` refresh cookie ve `bo_session_hint` (§3.2) durur; middleware yine geçirir. Kabuk tokensız kalırsa, ilk `/me/memberships` çağrısı 401 alır.
 
 **Çözüm — `AppShell` mount'ta bootstrap** (`bootstrapSession()`), switcher/çocuklar render **edilmeden önce**:
+
 1. Access token zaten memory'deyse (oturum-içi navigasyon) → hazır (senkron başlangıç).
 2. Değilse: `POST /auth/refresh` (refresh cookie'siyle) → yeni identity token.
 3. **`bo_last_tenant`** çerezi varsa o tenant'a `switch-tenant` → access token + `currentTenantId` yeniden kurulur.
@@ -197,15 +200,15 @@ Proje **Tailwind v4** kullanır (`@tailwindcss/postcss`; `tailwind.config.js` **
 
 Apple disiplini: **renk değil kontrast**. Tek "vurgu" siyah/beyazdır.
 
-| Token | Light | Dark | Kullanım |
-|---|---|---|---|
-| `--color-bg` | `#FFFFFF` | `#0A0A0A` | sayfa zemini |
-| `--color-surface` | `#FAF9F6` (krem) | `#141414` | kart / panel |
-| `--color-border` | `#ECEBE7` (açık gri) | `#262626` | ince ayraç |
-| `--color-fg` | `#0A0A0A` | `#F5F5F5` | ana metin |
-| `--color-fg-muted` | `#6B6B6B` | `#A3A3A3` | ikincil metin |
-| `--color-accent` | `#0A0A0A` | `#F5F5F5` | tek vurgu (kontrast) |
-| `--color-danger` | `#B3261E` | `#F2B8B5` | hata / yıkıcı eylem |
+| Token              | Light                | Dark      | Kullanım             |
+| ------------------ | -------------------- | --------- | -------------------- |
+| `--color-bg`       | `#FFFFFF`            | `#0A0A0A` | sayfa zemini         |
+| `--color-surface`  | `#FAF9F6` (krem)     | `#141414` | kart / panel         |
+| `--color-border`   | `#ECEBE7` (açık gri) | `#262626` | ince ayraç           |
+| `--color-fg`       | `#0A0A0A`            | `#F5F5F5` | ana metin            |
+| `--color-fg-muted` | `#6B6B6B`            | `#A3A3A3` | ikincil metin        |
+| `--color-accent`   | `#0A0A0A`            | `#F5F5F5` | tek vurgu (kontrast) |
+| `--color-danger`   | `#B3261E`            | `#F2B8B5` | hata / yıkıcı eylem  |
 
 ### 4.3 Tipografi
 
@@ -257,7 +260,7 @@ session temizlenir → login'e yönlendirme
 
 Eşzamanlı 401'ler **tek bir yenileme promise'inde birleştirilir**; ikinci istek yeni token'ı bekler, ikinci bir `refresh` başlatmaz.
 
-**Neden pazarlık edilemez:** iki sekme/istek aynı refresh token'ı iki kez sunarsa, ADR-0021'in **yeniden kullanım tespiti** devreye girer ve **tüm token ailesini iptal eder** — kullanıcı sebepsiz yere düşer. ADR-0021 §"yanlış pozitif" bunu açıkça uyarır ve telafiyi *istemci tarafı tekilleştirme* olarak gösterir. Bu, sunucunun güvenlik davranışının istemciye yüklediği bir sorumluluktur.
+**Neden pazarlık edilemez:** iki sekme/istek aynı refresh token'ı iki kez sunarsa, ADR-0021'in **yeniden kullanım tespiti** devreye girer ve **tüm token ailesini iptal eder** — kullanıcı sebepsiz yere düşer. ADR-0021 §"yanlış pozitif" bunu açıkça uyarır ve telafiyi _istemci tarafı tekilleştirme_ olarak gösterir. Bu, sunucunun güvenlik davranışının istemciye yüklediği bir sorumluluktur.
 
 ### 5.4 Hata yönetimi
 
@@ -272,6 +275,7 @@ Eşzamanlı 401'ler **tek bir yenileme promise'inde birleştirilir**; ikinci ist
 Standart `apiFetch` memory'deki **access token**'ı Bearer olarak taşır. Ama bazı uçlar tenant SEÇİLMEDEN, **identity token** ile çağrılır: `GET /me/memberships` (ADR-0028), `POST /tenants`, `POST /auth/switch-tenant`. Bunun için fetch sarmalayıcı bir **`bearer` seçeneği** alır — verilirse access token yerine o (identity token) kullanılır. Bu çağrılar `noRetry`'dır: buradaki 401 "token doldu" değil, akışa özgüdür.
 
 **Tenant değiştirme dayanıklılığı (`selectTenant`).** Uzun oturumda kullanıcı şirket değiştirdiğinde iki gerçek durum ele alınır:
+
 - **Identity token memory'de yok** (reload): refresh cookie'siyle tazelenir.
 - **Identity token dolmuş** (5 dk): `switch-tenant` 401 → tazele + **tek retry**.
 
@@ -292,9 +296,9 @@ Bu ikisi olmadan switcher yalnızca "girişten hemen sonra" çalışırdı. Baş
 
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih | Değişiklik |
-|---|---|---|
-| 1.0 | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0). |
-| 1.1 | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef. |
-| 1.2 | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2. |
-| 1.3 | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok. |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                         |
+| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0   | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0).                                                                                                                                                                                               |
+| 1.1   | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef.                                                                                                                                                                          |
+| 1.2   | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2.                                                       |
+| 1.3   | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok. |

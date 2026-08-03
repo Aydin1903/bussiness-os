@@ -134,9 +134,7 @@ describe('ChangePasswordForm — başarı', () => {
 
 describe('ChangePasswordForm — sunucu hataları', () => {
   it('400 (mevcut parola doğrulanamadı) mesajını gösterir', async () => {
-    changePassword.mockRejectedValue(
-      apiError(400, 'Bad Request', 'Mevcut parola dogrulanamadi.'),
-    );
+    changePassword.mockRejectedValue(apiError(400, 'Bad Request', 'Mevcut parola dogrulanamadi.'));
     render(<ChangePasswordForm />);
 
     fill({ current: 'yanlisparola1', next: NEW, confirmation: NEW });

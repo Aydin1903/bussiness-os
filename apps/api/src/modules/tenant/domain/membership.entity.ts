@@ -1,6 +1,10 @@
 import { type MembershipId } from './membership-id.value-object';
 import { MembershipRole } from './membership-role.value-object';
-import { assertTransition, grantsAccess, type MembershipStatus } from './membership-status.value-object';
+import {
+  assertTransition,
+  grantsAccess,
+  type MembershipStatus,
+} from './membership-status.value-object';
 import {
   InconsistentMembershipStateError,
   InvalidJoinedAtError,
