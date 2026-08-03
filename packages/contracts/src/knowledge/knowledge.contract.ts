@@ -51,7 +51,7 @@ export type CreateNoteResponse = z.infer<typeof createNoteResponseSchema>;
 export const askKnowledgeRequestSchema = z
   .object({
     question: z.string().trim().min(1, 'Soru boş olamaz').max(4_000, 'Soru çok uzun'),
-    conversationId: z.string().uuid('conversationId geçerli bir UUID olmalı').nullish(),
+    conversationId: z.uuid('conversationId geçerli bir UUID olmalı').nullish(),
   })
   .strict();
 export type AskKnowledgeRequest = z.infer<typeof askKnowledgeRequestSchema>;

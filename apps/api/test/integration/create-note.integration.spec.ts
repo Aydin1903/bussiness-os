@@ -153,7 +153,7 @@ describe.skipIf(!HAS_OPENAI_KEY)('POST /knowledge/notes (uctan uca, gercek OpenA
     return String(switched.body.accessToken);
   }
 
-  function createNote(token: string | undefined, body: unknown) {
+  function createNote(token: string | undefined, body: object) {
     const call = request(httpServer(app)).post('/api/v1/knowledge/notes');
     return token === undefined ? call.send(body) : call.set('Authorization', `Bearer ${token}`).send(body);
   }
