@@ -139,10 +139,10 @@ const baseEnvSchema = z.object({
   // OpenAI anahtari bulunmaz — varsayilanin `openai` olmasi, anahtari olmayan
   // her ortamda acilis hatasi uretirdi.
   //
-  // ⚠️ Uretimde `fake` REDDEDILMEZ (e-postadaki `console` yasagindan FARKLI):
-  // sahte embedding bir SIR SIZDIRMAZ, yalnizca aramayi anlamsiz kilar. Bu bir
-  // guvenlik degil kalite sorunudur ve acilisi bloke etmesi orantisiz olurdu.
-  // Yine de wiring'de gorunur bir uyari loglanir.
+  // ⚠️ Uretimde `fake` REDDEDILIR (asagidaki superRefine): sahte embedding bir
+  // sir sizdirmaz ama urunu SESSIZCE islevsiz kilar — arama calisiyor gorunur,
+  // sonuclari anlamsizdir. Sessizce yanlis calismak, acilista patlamaktan
+  // kotudur (`EMAIL_PROVIDER=console` yasagiyla ayni ilke).
   EMBEDDING_PROVIDER: z.enum(['fake', 'openai']).default('fake'),
 
   /** OpenAI API anahtari — SIRDIR, varsayilani yoktur. */
@@ -163,6 +163,7 @@ const baseEnvSchema = z.object({
   // (DeepSeek'in embeddings uc noktasi YOK — canli testle olculdu).
   //
   // `fake` varsayilandir: her gelistirici makinesinde ve CI'da anahtar bulunmaz.
+  // Uretimde REDDEDILIR (asagidaki superRefine) — bkz. EMBEDDING_PROVIDER notu.
   LLM_PROVIDER: z.enum(['fake', 'deepseek']).default('fake'),
 
   /** DeepSeek API anahtari — SIRDIR, varsayilani yoktur. */
@@ -199,6 +200,7 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
     requireOpenAiCredentials(env, ctx);
     requireDeepSeekCredentials(env, ctx);
     forbidConsoleEmailInProduction(env, ctx);
+    forbidFakeProvidersInProduction(env, ctx);
   });
 
 /** Zod'un `superRefine` baglami — kurallarin ortak imzasi. */
@@ -269,9 +271,8 @@ function requireDeepSeekCredentials(env: RawEnv, ctx: RefinementContext): void {
  * Bunu wiring'e birakmak, hatanin ilk e-posta gonderilene kadar gizli kalmasi
  * demekti; acilista reddetmek onu ANINDA gorunur kilar.
  *
- * ⚠️ `EMBEDDING_PROVIDER=fake` icin BENZER bir yasak YOKTUR ve bu bilinclidir:
- * sahte embedding bir SIR SIZDIRMAZ, yalnizca aramayi anlamsiz kilar — guvenlik
- * degil kalite sorunudur ve acilisi bloke etmesi orantisiz olurdu.
+ * AI saglayicilari icin ayni yasak `forbidFakeProvidersInProduction`'dadir;
+ * gerekcesi farklidir (sir degil, SESSIZ islevsizlik) ama sonuc aynidir.
  */
 function forbidConsoleEmailInProduction(env: RawEnv, ctx: RefinementContext): void {
   if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'console') {
@@ -281,6 +282,54 @@ function forbidConsoleEmailInProduction(env: RawEnv, ctx: RefinementContext): vo
       message:
         'Uretimde EMAIL_PROVIDER=console kullanilamaz: konsol adapter i ' +
         'dogrulama kodlarini loglar (P1). EMAIL_PROVIDER=resend olmalidir.',
+    });
+  }
+}
+
+/**
+ * Uretimde SAHTE AI saglayicilari YASAK.
+ *
+ * ============================================================================
+ * NEDEN — `console` e-posta yasagindan FARKLI bir gerekce, AYNI sonuc
+ * ============================================================================
+ * `EMAIL_PROVIDER=console` bir SIR SIZDIRDIGI icin yasak (dogrulama kodunu
+ * loglar, P1). Sahte AI saglayicilari sir sizdirmaz — daha sinsi bir sey
+ * yaparlar: urunu SESSIZCE islevsiz kilarlar.
+ *
+ * `EMBEDDING_PROVIDER=fake` ile arama CALISIYOR gorunur; her istek 200 doner,
+ * chunk'lar yazilir, sorgu sonuc uretir — ama sonuclar ANLAMSIZDIR cunku
+ * vektorler hash'ten uretilmistir. `LLM_PROVIDER=fake` ile her soru "[sahte
+ * cevap] ..." doner.
+ *
+ * Hicbiri hata uretmez. Yani yanlis yapilandirilmis bir uretim ortami,
+ * kullanici sikayet edene kadar SAGLIKLI gorunur. Acilista patlamak, aylarca
+ * sessizce yanlis calismaktan iyidir (fail closed).
+ *
+ * Uyari loglamak yeterli DEGILDIR: acilis loglari kimsenin bakmadigi yerdir.
+ * ============================================================================
+ */
+function forbidFakeProvidersInProduction(env: RawEnv, ctx: RefinementContext): void {
+  if (env.NODE_ENV !== 'production') {
+    return;
+  }
+
+  if (env.EMBEDDING_PROVIDER === 'fake') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['EMBEDDING_PROVIDER'],
+      message:
+        'Uretimde EMBEDDING_PROVIDER=fake kullanilamaz: sahte embedding ler ' +
+        'anlamsal aramayi SESSIZCE islevsiz kilar. EMBEDDING_PROVIDER=openai olmalidir.',
+    });
+  }
+
+  if (env.LLM_PROVIDER === 'fake') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LLM_PROVIDER'],
+      message:
+        'Uretimde LLM_PROVIDER=fake kullanilamaz: sahte cevaplar soru-cevap ' +
+        'ozelligini SESSIZCE islevsiz kilar. LLM_PROVIDER=deepseek olmalidir.',
     });
   }
 }

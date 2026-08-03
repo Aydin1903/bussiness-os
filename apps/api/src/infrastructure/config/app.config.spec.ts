@@ -17,9 +17,12 @@ const validEnv = {
 } as const;
 
 /**
- * Uretim fixture'i. `EMAIL_PROVIDER=console` uretimde REDDEDILDIGI icin
- * (konsol adapter'i dogrulama kodunu loglar — P1), uretimi konu alan her test
- * gecerli bir saglayici vermek zorundadir.
+ * Uretim fixture'i. Uretimde SAHTE hicbir saglayici kabul edilmez, bu yuzden
+ * uretimi konu alan her test ucunu birden gercek saglayiciya ayarlamak
+ * zorundadir:
+ *   - `EMAIL_PROVIDER=console` -> dogrulama kodunu loglar (P1 · sir sizintisi)
+ *   - `EMBEDDING_PROVIDER=fake` / `LLM_PROVIDER=fake` -> sir sizdirmaz ama
+ *     urunu SESSIZCE islevsiz kilar
  */
 const productionEnv = {
   ...validEnv,
@@ -27,6 +30,10 @@ const productionEnv = {
   EMAIL_PROVIDER: 'resend',
   RESEND_API_KEY: 're_live',
   EMAIL_FROM: 'no-reply@example.com',
+  EMBEDDING_PROVIDER: 'openai',
+  OPENAI_API_KEY: 'sk-live',
+  LLM_PROVIDER: 'deepseek',
+  DEEPSEEK_API_KEY: 'sk-live',
 } as const;
 
 describe('createAppConfig', () => {
@@ -255,6 +262,39 @@ describe('createAppConfig', () => {
 
     it('bilinmeyen saglayiciyi reddeder', () => {
       expect(() => createAppConfig({ ...validEnv, EMAIL_PROVIDER: 'smtp' })).toThrow();
+    });
+  });
+
+  // --- Uretimde sahte AI saglayicilari ------------------------------------
+
+  describe('AI saglayicilari', () => {
+    it('gelistirmede fake VARSAYILANDIR', () => {
+      // Anahtarsiz bir makinede `pnpm dev` ve `pnpm test` calismali.
+      const config = createAppConfig({ ...validEnv });
+
+      expect(config.embedding.provider).toBe('fake');
+      expect(config.llm.provider).toBe('fake');
+    });
+
+    it('URETIMDE fake embedding i REDDEDER', () => {
+      // Sir sizdirmaz — daha sinsi: arama CALISIYOR gorunur, sonuclari
+      // anlamsizdir. Sessiz islevsizlik, acilista patlamaktan kotudur.
+      expect(() =>
+        createAppConfig({ ...productionEnv, EMBEDDING_PROVIDER: 'fake' }),
+      ).toThrow(/EMBEDDING_PROVIDER/);
+    });
+
+    it('URETIMDE fake LLM i REDDEDER', () => {
+      expect(() => createAppConfig({ ...productionEnv, LLM_PROVIDER: 'fake' })).toThrow(
+        /LLM_PROVIDER/,
+      );
+    });
+
+    it('uretimde gercek saglayicilar kabul edilir', () => {
+      const config = createAppConfig({ ...productionEnv });
+
+      expect(config.embedding.provider).toBe('openai');
+      expect(config.llm.provider).toBe('deepseek');
     });
   });
 });
