@@ -41,7 +41,21 @@ LLMPort:        complete({ systemPrompt, userMessage, context: string[] }): Prom
 ```
 
 Ikisi **ayri port'tur** ve ayri cozumlenir. Bir adapter ikisini birden implement
-EDEBILIR, ama etmek ZORUNDA DEGILDIR.
+EDEBILIR, ama etmek ZORUNDA DEGILDIR — **ve bu projede etmiyor:**
+
+| Port | Adapter | Saglayici / model |
+| ---- | ------- | ----------------- |
+| `LLMPort` (`complete`) | `DeepSeekLlmAdapter` | DeepSeek — `deepseek-v4-flash` |
+| `EmbeddingPort` (`embed`) | `OpenAiEmbeddingAdapter` | OpenAI — `text-embedding-3-small` |
+
+`DeepSeekLlmAdapter` **YALNIZCA** `LLMPort`'u implement eder; `embed` metodu
+YOKTUR ve olmayacaktir — DeepSeek'in embeddings uc noktasi yoktur (canli
+dogrulama: bkz. "Not — canli API dogrulamasi"). `EmbeddingPort` ayri bir
+`OpenAiEmbeddingAdapter` tarafindan implement edilir.
+
+Bu, §3'un bolunme gerekcesinin **ilk gunden dogru cikmasidir**: iki port iki
+FARKLI saglayiciya cozuluyor. Tek port olsaydi tek bir adapter sinifi iki
+saglayicinin istemcisini birden tasimak zorunda kalirdi.
 
 Her ikisi de bilerek minimal: **streaming yok, function-calling yok**, hicbir
 saglayiciya ozgu parametre arayuzlere SIZMAZ.
@@ -123,13 +137,9 @@ ele alinacak).
 - **Senkron embedding**, hacim artinca outbox'a tasinacak.
 - **8 chunk / 30 istek-saat rakamlari tahminidir**, kullanim verisiyle kalibre
   edilecek.
-- **Embedding boyutu, gercek saglayici secimi dogrulanana kadar GECICIDIR.**
-  DeepSeek'in embeddings endpoint'i olup olmadigi **canli API testiyle**
-  dogrulanacak; sonucuna gore embedding saglayicisi DeepSeek'ten FARKLI olabilir.
-  `vector(1536)` bu yuzden bugun KESINLESMIS bir karar degildir — 1536, OpenAI
-  embedding ailesinin boyutudur ve secim dogrulanana kadar bir varsayim olarak
-  durur. §3'un iki ayri port'u, embedding saglayicisinin chat saglayicisindan
-  farkli cikmasi ihtimalini zaten karsilar.
+- **Iki saglayiciya baglilik**: sistem artik chat icin DeepSeek'e, embedding icin
+  OpenAI'a bagli. Biri kesintiye girerse ilgili akis durur (`ask` her ikisine de
+  ihtiyac duyar, `notes` yalnizca embedding'e). Fallback zinciri bugun YOK.
 
 ## Sonuclari
 
@@ -141,14 +151,18 @@ ele alinacak).
   olmadigi ancak boyle sinanir.
 - Dar kapsam, modulun AI'a baglam uretme desenini kucuk bir yuzeyde kanitlar;
   Faz 5 bu deseni ikinci kez uygular.
+- **Port bolunmesi ilk gunden karsiligini verdi:** iki port iki FARKLI
+  saglayiciya cozuluyor (DeepSeek + OpenAI) ve bu, hicbir adapter'a ikinci bir
+  saglayici gizlemeden mumkun oldu.
 
 **Olumsuz / bedeli**
 
 - Senkron embedding, not kaydetme istegini embedding saglayicisinin gecikmesine
   bagli hale getirir; saglayici yavaslarsa kullanici bekler.
-- `vector(1536)` boyutu bir saglayici/model varsayimi tasir ve bu varsayim
-  HENUZ DOGRULANMADI (bkz. Bilinen sinirlar); model degisirse kolon ve tum
-  embedding'ler yeniden uretilir.
+- `vector(1536)` boyutu bir saglayici/model bagliligidir: `text-embedding-3-small`
+  degisirse kolon ve TUM embedding'ler yeniden uretilir. Boyut bugun DOGRULANMIS
+  bir olcudur (bkz. "Not — canli API dogrulamasi"), ama kalici degil — modele
+  bagli.
 - Not guncelleme olmadigi icin urun eksik hissettirir; kullanici duzeltme icin
   silip yeniden yazmak zorunda kalir.
 
@@ -169,11 +183,12 @@ ele alinacak).
 - **Hacim artinca:** senkron embedding outbox'a tasinir (bkz. Bilinen sinirlar).
 - **Kullanim verisi birikince:** 8 chunk ve 30 istek/saat rakamlari kalibre edilir.
 - **Not guncelleme eklenince:** chunk yeniden hesaplama stratejisi karara baglanir.
-- **DeepSeek embeddings dogrulamasi sonuclaninca:** endpoint yoksa embedding
-  saglayicisi ayrica secilir ve `vector(1536)` o secime gore kesinlesir
-  (bkz. Bilinen sinirlar).
 - **Model veya saglayici degisince:** `vector(1536)` boyutu ve embedding yeniden
-  uretim yolu yeniden degerlendirilir.
+  uretim yolu yeniden degerlendirilir. `text-embedding-3-small` yerine baska bir
+  model secilirse kolon boyutu ve tum saklanan vektorler etkilenir.
+- **DeepSeek bir embeddings uc noktasi sunarsa:** tek saglayiciya inmek
+  degerlendirilebilir — ama port bolunmesi KORUNUR; degisen yalnizca
+  `EmbeddingPort`'un hangi adapter'a cozuldugudur.
 - **Per-tenant saglayici secimi gundeme gelince:** `LLMPort`'un cozumlenme yolu
   (tenant bazli adapter secimi) ayri bir ADR gerektirir.
 
@@ -190,17 +205,50 @@ limiting kararlarinin hicbiri degismedi. §4'teki akis aynen gecerlidir; tek far
 
 **Neden ilk yazimda gozden kacti:** ADR, `DeepSeekLlmAdapter`'in iki metodu da
 implement edecegini varsayiyordu. Bu varsayim, **ilk somut saglayicida** kirilma
-riski tasiyor: DeepSeek'in embeddings endpoint'i olup olmadigi dogrulanmis
-DEGIL (bkz. Bilinen sinirlar). Varsayim kirilirsa tek port'la elde iki kotu
-secenek kalirdi — `embed()`'in hata firlatmasi (port sozlesmesi yalan soyler)
-veya adapter icine ikinci bir saglayicinin gizlenmesi (ADR-0007'nin onlemek icin
-var oldugu gizli bagimlilik).
+riski tasiyor: DeepSeek'in embeddings endpoint'i olup olmadigi o an dogrulanmis
+DEGILDI. Varsayim kirilirsa tek port'la elde iki kotu secenek kalirdi —
+`embed()`'in hata firlatmasi (port sozlesmesi yalan soyler) veya adapter icine
+ikinci bir saglayicinin gizlenmesi (ADR-0007'nin onlemek icin var oldugu gizli
+bagimlilik).
 
 Bolunme, bu riski tasarimla karsilar: embedding saglayicisi chat
 saglayicisindan farkli cikarsa **hicbir sey degismez**, yalnizca iki port farkli
 adapter'lara cozulur.
 
+> **DOGRULANDI — risk gercek cikti.** Ayni gun yapilan canli API testinde
+> DeepSeek'in embeddings uc noktasinin OLMADIGI olculdu; embedding OpenAI'a
+> cozuldu. Yani bolunme teorik bir onlem degil, ILK GUN devreye giren bir
+> gereklilikti. Bkz. "Not — canli API dogrulamasi".
+
 **Ilgili surec duzeltmesi:** DeepSeek, bu ADR yazildiginda ADR-0007'nin ve
 `CLAUDE.md`'nin onaylanmis saglayici listelerinde YOKTU. Ayni tarihte ikisine de
 eklendi (Product Owner karari, maliyet-performans gerekcesi) — bkz. ADR-0007
 "Not — saglayici listesine DeepSeek eklendi".
+
+## Not — canli API dogrulamasi (2026-08-02)
+
+§3'un adapter esleme tablosu ve `vector(1536)` boyutu **varsayim degil, olculmus
+gercektir**. Iki canli API cagrisiyla dogrulandi:
+
+| Test | Istek | Sonuc |
+| ---- | ----- | ----- |
+| Chat/completion | `POST https://api.deepseek.com/chat/completions`, `model: deepseek-v4-flash` | **HTTP 200** — gercek yanit dondu (`object: chat.completion`, `finish_reason: length`) |
+| Embeddings | `POST https://api.openai.com/v1/embeddings`, `model: text-embedding-3-small` | **HTTP 200** — `data[0].embedding` **1536 eleman**, tipi `number` |
+
+**DeepSeek'in embeddings uc noktasi YOKTUR.** Ayni oturumda dogrulandi:
+`POST /embeddings` ve `POST /v1/embeddings` -> **HTTP 404, bos govde**; var
+olmayan bir yol (`/bu-yol-yok`) ile BIREBIR ayni yanit. Ayrimin guvenilir
+olmasinin sebebi: o sirada hesap bakiyesi sifirdi ve VAR OLAN bir uc nokta
+(`/chat/completions`) `402 Insufficient Balance` donuyordu — yani 404 "bakiye
+yok" degil "yol tanimli degil" demekti. `GET /models` de yalnizca
+`deepseek-v4-flash` ve `deepseek-v4-pro` listeliyor, hicbir embedding modeli yok;
+resmi dokumantasyon da embeddings uc noktasi belgelemiyor.
+
+**Sonuc:** `vector(1536)` DEGISMIYOR — `text-embedding-3-small`'in gercek cikti
+boyutu 1536'dir ve olculerek dogrulanmistir. Kolon bir OpenAI varsayimi tasiyordu
+ve o varsayim artik ONAYLANMIS bir karardir (Product Owner: embedding saglayicisi
+OpenAI). Chat completion DeepSeek'te KALIYOR.
+
+> Bu not, ADR'nin daha onceki "Bilinen sinirlar" maddesindeki *"embedding boyutu,
+> gercek saglayici secimi dogrulanana kadar GECICIDIR"* ifadesini KAPATIR. O
+> madde kaldirildi; yerini iki saglayiciya baglilik riski aldi.
