@@ -220,6 +220,24 @@ Kapsam yüzdesi hedef değil, göstergedir. Anlamsız test yazarak yüzde şişi
 - Test isimleri davranışı anlatır: `tenant B'nin faturasını okumayı reddeder`
 - Her bug fix, önce **başarısız olan** bir test ile başlar.
 
+### 5.4 Doğrulama — çıkış kodu, çıktı değil
+
+Tek komut: **`pnpm verify`** (format · lint · typecheck · build · unit test).
+Kök `package.json`'da **tek yerde** tanımlıdır ve CI aynısını çalıştırır.
+Entegrasyon testleri Docker gerektirdiği için ayrıdır: `pnpm test:integration`.
+
+Bir komutun başarılı olup olmadığına **çıkış koduna bakılarak** karar verilir.
+Çıktısını `grep`'leyerek "hata var mı" aramak yasaktır — bu, doğrulamayı sessizce
+yanlış yeşile çevirir. İki gerçek vaka:
+
+| Ne yapıldı | Neden yanlış yeşil verdi |
+|---|---|
+| `pnpm typecheck \| grep "error TS"` | ANSI renk kodları `error` ile `TS2345` arasına girer; desen **hiçbir zaman** eşleşmez. Dört gerçek tip hatası iki slice boyunca görülmedi |
+| "`build` geçtiyse tipler tamam" | `tsconfig.build.json` **test dosyalarını kapsamaz**; `build` yeşilken `typecheck` kırmızıydı |
+
+Sonuç yalnızca `pnpm verify`'ın çıkış koduyla raporlanır. Çıktıyı filtrelemek
+okumak için serbesttir; **karar vermek için değil**.
+
 ---
 
 ## 6. Database Kuralları

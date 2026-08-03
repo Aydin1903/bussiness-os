@@ -34,20 +34,15 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build
-        run: pnpm build
-
-      - name: Unit tests
-        run: pnpm test
+      # TEK ADIM, TEK TANIM: `pnpm verify` kok package.json'da tanimlidir ve
+      # gelistiricinin lokalde calistirdigi komutun AYNISIDIR. Adimlar burada
+      # tek tek sayilsaydi, CI ile lokal dogrulama sessizce ayrisabilirdi.
+      #
+      # Takas: GitHub arayuzunde "hangi adim kirildi" bilgisi kabalasir.
+      # Turbo dusen gorevi adiyla yazdigi icin (`@business-os/api:lint`) kayip
+      # kucuk; tanimin tek olmasi daha degerli bulundu.
+      - name: Verify (format · lint · typecheck · build · unit tests)
+        run: pnpm verify
 
   integration:
     name: Integration tests (real PostgreSQL)

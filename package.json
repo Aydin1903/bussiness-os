@@ -18,6 +18,7 @@
     "test:integration": "turbo run test:integration",
     "format": "prettier --write \"**/*.{ts,mts,tsx,js,mjs,cjs,json,md,yml,yaml,css}\"",
     "format:check": "prettier --check \"**/*.{ts,mts,tsx,js,mjs,cjs,json,md,yml,yaml,css}\"",
+    "verify": "pnpm format:check && turbo run lint typecheck build test",
     "db:generate": "pnpm --filter @business-os/api run db:generate",
     "db:migrate": "pnpm --filter @business-os/api run db:migrate",
     "db:rollback": "pnpm --filter @business-os/api run db:rollback",

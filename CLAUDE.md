@@ -233,13 +233,21 @@ pnpm db:migrate         # migration çalıştır
 pnpm db:rollback        # son migration'ı geri al (tek adım)
 pnpm dev                # api :3001 · web :3000
 
+pnpm verify             # format · lint · typecheck · build · unit test — TEK KOMUT
+pnpm test:integration   # entegrasyon testleri — Testcontainers, Docker şart
+
 pnpm lint               # ESLint (mimari kurallar dahil)
 pnpm typecheck          # TypeScript
 pnpm test               # birim testleri — Docker gerektirmez
-pnpm test:integration   # entegrasyon testleri — Testcontainers, Docker şart
 pnpm build              # build
 pnpm format             # Prettier
 ```
+
+> **`pnpm verify` doğrulamanın tek giriş noktasıdır** — CI'ın `verify` job'ı da
+> birebir bunu çalıştırır, yani lokal ile CI ayrışamaz. Bir işin bittiğine
+> **çıkış koduna** bakılarak karar verilir; çıktıyı `grep`'leyip "hata var mı"
+> aramak yasaktır (DEVELOPMENT_RULES 5.4 — bu kural iki kez yanlış yeşil
+> rapor üretildikten sonra yazıldı).
 
 Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
