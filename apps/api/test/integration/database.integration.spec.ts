@@ -110,6 +110,9 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0013 de 0011'in semasinin icindedir; 0012 ile arasinda bagimlilik yok
+      // ama sema dusmeden once ikisi de gitmeli.
+      '0013_rate_limits.down.sql',
       // 0012, 0011'in actigi semanin icindedir (fonksiyonlar + tablo); once o
       // geri alinir, sonra sema dusurulebilir.
       '0012_daily_report_runs.down.sql',

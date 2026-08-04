@@ -35,3 +35,4 @@ export { noteChunks } from './note-chunks.schema';
 export { conversations } from './conversations.schema';
 export { messages } from './messages.schema';
 export { dailyReportRuns } from './daily-report-runs.schema';
+export { rateLimits } from './rate-limits.schema';
