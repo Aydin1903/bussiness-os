@@ -18,6 +18,18 @@ export interface NoteListItem {
   readonly createdAt: Date;
 }
 
+/**
+ * Chunk'i OLMAYAN not — yeniden indekslenecek is (ADR-0029 bilinen sinir).
+ *
+ * `body` TAM doner (listedeki `preview`'in aksine): yeniden chunk'lamak icin
+ * metnin tamami gerekli. Bu yuzden `limit` KUCUK tutulur.
+ */
+export interface UnindexedNote {
+  readonly id: string;
+  readonly body: string;
+  readonly createdAt: Date;
+}
+
 export interface NoteListPage {
   readonly items: readonly NoteListItem[];
   /** Tenant'in TOPLAM not sayisi (sayfadaki degil). */
@@ -65,4 +77,21 @@ export interface NoteRepository {
     /** Onizlemenin en fazla karakter sayisi. */
     readonly previewLength: number;
   }): Promise<NoteListPage>;
+
+  /**
+   * Chunk'i olmayan notlarin SAYISI.
+   *
+   * `notes LEFT JOIN note_chunks WHERE note_chunks.id IS NULL` — ADR-0029'un
+   * "LEFT JOIN ile tespit edilebilir kaliyor" notunun karsiligi.
+   *
+   * ⚠️ AYRI BIR "is listesi" TABLOSU YOK ve bilincli: chunk'in YOKLUGU is
+   * listesinin KENDISIDIR. Deneme sayaci/backoff, OTOMATIK ve sonsuz bir
+   * donguyu dizginlemek icin vardir (outbox, gunluk rapor); burada tetikleyici
+   * ACIK bir istektir ve oran sinirina tabidir — sayac tablosu cozdugu bir
+   * problem olmadan bakim yuku olurdu.
+   */
+  countUnindexed(): Promise<number>;
+
+  /** Chunk'i olmayan notlar, TAM govdeleriyle. En yeni once. */
+  listUnindexed(limit: number): Promise<UnindexedNote[]>;
 }

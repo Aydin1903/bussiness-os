@@ -91,6 +91,8 @@ export interface AppConfig {
     readonly notesRateLimit: number;
     /** Not listesindeki onizleme uzunlugu. */
     readonly notePreviewLength: number;
+    /** Tek onarim cagrisinda islenecek en fazla not. */
+    readonly reindexBatchSize: number;
   };
 
   /** Gunluk rapor worker'i (ADR-0030 §2). */
@@ -197,6 +199,7 @@ function toKnowledgeConfig(env: Env): AppConfig['knowledge'] {
     askRateLimit: env.KNOWLEDGE_ASK_RATE_LIMIT,
     notesRateLimit: env.KNOWLEDGE_NOTES_RATE_LIMIT,
     notePreviewLength: env.KNOWLEDGE_NOTE_PREVIEW_LENGTH,
+    reindexBatchSize: env.KNOWLEDGE_REINDEX_BATCH_SIZE,
   };
 }
 

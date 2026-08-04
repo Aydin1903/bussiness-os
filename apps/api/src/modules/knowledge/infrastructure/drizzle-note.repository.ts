@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { count, desc, sql } from 'drizzle-orm';
+import { count, desc, eq, isNull, sql } from 'drizzle-orm';
 
-import { notes } from '../../../infrastructure/database/schema';
+import { noteChunks, notes } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
-import type { NoteListPage, NoteRepository } from '../application/note.repository.port';
+import type {
+  NoteListPage,
+  NoteRepository,
+  UnindexedNote,
+} from '../application/note.repository.port';
 import type { Note } from '../domain/note.entity';
 import { toNoteRow } from './note.mapper';
 
@@ -86,5 +90,43 @@ export class DrizzleNoteRepository implements NoteRepository {
       })),
       total: totals[0]?.value ?? 0,
     };
+  }
+
+  /**
+   * ⚠️ Iki tabloda da RLS devrede.
+   *
+   * `note_chunks.tenant_id` DENORMALIZE edildigi icin (migration 0011) politika
+   * JOIN'siz calisir ve iki taraf da ayni tenant'a daralir. Elle `WHERE
+   * tenant_id` YOK.
+   */
+  async countUnindexed(): Promise<number> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({ value: count() })
+      .from(notes)
+      .leftJoin(noteChunks, eq(noteChunks.noteId, notes.id))
+      .where(isNull(noteChunks.id));
+
+    return rows[0]?.value ?? 0;
+  }
+
+  /**
+   * `body` TAM secilir — listedeki `preview` kirpmasinin AKSINE: yeniden
+   * chunk'lamak icin metnin tamami gerekli. Bu yuzden cagiran `limit`i kucuk
+   * tutar (config'teki batch boyutu).
+   */
+  async listUnindexed(limit: number): Promise<UnindexedNote[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({ id: notes.id, body: notes.body, createdAt: notes.createdAt })
+      .from(notes)
+      .leftJoin(noteChunks, eq(noteChunks.noteId, notes.id))
+      .where(isNull(noteChunks.id))
+      .orderBy(desc(notes.createdAt), desc(notes.id))
+      .limit(limit);
+
+    return rows.map((row) => ({ id: row.id, body: row.body, createdAt: row.createdAt }));
   }
 }

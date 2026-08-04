@@ -80,6 +80,8 @@ export {
   dailyReportResponseSchema,
   noteListItemSchema,
   noteListResponseSchema,
+  unindexedNotesResponseSchema,
+  reindexNotesResponseSchema,
 } from './knowledge/knowledge.contract';
 export type {
   CreateNoteRequest,
@@ -90,4 +92,6 @@ export type {
   DailyReportResponse,
   NoteListItem,
   NoteListResponse,
+  UnindexedNotesResponse,
+  ReindexNotesResponse,
 } from './knowledge/knowledge.contract';

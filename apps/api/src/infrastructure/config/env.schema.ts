@@ -199,6 +199,15 @@ const baseEnvSchema = z.object({
    */
   KNOWLEDGE_NOTE_PREVIEW_LENGTH: z.coerce.number().int().min(40).max(2_000).default(280),
 
+  /**
+   * Tek `POST /knowledge/reindex` cagrisinda onarilacak EN FAZLA not.
+   *
+   * ⚠️ Asil frendir. Oran siniri ISTEK SAYISINI baglar, TOKEN harcamasini
+   * degil; 10 notluk bir onarim onlarca embedding cagrisi olabilir. Buyutmek,
+   * tek istekte harcanabilecek parayi buyutmek demektir.
+   */
+  KNOWLEDGE_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+
   // --- Oran siniri (ADR-0029 §5) -----------------------------------------
   //
   // Amac MALIYET KONTROLU. Iki eylem AYRI kovadir: `/ask` butcesini bitirmek

@@ -130,3 +130,27 @@ export const noteListResponseSchema = z.object({
   offset: z.number().int().nonnegative(),
 });
 export type NoteListResponse = z.infer<typeof noteListResponseSchema>;
+
+/**
+ * `GET /knowledge/notes/unindexed` — kaç not ARANAMAZ durumda (ADR-0029).
+ *
+ * Embedding çökerse not kaydedilir ama chunk'sız kalır ve AI onu hiç bulamaz.
+ * Bu sayı, o sessiz deliği arayüzde görünür kılar.
+ */
+export const unindexedNotesResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
+});
+export type UnindexedNotesResponse = z.infer<typeof unindexedNotesResponseSchema>;
+
+/**
+ * `POST /knowledge/reindex` yanıtı.
+ *
+ * `remaining` ONARIMDAN SONRAKİ durumdur: tek çağrı en fazla `batchSize` not
+ * onarır, dolayısıyla istemci "bitti mi" sorusunu bu alandan yanıtlar.
+ */
+export const reindexNotesResponseSchema = z.object({
+  repaired: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  remaining: z.number().int().nonnegative(),
+});
+export type ReindexNotesResponse = z.infer<typeof reindexNotesResponseSchema>;

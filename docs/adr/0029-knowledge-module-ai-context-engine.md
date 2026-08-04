@@ -438,3 +438,42 @@ kaybolurdu.
 
 **Sonucu:** tam metni gosteren bir **not detay ucu YOKTUR** ve bu bilinen
 sinirdir. Ihtiyac dogdugunda ayri bir uctur (`GET /knowledge/notes/:id`).
+
+## Not — yeniden indeksleme MEKANIZMASI yazildi (2026-08-05)
+
+"Chunk'siz not" bilinen siniri artik ONARILABILIR. Bu ADR "yeniden-indeksleme
+isi Faz 5 oncesi ayri bir slice olarak ele alinmali, LEFT JOIN ile tespit
+edilebilir kaliyor" diyordu; ikisi de yapildi.
+
+| Uc                               | Ne                                                           |
+| -------------------------------- | ------------------------------------------------------------ |
+| `GET /knowledge/notes/unindexed` | `{ count }` — `notes LEFT JOIN note_chunks WHERE id IS NULL` |
+| `POST /knowledge/reindex`        | en fazla `KNOWLEDGE_REINDEX_BATCH_SIZE` notu onarir          |
+
+**Is listesi TURETILMISTIR, saklanmaz.** Ayri bir "onarilacaklar" tablosu ve
+deneme sayaci YOK: chunk'in yoklugu is listesinin KENDISIDIR. Sayac/backoff,
+OTOMATIK ve sonsuz bir donguyu dizginlemek icin vardir (outbox, gunluk rapor);
+burada tetikleyici ACIK bir istektir ve oran sinirina tabidir.
+
+**6. dar rol GEREKMEDI.** Hem tespit hem onarim tenant-scoped'dir; RLS ve
+`businessos_app` yeter. Tenant'lar ARASI otomatik bir supurucu 6. bir dar rol
+gerektirirdi ve [ADR-0030](0030-conversation-memory-daily-report-onboarding.md)
+§2.4'un "ertelenemez genellestirme" kuralini tetiklerdi. **Supurucu BILEREK
+yapilmadi**: genellestirme kendi basina bir istir ve bu isin icine
+gizlenmemelidir. Otomatik supurme istenirse, o slice genellestirmeyi de icerir.
+
+**Oran siniri `create_note` kovasini PAYLASIR** — ayni maliyet profili. Ayri bir
+kova, onarimi butcesiz bir yan kapiya cevirirdi.
+
+**Idempotency bedava:** `UNIQUE (note_id, chunk_index)` (migration 0011) zaten
+"yeniden uretim idempotent olsun" diye konmustu; es zamanli iki onarimda
+ikincisi kisitla reddedilir ve o not `failed` sayilir — veri BOZULMAZ.
+
+### Model degisimi — tasarim acik, bu slice'ta YAPILMADI
+
+Is listesi turetilmis oldugu icin model degisiminde yalnizca YUKLEM degisir
+("chunk'i yok" -> "chunk'i ESKI modelden"); onarim yolu aynen kalir.
+
+⚠️ Bugun `note_chunks`'ta model/surum kolonu **YOKTUR**. Model degisimi bu
+kolonun eklenmesini gerektirir — ama bu slice'ta yazilan hicbir sey onu
+engellemez.

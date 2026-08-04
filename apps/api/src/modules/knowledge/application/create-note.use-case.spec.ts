@@ -48,6 +48,14 @@ class FakeNoteRepository implements NoteRepository {
   listForTenant(): Promise<never> {
     throw new Error('Bu use case listForTenant cagirmamali.');
   }
+
+  countUnindexed(): Promise<never> {
+    throw new Error('Bu use case countUnindexed cagirmamali.');
+  }
+
+  listUnindexed(): Promise<never> {
+    throw new Error('Bu use case listUnindexed cagirmamali.');
+  }
 }
 
 class FakeNoteChunkRepository implements NoteChunkRepository {

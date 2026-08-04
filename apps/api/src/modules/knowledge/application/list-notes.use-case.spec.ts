@@ -32,6 +32,14 @@ class FakeNoteRepository implements NoteRepository {
     this.lastInput = input;
     return Promise.resolve(this.page);
   }
+
+  countUnindexed(): Promise<never> {
+    throw new Error('Bu use case countUnindexed cagirmamali.');
+  }
+
+  listUnindexed(): Promise<never> {
+    throw new Error('Bu use case listUnindexed cagirmamali.');
+  }
 }
 
 class FakeTransactionManager implements TransactionManager {

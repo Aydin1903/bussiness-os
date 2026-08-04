@@ -17,8 +17,10 @@ import {
   type ConversationRepository,
 } from './application/conversation.repository.port';
 import { CheckNotesExistUseCase } from './application/check-notes-exist.use-case';
+import { CountUnindexedNotesUseCase } from './application/count-unindexed-notes.use-case';
 import { GenerateDailyReportsUseCase } from './application/generate-daily-reports.use-case';
 import { ListNotesUseCase } from './application/list-notes.use-case';
+import { ReindexNotesUseCase } from './application/reindex-notes.use-case';
 import { GetLatestDailyReportUseCase } from './application/get-latest-daily-report.use-case';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
@@ -50,6 +52,7 @@ import { FakeLlmAdapter } from './infrastructure/fake-llm.adapter';
 import { OpenAiEmbeddingAdapter } from './infrastructure/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
 import { AskController } from './presentation/ask.controller';
+import { ReindexController } from './presentation/reindex.controller';
 import { DailyReportController } from './presentation/daily-report.controller';
 import { NoteController } from './presentation/note.controller';
 
@@ -69,7 +72,7 @@ import { NoteController } from './presentation/note.controller';
  * ============================================================================
  */
 @Module({
-  controllers: [NoteController, AskController, DailyReportController],
+  controllers: [NoteController, AskController, ReindexController, DailyReportController],
   providers: [
     // --- Paylasilan cekirdek port'lari ---------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -194,6 +197,50 @@ import { NoteController } from './presentation/note.controller';
           noteRepository,
           transactionManager,
           previewLength: config.knowledge.notePreviewLength,
+        }),
+    },
+    {
+      provide: CountUnindexedNotesUseCase,
+      inject: [NOTE_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        noteRepository: NoteRepository,
+        transactionManager: TransactionManager,
+      ): CountUnindexedNotesUseCase =>
+        new CountUnindexedNotesUseCase({ noteRepository, transactionManager }),
+    },
+    {
+      provide: ReindexNotesUseCase,
+      inject: [
+        NOTE_REPOSITORY,
+        NOTE_CHUNK_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
+        EMBEDDING_PORT,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+        APP_CONFIG,
+      ],
+      // eslint-disable-next-line max-params
+      useFactory: (
+        noteRepository: NoteRepository,
+        noteChunkRepository: NoteChunkRepository,
+        rateLimitRepository: RateLimitRepository,
+        embeddingPort: EmbeddingPort,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+        config: AppConfig,
+      ): ReindexNotesUseCase =>
+        new ReindexNotesUseCase({
+          noteRepository,
+          noteChunkRepository,
+          rateLimitRepository,
+          embeddingPort,
+          transactionManager,
+          idGenerator,
+          clock,
+          batchSize: config.knowledge.reindexBatchSize,
+          rateLimit: config.knowledge.notesRateLimit,
         }),
     },
     {
