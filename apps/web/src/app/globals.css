@@ -202,6 +202,31 @@ time,
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * GİRİŞ HAREKETİ — gelişin kendisi bir an olmalı.
+ *
+ * Başlık → gözlem → kaynak → çipler sırayla yükselir (~50 ms arayla).
+ * Amaç, kullanıcı ekrana geldiğinde asistanın O ANDA konuştuğunu
+ * hissettirmek. `forwards`: animasyon bitince son durumda kalır, yoksa
+ * öğe tekrar görünmez olurdu.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  opacity: 0;
+  animation: rise 0.75s var(--ease-rise) forwards;
+  animation-delay: calc(var(--rise-delay, 0) * 1ms);
+}
+
 ::selection {
   background: var(--tint-2);
   color: var(--fg);
@@ -246,6 +271,9 @@ input:-webkit-autofill:focus {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* Gecikme de sıfırlanmalı: yoksa sahnelenen öğeler yarım saniye
+       görünmez kalır ve "animasyon kapalı" yerine "sayfa bozuk" hissi verir. */
+    animation-delay: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /**
  * Akış ilkelleri — Panel'in konuşma yüzeyi (tasarım sürüm 2).
@@ -14,6 +14,28 @@ import type { ReactNode } from 'react';
  * ürünün söylediği aynı sesle konuşmamalı (FRONTEND_ARCHITECTURE §4.5).
  * ============================================================================
  */
+
+/**
+ * Sahnelenen giriş — `--rise-delay` ms cinsinden gecikme taşır.
+ *
+ * Animasyonun kendisi `globals.css`'te (`.rise`); burada yalnızca gecikme
+ * verilir. `prefers-reduced-motion` açıkken hem süre hem gecikme sıfırlanır,
+ * yani öğeler anında yerinde belirir.
+ */
+export function Rise({ delay = 0, children }: { delay?: number; children: ReactNode }) {
+  // `CSSProperties` ozel degiskenleri tanimaz; `as` yerine bir INDEX IMZASI
+  // ile genisletiliyor (`consistent-type-assertions` tip iddialarini yasakliyor
+  // ve hakli: `as` burada derleyiciye "sus" demekten baska is yapmazdi).
+  const style: CSSProperties & Record<'--rise-delay', string> = {
+    '--rise-delay': String(delay),
+  };
+
+  return (
+    <div className="rise" style={style}>
+      {children}
+    </div>
+  );
+}
 
 /** Zaman sütunu genişliği + boşluk; nokta ipliğin ÜSTÜNE oturur. */
 const GUTTER = 'grid grid-cols-[58px_1fr] gap-6';

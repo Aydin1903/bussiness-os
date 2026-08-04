@@ -8,7 +8,28 @@ import { askKnowledge, createNote, fetchDailyReport, listNotes } from '@/lib/api
 import { ReindexBanner } from '@/app/app/knowledge/reindex-banner';
 import { Composer, type ComposerMode } from './composer';
 import { MemoryRail } from './memory-rail';
-import { AiSaid, FollowUpChips, SourceMeta, StreamEntry, ThinkingLine, UserAsked } from './stream';
+import {
+  AiSaid,
+  FollowUpChips,
+  Rise,
+  SourceMeta,
+  StreamEntry,
+  ThinkingLine,
+  UserAsked,
+} from './stream';
+
+/**
+ * Giriş sahnelemesi — ms cinsinden gecikmeler.
+ *
+ * ⚠️ YALNIZCA açılışta çalışır. Kullanıcının sorduğu turlar sahnelenmez:
+ * cevabı 500 ms geciktirmek, hızlı gelen bir cevabı YAVAŞ göstermek olurdu.
+ */
+/*
+ * `meta` (kaynak satırı) YOK: günlük rapor yanıtı kaynak sayısı taşımıyor,
+ * açılışta gösterilecek bir "N nota dayanıyor" satırı da yok. Uydurma bir
+ * sayı koymaktansa aşamayı hiç tanımlamamak doğru.
+ */
+const RISE = { title: 0, stats: 60, opening: 180, chips: 520 } as const;
 
 /** Rayda gösterilen not sayısı — arşiv değil, "son ne oldu" penceresi. */
 const RAIL_SIZE = 3;
@@ -211,14 +232,16 @@ export function PanelScreen() {
             {/* Boş durumda başlangıç soruları — LLM çağrılmadan. */}
             {!loading && turns.length === 0 ? (
               <div className="pl-[82px]">
-                <FollowUpChips
-                  items={starters}
-                  onPick={(question) => {
-                    setMode('ask');
-                    void ask(question);
-                  }}
-                  disabled={pending}
-                />
+                <Rise delay={RISE.chips}>
+                  <FollowUpChips
+                    items={starters}
+                    onPick={(question) => {
+                      setMode('ask');
+                      void ask(question);
+                    }}
+                    disabled={pending}
+                  />
+                </Rise>
               </div>
             ) : null}
           </div>
@@ -256,29 +279,31 @@ function PanelHeader({
 }) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4 md:px-8">
-      <div>
+      <Rise delay={RISE.title}>
         <h1 className="text-[15px] font-semibold tracking-[-0.018em]">Panel</h1>
         <p className="mt-0.5 text-[11.5px] text-fg-3">Şirketinizin kurumsal hafızası</p>
-      </div>
+      </Rise>
 
       {loading ? null : (
-        <div className="flex items-center gap-2.5 text-[12px] text-fg-2 tabular">
-          <span
-            aria-hidden
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_0_3.5px_var(--glow)]"
-          />
-          <span>
-            <b className="font-semibold text-fg">{total}</b> not
-          </span>
-          {todayCount > 0 ? (
-            <>
-              <span className="text-fg-3 opacity-50">·</span>
-              <span>
-                bugün <b className="font-semibold text-fg">{todayCount} yeni</b>
-              </span>
-            </>
-          ) : null}
-        </div>
+        <Rise delay={RISE.stats}>
+          <div className="flex items-center gap-2.5 text-[12px] text-fg-2 tabular">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_0_3.5px_var(--glow)]"
+            />
+            <span>
+              <b className="font-semibold text-fg">{total}</b> not
+            </span>
+            {todayCount > 0 ? (
+              <>
+                <span className="text-fg-3 opacity-50">·</span>
+                <span>
+                  bugün <b className="font-semibold text-fg">{todayCount} yeni</b>
+                </span>
+              </>
+            ) : null}
+          </div>
+        </Rise>
       )}
     </header>
   );
@@ -300,18 +325,22 @@ function Opening({
   if (report !== null) {
     return (
       <StreamEntry when={clockOf(report.generatedAt)} variant="ai">
-        <AiSaid lead>{report.summary}</AiSaid>
+        <Rise delay={RISE.opening}>
+          <AiSaid lead>{report.summary}</AiSaid>
+        </Rise>
       </StreamEntry>
     );
   }
 
   return (
     <StreamEntry when="Bugün" variant="ai">
-      <AiSaid lead>
-        {hasNotes
-          ? 'Notlarınız kaydediliyor. İlk günlük özetiniz yarın sabah burada olacak; o zamana kadar aşağıdan soru sorabilirsiniz.'
-          : 'Merhaba. Kurumsal hafızanız henüz boş — aşağıdan birkaç not ekleyin, sonra sorularınızı o notlardan cevaplayayım.'}
-      </AiSaid>
+      <Rise delay={RISE.opening}>
+        <AiSaid lead>
+          {hasNotes
+            ? 'Notlarınız kaydediliyor. İlk günlük özetiniz yarın sabah burada olacak; o zamana kadar aşağıdan soru sorabilirsiniz.'
+            : 'Merhaba. Kurumsal hafızanız henüz boş — aşağıdan birkaç not ekleyin, sonra sorularınızı o notlardan cevaplayayım.'}
+        </AiSaid>
+      </Rise>
     </StreamEntry>
   );
 }
