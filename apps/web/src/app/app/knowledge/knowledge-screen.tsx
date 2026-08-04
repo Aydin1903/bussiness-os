@@ -8,6 +8,7 @@ import { listNotes } from '@/lib/api/knowledge';
 import { AskPanel } from './ask-panel';
 import { NoteForm } from './note-form';
 import { NoteList, PAGE_SIZE } from './note-list';
+import { ReindexBanner } from './reindex-banner';
 
 interface ListState {
   readonly items: readonly NoteListItem[];
@@ -100,6 +101,8 @@ export function KnowledgeScreen() {
           Şirketinizin kurumsal hafızası — notlarınız ve onlara dayanan cevaplar.
         </p>
       </header>
+
+      <ReindexBanner onRepaired={reload} />
 
       <AskPanel hasNotes={state.total > 0} />
 

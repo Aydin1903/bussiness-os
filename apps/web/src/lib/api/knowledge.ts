@@ -4,6 +4,8 @@ import {
   dailyReportResponseSchema,
   noteListResponseSchema,
   notesExistResponseSchema,
+  reindexNotesResponseSchema,
+  unindexedNotesResponseSchema,
   type AskKnowledgeRequest,
   type AskKnowledgeResponse,
   type CreateNoteRequest,
@@ -11,6 +13,8 @@ import {
   type DailyReportResponse,
   type NoteListResponse,
   type NotesExistResponse,
+  type ReindexNotesResponse,
+  type UnindexedNotesResponse,
 } from '@business-os/contracts';
 
 import { apiFetch } from './client';
@@ -79,4 +83,25 @@ export function listNotes(params: { limit: number; offset: number }): Promise<No
   });
 
   return apiFetch(`/knowledge/notes?${query.toString()}`, noteListResponseSchema);
+}
+
+/**
+ * `GET /knowledge/notes/unindexed` — kaç not ARANAMAZ durumda (ADR-0029).
+ *
+ * Embedding çökerse not kaydedilir ama chunk'sız kalır ve AI onu hiç bulamaz.
+ * Bu sayı olmadan kullanıcı, bir notunun neden bulunamadığını anlayamaz.
+ */
+export function countUnindexedNotes(): Promise<UnindexedNotesResponse> {
+  return apiFetch('/knowledge/notes/unindexed', unindexedNotesResponseSchema);
+}
+
+/**
+ * `POST /knowledge/reindex` — chunk'sız notları onarır.
+ *
+ * Tek çağrı sunucudaki batch boyutu kadar not onarır; `remaining > 0` ise
+ * çağrı tekrarlanabilir. PARA harcar (embedding çağrıları) ve not oluşturmayla
+ * AYNI oran sınırı kovasını kullanır.
+ */
+export function reindexNotes(): Promise<ReindexNotesResponse> {
+  return apiFetch('/knowledge/reindex', reindexNotesResponseSchema, { method: 'POST' });
 }

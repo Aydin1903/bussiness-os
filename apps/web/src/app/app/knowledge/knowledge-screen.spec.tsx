@@ -13,8 +13,16 @@ import { KnowledgeScreen } from './knowledge-screen';
 const listNotes = vi.hoisted(() => vi.fn());
 const createNote = vi.hoisted(() => vi.fn());
 const askKnowledge = vi.hoisted(() => vi.fn());
+const countUnindexedNotes = vi.hoisted(() => vi.fn());
+const reindexNotes = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/api/knowledge', () => ({ listNotes, createNote, askKnowledge }));
+vi.mock('@/lib/api/knowledge', () => ({
+  listNotes,
+  createNote,
+  askKnowledge,
+  countUnindexedNotes,
+  reindexNotes,
+}));
 
 function note(
   overrides: Partial<{
@@ -48,6 +56,8 @@ function apiError(status: number, detail: string): ApiError {
 
 beforeEach(() => {
   listNotes.mockResolvedValue(page([note()]));
+  // Saglikli varsayilan: onarim banner'i cizilmez ve digerlerini bozmaz.
+  countUnindexedNotes.mockResolvedValue({ count: 0 });
   createNote.mockResolvedValue({ noteId: 'note-2', chunkCount: 1 });
 });
 
