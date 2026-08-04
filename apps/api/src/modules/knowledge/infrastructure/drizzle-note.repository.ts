@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from 'drizzle-orm';
 
 import { notes } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
@@ -19,5 +20,20 @@ export class DrizzleNoteRepository implements NoteRepository {
     const { db } = requireTransaction();
 
     await db.insert(notes).values(toNoteRow(note));
+  }
+
+  /**
+   * Tek sabit sutun secilir (`1`), not govdesi DEGIL: sorunun cevabi
+   * "satir var mi"dir ve bir notun tam metnini ag uzerinden tasimak gereksiz.
+   */
+  async existsForTenant(): Promise<boolean> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({ one: sql<number>`1` })
+      .from(notes)
+      .limit(1);
+
+    return rows.length > 0;
   }
 }

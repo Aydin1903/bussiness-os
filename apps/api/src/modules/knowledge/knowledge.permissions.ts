@@ -28,7 +28,22 @@ export const NOTE_CREATE = 'note:create';
  */
 export const KNOWLEDGE_ASK = 'knowledge:ask';
 
+/**
+ * `note:read` -> bugun ayni roller (owner, admin, member; `viewer` HARIC).
+ *
+ * Yukaridaki gerekcenin AYNISI, bu kez daha da somut: `viewer` tanimi geregi
+ * OKUYANDIR ve `note:read`'i ona vermemek gecicidir — okuma uclari olgunlastikca
+ * (not listesi, arama) viewer bu izni buyuk olasilikla ALACAK. O gun geldiginde
+ * degisiklik TEK SATIRDIR; oysa okuma `note:create`'e kosulmus olsaydi, viewer'a
+ * okuma vermek ona YAZMA da vermek anlamina gelirdi.
+ *
+ * Bugun kapsami dar tutuluyor cunku bu izni kullanan tek uc onboarding'in
+ * varlik kontrolu ve o da yalnizca yazabilenleri ilgilendiriyor.
+ */
+export const NOTE_READ = 'note:read';
+
 export const KNOWLEDGE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: NOTE_CREATE, roles: ['owner', 'admin', 'member'] },
+  { permission: NOTE_READ, roles: ['owner', 'admin', 'member'] },
   { permission: KNOWLEDGE_ASK, roles: ['owner', 'admin', 'member'] },
 ];

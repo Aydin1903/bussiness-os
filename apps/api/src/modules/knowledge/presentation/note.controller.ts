@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -16,8 +17,9 @@ import {
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
 import { AskKnowledgeUseCase } from '../application/ask-knowledge.use-case';
+import { CheckNotesExistUseCase } from '../application/check-notes-exist.use-case';
 import { CreateNoteUseCase } from '../application/create-note.use-case';
-import { KNOWLEDGE_ASK, NOTE_CREATE } from '../knowledge.permissions';
+import { KNOWLEDGE_ASK, NOTE_CREATE, NOTE_READ } from '../knowledge.permissions';
 import { askKnowledgeSchema, type AskKnowledgeBody } from './ask-knowledge.dto';
 import { createNoteSchema, type CreateNoteBody } from './create-note.dto';
 import { KnowledgeDomainExceptionFilter } from './knowledge-domain-exception.filter';
@@ -40,6 +42,19 @@ interface AskKnowledgeResponse {
   /** Verilen ya da yeni acilan konusma. Istemci sonraki soruda bunu gonderir. */
   readonly conversationId: string;
 }
+
+/** Sayi DEGIL boolean: sorulan tek sey "hic mi yok" (ADR-0030 §3). */
+interface NotesExistResponse {
+  readonly hasNotes: boolean;
+}
+
+const NOTES_EXIST_FORBIDDEN_DESCRIPTION =
+  'Kimliksiz istek, tenant secilmemis token veya note:read yetkisi olmayan rol.';
+
+const NOTES_EXIST_DESCRIPTION =
+  'Aktif tenant in EN AZ BIR notu var mi. Onboarding wizard inin tetikleme ' +
+  'kosulu (ADR-0030 §3): hic not yoksa wizard gosterilir. SAYMAZ — cevap ' +
+  'boolean, cunku sorulan tek sey "hic mi yok".';
 
 const ASK_FORBIDDEN_DESCRIPTION =
   'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.';
@@ -78,7 +93,37 @@ export class NoteController {
   constructor(
     private readonly createNote: CreateNoteUseCase,
     private readonly askKnowledge: AskKnowledgeUseCase,
+    private readonly checkNotesExist: CheckNotesExistUseCase,
   ) {}
+
+  /**
+   * Aktif tenant'in en az bir notu var mi (ADR-0030 §3 tetikleme kosulu).
+   *
+   * ============================================================================
+   * NEDEN `/notes/exists`, `/notes?limit=1` DEGIL
+   * ============================================================================
+   * `GET /knowledge/notes` (liste) BILEREK bos birakildi: liste ucu sayfalama,
+   * siralama ve projeksiyon kararlari demektir ve hicbiri bu ise ait degil.
+   * Onboarding'in ihtiyaci tek bir boolean; onu bir liste ucunun ozel hali gibi
+   * gostermek, sonradan o listeyi tasarlarken bu kullanimin gerisinde
+   * kalmamiza yol acardi.
+   *
+   * Bu uc AI cagrisi YAPMAZ (tek `EXISTS` sorgusu), bu yuzden oran sinirina
+   * TABI DEGILDIR — sinirin amaci maliyet kontroludur (ADR-0029 §5) ve burada
+   * maliyet yok.
+   * ============================================================================
+   */
+  @Get('notes/exists')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(NOTE_READ)
+  @ApiOperation({ summary: 'Tenant in notu var mi', description: NOTES_EXIST_DESCRIPTION })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Varlik durumu dondu.' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: NOTES_EXIST_FORBIDDEN_DESCRIPTION })
+  async notesExist(): Promise<NotesExistResponse> {
+    requireTenantPrincipal();
+
+    return this.checkNotesExist.execute();
+  }
 
   /**
    * Not olusturur ve AI aramasi icin indeksler.

@@ -76,10 +76,12 @@ export {
   createNoteResponseSchema,
   askKnowledgeRequestSchema,
   askKnowledgeResponseSchema,
+  notesExistResponseSchema,
 } from './knowledge/knowledge.contract';
 export type {
   CreateNoteRequest,
   CreateNoteResponse,
   AskKnowledgeRequest,
   AskKnowledgeResponse,
+  NotesExistResponse,
 } from './knowledge/knowledge.contract';

@@ -69,3 +69,14 @@ export const askKnowledgeResponseSchema = z.object({
   conversationId: z.string().min(1),
 });
 export type AskKnowledgeResponse = z.infer<typeof askKnowledgeResponseSchema>;
+
+/**
+ * `GET /knowledge/notes/exists` yanıtı (ADR-0030 §3).
+ *
+ * Sayı DEĞİL boolean: onboarding'in tek sorduğu "hiç mi yok". Sayı dönseydi
+ * istemci onu göstermeye heveslenir, backend de saymak zorunda kalırdı.
+ */
+export const notesExistResponseSchema = z.object({
+  hasNotes: z.boolean(),
+});
+export type NotesExistResponse = z.infer<typeof notesExistResponseSchema>;

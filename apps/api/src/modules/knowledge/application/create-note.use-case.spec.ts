@@ -40,6 +40,10 @@ class FakeNoteRepository implements NoteRepository {
     this.saved.push(note);
     return Promise.resolve();
   }
+
+  existsForTenant(): Promise<boolean> {
+    return Promise.resolve(this.saved.length > 0);
+  }
 }
 
 class FakeNoteChunkRepository implements NoteChunkRepository {

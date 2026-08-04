@@ -16,6 +16,7 @@ import {
   CONVERSATION_REPOSITORY,
   type ConversationRepository,
 } from './application/conversation.repository.port';
+import { CheckNotesExistUseCase } from './application/check-notes-exist.use-case';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
   RATE_LIMIT_REPOSITORY,
@@ -165,6 +166,15 @@ import { NoteController } from './presentation/note.controller';
           clock,
           rateLimit: config.knowledge.notesRateLimit,
         }),
+    },
+    {
+      provide: CheckNotesExistUseCase,
+      inject: [NOTE_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        noteRepository: NoteRepository,
+        transactionManager: TransactionManager,
+      ): CheckNotesExistUseCase =>
+        new CheckNotesExistUseCase({ noteRepository, transactionManager }),
     },
     {
       provide: AskKnowledgeUseCase,
