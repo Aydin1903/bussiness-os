@@ -1,8 +1,10 @@
 import {
   createNoteResponseSchema,
+  dailyReportResponseSchema,
   notesExistResponseSchema,
   type CreateNoteRequest,
   type CreateNoteResponse,
+  type DailyReportResponse,
   type NotesExistResponse,
 } from '@business-os/contracts';
 
@@ -35,4 +37,15 @@ export function createNote(body: CreateNoteRequest): Promise<CreateNoteResponse>
  */
 export function notesExist(): Promise<NotesExistResponse> {
   return apiFetch('/knowledge/notes/exists', notesExistResponseSchema);
+}
+
+/**
+ * `GET /knowledge/daily-report` — en son üretilmiş günlük rapor (ADR-0030 §2.2).
+ *
+ * `report: null` bir HATA DEĞİL, normal durumdur: yeni bir tenant'ın henüz
+ * raporu yoktur. Uç bu yüzden 404 değil 200 döner ve istemci de bunu boş durum
+ * olarak gösterir, hata olarak değil.
+ */
+export function fetchDailyReport(): Promise<DailyReportResponse> {
+  return apiFetch('/knowledge/daily-report', dailyReportResponseSchema);
 }

@@ -1,5 +1,6 @@
 import { CustomersIcon, FinanceIcon, KnowledgeIcon, ProjectsIcon } from '@/components/icons';
 import { AiWelcomeCard } from '@/components/dashboard/ai-welcome-card';
+import { DailyReportCard } from '@/components/dashboard/daily-report-card';
 import { ModuleCard } from '@/components/dashboard/module-card';
 import { OnboardingGate } from '@/components/dashboard/onboarding-gate';
 
@@ -47,6 +48,8 @@ export default function DashboardPage() {
         </header>
 
         <AiWelcomeCard />
+
+        <DailyReportCard />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {MODULES.map((module) => (
