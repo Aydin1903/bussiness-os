@@ -12,17 +12,17 @@
   },
   "dependencies": {
     "@business-os/contracts": "workspace:*",
-    "next": "^15.5.4",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@business-os/config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^24.7.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "eslint": "^9.39.0",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3"
