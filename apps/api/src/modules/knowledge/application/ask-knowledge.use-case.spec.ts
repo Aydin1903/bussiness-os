@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { AskKnowledgeUseCase, type AskKnowledgeDependencies } from './ask-knowledge.use-case';
 import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
-import { ConversationAccessDeniedError } from '../domain/knowledge.error';
+import { ConversationAccessDeniedError, RateLimitExceededError } from '../domain/knowledge.error';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import {
@@ -14,10 +15,12 @@ import {
   type LlmMessage,
 } from './llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
+import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';
 import { type TenantId } from '../domain/tenant-id.value-object';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 
+const NOW = new Date('2026-08-02T10:30:00.000Z');
 const TENANT_ID = '018f3a2b-7c4d-7e1f-9b3c-0000000000a1';
 const USER_ID = '018f3a2b-7c4d-7e1f-9b3c-00000000000a';
 const CONVERSATION_ID = '018f3a2b-7c4d-7e1f-8a2b-0000000000f1';
@@ -129,6 +132,45 @@ class FakeTransactionManager implements TransactionManager {
   }
 }
 
+/**
+ * Oran siniri sayaci FAKE'i.
+ *
+ * Gercek repository UPSERT ile artirip artmis degeri doner; burada bellekte
+ * ayni sozlesme taklit edilir — anahtar `(tenant, kullanici, eylem, pencere)`.
+ */
+class FakeRateLimitRepository implements RateLimitRepository {
+  readonly counters = new Map<string, number>();
+
+  constructor(private readonly calls: CallLog) {}
+
+  registerRequest(input: RegisterRequestInput): Promise<number> {
+    this.calls.push('rateLimit');
+    const key = [
+      input.tenantId.value,
+      input.userId,
+      input.action,
+      input.windowStart.toISOString(),
+    ].join('|');
+    const next = (this.counters.get(key) ?? 0) + 1;
+    this.counters.set(key, next);
+    return Promise.resolve(next);
+  }
+
+  /** Sayaci istenen degere kurar — "limit dolmus" durumunu hazirlamak icin. */
+  preset(input: { tenantId: string; userId: string; action: string; count: number }): void {
+    const windowStart = new Date(NOW.getTime());
+    windowStart.setUTCMinutes(0, 0, 0);
+    const key = [input.tenantId, input.userId, input.action, windowStart.toISOString()].join('|');
+    this.counters.set(key, input.count);
+  }
+}
+
+class FixedClock implements Clock {
+  now(): Date {
+    return new Date(NOW.getTime());
+  }
+}
+
 class SequentialIdGenerator implements IdGenerator {
   #n = 1;
   nextId(): string {
@@ -140,6 +182,7 @@ class SequentialIdGenerator implements IdGenerator {
 
 interface Harness {
   readonly search: FakeNoteChunkSearch;
+  readonly rateLimits: FakeRateLimitRepository;
   readonly conversations: FakeConversationRepository;
   readonly embedding: FakeEmbeddingPort;
   readonly llm: FakeLlmPort;
@@ -149,9 +192,10 @@ interface Harness {
 }
 
 function createHarness(
-  overrides: Partial<{ retrievalLimit: number; historyMessages: number }> = {},
+  overrides: Partial<{ retrievalLimit: number; historyMessages: number; rateLimit: number }> = {},
 ): Harness {
   const calls: CallLog = [];
+  const rateLimits = new FakeRateLimitRepository(calls);
   const search = new FakeNoteChunkSearch(calls);
   const conversations = new FakeConversationRepository(calls);
   const embedding = new FakeEmbeddingPort(calls);
@@ -161,16 +205,20 @@ function createHarness(
   const deps: AskKnowledgeDependencies = {
     noteChunkSearch: search,
     conversationRepository: conversations,
+    rateLimitRepository: rateLimits,
     embeddingPort: embedding,
     llmPort: llm,
     transactionManager,
     idGenerator: new SequentialIdGenerator(),
+    clock: new FixedClock(),
     retrievalLimit: overrides.retrievalLimit ?? 8,
     historyMessages: overrides.historyMessages ?? 8,
+    rateLimit: overrides.rateLimit ?? 30,
   };
 
   return {
     search,
+    rateLimits,
     conversations,
     embedding,
     llm,
@@ -231,12 +279,15 @@ describe('AskKnowledgeUseCase — mutlu yol', () => {
 // --- ADR-0029 §4: cagri sirasi — bu dosyanin ASIL iddiasi -------------------
 
 describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda', () => {
-  it('sira: embed -> T1 -> complete -> T2', async () => {
+  it('sira: T0 -> embed -> T1 -> complete -> T2', async () => {
     const harness = createHarness();
 
     await harness.useCase.execute(command({ conversationId: CONVERSATION_ID }));
 
     expect(harness.calls).toEqual([
+      'tx.begin',
+      'rateLimit',
+      'tx.commit',
       'embed',
       'tx.begin',
       'owner',
@@ -250,12 +301,14 @@ describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda',
     ]);
   });
 
-  it('TAM IKI transaction acar', async () => {
+  it('TAM UC transaction acar (T0 · T1 · T2)', async () => {
     const harness = createHarness();
 
     await harness.useCase.execute(command());
 
-    expect(harness.transactionManager.opened).toBe(2);
+    // T0 ayri sayilir ve AYRI olmasi gerekir: sayac T1'e girseydi, hata
+    // halinde geri alinir ve hatali istekler bedava olurdu (ADR-0029 §5).
+    expect(harness.transactionManager.opened).toBe(3);
   });
 
   it('embed HICBIR transaction icinde degil', async () => {
@@ -263,7 +316,11 @@ describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda',
 
     await harness.useCase.execute(command());
 
-    expect(harness.calls.indexOf('embed')).toBeLessThan(harness.calls.indexOf('tx.begin'));
+    // T0 KAPANDIKTAN sonra, T1 ACILMADAN once.
+    const embed = harness.calls.indexOf('embed');
+    expect(embed).toBeGreaterThan(harness.calls.indexOf('tx.commit'));
+    expect(embed).toBeLessThan(harness.calls.lastIndexOf('tx.begin'));
+    expect(harness.calls[embed - 1]).toBe('tx.commit');
   });
 
   it('complete iki transaction ARASINDA', async () => {
@@ -519,12 +576,16 @@ describe('AskKnowledgeUseCase — retrieval', () => {
 // --- Hata yollari -------------------------------------------------------------
 
 describe('AskKnowledgeUseCase — hata yollari', () => {
-  it('embedding cokerse EmbeddingFailedError ve HICBIR transaction acilmaz', async () => {
+  it('embedding cokerse EmbeddingFailedError ve YALNIZCA T0 acilmis olur', async () => {
     const harness = createHarness();
     harness.embedding.failWith = new Error('saglayici 500');
 
     await expect(harness.useCase.execute(command())).rejects.toThrow(EmbeddingFailedError);
-    expect(harness.transactionManager.opened).toBe(0);
+
+    // T0 (sayac) acilir ve COMMIT EDILIR; T1/T2 hic acilmaz. Sayacin geri
+    // alinmamasi bilinclidir (ADR-0029 §5): aksi halde hata ureten istekler
+    // bedava olur ve bir hata dongusu sinirsiz para harcayabilirdi.
+    expect(harness.transactionManager.opened).toBe(1);
   });
 
   it('completion cokerse CompletionFailedError', async () => {
@@ -542,7 +603,8 @@ describe('AskKnowledgeUseCase — hata yollari', () => {
 
     // Cevapsiz bir soru, bir sonraki istegin gecmisini kirletirdi.
     expect(harness.conversations.appended).toHaveLength(0);
-    expect(harness.transactionManager.opened).toBe(1);
+    // T0 + T1 acildi, T2 ACILMADI.
+    expect(harness.transactionManager.opened).toBe(2);
   });
 
   it('saglayici mesajini teshis icin tasir', async () => {
@@ -557,5 +619,84 @@ describe('AskKnowledgeUseCase — hata yollari', () => {
 
     await expect(harness.useCase.execute({ ...command(), tenantId: 'gecersiz' })).rejects.toThrow();
     expect(harness.calls).toHaveLength(0);
+  });
+});
+
+// --- Oran siniri (ADR-0029 §5) ---------------------------------------------
+
+describe('AskKnowledgeUseCase — oran siniri', () => {
+  it('limit ALTINDA istek gecer', async () => {
+    const harness = createHarness({ rateLimit: 3 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 1 });
+
+    await expect(harness.useCase.execute(command())).resolves.toBeDefined();
+  });
+
+  it('limit ASILINCA reddedilir', async () => {
+    const harness = createHarness({ rateLimit: 3 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 3 });
+
+    // Sayac 4'e cikar; 4 > 3 -> reddedilir.
+    await expect(harness.useCase.execute(command())).rejects.toThrow(RateLimitExceededError);
+  });
+
+  it('ESITLIK gecer — limit "EN FAZLA N" demektir', async () => {
+    const harness = createHarness({ rateLimit: 3 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 2 });
+
+    await expect(harness.useCase.execute(command())).resolves.toBeDefined();
+  });
+
+  it('reddedilen istek TEK KURUS harcamaz — embed ve complete CAGRILMAZ', async () => {
+    // Bu testin varlik sebebi budur: sinir, para harcandiktan SONRA devreye
+    // girerse hicbir sey korumaz.
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 1 });
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(RateLimitExceededError);
+
+    expect(harness.calls).not.toContain('embed');
+    expect(harness.calls).not.toContain('complete');
+    expect(harness.calls).not.toContain('search');
+  });
+
+  it('sayac HER SEYDEN ONCE, KENDI transaction inda artar', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command());
+
+    // T0 acilir, sayac artar, KAPANIR — embed ondan sonra gelir. Sayac T1'e
+    // girseydi hata halinde geri alinir ve hatali istekler bedava olurdu.
+    expect(harness.calls.slice(0, 4)).toEqual(['tx.begin', 'rateLimit', 'tx.commit', 'embed']);
+  });
+
+  it('FARKLI kullanicilarin sayaclari KARISMAZ', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 1 });
+
+    const other = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
+    await expect(harness.useCase.execute({ ...command(), userId: other })).resolves.toBeDefined();
+  });
+
+  it('FARKLI tenant larin sayaclari KARISMAZ', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 1 });
+
+    const otherTenant = '018f3a2b-7c4d-7e1f-9b3c-0000000000b1';
+    await expect(
+      harness.useCase.execute({ ...command(), tenantId: otherTenant }),
+    ).resolves.toBeDefined();
+  });
+
+  it('EYLEM kovalari KARISMAZ — dolu bir create_note sayaci /ask i engellemez', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 99,
+    });
+
+    await expect(harness.useCase.execute(command())).resolves.toBeDefined();
   });
 });

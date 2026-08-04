@@ -6,9 +6,11 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 
+import { type Response } from 'express';
+
 import { EmbeddingFailedError } from '../application/embedding.port';
 import { CompletionFailedError } from '../application/llm.port';
-import { KnowledgeDomainError } from '../domain/knowledge.error';
+import { KnowledgeDomainError, RateLimitExceededError } from '../domain/knowledge.error';
 
 /**
  * Knowledge domain hatalarini HTTP durum kodlarina cevirir.
@@ -31,6 +33,12 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   // 404 DEGIL: "yok" ile "senin degil" ayirt edilirse, bir kullanici id
   // deneyerek baskasinin konusmasinin VARLIGINI ogrenebilirdi (P2).
   CONVERSATION_ACCESS_DENIED: HttpStatus.FORBIDDEN,
+
+  // Kimlik dogru, yetki var, istek gecerli — YALNIZCA saatlik pay tukendi.
+  // 403 DEGIL: 403 "senin bunu yapma hakkin yok" der, oysa hakki var, payi
+  // yok. Ayrimi silmek istemciyi yanlis yone gonderirdi (kullanici yetki
+  // isteyecekti, oysa beklemesi gerekiyor).
+  RATE_LIMIT_EXCEEDED: HttpStatus.TOO_MANY_REQUESTS,
 
   // Bunlar CAGIRAN hatasi degil, SISTEM hatasidir: bozuk bir zaman damgasi,
   // negatif chunk sirasi veya yanlis boyutlu embedding istemcinin uretemeyecegi
@@ -63,11 +71,12 @@ const COMPLETION_FAILED_DETAIL = 'Cevap uretilemedi; lutfen tekrar deneyin.';
 
 @Catch(KnowledgeDomainError, EmbeddingFailedError, CompletionFailedError)
 export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
-  // `_host` kullanilmiyor: bu filtre yaniti KENDISI yazmaz, cevrilmis hatayi
-  // global filtreye birakir. Imza ExceptionFilter sozlesmesi geregi durur.
+  // Filtre yaniti KENDISI yazmaz, cevrilmis hatayi global filtreye birakir.
+  // TEK istisna `Retry-After` basligidir (asagida): govde degil BASLIK oldugu
+  // icin RFC 7807 bicimlendirmesine dokunmaz.
   catch(
     exception: KnowledgeDomainError | EmbeddingFailedError | CompletionFailedError,
-    _host: ArgumentsHost,
+    host: ArgumentsHost,
   ): never {
     if (exception instanceof CompletionFailedError) {
       // ISTEMCI hatasi DEGIL: istek gecerliydi, DIS SAGLAYICI cevap veremedi.
@@ -82,6 +91,16 @@ export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
       throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
+    if (exception instanceof RateLimitExceededError) {
+      // `Retry-After` 429'un standart tamamlayicisidir: istemciye NE ZAMAN
+      // donecegini soyler. Olmadan, iyi niyetli bir istemci bile siki bir
+      // dongude yeniden dener ve sinirlayiciyi gurultuye bogar.
+      //
+      // Saniye cinsinden gonderilir (RFC 9110 §10.2.3 iki bicime de izin
+      // verir; saniye, saat farki/format hatasi riski tasimayan olandir).
+      setRetryAfter(host, exception.retryAfterSeconds);
+    }
+
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -92,4 +111,20 @@ export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
 
     throw new HttpException(exception.message, status);
   }
+}
+
+/**
+ * `Retry-After` basligini yazar.
+ *
+ * Yanit nesnesi HTTP DISI baglamlarda (orn. bir mikroservis transport'u)
+ * bulunmayabilir; boyle bir durumda baslik sessizce atlanir. Baslik bir
+ * KOLAYLIKTIR — yoklugu 429'u gecersiz kilmaz, ama ugruna istek dusurulmez.
+ */
+function setRetryAfter(host: ArgumentsHost, seconds: number): void {
+  if (host.getType() !== 'http') {
+    return;
+  }
+
+  const response: Response = host.switchToHttp().getResponse();
+  response.setHeader('Retry-After', String(seconds));
 }

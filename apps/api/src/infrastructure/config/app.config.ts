@@ -86,6 +86,9 @@ export interface AppConfig {
   readonly knowledge: {
     readonly retrievalLimit: number;
     readonly historyMessages: number;
+    /** Saatlik istek paylari (ADR-0029 §5) — eylem basina AYRI kova. */
+    readonly askRateLimit: number;
+    readonly notesRateLimit: number;
   };
 }
 
@@ -180,6 +183,8 @@ function toKnowledgeConfig(env: Env): AppConfig['knowledge'] {
   return {
     retrievalLimit: env.KNOWLEDGE_RETRIEVAL_LIMIT,
     historyMessages: env.KNOWLEDGE_HISTORY_MESSAGES,
+    askRateLimit: env.KNOWLEDGE_ASK_RATE_LIMIT,
+    notesRateLimit: env.KNOWLEDGE_NOTES_RATE_LIMIT,
   };
 }
 

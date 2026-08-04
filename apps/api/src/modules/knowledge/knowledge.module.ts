@@ -18,6 +18,10 @@ import {
 } from './application/conversation.repository.port';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
+  RATE_LIMIT_REPOSITORY,
+  type RateLimitRepository,
+} from './application/rate-limit.repository.port';
+import {
   DAILY_REPORT_RUN_REPOSITORY,
   type DailyReportRunRepository,
 } from './application/daily-report-run.repository.port';
@@ -31,6 +35,7 @@ import {
 import { NOTE_REPOSITORY, type NoteRepository } from './application/note.repository.port';
 import { DeepSeekLlmAdapter } from './infrastructure/deepseek-llm.adapter';
 import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
+import { DrizzleRateLimitRepository } from './infrastructure/drizzle-rate-limit.repository';
 import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-report-run.repository';
 import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
 import { DrizzleNoteChunkRepository } from './infrastructure/drizzle-note-chunk.repository';
@@ -70,6 +75,7 @@ import { NoteController } from './presentation/note.controller';
     { provide: DAILY_REPORT_RUN_REPOSITORY, useClass: DrizzleDailyReportRunRepository },
     { provide: NOTE_CHUNK_SEARCH, useClass: DrizzleNoteChunkSearchRepository },
     { provide: CONVERSATION_REPOSITORY, useClass: DrizzleConversationRepository },
+    { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
 
     // --- Embedding saglayicisi ------------------------------------------------
     {
@@ -126,10 +132,12 @@ import { NoteController } from './presentation/note.controller';
         NOTE_REPOSITORY,
         NOTE_CHUNK_REPOSITORY,
         DAILY_REPORT_RUN_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
         EMBEDDING_PORT,
         TRANSACTION_MANAGER,
         ID_GENERATOR,
         CLOCK,
+        APP_CONFIG,
       ],
       // NestJS useFactory imzasi `inject` dizisiyle BIREBIR eslesmek
       // zorundadir; use case'in KENDI imzasi tek parametrelidir
@@ -139,19 +147,23 @@ import { NoteController } from './presentation/note.controller';
         noteRepository: NoteRepository,
         noteChunkRepository: NoteChunkRepository,
         dailyReportRunRepository: DailyReportRunRepository,
+        rateLimitRepository: RateLimitRepository,
         embeddingPort: EmbeddingPort,
         transactionManager: TransactionManager,
         idGenerator: IdGenerator,
         clock: Clock,
+        config: AppConfig,
       ): CreateNoteUseCase =>
         new CreateNoteUseCase({
           noteRepository,
           noteChunkRepository,
           dailyReportRunRepository,
+          rateLimitRepository,
           embeddingPort,
           transactionManager,
           idGenerator,
           clock,
+          rateLimit: config.knowledge.notesRateLimit,
         }),
     },
     {
@@ -159,32 +171,39 @@ import { NoteController } from './presentation/note.controller';
       inject: [
         NOTE_CHUNK_SEARCH,
         CONVERSATION_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
         EMBEDDING_PORT,
         LLM_PORT,
         TRANSACTION_MANAGER,
         ID_GENERATOR,
+        CLOCK,
         APP_CONFIG,
       ],
       // eslint-disable-next-line max-params
       useFactory: (
         noteChunkSearch: NoteChunkSearch,
         conversationRepository: ConversationRepository,
+        rateLimitRepository: RateLimitRepository,
         embeddingPort: EmbeddingPort,
         llmPort: LLMPort,
         transactionManager: TransactionManager,
         idGenerator: IdGenerator,
+        clock: Clock,
         config: AppConfig,
       ): AskKnowledgeUseCase =>
         new AskKnowledgeUseCase({
           noteChunkSearch,
           conversationRepository,
+          rateLimitRepository,
           embeddingPort,
           llmPort,
           transactionManager,
           idGenerator,
+          clock,
           // ADR-0030 §1.2: bu sayilar ADR'de SABITLENMEZ, config'ten gelir.
           retrievalLimit: config.knowledge.retrievalLimit,
           historyMessages: config.knowledge.historyMessages,
+          rateLimit: config.knowledge.askRateLimit,
         }),
     },
   ],

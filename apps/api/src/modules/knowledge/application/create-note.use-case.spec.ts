@@ -13,6 +13,8 @@ import { type DailyReportRunRepository } from './daily-report-run.repository.por
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository } from './note.repository.port';
+import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';
+import { RateLimitExceededError } from '../domain/knowledge.error';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 
@@ -108,6 +110,39 @@ class FakeTransactionManager implements TransactionManager {
   }
 }
 
+/**
+ * Oran siniri sayaci FAKE'i.
+ *
+ * Gercek repository UPSERT ile artirip artmis degeri doner; burada bellekte
+ * ayni sozlesme taklit edilir — anahtar `(tenant, kullanici, eylem, pencere)`.
+ */
+class FakeRateLimitRepository implements RateLimitRepository {
+  readonly counters = new Map<string, number>();
+
+  constructor(private readonly calls: CallLog) {}
+
+  registerRequest(input: RegisterRequestInput): Promise<number> {
+    this.calls.push('rateLimit');
+    const key = [
+      input.tenantId.value,
+      input.userId,
+      input.action,
+      input.windowStart.toISOString(),
+    ].join('|');
+    const next = (this.counters.get(key) ?? 0) + 1;
+    this.counters.set(key, next);
+    return Promise.resolve(next);
+  }
+
+  /** Sayaci istenen degere kurar — "limit dolmus" durumunu hazirlamak icin. */
+  preset(input: { tenantId: string; userId: string; action: string; count: number }): void {
+    const windowStart = new Date(NOW.getTime());
+    windowStart.setUTCMinutes(0, 0, 0);
+    const key = [input.tenantId, input.userId, input.action, windowStart.toISOString()].join('|');
+    this.counters.set(key, input.count);
+  }
+}
+
 class SequentialIdGenerator implements IdGenerator {
   #n = 1;
   nextId(): string {
@@ -125,6 +160,7 @@ class FixedClock implements Clock {
 
 interface Harness {
   readonly noteRepository: FakeNoteRepository;
+  readonly rateLimits: FakeRateLimitRepository;
   readonly chunkRepository: FakeNoteChunkRepository;
   readonly reportRepository: FakeDailyReportRunRepository;
   readonly embeddingPort: FakeEmbeddingPort;
@@ -133,8 +169,9 @@ interface Harness {
   readonly useCase: CreateNoteUseCase;
 }
 
-function createHarness(): Harness {
+function createHarness(overrides: Partial<{ rateLimit: number }> = {}): Harness {
   const calls: CallLog = [];
+  const rateLimits = new FakeRateLimitRepository(calls);
   const noteRepository = new FakeNoteRepository(calls);
   const chunkRepository = new FakeNoteChunkRepository(calls);
   const reportRepository = new FakeDailyReportRunRepository(calls);
@@ -145,14 +182,17 @@ function createHarness(): Harness {
     noteRepository,
     noteChunkRepository: chunkRepository,
     dailyReportRunRepository: reportRepository,
+    rateLimitRepository: rateLimits,
     embeddingPort,
     transactionManager,
     idGenerator: new SequentialIdGenerator(),
     clock: new FixedClock(),
+    rateLimit: overrides.rateLimit ?? 60,
   };
 
   return {
     noteRepository,
+    rateLimits,
     chunkRepository,
     reportRepository,
     embeddingPort,
@@ -243,6 +283,9 @@ describe('CreateNoteUseCase — T1 / embedding / T2 sirasi', () => {
     // degil.
     expect(harness.calls).toEqual([
       'tx.begin',
+      'rateLimit',
+      'tx.commit',
+      'tx.begin',
       'note.save',
       'report.ensureScheduled',
       'tx.commit',
@@ -253,12 +296,14 @@ describe('CreateNoteUseCase — T1 / embedding / T2 sirasi', () => {
     ]);
   });
 
-  it('TAM IKI transaction acar (tek transaction DEGIL)', async () => {
+  it('TAM UC transaction acar (T0 · T1 · T2)', async () => {
     const harness = createHarness();
 
     await harness.useCase.execute(command());
 
-    expect(harness.transactionManager.opened).toBe(2);
+    // T0 AYRI: sayac T1'e girseydi, embedding cokup transaction geri
+    // alindiginda sayac da geri alinir ve hatali istekler bedava olurdu.
+    expect(harness.transactionManager.opened).toBe(3);
   });
 
   it('cok parcali notta da embedding ler transaction disinda kalir', async () => {
@@ -266,7 +311,8 @@ describe('CreateNoteUseCase — T1 / embedding / T2 sirasi', () => {
 
     await harness.useCase.execute(command({ body: 'a'.repeat(TARGET_CHUNK_CHARS * 2 + 10) }));
 
-    const firstCommit = harness.calls.indexOf('tx.commit');
+    // T0'in commit'i ATLANIR: aranan sinir T1'in commit'i ile T2'nin begin'i.
+    const firstCommit = harness.calls.indexOf('tx.commit', harness.calls.indexOf('note.save'));
     const secondBegin = harness.calls.lastIndexOf('tx.begin');
     const embedIndexes = harness.calls
       .map((call, index) => (call === 'embed' ? index : -1))
@@ -298,8 +344,10 @@ describe('CreateNoteUseCase — gunluk rapor tembel seed', () => {
 
     await harness.useCase.execute(command());
 
-    const begin = harness.calls.indexOf('tx.begin');
-    const commit = harness.calls.indexOf('tx.commit');
+    // T0'in ciftini ATLA: aranan T1'dir (`note.save`'i iceren).
+    const noteSave = harness.calls.indexOf('note.save');
+    const begin = harness.calls.lastIndexOf('tx.begin', noteSave);
+    const commit = harness.calls.indexOf('tx.commit', noteSave);
     const scheduled = harness.calls.indexOf('report.ensureScheduled');
 
     // Rapor NOTLARI ozetler, parcalari degil: T2 cokse bile rapor uretilmeli.
@@ -365,7 +413,9 @@ describe('CreateNoteUseCase — embedding hatasi', () => {
 
     await expect(harness.useCase.execute(command())).rejects.toThrow();
 
-    expect(harness.transactionManager.opened).toBe(1);
+    // T0 + T1 acilir, T2 ACILMAZ. Sayac geri ALINMAZ: cagri yapildiysa para
+    // harcanmistir (ADR-0029 §5, bilincli).
+    expect(harness.transactionManager.opened).toBe(2);
   });
 
   it('saglayicinin mesajini teshis icin tasir', async () => {
@@ -392,5 +442,95 @@ describe('CreateNoteUseCase — girdi dogrulama domain de', () => {
     await expect(harness.useCase.execute({ ...command(), tenantId: 'gecersiz' })).rejects.toThrow();
 
     expect(harness.transactionManager.opened).toBe(0);
+  });
+});
+
+// --- Oran siniri (ADR-0029 §5) ---------------------------------------------
+
+describe('CreateNoteUseCase — oran siniri', () => {
+  it('limit ALTINDA istek gecer', async () => {
+    const harness = createHarness({ rateLimit: 3 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 1,
+    });
+
+    await expect(harness.useCase.execute(command())).resolves.toBeDefined();
+  });
+
+  it('limit ASILINCA reddedilir', async () => {
+    const harness = createHarness({ rateLimit: 3 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 3,
+    });
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(RateLimitExceededError);
+  });
+
+  it('reddedilen istek NOT YAZMAZ ve TEK embedding cagrisi yapmaz', async () => {
+    // Uzun bir not ONLARCA embedding cagrisidir; reddedilecek bir istek icin
+    // bunun BIR TANESI bile yapilmamalidir.
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 1,
+    });
+
+    await expect(harness.useCase.execute(command())).rejects.toThrow(RateLimitExceededError);
+
+    expect(harness.calls).not.toContain('embed');
+    expect(harness.noteRepository.saved).toHaveLength(0);
+  });
+
+  it('sayac chunking ten ONCE, KENDI transaction inda artar', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command());
+
+    expect(harness.calls.slice(0, 3)).toEqual(['tx.begin', 'rateLimit', 'tx.commit']);
+  });
+
+  it('FARKLI kullanicilarin sayaclari KARISMAZ', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 1,
+    });
+
+    const other = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
+    await expect(
+      harness.useCase.execute({ ...command(), authorUserId: other }),
+    ).resolves.toBeDefined();
+  });
+
+  it('FARKLI tenant larin sayaclari KARISMAZ', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      action: 'create_note',
+      count: 1,
+    });
+
+    const otherTenant = '018f3a2b-7c4d-7e1f-9b3c-0000000000b1';
+    await expect(
+      harness.useCase.execute({ ...command(), tenantId: otherTenant }),
+    ).resolves.toBeDefined();
+  });
+
+  it('EYLEM kovalari KARISMAZ — dolu bir ask sayaci not eklemeyi engellemez', async () => {
+    const harness = createHarness({ rateLimit: 1 });
+    harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 99 });
+
+    await expect(harness.useCase.execute(command())).resolves.toBeDefined();
   });
 });

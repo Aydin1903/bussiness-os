@@ -10,6 +10,8 @@ import { NoteChunkId } from '../domain/note-chunk-id.value-object';
 import { NoteId } from '../domain/note-id.value-object';
 import { type DailyReportRunRepository } from './daily-report-run.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
+import { enforceRateLimit } from './enforce-rate-limit';
+import { type RateLimitRepository } from './rate-limit.repository.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository } from './note.repository.port';
 
@@ -32,10 +34,13 @@ export interface CreateNoteDependencies {
   readonly noteRepository: NoteRepository;
   readonly noteChunkRepository: NoteChunkRepository;
   readonly dailyReportRunRepository: DailyReportRunRepository;
+  readonly rateLimitRepository: RateLimitRepository;
   readonly embeddingPort: EmbeddingPort;
   readonly transactionManager: TransactionManager;
   readonly idGenerator: IdGenerator;
   readonly clock: Clock;
+  /** Saatlik not olusturma payi (ADR-0029 §5). Config'ten gelir. */
+  readonly rateLimit: number;
 }
 
 /**
@@ -75,13 +80,20 @@ export class CreateNoteUseCase {
     const tenantId = TenantId.create(command.tenantId);
     const now = this.deps.clock.now();
 
-    const note = Note.create({
-      id: NoteId.create(this.deps.idGenerator.nextId()),
+    // Domain dogrulamasi ONCE: saf, I/O'suz ve BEDAVA. Gecersiz bir govde
+    // kotadan DUSMEMELIDIR — kullanici 422 aldigi bir istek icin saatlik
+    // payini kaybetmemeli.
+    const note = this.#buildNote(command, tenantId, now);
+
+    // --- T0: oran siniri ----------------------------------------------------
+    // Govde parcalanmadan, TEK BIR embedding cagrisi yapilmadan: uzun bir not
+    // ONLARCA cagri demektir ve reddedilecek bir istek icin bunun BIR TANESI
+    // bile yapilmamalidir.
+    await enforceRateLimit(this.deps, {
       tenantId,
-      authorUserId: UserId.create(command.authorUserId),
-      title: command.title,
-      body: command.body,
-      createdAt: now,
+      userId: command.authorUserId,
+      action: 'create_note',
+      limit: this.deps.rateLimit,
     });
 
     // --- T1 -----------------------------------------------------------------
@@ -132,6 +144,17 @@ export class CreateNoteUseCase {
     }
 
     return chunks;
+  }
+
+  #buildNote(command: CreateNoteCommand, tenantId: TenantId, now: Date): Note {
+    return Note.create({
+      id: NoteId.create(this.deps.idGenerator.nextId()),
+      tenantId,
+      authorUserId: UserId.create(command.authorUserId),
+      title: command.title,
+      body: command.body,
+      createdAt: now,
+    });
   }
 
   /** Adapter'in firlattigi her hatayi TEK bir domain hatasina cevirir. */

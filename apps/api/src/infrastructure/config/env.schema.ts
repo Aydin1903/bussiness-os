@@ -189,6 +189,33 @@ const baseEnvSchema = z.object({
    * Varsayilan 8 = 4 mesaj cifti (ADR-0030 §1.2'nin "3-4 cift" araligi).
    */
   KNOWLEDGE_HISTORY_MESSAGES: z.coerce.number().int().min(0).max(50).default(8),
+
+  // --- Oran siniri (ADR-0029 §5) -----------------------------------------
+  //
+  // Amac MALIYET KONTROLU. Iki eylem AYRI kovadir: `/ask` butcesini bitirmek
+  // not eklemeyi engellemez.
+  //
+  // ⚠️ Bu sinirlar ISTEK SAYISINI baglar, TOKEN HARCAMASINI degil. Tek bir
+  // devasa not, 60 kucuk nottan pahaliya patlayabilir ve sayac bunu gormez
+  // (ADR-0029 §5 bilinen sinir).
+
+  /**
+   * Saatte soru sayisi / kullanici (ADR-0029 §5 onerisi: 30).
+   *
+   * Bu bir BUTCEDIR: insan gercekten 30'a yaklasabilir, cunku `/ask` tekrar
+   * tekrar yapilan bir eylemdir.
+   */
+  KNOWLEDGE_ASK_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(30),
+
+  /**
+   * Saatte not sayisi / kullanici.
+   *
+   * Bu bir SIGORTADIR, butce degil: bir insan saatte 60 anlamli not yazamaz;
+   * o rakama ancak bir istemci retry hatasi ya da script ulasir. Daha yuksek
+   * olmasi "not daha ucuz" demek DEGILDIR — 20 parcali bir not 20 embedding
+   * cagrisidir, tek bir `/ask`'tan pahalidir.
+   */
+  KNOWLEDGE_NOTES_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

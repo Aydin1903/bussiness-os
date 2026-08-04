@@ -41,6 +41,17 @@ interface AskKnowledgeResponse {
   readonly conversationId: string;
 }
 
+const ASK_FORBIDDEN_DESCRIPTION =
+  'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.';
+
+const ASK_RATE_LIMITED_DESCRIPTION =
+  'Saatlik soru payi tukendi (ADR-0029 §5). `Retry-After` basligi, pencerenin ' +
+  'bitisine kalan saniyeyi tasir. 403 DEGIL: yetki var, pay yok.';
+
+const NOTE_RATE_LIMITED_DESCRIPTION =
+  'Saatlik not olusturma payi tukendi (ADR-0029 §5). Uzun bir not ONLARCA ' +
+  'embedding cagrisidir; reddedilen istek hicbirini yapmaz.';
+
 const ASK_DESCRIPTION =
   'Soru embed edilir, tenant in notlarindan en yakin parcalar cekilir ve cevap ' +
   'YALNIZCA o baglamdan uretilir. `conversationId` verilirse son birkac mesaj ' +
@@ -96,6 +107,7 @@ export class NoteController {
       'Ucu de 403 uretir: guard handler dan ONCE calisir (tum RBAC korumali uclarda ayni).',
   })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: NOTE_RATE_LIMITED_DESCRIPTION })
   @ApiResponse({
     status: HttpStatus.BAD_GATEWAY,
     description: 'Not kaydedildi ancak indekslenemedi (embedding saglayicisi).',
@@ -123,20 +135,18 @@ export class NoteController {
    * `200` doner, `201` DEGIL: yeni bir kaynak yaratilmiyor. Konusma ve mesajlar
    * yan etkidir, istegin URUNU degil — urun cevaptir.
    *
-   * ⚠️ Bu, projenin EN PAHALI ucudur: her istek 1 embedding + 1 completion
-   * cagrisidir. Oran siniri (ADR-0029 §5) AYRI bir slice'tir ve o gelene kadar
-   * maliyet korumasi YOKTUR.
+   * ⚠️ Bu, projenin en pahali uclarindan biridir: her istek 1 embedding +
+   * 1 completion cagrisidir. Maliyet korumasi ARTIK VAR — T0'da saatlik sayac
+   * (ADR-0029 §5); asilirsa `429` ve embedding'e HIC gidilmez.
    */
   @Post('ask')
   @HttpCode(HttpStatus.OK)
   @RequirePermission(KNOWLEDGE_ASK)
   @ApiOperation({ summary: 'Kurumsal hafizaya soru sorar', description: ASK_DESCRIPTION })
   @ApiResponse({ status: HttpStatus.OK, description: 'Cevap uretildi.' })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.',
-  })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: ASK_FORBIDDEN_DESCRIPTION })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: ASK_RATE_LIMITED_DESCRIPTION })
   @ApiResponse({
     status: HttpStatus.BAD_GATEWAY,
     description: 'Embedding veya completion saglayicisi cevap veremedi.',

@@ -1,12 +1,15 @@
+import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { type ConversationRepository } from './conversation.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
+import { enforceRateLimit } from './enforce-rate-limit';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import { CompletionFailedError, type LLMPort, type LlmMessage } from './llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
+import { type RateLimitRepository } from './rate-limit.repository.port';
 
 export interface AskKnowledgeCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -29,14 +32,18 @@ export interface AskKnowledgeResult {
 export interface AskKnowledgeDependencies {
   readonly noteChunkSearch: NoteChunkSearch;
   readonly conversationRepository: ConversationRepository;
+  readonly rateLimitRepository: RateLimitRepository;
   readonly embeddingPort: EmbeddingPort;
   readonly llmPort: LLMPort;
   readonly transactionManager: TransactionManager;
   readonly idGenerator: IdGenerator;
+  readonly clock: Clock;
   /** Cekilecek parca sayisi. Config'ten gelir (ADR-0030 §1.2: sabitlenmez). */
   readonly retrievalLimit: number;
   /** Gecmisten alinacak TEKIL mesaj sayisi. Config'ten gelir. */
   readonly historyMessages: number;
+  /** Saatlik soru payi (ADR-0029 §5). Config'ten gelir. */
+  readonly rateLimit: number;
 }
 
 /**
@@ -45,8 +52,9 @@ export interface AskKnowledgeDependencies {
  * ============================================================================
  * IKI AG CAGRISI, IKISI DE TRANSACTION DISINDA
  * ============================================================================
+ *   T0  oran siniri sayaci   -> transaction (kendi basina, hemen commit)
  *   embed(soru)              -> ag · transaction YOK
- *   T1  retrieval + gecmis   -> transaction
+ *   T1  sahiplik + retrieval + gecmis -> transaction
  *   complete(...)            -> ag · transaction YOK
  *   T2  konusma + iki mesaj  -> transaction
  *
@@ -73,6 +81,15 @@ export class AskKnowledgeUseCase {
   async execute(command: AskKnowledgeCommand): Promise<AskKnowledgeResult> {
     const tenantId = TenantId.create(command.tenantId);
     const question = command.question.trim();
+
+    // --- T0: oran siniri ----------------------------------------------------
+    // Embedding'den ONCE: reddedilecek bir istek TEK KURUS harcamamali.
+    await enforceRateLimit(this.deps, {
+      tenantId,
+      userId: command.userId,
+      action: 'ask',
+      limit: this.deps.rateLimit,
+    });
 
     // --- Ag · transaction YOK ------------------------------------------------
     const questionEmbedding = await this.#embed(question);
