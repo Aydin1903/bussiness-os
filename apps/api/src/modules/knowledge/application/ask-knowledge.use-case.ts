@@ -6,6 +6,7 @@ import { TenantId } from '../domain/tenant-id.value-object';
 import { type ConversationRepository } from './conversation.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
 import { enforceRateLimit } from './enforce-rate-limit';
+import { parseCompletion } from './follow-up-parser';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import { CompletionFailedError, type LLMPort, type LlmMessage } from './llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
@@ -26,6 +27,14 @@ export interface AskKnowledgeResult {
   readonly sourceNoteIds: readonly string[];
   /** Verilen ya da yeni acilan konusmanin id'si. */
   readonly conversationId: string;
+  /**
+   * Modelin onerdigi takip sorulari (ADR-0029 §4).
+   *
+   * AYRI bir LLM cagrisi DEGIL: ayni `complete()` ciktisindan ayrilir, yani
+   * maliyet ek token kadardir, ek round-trip yoktur. Model onermediyse ya da
+   * bicim bozulduysa BOS doner — arayuz o zaman statik ornekler gosterir.
+   */
+  readonly followUps: readonly string[];
 }
 
 /** DEVELOPMENT_RULES 2.5: 3'ten fazla bagimlilik obje olarak alinir. */
@@ -98,7 +107,8 @@ export class AskKnowledgeUseCase {
     const { chunks, history } = await this.#gatherContext(command, tenantId, questionEmbedding);
 
     // --- Ag · transaction YOK ------------------------------------------------
-    const answer = await this.#complete(question, chunks, history);
+    const completion = await this.#complete(question, chunks, history);
+    const { answer, followUps } = parseCompletion(completion);
 
     // --- T2: konusma + iki mesaj --------------------------------------------
     const { conversationId } = await this.deps.transactionManager.runInCurrentTenantTransaction(
@@ -115,7 +125,7 @@ export class AskKnowledgeUseCase {
         }),
     );
 
-    return { answer, sourceNoteIds: distinctNoteIds(chunks), conversationId };
+    return { answer, sourceNoteIds: distinctNoteIds(chunks), conversationId, followUps };
   }
 
   /** T1 — tek transaction: sahiplik, retrieval ve gecmis birlikte okunur. */

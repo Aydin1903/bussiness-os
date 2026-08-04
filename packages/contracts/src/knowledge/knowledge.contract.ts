@@ -67,6 +67,12 @@ export const askKnowledgeResponseSchema = z.object({
   answer: z.string().min(1),
   sourceNoteIds: z.array(z.string()),
   conversationId: z.string().min(1),
+  /**
+   * Modelin önerdiği takip soruları — aynı `complete()` çıktısından ayrılır,
+   * AYRI bir çağrı değildir. Boş olabilir (model önermedi ya da bağlam boştu);
+   * istemci o zaman statik örnekler gösterir.
+   */
+  followUps: z.array(z.string()),
 });
 export type AskKnowledgeResponse = z.infer<typeof askKnowledgeResponseSchema>;
 

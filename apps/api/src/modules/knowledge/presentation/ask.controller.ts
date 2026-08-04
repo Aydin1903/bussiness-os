@@ -26,6 +26,8 @@ interface AskKnowledgeResponse {
   readonly sourceNoteIds: readonly string[];
   /** Verilen ya da yeni acilan konusma. Istemci sonraki soruda bunu gonderir. */
   readonly conversationId: string;
+  /** Modelin onerdigi takip sorulari; bos olabilir. */
+  readonly followUps: readonly string[];
 }
 
 const ASK_DESCRIPTION =
@@ -102,6 +104,7 @@ export class AskController {
       answer: result.answer,
       sourceNoteIds: result.sourceNoteIds,
       conversationId: result.conversationId,
+      followUps: result.followUps,
     };
   }
 }

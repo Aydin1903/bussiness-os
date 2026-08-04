@@ -7,7 +7,7 @@ import { AskKnowledgeUseCase, type AskKnowledgeDependencies } from './ask-knowle
 import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
 import { ConversationAccessDeniedError, RateLimitExceededError } from '../domain/knowledge.error';
 import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
-import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
+import { FOLLOW_UP_MARKER, KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import {
   CompletionFailedError,
   type CompleteInput,
@@ -507,9 +507,18 @@ describe('AskKnowledgeUseCase — systemPrompt', () => {
   });
 
   it('KISA tutulmus — uzun talimat modeli bulandirir', () => {
-    // Uc kural + dil satiri. Sinir keyfi degil: prompt buyudukce kurallar
+    // DORT kural + dil satiri. Sinir keyfi degil: prompt buyudukce kurallar
     // birbiriyle yarisir ve model hangisini onceleyecegini bilemez.
-    expect(KNOWLEDGE_SYSTEM_PROMPT.length).toBeLessThan(800);
+    //
+    // Sinir 800'den 1100'e cikarildi (2026-08-05): takip sorusu kurali BILEREK
+    // eklendi (ADR-0029 §4, ayri bir LLM cagrisindan kacinmak icin). Testi
+    // silmek yerine yeni gercege gore guncellendi — kural hala korunuyor.
+    expect(KNOWLEDGE_SYSTEM_PROMPT.length).toBeLessThan(1100);
+  });
+
+  it('takip sorusu kurali ve ayrac promptta', () => {
+    expect(KNOWLEDGE_SYSTEM_PROMPT).toContain(FOLLOW_UP_MARKER);
+    expect(KNOWLEDGE_SYSTEM_PROMPT).toContain('takip sorusu');
   });
 });
 

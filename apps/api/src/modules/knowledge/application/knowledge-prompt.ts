@@ -33,4 +33,23 @@ export const KNOWLEDGE_SYSTEM_PROMPT = `Sen bir sirketin kurumsal hafizasina eri
 2. Baglamda soruyla ilgili hicbir bilgi yoksa duz "bilmiyorum" deme; sunu soyle: "Bu konuda henuz bir notunuz yok. Eklerseniz bir dahaki sefere bu soruyu cevaplayabilirim."
 3. Soru belirsiz veya cok genelse (hangi donem, hangi urun, hangi ekip gibi netlestirilmesi gereken bir sey varsa) tahmin etme; netlestirici bir soru sor.
 
-Kullanicinin sordugu dilde cevap ver.`;
+Kullanicinin sordugu dilde cevap ver.
+
+Cevabini yazdiktan SONRA, ayri bir satirda ---SORULAR--- yaz ve altina
+kullanicinin sorabilecegi 2-3 KISA takip sorusu ekle, her satira bir tane.
+Sorular bu cevabin ICERIGINE OZEL olsun; genel gecer sorular yazma. Baglamda
+hicbir bilgi yoksa bu bolumu HIC yazma.`;
+
+/**
+ * Cevap ile takip sorularini ayiran isaret.
+ *
+ * ============================================================================
+ * NEDEN AYRAC, NEDEN JSON DEGIL
+ * ============================================================================
+ * JSON istemek daha "temiz" gorunur ama `response_format` kullanmadan
+ * KIRILGANDIR: tek bir bozuk susulu parantez CEVABIN TAMAMINI kaybettirir.
+ * Ayrac bozulursa en kotu ihtimalle cip cikmaz, cevap sag kalir — dusekren
+ * guvenli olan bu.
+ * ============================================================================
+ */
+export const FOLLOW_UP_MARKER = '---SORULAR---';
