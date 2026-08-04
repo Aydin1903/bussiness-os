@@ -123,10 +123,26 @@ describe('OnboardingGate — bayrak', () => {
 });
 
 describe('OnboardingGate — kenar durumlar', () => {
+  it('kontrol HATA verirse KONSOLA UYARI yazilir', async () => {
+    // Fail-open korunuyor ama artik SESSIZ degil: "koruma calisti" ile
+    // "koruma coktu" ayirt edilebilmeli (bir teshis sirasinda eklendi).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    notesExist.mockRejectedValue(new Error('ag hatasi'));
+
+    renderGate();
+
+    await waitFor(() => {
+      expect(warn).toHaveBeenCalled();
+    });
+    expect(String(warn.mock.calls[0]?.[0])).toContain('OnboardingGate');
+    warn.mockRestore();
+  });
+
   it('kontrol HATA verirse DASHBOARD gosterilir, wizard DEGIL', async () => {
     // Bu bir yetki kapisi degil KARSILAMA kapisidir: supheye dusunce birine
     // kurulum sihirbazi dayatmak, notu olan bir sirkete "bastan taniselim"
     // demek olurdu.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     notesExist.mockRejectedValue(new Error('ag hatasi'));
 
     renderGate();
@@ -135,6 +151,7 @@ describe('OnboardingGate — kenar durumlar', () => {
       expect(dashboard()).toBeInTheDocument();
     });
     expect(replace).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('tenant YOKSA sorgu yapilmaz ve dashboard cizilir', async () => {

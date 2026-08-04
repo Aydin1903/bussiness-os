@@ -60,7 +60,20 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         setPhase('redirect');
         router.replace('/app/onboarding');
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        // ⚠️ SESSIZ KALMAZ. Fail-open davranışı KORUNUR (aşağıdaki gerekçe),
+        // ama hata GÖRÜNÜR olur.
+        //
+        // Bu satır bir teşhis sırasında yazıldı: uç bir sebeple cevap
+        // vermediğinde (eski API süreci, 5xx, ağ) kullanıcı wizard'a
+        // yönlendirilmiyor, hiçbir hata da görünmüyordu — "koruma çalıştı" ile
+        // "koruma çöktü" birbirinden AYIRT EDİLEMİYORDU.
+        //
+        // Kullanıcıya gösterilmez (onun ilgilenmesi gereken bir şey değil),
+        // konsola yazılır: bakan biri için tek ipucu budur.
+        // eslint-disable-next-line no-console
+        console.warn('[OnboardingGate] Not varlık kontrolü başarısız; panel gösteriliyor.', error);
+
         if (active) {
           setPhase('ready');
         }
