@@ -17,6 +17,8 @@ import {
   type ConversationRepository,
 } from './application/conversation.repository.port';
 import { CheckNotesExistUseCase } from './application/check-notes-exist.use-case';
+import { GenerateDailyReportsUseCase } from './application/generate-daily-reports.use-case';
+import { GetLatestDailyReportUseCase } from './application/get-latest-daily-report.use-case';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
   RATE_LIMIT_REPOSITORY,
@@ -36,6 +38,7 @@ import {
 import { NOTE_REPOSITORY, type NoteRepository } from './application/note.repository.port';
 import { DeepSeekLlmAdapter } from './infrastructure/deepseek-llm.adapter';
 import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
+import { DailyReportWorker } from './infrastructure/daily-report-worker';
 import { DrizzleRateLimitRepository } from './infrastructure/drizzle-rate-limit.repository';
 import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-report-run.repository';
 import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
@@ -45,6 +48,7 @@ import { FakeEmbeddingAdapter } from './infrastructure/fake-embedding.adapter';
 import { FakeLlmAdapter } from './infrastructure/fake-llm.adapter';
 import { OpenAiEmbeddingAdapter } from './infrastructure/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
+import { DailyReportController } from './presentation/daily-report.controller';
 import { NoteController } from './presentation/note.controller';
 
 /**
@@ -63,7 +67,7 @@ import { NoteController } from './presentation/note.controller';
  * ============================================================================
  */
 @Module({
-  controllers: [NoteController],
+  controllers: [NoteController, DailyReportController],
   providers: [
     // --- Paylasilan cekirdek port'lari ---------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -175,6 +179,49 @@ import { NoteController } from './presentation/note.controller';
         transactionManager: TransactionManager,
       ): CheckNotesExistUseCase =>
         new CheckNotesExistUseCase({ noteRepository, transactionManager }),
+    },
+    {
+      provide: GetLatestDailyReportUseCase,
+      inject: [DAILY_REPORT_RUN_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        reportRepository: DailyReportRunRepository,
+        transactionManager: TransactionManager,
+      ): GetLatestDailyReportUseCase =>
+        new GetLatestDailyReportUseCase({ reportRepository, transactionManager }),
+    },
+    {
+      provide: GenerateDailyReportsUseCase,
+      inject: [DAILY_REPORT_RUN_REPOSITORY, LLM_PORT, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
+      // eslint-disable-next-line max-params
+      useFactory: (
+        reportRepository: DailyReportRunRepository,
+        llmPort: LLMPort,
+        transactionManager: TransactionManager,
+        clock: Clock,
+        config: AppConfig,
+      ): GenerateDailyReportsUseCase =>
+        new GenerateDailyReportsUseCase({
+          reportRepository,
+          llmPort,
+          transactionManager,
+          clock,
+          batchSize: config.dailyReport.batchSize,
+          hourUtc: config.dailyReport.hourUtc,
+          windowHours: config.dailyReport.windowHours,
+        }),
+    },
+    {
+      // Zamanlayici: NE ZAMAN calisilacagini bilir, NE yapilacagini bilmez.
+      provide: DailyReportWorker,
+      inject: [GenerateDailyReportsUseCase, APP_CONFIG],
+      useFactory: (
+        generateReports: GenerateDailyReportsUseCase,
+        config: AppConfig,
+      ): DailyReportWorker =>
+        new DailyReportWorker(generateReports, {
+          enabled: config.dailyReport.enabled,
+          intervalMs: config.dailyReport.intervalMs,
+        }),
     },
     {
       provide: AskKnowledgeUseCase,

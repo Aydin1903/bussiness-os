@@ -42,8 +42,22 @@ export const KNOWLEDGE_ASK = 'knowledge:ask';
  */
 export const NOTE_READ = 'note:read';
 
+/**
+ * `report:read` -> owner, admin, member (`viewer` HARIC).
+ *
+ * Rapor, notlardan TURETILMIS bir ozettir. `note:read` viewer'i disarida
+ * birakirken ozetini gostermek tutarsiz olurdu: viewer'in goremedigi notlarin
+ * icerigi, ozet uzerinden sizardi.
+ *
+ * Ayri permission (yine `note:read`'e kosulmadi): rapor bir SISTEM CIKTISIDIR,
+ * notlarin kendisi degil. Ileride "kim raporu gorur" ile "kim not okur"
+ * ayrisabilir — ornegin salt-rapor goren bir yonetici rolu.
+ */
+export const REPORT_READ = 'report:read';
+
 export const KNOWLEDGE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: NOTE_CREATE, roles: ['owner', 'admin', 'member'] },
   { permission: NOTE_READ, roles: ['owner', 'admin', 'member'] },
   { permission: KNOWLEDGE_ASK, roles: ['owner', 'admin', 'member'] },
+  { permission: REPORT_READ, roles: ['owner', 'admin', 'member'] },
 ];

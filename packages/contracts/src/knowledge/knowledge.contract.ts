@@ -80,3 +80,22 @@ export const notesExistResponseSchema = z.object({
   hasNotes: z.boolean(),
 });
 export type NotesExistResponse = z.infer<typeof notesExistResponseSchema>;
+
+/**
+ * `GET /knowledge/daily-report` yanıtı (ADR-0030 §2.2).
+ *
+ * `report: null` bir HATA DEĞİL, normal durumdur: yeni açılmış bir tenant'ın
+ * henüz raporu yoktur. Bu yüzden uç 404 değil 200 döner.
+ */
+export const dailyReportResponseSchema = z.object({
+  report: z
+    .object({
+      /** UTC gün (`YYYY-MM-DD`). Raporun ait olduğu gün. */
+      reportDate: z.string().min(1),
+      summary: z.string().min(1),
+      /** ISO 8601. Raporun üretildiği an — `reportDate`'ten farklıdır. */
+      generatedAt: z.string().min(1),
+    })
+    .nullable(),
+});
+export type DailyReportResponse = z.infer<typeof dailyReportResponseSchema>;
