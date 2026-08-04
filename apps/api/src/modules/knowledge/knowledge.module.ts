@@ -18,6 +18,7 @@ import {
 } from './application/conversation.repository.port';
 import { CheckNotesExistUseCase } from './application/check-notes-exist.use-case';
 import { GenerateDailyReportsUseCase } from './application/generate-daily-reports.use-case';
+import { ListNotesUseCase } from './application/list-notes.use-case';
 import { GetLatestDailyReportUseCase } from './application/get-latest-daily-report.use-case';
 import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
@@ -48,6 +49,7 @@ import { FakeEmbeddingAdapter } from './infrastructure/fake-embedding.adapter';
 import { FakeLlmAdapter } from './infrastructure/fake-llm.adapter';
 import { OpenAiEmbeddingAdapter } from './infrastructure/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
+import { AskController } from './presentation/ask.controller';
 import { DailyReportController } from './presentation/daily-report.controller';
 import { NoteController } from './presentation/note.controller';
 
@@ -67,7 +69,7 @@ import { NoteController } from './presentation/note.controller';
  * ============================================================================
  */
 @Module({
-  controllers: [NoteController, DailyReportController],
+  controllers: [NoteController, AskController, DailyReportController],
   providers: [
     // --- Paylasilan cekirdek port'lari ---------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -179,6 +181,20 @@ import { NoteController } from './presentation/note.controller';
         transactionManager: TransactionManager,
       ): CheckNotesExistUseCase =>
         new CheckNotesExistUseCase({ noteRepository, transactionManager }),
+    },
+    {
+      provide: ListNotesUseCase,
+      inject: [NOTE_REPOSITORY, TRANSACTION_MANAGER, APP_CONFIG],
+      useFactory: (
+        noteRepository: NoteRepository,
+        transactionManager: TransactionManager,
+        config: AppConfig,
+      ): ListNotesUseCase =>
+        new ListNotesUseCase({
+          noteRepository,
+          transactionManager,
+          previewLength: config.knowledge.notePreviewLength,
+        }),
     },
     {
       provide: GetLatestDailyReportUseCase,

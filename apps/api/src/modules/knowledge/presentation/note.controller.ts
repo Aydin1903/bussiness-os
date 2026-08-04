@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Query,
   HttpCode,
   HttpStatus,
   Post,
@@ -16,12 +17,12 @@ import {
 } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
-import { AskKnowledgeUseCase } from '../application/ask-knowledge.use-case';
 import { CheckNotesExistUseCase } from '../application/check-notes-exist.use-case';
 import { CreateNoteUseCase } from '../application/create-note.use-case';
-import { KNOWLEDGE_ASK, NOTE_CREATE, NOTE_READ } from '../knowledge.permissions';
-import { askKnowledgeSchema, type AskKnowledgeBody } from './ask-knowledge.dto';
+import { ListNotesUseCase } from '../application/list-notes.use-case';
+import { NOTE_CREATE, NOTE_READ } from '../knowledge.permissions';
 import { createNoteSchema, type CreateNoteBody } from './create-note.dto';
+import { listNotesSchema, type ListNotesQueryDto } from './list-notes.dto';
 import { KnowledgeDomainExceptionFilter } from './knowledge-domain-exception.filter';
 
 const CREATE_NOTE_DESCRIPTION =
@@ -35,18 +36,29 @@ interface CreateNoteResponse {
   readonly chunkCount: number;
 }
 
-interface AskKnowledgeResponse {
-  readonly answer: string;
-  /** Cevabin dayandigi notlar — alaka sirasinda, tekillestirilmis. */
-  readonly sourceNoteIds: readonly string[];
-  /** Verilen ya da yeni acilan konusma. Istemci sonraki soruda bunu gonderir. */
-  readonly conversationId: string;
-}
-
 /** Sayi DEGIL boolean: sorulan tek sey "hic mi yok" (ADR-0030 §3). */
 interface NotesExistResponse {
   readonly hasNotes: boolean;
 }
+
+interface NoteListResponse {
+  readonly items: readonly {
+    readonly id: string;
+    readonly title: string | null;
+    readonly preview: string;
+    readonly bodyLength: number;
+    readonly createdAt: string;
+  }[];
+  readonly total: number;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+const LIST_NOTES_DESCRIPTION =
+  'Tenant in notlari, EN YENI ONCE, sayfali. YETKI: `note:read`; viewer 403 alir. ' +
+  '⚠️ `preview` TAM METIN DEGILDIR — bir not 500.000 karaktere kadar cikabilir ve ' +
+  '20 notun tam govdesi megabaytlarca yanit demektir. `bodyLength` ile metnin ' +
+  'kirpilip kirpilmadigi anlasilir; tam metin icin not detay ucu gerekir (henuz yok).';
 
 const NOTES_EXIST_FORBIDDEN_DESCRIPTION =
   'Kimliksiz istek, tenant secilmemis token veya note:read yetkisi olmayan rol.';
@@ -56,22 +68,9 @@ const NOTES_EXIST_DESCRIPTION =
   'kosulu (ADR-0030 §3): hic not yoksa wizard gosterilir. SAYMAZ — cevap ' +
   'boolean, cunku sorulan tek sey "hic mi yok".';
 
-const ASK_FORBIDDEN_DESCRIPTION =
-  'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.';
-
-const ASK_RATE_LIMITED_DESCRIPTION =
-  'Saatlik soru payi tukendi (ADR-0029 §5). `Retry-After` basligi, pencerenin ' +
-  'bitisine kalan saniyeyi tasir. 403 DEGIL: yetki var, pay yok.';
-
 const NOTE_RATE_LIMITED_DESCRIPTION =
   'Saatlik not olusturma payi tukendi (ADR-0029 §5). Uzun bir not ONLARCA ' +
   'embedding cagrisidir; reddedilen istek hicbirini yapmaz.';
-
-const ASK_DESCRIPTION =
-  'Soru embed edilir, tenant in notlarindan en yakin parcalar cekilir ve cevap ' +
-  'YALNIZCA o baglamdan uretilir. `conversationId` verilirse son birkac mesaj ' +
-  'gecmis olarak eklenir; verilmezse yeni konusma acilir ve id si yanitta doner. ' +
-  'Tenant-scoped access token gerektirir; viewer rolu SORAMAZ.';
 
 /**
  * `POST /api/v1/knowledge/notes` — kurumsal hafizaya not ekler (ADR-0029 §4).
@@ -92,9 +91,45 @@ const ASK_DESCRIPTION =
 export class NoteController {
   constructor(
     private readonly createNote: CreateNoteUseCase,
-    private readonly askKnowledge: AskKnowledgeUseCase,
     private readonly checkNotesExist: CheckNotesExistUseCase,
+    private readonly listNotes: ListNotesUseCase,
   ) {}
+
+  /**
+   * Not listesi — ADR-0029'da bilerek bos birakilmisti, `/app/knowledge`
+   * ekraniyla gerekli oldu.
+   *
+   * Oran sinirina TABI DEGIL: AI cagrisi yapmaz.
+   */
+  @Get('notes')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(NOTE_READ)
+  @ApiOperation({ summary: 'Notlari listeler (sayfali)', description: LIST_NOTES_DESCRIPTION })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Liste dondu.' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: NOTES_EXIST_FORBIDDEN_DESCRIPTION })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Sorgu gecerli degil.' })
+  async list(
+    @Query(new ZodValidationPipe(listNotesSchema)) query: ListNotesQueryDto,
+  ): Promise<NoteListResponse> {
+    requireTenantPrincipal();
+
+    const page = await this.listNotes.execute({ limit: query.limit, offset: query.offset });
+
+    return {
+      items: page.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        preview: item.preview,
+        bodyLength: item.bodyLength,
+        // ISO 8601: `Date` serilestirmesini JSON'a birakmak, bicimi somut
+        // sozlesme yerine tesadufe birakmak olurdu.
+        createdAt: item.createdAt.toISOString(),
+      })),
+      total: page.total,
+      limit: query.limit,
+      offset: query.offset,
+    };
+  }
 
   /**
    * Aktif tenant'in en az bir notu var mi (ADR-0030 §3 tetikleme kosulu).
@@ -172,47 +207,6 @@ export class NoteController {
     });
 
     return { noteId: result.noteId, chunkCount: result.chunkCount };
-  }
-
-  /**
-   * Kurumsal hafizaya soru sorar (ADR-0029 §4 okuma akisi).
-   *
-   * `200` doner, `201` DEGIL: yeni bir kaynak yaratilmiyor. Konusma ve mesajlar
-   * yan etkidir, istegin URUNU degil — urun cevaptir.
-   *
-   * ⚠️ Bu, projenin en pahali uclarindan biridir: her istek 1 embedding +
-   * 1 completion cagrisidir. Maliyet korumasi ARTIK VAR — T0'da saatlik sayac
-   * (ADR-0029 §5); asilirsa `429` ve embedding'e HIC gidilmez.
-   */
-  @Post('ask')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission(KNOWLEDGE_ASK)
-  @ApiOperation({ summary: 'Kurumsal hafizaya soru sorar', description: ASK_DESCRIPTION })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Cevap uretildi.' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: ASK_FORBIDDEN_DESCRIPTION })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecerli degil.' })
-  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: ASK_RATE_LIMITED_DESCRIPTION })
-  @ApiResponse({
-    status: HttpStatus.BAD_GATEWAY,
-    description: 'Embedding veya completion saglayicisi cevap veremedi.',
-  })
-  async ask(
-    @Body(new ZodValidationPipe(askKnowledgeSchema)) body: AskKnowledgeBody,
-  ): Promise<AskKnowledgeResponse> {
-    const principal = requireTenantPrincipal();
-
-    const result = await this.askKnowledge.execute({
-      tenantId: principal.tenantId,
-      userId: principal.userId,
-      question: body.question,
-      conversationId: body.conversationId ?? null,
-    });
-
-    return {
-      answer: result.answer,
-      sourceNoteIds: result.sourceNoteIds,
-      conversationId: result.conversationId,
-    };
   }
 }
 
