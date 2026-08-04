@@ -73,6 +73,32 @@ class FakeDailyReportRunRepository implements DailyReportRunRepository {
     this.scheduled.push({ tenantId: input.tenantId.value, reportDate: input.reportDate });
     return Promise.resolve();
   }
+
+  // --- Worker/dashboard yolu — not olusturma bunlari CAGIRMAZ --------------
+  //
+  // Bos govde yerine FIRLATIRLAR: sessizce bos donmek, yanlislikla cagrildiginda
+  // testi yesil birakirdi. Tek tablo = tek repository (NoteRepository ile ayni
+  // desen), ama bu use case'in o tablodaki tek isi "tembel seed"tir.
+
+  claimPending(): Promise<never> {
+    throw new Error('CreateNoteUseCase claimPending cagirmamali.');
+  }
+
+  markGenerated(): Promise<never> {
+    throw new Error('CreateNoteUseCase markGenerated cagirmamali.');
+  }
+
+  recordFailure(): Promise<never> {
+    throw new Error('CreateNoteUseCase recordFailure cagirmamali.');
+  }
+
+  listNotesSince(): Promise<never> {
+    throw new Error('CreateNoteUseCase listNotesSince cagirmamali.');
+  }
+
+  findLatestGenerated(): Promise<never> {
+    throw new Error('CreateNoteUseCase findLatestGenerated cagirmamali.');
+  }
 }
 
 class FakeEmbeddingPort implements EmbeddingPort {
