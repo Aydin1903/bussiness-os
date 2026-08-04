@@ -36,9 +36,13 @@ export function UserMenu() {
           setOpen((value) => !value);
         }}
         aria-label="Kullanıcı menüsü"
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+        className="flex w-full items-center gap-2.5 rounded-[10px] p-2 text-left transition-colors hover:bg-fill"
       >
-        <UserIcon width={16} height={16} />
+        <span className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-fill-2 text-fg-2">
+          <UserIcon width={14} height={14} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-fg-2">Hesabım</span>
+        <span className="text-[13px] leading-none tracking-[0.05em] text-fg-3">···</span>
       </button>
 
       {open ? (

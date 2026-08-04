@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import type { MyMembershipItem } from '@business-os/contracts';
 
-import { BuildingIcon, CheckIcon, ChevronDownIcon } from '@/components/icons';
+import { CheckIcon, ChevronDownIcon } from '@/components/icons';
 import { listMyMemberships } from '@/lib/api/tenants';
 import { selectTenant } from '@/lib/session/select-tenant';
 import { useSession } from '@/lib/session/session-provider';
@@ -73,11 +73,20 @@ export function CompanySwitcher() {
           setOpen((value) => !value);
         }}
         disabled={items === null || switching}
-        className="flex max-w-[220px] items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-fg transition-colors hover:bg-surface disabled:opacity-60"
+        className="flex w-full items-center gap-2.5 rounded-[11px] border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-raised hover:shadow-card disabled:opacity-60"
       >
-        <BuildingIcon className="shrink-0 text-fg-muted" width={16} height={16} />
-        <span className="truncate">{switching ? 'Geçiliyor…' : label}</span>
-        <ChevronDownIcon className="shrink-0 text-fg-muted" width={16} height={16} />
+        {/* Şirket rozeti: baş harfler. İkon yerine harf — çok şirketli bir
+            üründe "hangi şirketteyim" sorusuna en hızlı cevap budur. */}
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-accent text-[11.5px] font-bold text-accent-fg shadow-card">
+          {initials(label)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold tracking-[-0.012em] text-fg">
+            {switching ? 'Geçiliyor…' : label}
+          </span>
+          <span className="block text-[11px] text-fg-3">Şirket değiştir</span>
+        </span>
+        <ChevronDownIcon className="shrink-0 text-fg-3" width={14} height={14} />
       </button>
 
       {open ? (
@@ -89,7 +98,7 @@ export function CompanySwitcher() {
             }}
             aria-hidden="true"
           />
-          <div className="absolute right-0 z-20 mt-2 w-64 rounded-card border border-border bg-bg p-1 shadow-lg">
+          <div className="absolute left-0 z-20 mt-2 w-full min-w-[240px] rounded-card border border-border bg-raised p-1 shadow-float">
             {items !== null && items.length > 0 ? (
               <ul className="flex flex-col">
                 {items.map((item) => (
@@ -117,4 +126,13 @@ export function CompanySwitcher() {
       ) : null}
     </div>
   );
+}
+
+/** Şirket adından en fazla iki baş harf. Boşsa nötr bir işaret döner. */
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  if (words.length === 0) {
+    return '—';
+  }
+  return words.map((word) => word[0]?.toLocaleUpperCase('tr') ?? '').join('');
 }

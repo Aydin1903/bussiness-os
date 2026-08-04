@@ -7,9 +7,7 @@ import { ChevronLeftIcon, MenuIcon } from '@/components/icons';
 import { bootstrapSession } from '@/lib/session/bootstrap';
 import { clearSessionHint } from '@/lib/session/session-hint';
 import { getAccessToken } from '@/lib/session/session-store';
-import { CompanySwitcher } from './company-switcher';
 import { Sidebar } from './sidebar';
-import { UserMenu } from './user-menu';
 
 type Phase = 'loading' | 'ready' | 'redirect';
 
@@ -70,10 +68,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Masaüstü sidebar — daraltılabilir */}
       <aside
-        className={`hidden shrink-0 border-r border-border transition-[width] md:block ${collapsed ? 'w-16' : 'w-60'}`}
+        className={`hidden shrink-0 border-r border-border transition-[width] md:block ${collapsed ? 'w-16' : 'w-[246px]'}`}
       >
         <Sidebar collapsed={collapsed} />
       </aside>
@@ -100,7 +98,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 md:px-6">
+        {/*
+          Başlık şeridi artık YALNIZCA gezinme kontrollerini taşır: şirket
+          anahtarı ve kullanıcı menüsü sol menüye taşındı (bkz. Sidebar).
+          Sağ taraf tümüyle içeriğe bırakıldı.
+        */}
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-3 md:px-4">
           <div className="flex items-center gap-1">
             {/* Mobil: hamburger */}
             <button
@@ -129,14 +132,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               />
             </button>
           </div>
-
-          <div className="flex items-center gap-2">
-            <CompanySwitcher />
-            <UserMenu />
-          </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        {/* Dolgu YOK: Panel kendi üç sütunlu düzenini kurar ve sayfa
+            zeminine kadar uzanır. Dolgu isteyen sayfa kendi verir. */}
+        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
     </div>
   );
