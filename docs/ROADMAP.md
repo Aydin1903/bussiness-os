@@ -212,9 +212,9 @@ AI çağrısı **maliyet ve token takibi**, diğer iki kalemden farklı bir acil
 
 Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.3](#83-retention-borcu-dört-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
 
-### 8.3 Retention borcu: dört tablo, tek karar
+### 8.3 Retention borcu: beş tablo, tek karar
 
-Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile **beşe** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
 | Tablo                        | Neyi biriktiriyor                                                              | Kaynak                                                                           |
 | ---------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -222,8 +222,11 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde çıktı. Tek madd
 | `verification_code_requests` | Her doğrulama/sıfırlama kodu isteği                                            | Faz 3                                                                            |
 | `daily_report_runs`          | Tenant başına günde bir satır, kalıcı olarak                                   | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) |
 | `messages`                   | Her soru-cevap iki satır — **en hızlı büyüyen**                                | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
+| `knowledge.rate_limits`      | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**               | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)          |
 
-İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Son ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
+İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
+
+`rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.
 
 ---
 

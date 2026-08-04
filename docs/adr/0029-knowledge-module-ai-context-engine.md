@@ -113,8 +113,71 @@ gerekirse orada ayarlanir.
 
 ### 5. Rate limiting
 
-`/knowledge/ask` icin **kullanici + tenant** bazli (IP DEGIL). Oneri:
-**30 istek/saat/kullanici**, asilirsa `429`.
+**Kullanici + tenant** bazli (IP DEGIL), saatlik pencere, asilirsa `429`:
+
+| Uc nokta                | `action`      | Limit             | Ne tur bir sinir |
+| ----------------------- | ------------- | ----------------- | ---------------- |
+| `POST /knowledge/ask`   | `ask`         | 30/saat/kullanici | **BUTCE**        |
+| `POST /knowledge/notes` | `create_note` | 60/saat/kullanici | **SIGORTA**      |
+
+Iki eylem **AYRI KOVADIR**: `/ask` payini tuketmek not eklemeyi engellemez.
+
+**Neden `/notes` de dahil** (kapsam 2026-08-04'te genisletildi). Ilk tasarim
+yalnizca `/ask`'i kapsiyordu; bu eksikti. Uzun bir not **cok sayida chunk**
+uretir ve her chunk **bir embedding cagrisidir** — 20 parcali bir not, tek bir
+`/ask` isteginden (1 embedding + 1 completion) pahaliya patlayabilir. Projenin
+en pahali ucunu korurken yanindaki daha pahali olabilecek ucu acik birakmak,
+korumayi anlamsiz kilardi.
+
+**Neden 60 > 30 — ve neden bu "notlar daha ucuz" DEMEK DEGIL.** Yukaridaki
+gerekce zaten tersini soyluyor. Iki sayi farkli TURDE sinirlardir:
+
+- `/ask` bir **butcedir**: insan gercekten 30'a yaklasabilir, cunku soru sormak
+  tekrar tekrar yapilan bir eylemdir. Sinir normal kullanimi olcer.
+- `/notes` bir **sigortadir**: bir insan saatte 60 anlamli not yazamaz. O
+  rakama ancak bir istemci retry hatasi veya script ulasir. Sinir normal
+  kullanimi degil, KACAK DONGUYU hedefler.
+
+**Bilinen sinir: bu mekanizma ISTEK SAYISINI baglar, TOKEN HARCAMASINI degil.**
+Tek bir devasa not, 60 kucuk nottan pahaliya patlayabilir ve sayac bunu gormez.
+Token/karakter tabanli butce AYRI bir mekanizmadir; ihtiyac olursa ayri bir
+karar olarak ele alinir.
+
+#### 5.1 Mekanizma — sayac satiri, istek logu DEGIL
+
+`knowledge.rate_limits`, birincil anahtari
+`(tenant_id, user_id, action, window_start)` olan bir SAYAC tablosudur.
+`platform.login_attempts` deseni (istek basina bir satir + `COUNT(*)`)
+BILEREK tekrarlanmadi:
+
+1. **Atomiklik.** Maliyet saldirisinin sekli es zamanliliktir. "Once say,
+   sonra yaz" deseninde 100 paralel istek ayni sayiyi okur ve hepsi gecer.
+   Tek deyimlik `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` sayim ile
+   artirmayi ayni satir kilidinin altina alir.
+2. **Buyume.** Log deseni kullanici basina saatte 30-60 satir yazardi; sayac
+   kullanici + eylem basina saatte BIR satir tutar.
+
+Kaybedilen sey "hangi istek ne zaman geldi" izidir; amac maliyet kontrolu
+oldugu icin gerekli gorulmedi.
+
+**Pencere SABIT saat dilimidir** (`date_trunc('hour', now())`), kayan degil.
+Bedeli acikca: sinir ihlali penceresi — 10:59'da 30, 11:00'de 30 istek, yani
+iki dakikada butcenin IKI KATI. Kabul edildi cunku bu rakamlar sert bir butce
+degil yumusak bir frendir. Yukseltme yolu tabloyu DEGISTIRMEDEN acik: iki
+kovali agirlikli sayac (Cloudflare deseni), yalnizca okuma formulu degisir.
+
+**Sayac pahali isten ONCE ve KENDI transaction'inda artar** (T0). Sebep,
+projede tekrarlanan transaction disiplininin aynisidir: sayac is
+transaction'ina girseydi, hata halinde GERI ALINIRDI ve hata ureten istekler
+bedava olurdu — bir hata dongusu sinirsiz para harcayabilirdi.
+
+**Basarisiz istek de kotadan duser.** Cagri yapildiysa para harcanmistir ve
+"iade" mantigi sayaci yeniden yarisa acardi. Kabul edilen bedel: uzun bir
+saglayici kesintisinde kullanici kotasi yanar; pencere bir saat oldugu icin
+kendiliginden iyilesir.
+
+Domain dogrulamasi (bos govde gibi) T0'dan ONCE calisir: `422` alan bir istek
+saatlik paydan DUSMEZ.
 
 ## Gerekce
 
