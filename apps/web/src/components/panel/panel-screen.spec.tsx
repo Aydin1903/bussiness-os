@@ -1,0 +1,263 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ApiError } from '@/lib/api/problem';
+import { PanelScreen } from './panel-screen';
+
+/**
+ * Panel — Genel Bakış ile Bilgi Bankası'nın birleştiği yüzey.
+ *
+ * En değerli iddialar: İKİ BOŞ DURUM (hiç not yok / not var rapor yok),
+ * düşünme durumu (sahte daktilo YOK) ve öneri çiplerinin nereden geldiği.
+ */
+const listNotes = vi.hoisted(() => vi.fn());
+const createNote = vi.hoisted(() => vi.fn());
+const askKnowledge = vi.hoisted(() => vi.fn());
+const fetchDailyReport = vi.hoisted(() => vi.fn());
+const countUnindexedNotes = vi.hoisted(() => vi.fn());
+const reindexNotes = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api/knowledge', () => ({
+  listNotes,
+  createNote,
+  askKnowledge,
+  fetchDailyReport,
+  countUnindexedNotes,
+  reindexNotes,
+}));
+
+function note(overrides: Partial<{ id: string; title: string | null; preview: string }> = {}) {
+  return {
+    id: 'note-1',
+    title: 'Fatura süreci',
+    preview: 'Muhasebe her ayın son günü fatura keser.',
+    bodyLength: 40,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function page(items: ReturnType<typeof note>[], total = items.length) {
+  return { items, total, limit: 3, offset: 0 };
+}
+
+function apiError(status: number, detail: string): ApiError {
+  return new ApiError(
+    status,
+    { type: 'https://api.businessos.com/errors/test', title: 'Hata', status, detail },
+    'Hata',
+  );
+}
+
+function ask(text: string): void {
+  fireEvent.change(screen.getByLabelText('Kurumsal hafızaya sor'), { target: { value: text } });
+  fireEvent.click(screen.getByRole('button', { name: 'Gönder' }));
+}
+
+beforeEach(() => {
+  listNotes.mockResolvedValue(page([note()], 12));
+  fetchDailyReport.mockResolvedValue({
+    report: {
+      reportDate: '2026-08-05',
+      summary: 'Dün geceden bu yana üç not eklendi.',
+      generatedAt: new Date().toISOString(),
+    },
+  });
+  createNote.mockResolvedValue({ noteId: 'n2', chunkCount: 1 });
+  askKnowledge.mockResolvedValue({
+    answer: 'Fatura sürecini Ayşe Yılmaz yönetiyor.',
+    sourceNoteIds: ['note-1', 'note-2'],
+    conversationId: 'conv-1',
+    followUps: ['Yedek onaycı var mı?'],
+  });
+  countUnindexedNotes.mockResolvedValue({ count: 0 });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('PanelScreen — günün açılışı', () => {
+  it('rapor VARSA AI gözlemi gösterilir', async () => {
+    expect(render(<PanelScreen />)).toBeDefined();
+
+    expect(await screen.findByText('Dün geceden bu yana üç not eklendi.')).toBeInTheDocument();
+  });
+
+  it('BOŞ DURUM 1 — hiç not yoksa karşılama metni', async () => {
+    listNotes.mockResolvedValue(page([], 0));
+    fetchDailyReport.mockResolvedValue({ report: null });
+
+    render(<PanelScreen />);
+
+    expect(await screen.findByText(/Kurumsal hafızanız henüz boş/)).toBeInTheDocument();
+  });
+
+  it('BOŞ DURUM 2 — not var ama rapor yoksa AYRI metin', async () => {
+    // Yeni tenant, worker ilk turunu atmamış. Daha SIK karşılaşılan durum.
+    listNotes.mockResolvedValue(page([note()], 5));
+    fetchDailyReport.mockResolvedValue({ report: null });
+
+    render(<PanelScreen />);
+
+    expect(await screen.findByText(/İlk günlük özetiniz yarın sabah/)).toBeInTheDocument();
+    expect(screen.queryByText(/henüz boş/)).not.toBeInTheDocument();
+  });
+
+  it('rapor çağrısı çökerse panel ÇÖKMEZ', async () => {
+    fetchDailyReport.mockRejectedValue(new Error('ağ'));
+
+    render(<PanelScreen />);
+
+    // Rapor yok sayılır, akış boş durum metniyle devam eder.
+    expect(await screen.findByText(/İlk günlük özetiniz/)).toBeInTheDocument();
+  });
+});
+
+describe('PanelScreen — başlangıç çipleri (LLM ÇAĞRILMADAN)', () => {
+  it('hiç not yokken onboarding tarzı sorular', async () => {
+    listNotes.mockResolvedValue(page([], 0));
+    fetchDailyReport.mockResolvedValue({ report: null });
+
+    render(<PanelScreen />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Şirketiniz ne iş yapıyor?' }),
+    ).toBeInTheDocument();
+    expect(askKnowledge).not.toHaveBeenCalled();
+  });
+
+  it('not varken hafızaya yönelik sorular', async () => {
+    render(<PanelScreen />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Notlarımda neler var?' }),
+    ).toBeInTheDocument();
+  });
+
+  it('başlangıç çipine tıklamak soruyu SORAR', async () => {
+    render(<PanelScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Notlarımda neler var?' }));
+
+    await waitFor(() => {
+      expect(askKnowledge).toHaveBeenCalledWith({
+        question: 'Notlarımda neler var?',
+        conversationId: null,
+      });
+    });
+  });
+});
+
+describe('PanelScreen — soru-cevap akışı', () => {
+  it('soru HEMEN akışa girer ve düşünme durumu gösterilir', async () => {
+    // SAHTE DAKTİLO YOK: gerçek durum gösterilir. Cevap henüz gelmemişken
+    // kullanıcı boş ekrana bakmaz.
+    let resolve: (value: unknown) => void = () => undefined;
+    askKnowledge.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    ask('Onay adımı neden tek kişiye bağlı?');
+
+    expect(await screen.findByText('Onay adımı neden tek kişiye bağlı?')).toBeInTheDocument();
+    expect(screen.getByText('Notlarınıza bakıyorum…')).toBeInTheDocument();
+
+    resolve({
+      answer: 'Cevap.',
+      sourceNoteIds: [],
+      conversationId: 'c',
+      followUps: [],
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Notlarınıza bakıyorum…')).not.toBeInTheDocument();
+    });
+  });
+
+  it('cevap ve kaynak sayısı gösterilir', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    ask('bir soru');
+
+    expect(await screen.findByText('Fatura sürecini Ayşe Yılmaz yönetiyor.')).toBeInTheDocument();
+    expect(screen.getByText('2 nota dayanıyor')).toBeInTheDocument();
+  });
+
+  it('MODELİN önerdiği çipler gösterilir', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    ask('bir soru');
+
+    expect(await screen.findByRole('button', { name: 'Yedek onaycı var mı?' })).toBeInTheDocument();
+  });
+
+  it('İKİNCİ soru aynı konuşmayı sürdürür', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    ask('ilk soru');
+    await screen.findByText('Fatura sürecini Ayşe Yılmaz yönetiyor.');
+
+    ask('ikinci soru');
+
+    await waitFor(() => {
+      expect(askKnowledge).toHaveBeenLastCalledWith({
+        question: 'ikinci soru',
+        conversationId: 'conv-1',
+      });
+    });
+  });
+
+  it('hata olursa CEVAPSIZ TUR akışta BIRAKILMAZ', async () => {
+    askKnowledge.mockRejectedValue(apiError(429, 'Saatlik istek sınırı aşıldı (en fazla 30).'));
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    ask('bir soru');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('en fazla 30');
+    expect(screen.queryByText('bir soru')).not.toBeInTheDocument();
+  });
+});
+
+describe('PanelScreen — not ekleme (panelden çıkmadan)', () => {
+  it('mod değiştirilip not eklenebilir', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not ekle' }));
+    fireEvent.change(screen.getByLabelText('Not ekle'), { target: { value: 'Yeni bir not' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gönder' }));
+
+    await waitFor(() => {
+      expect(createNote).toHaveBeenCalledWith({ title: null, body: 'Yeni bir not' });
+    });
+  });
+
+  it('not eklenince liste TAZELENİR', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+    const before = listNotes.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not ekle' }));
+    fireEvent.change(screen.getByLabelText('Not ekle'), { target: { value: 'not' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gönder' }));
+
+    await waitFor(() => {
+      expect(listNotes.mock.calls.length).toBeGreaterThan(before);
+    });
+  });
+});
+
+describe('PanelScreen — hafıza sayacı', () => {
+  it('toplam not sayısı başlıkta', async () => {
+    render(<PanelScreen />);
+
+    expect(await screen.findByText('12')).toBeInTheDocument();
+  });
+});

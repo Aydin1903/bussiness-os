@@ -85,7 +85,11 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   }, [router]);
 
   if (phase === 'checking') {
-    return <p className="text-sm text-fg-muted">Yükleniyor…</p>;
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <span className="text-sm text-fg-muted">Yükleniyor…</span>
+      </div>
+    );
   }
 
   // Yönlendirme sürerken dashboard ÇİZİLMEZ: bir an görünüp kaybolması,

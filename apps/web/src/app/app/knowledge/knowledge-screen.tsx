@@ -1,12 +1,12 @@
 'use client';
 
+import Link from 'next/link';
+
 import type { NoteListItem } from '@business-os/contracts';
 import { useCallback, useEffect, useState } from 'react';
 
 import { errorMessage } from '@/lib/api/error-message';
 import { listNotes } from '@/lib/api/knowledge';
-import { AskPanel } from './ask-panel';
-import { NoteForm } from './note-form';
 import { NoteList, PAGE_SIZE } from './note-list';
 import { ReindexBanner } from './reindex-banner';
 
@@ -86,27 +86,20 @@ export function KnowledgeScreen() {
   const [offset, setOffset] = useState(0);
   const { state, error, loading, reload } = useNoteList(offset);
 
-  const handleCreated = useCallback(() => {
-    // Yeni not EN YENI oldugu icin ilk sayfada; oradaysak yalnizca tazele,
-    // degilsek basa don ki kullanici ekledigini gorsun.
-    setOffset(0);
-    reload();
-  }, [reload]);
-
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Bilgi Bankası</h1>
+        <h1 className="text-xl font-semibold">Notlar</h1>
         <p className="text-sm text-fg-muted">
-          Şirketinizin kurumsal hafızası — notlarınız ve onlara dayanan cevaplar.
+          Kurumsal hafızanın tam arşivi. Soru sormak ve hızlı not eklemek{' '}
+          <Link href="/app" className="font-medium text-ink underline-offset-2 hover:underline">
+            Panel
+          </Link>
+          &apos;de.
         </p>
       </header>
 
       <ReindexBanner onRepaired={reload} />
-
-      <AskPanel hasNotes={state.total > 0} />
-
-      <NoteForm onCreated={handleCreated} />
 
       <NoteList
         items={state.items}

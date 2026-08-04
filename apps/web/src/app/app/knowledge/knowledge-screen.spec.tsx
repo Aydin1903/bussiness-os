@@ -5,21 +5,20 @@ import { ApiError } from '@/lib/api/problem';
 import { KnowledgeScreen } from './knowledge-screen';
 
 /**
- * Ekranın bütünü — not formu, liste, sayfalama ve üçünün etkileşimi.
+ * ARŞİV ekranı — liste, sayfalama, kırpma işareti.
  *
- * `AskPanel`'in kendi spec'i var; burada yalnızca `total`'dan beslenen ipucu
- * davranışı kesişiyor.
+ * Tasarım sürüm 2'de (2026-08-05) soru sorma ve not ekleme buradan Panel'e
+ * TAŞINDI: birleşen şey eylemlerdi, arşiv değil. O davranışların testleri de
+ * Panel'in spec'ine geçti — burada kalsalardı taşınmamış gibi görünürlerdi.
  */
 const listNotes = vi.hoisted(() => vi.fn());
 const createNote = vi.hoisted(() => vi.fn());
-const askKnowledge = vi.hoisted(() => vi.fn());
 const countUnindexedNotes = vi.hoisted(() => vi.fn());
 const reindexNotes = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api/knowledge', () => ({
   listNotes,
   createNote,
-  askKnowledge,
   countUnindexedNotes,
   reindexNotes,
 }));
@@ -151,102 +150,5 @@ describe('KnowledgeScreen — sayfalama', () => {
     render(<KnowledgeScreen />);
 
     expect(await screen.findByRole('button', { name: 'Önceki' })).toBeDisabled();
-  });
-});
-
-describe('KnowledgeScreen — not ekleme', () => {
-  it('baslik ve govde ile not olusturur', async () => {
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-
-    fireEvent.change(screen.getByLabelText('Başlık (opsiyonel)'), {
-      target: { value: 'Yeni baslik' },
-    });
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: 'Yeni govde' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    await waitFor(() => {
-      expect(createNote).toHaveBeenCalledWith({ title: 'Yeni baslik', body: 'Yeni govde' });
-    });
-  });
-
-  it('BOS baslik null gider (bos string DEGIL)', async () => {
-    // Backend `title IS NULL OR length(btrim(title)) > 0` kisiti tasiyor; bos
-    // string 422 alirdi.
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: 'Yalnizca govde' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    await waitFor(() => {
-      expect(createNote).toHaveBeenCalledWith({ title: null, body: 'Yalnizca govde' });
-    });
-  });
-
-  it('BOS govde gonderilmez', async () => {
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    expect(createNote).not.toHaveBeenCalled();
-  });
-
-  it('basarida LISTE TAZELENIR', async () => {
-    // Yeni notun listede gorunmemesi, kaydedilmedigi izlenimi verirdi.
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-    const before = listNotes.mock.calls.length;
-
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: 'yeni not' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    await waitFor(() => {
-      expect(listNotes.mock.calls.length).toBeGreaterThan(before);
-    });
-  });
-
-  it('basarida form TEMIZLENIR', async () => {
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: 'yeni not' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Not')).toHaveValue('');
-    });
-  });
-
-  it('429 da SUNUCUNUN mesaji gosterilir', async () => {
-    createNote.mockRejectedValue(apiError(429, 'Saatlik istek siniri asildi (en fazla 60).'));
-    render(<KnowledgeScreen />);
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-
-    fireEvent.change(screen.getByLabelText('Not'), { target: { value: 'yeni not' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('en fazla 60');
-    });
-  });
-});
-
-describe('KnowledgeScreen — bos baglam ipucu total dan gelir', () => {
-  it('total 0 iken ipucu gosterilir', async () => {
-    listNotes.mockResolvedValue(page([], 0));
-    render(<KnowledgeScreen />);
-
-    expect(await screen.findByText(/Henüz notunuz yok/)).toBeInTheDocument();
-  });
-
-  it('total > 0 iken ipucu gosterilmez', async () => {
-    listNotes.mockResolvedValue(page([note()], 1));
-    render(<KnowledgeScreen />);
-
-    await screen.findByText('Muhasebe ekibi her ayin son gunu fatura keser.');
-    expect(screen.queryByText(/Henüz notunuz yok/)).not.toBeInTheDocument();
   });
 });
