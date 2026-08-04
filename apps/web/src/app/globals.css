@@ -1,94 +1,252 @@
 @import 'tailwindcss';
 
 /*
- * Tasarım token'ları — FRONTEND_ARCHITECTURE §4 (Apple-vari minimal).
+ * Tasarım token'ları — FRONTEND_ARCHITECTURE §4.
  *
- * Tailwind v4 CSS-first'tür: SSOT bu dosyadaki CSS değişkenleridir, ayrı bir
- * `tailwind.config.js` YOKTUR. Semantik renkler önce runtime CSS değişkeni
- * olarak tanımlanır (light/dark burada çevrilir), sonra `@theme inline` ile
- * Tailwind utility'lerine bağlanır — böylece `bg-bg`, `text-fg` gibi sınıflar
- * `dark:` ikizine gerek kalmadan `prefers-color-scheme` ile kendiliğinden döner.
+ * ============================================================================
+ * SICAK NÖTR ZEMİN + TEK İMZA RENGİ (AMBER)
+ * ============================================================================
+ * Önceki sistem "renk değil kontrast" diyordu ve saf beyaz/siyahtı. Yeni yön
+ * (Product Owner onayı, 2026-08-05) sıcak nötr bir zemin ve TEK bir imza rengi
+ * kullanır: amber. Mor/mavi "AI ürünü" klişesinden ve sparkle ikonundan
+ * bilinçli olarak kaçınılır.
  *
- * Apple disiplini: renk değil KONTRAST. Tek "vurgu" siyah/beyazdır.
+ * ⚠️ AMBER İKİ TONDUR ve bu zorunluluktur:
+ *   `--accent`  → DOLGU (buton, aktif durum). Üstünde `--accent-fg` okunur.
+ *   `--ink`     → accent renkli METİN. Dolgu tonu metin olarak sönük kalıyor,
+ *                 metin tonu üstünde beyaz yazı okunmuyordu.
+ * Koyu modda dolgu parlak amber + KOYU metin taşır (Apple'ın sarı butonları):
+ * o zeminde beyaz yazı okunmaz.
+ *
+ * ============================================================================
+ * DÖRT YÜZEY KATMANI
+ * ============================================================================
+ * `sunken` (sağ ray) < `bg` (sayfa) < `surface` (sol menü, yazma alanı) <
+ * `raised` (girdi kutusu). Derinlik gölgeyle değil KATMANLA kurulur; gölge
+ * yalnızca yükseltilmiş öğeyi ayırmak için ve çok yumuşak.
+ *
+ * ============================================================================
+ * GERİYE UYUMLULUK
+ * ============================================================================
+ * `--fg-muted` KORUNDU (kodda 54 kullanımı var) ve `--fg-2`'ye eşitlendi.
+ * Silinseydi mevcut ekranların ikincil metinleri sessizce kaybolurdu.
+ *
+ * Tailwind v4 CSS-first'tür: SSOT bu dosyadır, `tailwind.config.js` YOKTUR.
  */
 
 :root {
   color-scheme: light dark;
 
-  /* Light — beyaz / krem / açık gri / siyah */
-  --bg: #ffffff;
-  --surface: #faf9f6; /* krem */
-  --border: #ecebe7; /* açık gri */
-  --fg: #0a0a0a;
-  --fg-muted: #6b6b6b;
-  --accent: #0a0a0a; /* kontrast = vurgu */
-  --accent-fg: #ffffff;
-  --danger: #b3261e;
+  /* — yüzeyler — */
+  --bg: #fcfbf8;
+  --sunken: #f6f3ed;
+  --surface: #f1eee7;
+  --raised: #ffffff;
+
+  /* — çizgiler: iki ağırlık — */
+  --border: #e6e0d5;
+  --border-strong: #d3cbbd;
+
+  /* — metin: üç kademe — */
+  --fg: #191610;
+  --fg-2: #554f46;
+  --fg-3: #8d8578;
+
+  /* — amber — */
+  --accent: #96620f;
+  --accent-fg: #fffdf9;
+  --ink: #855508;
+  --tint: rgba(150, 98, 15, 0.1);
+  --tint-2: rgba(150, 98, 15, 0.17);
+  --glow: rgba(150, 98, 15, 0.14);
+
+  /* — nötr dolgular (ikincil butonlar, hover) — */
+  --fill: rgba(25, 22, 16, 0.05);
+  --fill-2: rgba(25, 22, 16, 0.088);
+
+  --danger: #a8281a;
+
+  --sh-card: 0 1px 2px rgba(25, 22, 16, 0.06);
+  --sh-float: 0 2px 4px rgba(25, 22, 16, 0.05), 0 8px 24px rgba(25, 22, 16, 0.06);
 }
 
-/* Sistem tercihi karanlıksa çevir. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --border: #262626;
-    --fg: #f5f5f5;
-    --fg-muted: #a3a3a3;
-    --accent: #f5f5f5;
-    --accent-fg: #0a0a0a;
-    --danger: #f2b8b5;
+    --bg: #100e0b;
+    --sunken: #0b0a08;
+    --surface: #181510;
+    --raised: #211d17;
+    --border: #2d2820;
+    --border-strong: #443c30;
+    --fg: #f4f0e8;
+    --fg-2: #b3aa9c;
+    --fg-3: #837a6d;
+    --accent: #eaa93c;
+    --accent-fg: #17140e;
+    --ink: #f3c069;
+    --tint: rgba(234, 169, 60, 0.15);
+    --tint-2: rgba(234, 169, 60, 0.25);
+    --glow: rgba(234, 169, 60, 0.22);
+    --fill: rgba(244, 240, 232, 0.065);
+    --fill-2: rgba(244, 240, 232, 0.115);
+    --danger: #f2a99e;
+    --sh-card: 0 1px 2px rgba(0, 0, 0, 0.55);
+    --sh-float: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
   }
 }
 
 /* Kullanıcının açık tema toggle'ı sistem tercihini EZER. */
 :root[data-theme='light'] {
-  --bg: #ffffff;
-  --surface: #faf9f6;
-  --border: #ecebe7;
-  --fg: #0a0a0a;
-  --fg-muted: #6b6b6b;
-  --accent: #0a0a0a;
-  --accent-fg: #ffffff;
-  --danger: #b3261e;
+  --bg: #fcfbf8;
+  --sunken: #f6f3ed;
+  --surface: #f1eee7;
+  --raised: #ffffff;
+  --border: #e6e0d5;
+  --border-strong: #d3cbbd;
+  --fg: #191610;
+  --fg-2: #554f46;
+  --fg-3: #8d8578;
+  --accent: #96620f;
+  --accent-fg: #fffdf9;
+  --ink: #855508;
+  --tint: rgba(150, 98, 15, 0.1);
+  --tint-2: rgba(150, 98, 15, 0.17);
+  --glow: rgba(150, 98, 15, 0.14);
+  --fill: rgba(25, 22, 16, 0.05);
+  --fill-2: rgba(25, 22, 16, 0.088);
+  --danger: #a8281a;
+  --sh-card: 0 1px 2px rgba(25, 22, 16, 0.06);
+  --sh-float: 0 2px 4px rgba(25, 22, 16, 0.05), 0 8px 24px rgba(25, 22, 16, 0.06);
 }
 
 /* Kullanıcının karanlık tema toggle'ı sistem tercihini EZER. */
 :root[data-theme='dark'] {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --border: #262626;
-  --fg: #f5f5f5;
-  --fg-muted: #a3a3a3;
-  --accent: #f5f5f5;
-  --accent-fg: #0a0a0a;
-  --danger: #f2b8b5;
+  --bg: #100e0b;
+  --sunken: #0b0a08;
+  --surface: #181510;
+  --raised: #211d17;
+  --border: #2d2820;
+  --border-strong: #443c30;
+  --fg: #f4f0e8;
+  --fg-2: #b3aa9c;
+  --fg-3: #837a6d;
+  --accent: #eaa93c;
+  --accent-fg: #17140e;
+  --ink: #f3c069;
+  --tint: rgba(234, 169, 60, 0.15);
+  --tint-2: rgba(234, 169, 60, 0.25);
+  --glow: rgba(234, 169, 60, 0.22);
+  --fill: rgba(244, 240, 232, 0.065);
+  --fill-2: rgba(244, 240, 232, 0.115);
+  --danger: #f2a99e;
+  --sh-card: 0 1px 2px rgba(0, 0, 0, 0.55);
+  --sh-float: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {
-  /* Semantik renkler → `bg-bg`, `text-fg`, `border-border`, `text-fg-muted`… */
+  /* Semantik renkler → `bg-bg`, `text-fg`, `border-border`, `bg-tint`… */
   --color-bg: var(--bg);
+  --color-sunken: var(--sunken);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-fg: var(--fg);
-  --color-fg-muted: var(--fg-muted);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  /* Geriye uyumluluk: mevcut 54 `text-fg-muted` kullanımı kırılmasın. */
+  --color-fg-muted: var(--fg-2);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-ink: var(--ink);
+  --color-tint: var(--tint);
+  --color-tint-2: var(--tint-2);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
   --color-danger: var(--danger);
 
-  /* Tipografi — Apple platformlarında yerel SF; diğerlerinde temiz alternatif. */
+  /* Arayüz metni. */
   --font-sans: -apple-system, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
 
-  /* Yumuşak köşeler; gölge yerine ince kenarlıkla derinlik. */
+  /*
+   * AI SESİ — serif. Arayüz metninden AYRIŞMASI kasıtlı: asistanın söylediği
+   * ile ürünün söylediği aynı sesle konuşmamalı.
+   */
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+
+  /* Zaman damgaları, etiketler. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+
   --radius-card: 0.75rem; /* 12px */
+
+  --shadow-card: var(--sh-card);
+  --shadow-float: var(--sh-float);
+
+  /* Giriş hareketi — hızlı çıkar, yumuşak oturur. */
+  --ease-rise: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /*
- * Başlıklarda sıkı negatif letter-spacing (Apple estetiği). Gövde nötr kalır.
- * Spacing ve tip ölçeği için Tailwind v4 defaultları kullanılır — 4px tabanı ve
- * ~1.25 oran §4 ile zaten uyumludur; ikinci bir ölçek tanımlamak sapma yaratırdı.
+ * Başlıklarda sıkı negatif letter-spacing. Gövde nötr kalır.
+ * Spacing ve tip ölçeği için Tailwind v4 defaultları kullanılır.
  */
 h1,
 h2,
 h3 {
   letter-spacing: -0.02em;
+}
+
+/* Rakamlar sabit genişlikte: saat/sayaç değişirken satır zıplamaz. */
+time,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--tint-2);
+  color: var(--fg);
+}
+
+/*
+ * Klavye kullanıcısı için görünür odak. Fare tıklamasında çıkmaz
+ * (`:focus-visible`), yani tasarımı kirletmez ama erişilebilirliği korur.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/*
+ * Chrome'un otomatik doldurma MAVİSİ paleti deler.
+ * `background-color` doğrudan ezilemez (UA stili kazanır); standart çözüm
+ * uzun süreli bir iç gölgeyle zemini boyamaktır.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--fg);
+  -webkit-box-shadow: 0 0 0 1000px var(--raised) inset;
+  caret-color: var(--fg);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* İnce, sıcak kaydırma çubuğu — Firefox + WebKit. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/*
+ * Hareket tercihi: kullanıcı azaltılmış hareket istiyorsa TÜM giriş
+ * animasyonları kapanır. Bu bir tercih değil, erişilebilirlik gereğidir.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

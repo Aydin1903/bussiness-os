@@ -190,43 +190,86 @@ SessionState = {
 
 ---
 
-## 4. Tasarım token sistemi — Apple-vari minimal
+## 4. Tasarım token sistemi — sıcak nötr + tek imza rengi
+
+> **Sürüm 2 (2026-08-05).** Önceki sistem "Apple-vari minimal / beyaz-siyah-krem"
+> idi ve tek vurgusu kontrasttı. Product Owner kararıyla yön değişti: sıcak nötr
+> zemin + **tek imza rengi (amber)**. Referanslar: Linear, Notion, Arc.
+> Mor/mavi "AI ürünü" klişesi ve sparkle ikonu **bilinçli olarak dışarıda**.
 
 ### 4.1 Teknik gerçek: Tailwind v4 CSS-first'tür
 
-Proje **Tailwind v4** kullanır (`@tailwindcss/postcss`; `tailwind.config.js` **yoktur**). v4'te tema **CSS-first**'tür: token'lar `globals.css` içinde `@theme` bloğuyla tanımlanır. **SSOT = CSS custom properties.** JS config dosyası oluşturulmaz.
+Token'lar `globals.css` içinde `@theme inline` ile tanımlanır. **SSOT = CSS
+custom properties.** `tailwind.config.js` **yoktur**.
 
-### 4.2 Palet — beyaz / siyah / krem / açık gri
+### 4.2 Dört yüzey katmanı
 
-Apple disiplini: **renk değil kontrast**. Tek "vurgu" siyah/beyazdır.
+Derinlik gölgeyle değil KATMANLA kurulur:
 
-| Token              | Light                | Dark      | Kullanım             |
-| ------------------ | -------------------- | --------- | -------------------- |
-| `--color-bg`       | `#FFFFFF`            | `#0A0A0A` | sayfa zemini         |
-| `--color-surface`  | `#FAF9F6` (krem)     | `#141414` | kart / panel         |
-| `--color-border`   | `#ECEBE7` (açık gri) | `#262626` | ince ayraç           |
-| `--color-fg`       | `#0A0A0A`            | `#F5F5F5` | ana metin            |
-| `--color-fg-muted` | `#6B6B6B`            | `#A3A3A3` | ikincil metin        |
-| `--color-accent`   | `#0A0A0A`            | `#F5F5F5` | tek vurgu (kontrast) |
-| `--color-danger`   | `#B3261E`            | `#F2B8B5` | hata / yıkıcı eylem  |
+| Token       | Light     | Dark      | Nerede                      |
+| ----------- | --------- | --------- | --------------------------- |
+| `--sunken`  | `#F6F3ED` | `#0B0A08` | sağ ray (çukur)             |
+| `--bg`      | `#FCFBF8` | `#100E0B` | sayfa zemini                |
+| `--surface` | `#F1EEE7` | `#181510` | sol menü, yazma alanı       |
+| `--raised`  | `#FFFFFF` | `#211D17` | girdi kutusu (yükseltilmiş) |
 
-### 4.3 Tipografi
+### 4.3 Çizgi ve metin kademeleri
 
-- **Font yığını:** `-apple-system, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif` — Apple platformlarında yerel SF fontları bedava gelir; diğerlerinde temiz geometrik alternatif.
-- **Ölçek (1.25 oran):** `12 · 14 · 16 · 20 · 24 · 32 · 48` px.
-- Başlıklarda sıkı negatif `letter-spacing` (`-0.02em`), gövdede nötr.
+| Token             | Light     | Dark      | Kullanım                     |
+| ----------------- | --------- | --------- | ---------------------------- |
+| `--border`        | `#E6E0D5` | `#2D2820` | ayraç                        |
+| `--border-strong` | `#D3CBBD` | `#443C30` | girdi kenarı                 |
+| `--fg`            | `#191610` | `#F4F0E8` | ana metin                    |
+| `--fg-2`          | `#554F46` | `#B3AA9C` | ikincil metin (`--fg-muted`) |
+| `--fg-3`          | `#8D8578` | `#837A6D` | etiket, zaman damgası        |
 
-### 4.4 Spacing, radius, derinlik
+> `--fg-muted` **korundu** ve `--fg-2`'ye eşitlendi: kodda 54 kullanımı vardı,
+> silinseydi mevcut ekranların ikincil metni sessizce kaybolurdu.
 
-- **Spacing (4px tabanlı):** `4 · 8 · 12 · 16 · 24 · 32 · 48 · 64`.
-- **Radius:** yumuşak `8–12px`.
-- **Derinlik:** gölge yerine ince `--color-border` + minimal `box-shadow` — "düz ama derinlikli".
+### 4.4 ⚠️ Amber İKİ TONDUR
 
-### 4.5 Kodlama
+Bu bir tercih değil zorunluluk — tek ton iki işi birden yapamıyor:
 
-Hepsi `globals.css` `@theme` bloğunda CSS değişkenidir. Light/dark: `prefers-color-scheme` **+** `:root[data-theme]` (kullanıcı toggle'ı `data-theme` yazar, sistem tercihini ezer). Mevcut `layout.tsx` zaten `dark:` sınıfları ve `color-scheme: light dark` kullanıyor — bu sistem onunla uyumludur.
+| Token         | Light     | Dark      | Ne için                        |
+| ------------- | --------- | --------- | ------------------------------ |
+| `--accent`    | `#96620F` | `#EAA93C` | **DOLGU** (buton, aktif durum) |
+| `--accent-fg` | `#FFFDF9` | `#17140E` | dolgunun üstündeki metin       |
+| `--ink`       | `#855508` | `#F3C069` | accent renkli **METİN**        |
 
-> Tasarım token'ları **geri döndürülebilir görsel dildir**, mimari kısıt değildir — bu yüzden ayrı ADR'si yoktur (Product Owner kararı). Değişirse yalnızca bu bölüm güncellenir.
+Dolgu tonu metin olarak sönük kalıyor; metin tonunun üstünde beyaz yazı
+okunmuyordu. **Koyu modda dolgu parlak amber + KOYU metin taşır** (Apple'ın
+sarı butonlarındaki mantık): o zeminde beyaz yazı okunmaz.
+
+Yardımcılar: `--tint` / `--tint-2` (çip dolguları), `--glow` (odak halkası),
+`--fill` / `--fill-2` (nötr ikincil dolgular).
+
+### 4.5 Tipografi — iki ses
+
+- **Arayüz:** `-apple-system, 'SF Pro Text', Inter, 'Segoe UI', system-ui`
+- **AI sesi:** `--font-serif` — `'Iowan Old Style', 'Palatino Linotype', Georgia`
+- **Etiket/zaman:** `--font-mono`
+
+Serif ayrımı kasıtlıdır: **asistanın söylediği ile ürünün söylediği aynı sesle
+konuşmamalı.** Başlıklarda `-0.02em`; zaman/sayılarda `tabular-nums` (satır
+zıplamasın).
+
+### 4.6 Hareket
+
+Giriş animasyonu `--ease-rise` (`cubic-bezier(.22,1,.36,1)`) ile sahnelenir:
+başlık → gözlem → kaynak → çipler, ~50 ms arayla. Amaç, kullanıcı ekrana
+geldiğinde asistanın **o anda konuştuğunu** hissettirmek.
+
+`prefers-reduced-motion: reduce` TÜM animasyonları kapatır — bu bir tercih
+değil erişilebilirlik gereğidir.
+
+### 4.7 Ayrıntılar
+
+`::selection` amber tonunda · `:focus-visible` amber halka (fare tıklamasında
+çıkmaz) · ince sıcak kaydırma çubuğu · `--shadow-card` / `--shadow-float`.
+
+> Tasarım token'ları **geri döndürülebilir görsel dildir**, mimari kısıt
+> değildir — bu yüzden ayrı ADR'si yoktur (Product Owner kararı). Değişirse
+> yalnızca bu bölüm güncellenir.
 
 ---
 
