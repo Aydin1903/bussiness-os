@@ -1,10 +1,15 @@
 import {
+  askKnowledgeResponseSchema,
   createNoteResponseSchema,
   dailyReportResponseSchema,
+  noteListResponseSchema,
   notesExistResponseSchema,
+  type AskKnowledgeRequest,
+  type AskKnowledgeResponse,
   type CreateNoteRequest,
   type CreateNoteResponse,
   type DailyReportResponse,
+  type NoteListResponse,
   type NotesExistResponse,
 } from '@business-os/contracts';
 
@@ -48,4 +53,30 @@ export function notesExist(): Promise<NotesExistResponse> {
  */
 export function fetchDailyReport(): Promise<DailyReportResponse> {
   return apiFetch('/knowledge/daily-report', dailyReportResponseSchema);
+}
+
+/**
+ * `POST /knowledge/ask` — kurumsal hafızaya soru sorar (ADR-0029 §4).
+ *
+ * `conversationId` OPSİYONELDİR: verilmezse sunucu yeni bir konuşma açar ve
+ * id'sini yanıtta döner. İstemci sonraki soruda o id'yi göndererek konuşmayı
+ * sürdürür (ADR-0030 §1.2) — geçmişi istemci TAŞIMAZ, yalnızca id'yi taşır.
+ */
+export function askKnowledge(body: AskKnowledgeRequest): Promise<AskKnowledgeResponse> {
+  return apiFetch('/knowledge/ask', askKnowledgeResponseSchema, { body });
+}
+
+/**
+ * `GET /knowledge/notes` — notları sayfalı listeler, EN YENİ ÖNCE.
+ *
+ * ⚠️ `items[].preview` TAM METİN DEĞİLDİR; `bodyLength` ile kırpılıp
+ * kırpılmadığı anlaşılır (ADR-0029 bilinen sınır).
+ */
+export function listNotes(params: { limit: number; offset: number }): Promise<NoteListResponse> {
+  const query = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset),
+  });
+
+  return apiFetch(`/knowledge/notes?${query.toString()}`, noteListResponseSchema);
 }

@@ -18,13 +18,19 @@ interface NavItem {
   readonly soon?: boolean;
 }
 
-/** İlk faz: yalnızca "Genel Bakış" aktif; diğerleri "yakında" (pasif). */
+/**
+ * Aktif modüller üstte, "yakında" olanlar altta.
+ *
+ * "Bilgi Bankası" Faz 4'te GERÇEKTEN geldi (notlar, soru-cevap, günlük rapor);
+ * `soon` rozeti kalktı. Diğer üçü hâlâ placeholder — onlara tıklanabilir
+ * görüntü vermek, olmayan bir şeyi vaat etmek olurdu.
+ */
 const NAV: readonly NavItem[] = [
   { label: 'Genel Bakış', icon: OverviewIcon, href: '/app' },
+  { label: 'Bilgi Bankası', icon: KnowledgeIcon, href: '/app/knowledge' },
   { label: 'Müşteriler', icon: CustomersIcon, soon: true },
   { label: 'Finans', icon: FinanceIcon, soon: true },
   { label: 'Projeler', icon: ProjectsIcon, soon: true },
-  { label: 'Bilgi Bankası', icon: KnowledgeIcon, soon: true },
 ];
 
 /**

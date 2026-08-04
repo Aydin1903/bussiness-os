@@ -15,7 +15,12 @@ import { OnboardingGate } from '@/components/dashboard/onboarding-gate';
  * değil `/app/onboarding`'e gider (ADR-0030 §3). Sayfa Server Component kalır;
  * kontrol client tarafındadır çünkü oturum token'ı memory'dedir (§2).
  */
-const MODULES = [
+const MODULES: readonly {
+  title: string;
+  description: string;
+  icon: typeof KnowledgeIcon;
+  href?: string;
+}[] = [
   {
     title: 'Müşteriler',
     description: 'Müşteri kayıtları ve ilişki geçmişi — AI için müşteri hafızası.',
@@ -35,8 +40,9 @@ const MODULES = [
     title: 'Bilgi Bankası',
     description: 'Belgeler, kararlar ve politikalar — AI için kurumsal hafıza.',
     icon: KnowledgeIcon,
+    href: '/app/knowledge',
   },
-] as const;
+];
 
 export default function DashboardPage() {
   return (
