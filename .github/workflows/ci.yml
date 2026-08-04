@@ -1,8 +1,18 @@
 name: CI
 
+# HER DALA yapilan her push CI gorur.
+#
+# Onceden filtre `[main, develop]` idi ve ozellik dallari HIC CI gormuyordu.
+# Bunun bedeli olculdu: `format:check` 128 dosyada aylarca kirmizi kaldi ve
+# ancak `pnpm verify` elle calistirildiginda fark edildi. Gec ogrenilen bir
+# kirilma, ogrenilmemis sayilir.
+#
+# `'**'` kullanildi, filtreyi tamamen kaldirmak yerine: filtresiz `push`
+# ETIKETLERI de tetikler ve bir surum etiketi, ayni commit'i ikinci kez
+# dogrulamaktan baska bir sey yapmazdi.
 on:
   push:
-    branches: [main, develop]
+    branches: ['**']
   pull_request:
     branches: [main, develop]
 
@@ -47,6 +57,17 @@ jobs:
   integration:
     name: Integration tests (real PostgreSQL)
     runs-on: ubuntu-latest
+
+    # `verify` her push'ta calisir; BU job eski kapsaminda kalir. Gerekce
+    # maliyet: Testcontainers her kosuda PostgreSQL imajini indirip ayaga
+    # kaldirir ve suite dakikalarca surer. Yarim kalmis bir ozellik dalina
+    # atilan her ara push'ta bunu odemek, geri bildirimi HIZLANDIRMAZ.
+    #
+    # Kapsam: main · develop · her pull request.
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref_name == 'main' ||
+      github.ref_name == 'develop'
     steps:
       - uses: actions/checkout@v5
 
@@ -69,6 +90,13 @@ jobs:
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
+
+    # Bagimlilik agaci ancak lockfile degistiginde degisir; her ara push'ta
+    # yeniden taramak ayni cevabi tekrar uretir. `integration` ile ayni kapsam.
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref_name == 'main' ||
+      github.ref_name == 'develop'
     steps:
       - uses: actions/checkout@v5
 
