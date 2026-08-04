@@ -158,6 +158,8 @@ Kanıtlanmamış bir deseni üç modüle birden uygulamak, üç modülü birden 
 
 Abonelik, plan/kota, ödeme sağlayıcısı entegrasyonu.
 
+**Platform admin paneli** bu fazın parçasıdır (ayrı bir faz değil): tüm tenant'ları görebilme, kullanıcı sayıları, ödeme/faturalama durumu takibi, sistem sağlığı (dead-letter kayıtları, worker durumu). Gerçek ödeme yapan müşteriler geldiğinde zorunlu hale gelir — bugünden inşa etmek erken.
+
 > **Kapı koşulu:** **En az 1–2 gerçek modül** var olmalı.
 
 Faturalanacak bir değer yokken faturalama inşa etmek, fiyatlandırılacak şeyi tahmin ederek modellemektir. Plan sınırlarının (kullanıcı sayısı, depolama, AI token bütçesi) neye göre çizileceği ancak gerçek modüller kullanımdayken bilinir.
