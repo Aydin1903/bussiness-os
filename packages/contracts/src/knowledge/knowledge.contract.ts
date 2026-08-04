@@ -99,3 +99,34 @@ export const dailyReportResponseSchema = z.object({
     .nullable(),
 });
 export type DailyReportResponse = z.infer<typeof dailyReportResponseSchema>;
+
+/**
+ * `GET /knowledge/notes` — not listesi (sayfalı).
+ *
+ * ADR-0029 bu ucu bilerek boş bırakmıştı; `/app/knowledge` ekranıyla gerekli
+ * oldu. Sayfalama `GET /me/memberships` ile aynı desendir (`limit`/`offset` +
+ * `{ items, total, limit, offset }`) — ikinci bir sayfalama paradigması
+ * eklemek, her yeni listede "hangisini kullanacağız" sorusunu doğururdu.
+ */
+export const noteListItemSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().nullable(),
+  /**
+   * Gövdenin ilk parçası — TAM METİN DEĞİL. Uzun bir not tek yanıtta
+   * megabaytlarca veri olurdu; tam metin bir not detay ucunun işidir.
+   */
+  preview: z.string(),
+  /** Tam gövdenin uzunluğu; `preview.length`'ten büyükse metin kırpılmıştır. */
+  bodyLength: z.number().int().nonnegative(),
+  /** ISO 8601. */
+  createdAt: z.string().min(1),
+});
+export type NoteListItem = z.infer<typeof noteListItemSchema>;
+
+export const noteListResponseSchema = z.object({
+  items: z.array(noteListItemSchema),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+});
+export type NoteListResponse = z.infer<typeof noteListResponseSchema>;

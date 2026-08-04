@@ -22,6 +22,10 @@ class FakeNoteRepository implements NoteRepository {
     this.calls.push('exists');
     return Promise.resolve(this.exists);
   }
+
+  listForTenant(): Promise<never> {
+    throw new Error('Bu use case listForTenant cagirmamali.');
+  }
 }
 
 class FakeTransactionManager implements TransactionManager {

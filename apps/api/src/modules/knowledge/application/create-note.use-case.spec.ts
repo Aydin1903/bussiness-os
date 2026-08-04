@@ -44,6 +44,10 @@ class FakeNoteRepository implements NoteRepository {
   existsForTenant(): Promise<boolean> {
     return Promise.resolve(this.saved.length > 0);
   }
+
+  listForTenant(): Promise<never> {
+    throw new Error('Bu use case listForTenant cagirmamali.');
+  }
 }
 
 class FakeNoteChunkRepository implements NoteChunkRepository {

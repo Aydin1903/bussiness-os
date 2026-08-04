@@ -89,6 +89,8 @@ export interface AppConfig {
     /** Saatlik istek paylari (ADR-0029 §5) — eylem basina AYRI kova. */
     readonly askRateLimit: number;
     readonly notesRateLimit: number;
+    /** Not listesindeki onizleme uzunlugu. */
+    readonly notePreviewLength: number;
   };
 
   /** Gunluk rapor worker'i (ADR-0030 §2). */
@@ -194,6 +196,7 @@ function toKnowledgeConfig(env: Env): AppConfig['knowledge'] {
     historyMessages: env.KNOWLEDGE_HISTORY_MESSAGES,
     askRateLimit: env.KNOWLEDGE_ASK_RATE_LIMIT,
     notesRateLimit: env.KNOWLEDGE_NOTES_RATE_LIMIT,
+    notePreviewLength: env.KNOWLEDGE_NOTE_PREVIEW_LENGTH,
   };
 }
 

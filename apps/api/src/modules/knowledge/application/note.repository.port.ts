@@ -1,5 +1,29 @@
 import { type Note } from '../domain/note.entity';
 
+/**
+ * Liste satiri — govde KIRPILMIS.
+ *
+ * ⚠️ Tam `body` DONMEZ ve bu bilincli: bir not 500.000 karaktere kadar
+ * cikabilir; 20 notun tam govdesi tek yanitta megabaytlarca veri demektir.
+ * Liste ekraninin ihtiyaci onizlemedir. Tam metin bir NOT DETAY ucunun isidir
+ * ve o uc henuz yok (bilinen sinir, ADR-0029).
+ */
+export interface NoteListItem {
+  readonly id: string;
+  readonly title: string | null;
+  /** Govdenin ilk parcasi. Uzunsa `…` ile biter. */
+  readonly preview: string;
+  /** Tam govdenin karakter sayisi — istemci "kirpildi mi" bilir. */
+  readonly bodyLength: number;
+  readonly createdAt: Date;
+}
+
+export interface NoteListPage {
+  readonly items: readonly NoteListItem[];
+  /** Tenant'in TOPLAM not sayisi (sayfadaki degil). */
+  readonly total: number;
+}
+
 /** DI token'i. */
 export const NOTE_REPOSITORY = Symbol('NOTE_REPOSITORY');
 
@@ -24,4 +48,21 @@ export interface NoteRepository {
    * transaction'in context'i neyse o.
    */
   existsForTenant(): Promise<boolean>;
+
+  /**
+   * Aktif tenant'in notlarini SAYFALI doner — en yeni once.
+   *
+   * Siralama `created_at DESC, id DESC`. Tie-breaker SART: onboarding yedi notu
+   * saniyeler icinde yazar ve `created_at` esitliginde sira sayfadan sayfaya
+   * degisebilirdi (`messages` tablosundaki ayni ders). Kararsiz siralama,
+   * sayfalamada bir notun iki kez gorunmesi ya da hic gorunmemesi demektir.
+   *
+   * Tenant daraltmasi RLS'tedir; imza tenant ALMAZ.
+   */
+  listForTenant(input: {
+    readonly limit: number;
+    readonly offset: number;
+    /** Onizlemenin en fazla karakter sayisi. */
+    readonly previewLength: number;
+  }): Promise<NoteListPage>;
 }

@@ -78,6 +78,8 @@ export {
   askKnowledgeResponseSchema,
   notesExistResponseSchema,
   dailyReportResponseSchema,
+  noteListItemSchema,
+  noteListResponseSchema,
 } from './knowledge/knowledge.contract';
 export type {
   CreateNoteRequest,
@@ -86,4 +88,6 @@ export type {
   AskKnowledgeResponse,
   NotesExistResponse,
   DailyReportResponse,
+  NoteListItem,
+  NoteListResponse,
 } from './knowledge/knowledge.contract';

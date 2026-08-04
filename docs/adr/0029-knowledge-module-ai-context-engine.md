@@ -403,3 +403,38 @@ OpenAI). Chat completion DeepSeek'te KALIYOR.
 > Bu not, ADR'nin daha onceki "Bilinen sinirlar" maddesindeki _"embedding boyutu,
 > gercek saglayici secimi dogrulanana kadar GECICIDIR"_ ifadesini KAPATIR. O
 > madde kaldirildi; yerini iki saglayiciya baglilik riski aldi.
+
+## Not — liste ucu artik VAR (2026-08-04)
+
+`GET /api/v1/knowledge/notes` yazildi. Bu ADR liste ucunu **bilerek bos
+birakmisti** (ADR-0029 §5.1'in `/notes/exists` gerekcesinde: "liste ucu
+sayfalama, siralama ve projeksiyon kararlari demektir ve hicbiri bu ise ait
+degil"). O gerekce hala dogru — is degisti: `/app/knowledge` ekrani gelince
+liste GEREKLI oldu ve kararlar artik somut bir ihtiyaca dayaniyor.
+
+**Sayfalama `limit`/`offset`**, `GET /me/memberships` ile birebir ayni desen
+(`{ items, total, limit, offset }`). Cursor icat EDILMEDI: projede zaten bir
+liste konvansiyonu var ve ikinci bir paradigma, her yeni listede "hangisini
+kullanacagiz" sorusunu dogururdu.
+
+> Bilinen bedel: `offset` derin sayfalarda yavaslar ve sayfalama SIRASINDA yeni
+> not eklenirse kayma olur. Yeniler basa eklendigi ve kimse derin sayfaya
+> gitmedigi icin kabul edildi; cursor'a gecis yolu acik.
+
+**Siralama `created_at DESC, id DESC`.** Tie-breaker SART: onboarding yedi notu
+saniyeler icinde yazar ve esitlikte kararsiz siralama, sayfalamada bir notun
+iki kez ya da hic gorunmesi demektir.
+
+### Bilinen sinir: liste TAM METIN dondurmez
+
+`items[].preview` govdenin ilk `KNOWLEDGE_NOTE_PREVIEW_LENGTH` karakteridir
+(varsayilan 280); `bodyLength` tam uzunlugu verir, yani istemci metnin
+kirpilip kirpilmadigini TAHMIN ETMEZ.
+
+Gerekce: bir not 500.000 karaktere kadar cikabilir (`MAX_BODY_LENGTH`), 20
+notun tam govdesi tek yanitta megabaytlar demektir. Kirpma VERITABANINDA
+yapilir (`substring`), uygulamada degil — aksi halde tasarrufun tamami
+kaybolurdu.
+
+**Sonucu:** tam metni gosteren bir **not detay ucu YOKTUR** ve bu bilinen
+sinirdir. Ihtiyac dogdugunda ayri bir uctur (`GET /knowledge/notes/:id`).

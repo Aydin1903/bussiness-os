@@ -190,6 +190,15 @@ const baseEnvSchema = z.object({
    */
   KNOWLEDGE_HISTORY_MESSAGES: z.coerce.number().int().min(0).max(50).default(8),
 
+  /**
+   * Not listesinde donen onizlemenin karakter sayisi.
+   *
+   * Kodda sabit DEGIL: "ne kadari yeterli" bir urun karari ve ekran
+   * degistikce degisir. Ust sinir var — onizlemeyi buyutmek, kirpmanin var
+   * olma sebebini (megabaytlik yanitlar) geri getirebilir.
+   */
+  KNOWLEDGE_NOTE_PREVIEW_LENGTH: z.coerce.number().int().min(40).max(2_000).default(280),
+
   // --- Oran siniri (ADR-0029 §5) -----------------------------------------
   //
   // Amac MALIYET KONTROLU. Iki eylem AYRI kovadir: `/ask` butcesini bitirmek
