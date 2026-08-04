@@ -216,6 +216,43 @@ const baseEnvSchema = z.object({
    * cagrisidir, tek bir `/ask`'tan pahalidir.
    */
   KNOWLEDGE_NOTES_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  // --- Gunluk rapor worker'i (ADR-0030 §2) --------------------------------
+
+  /**
+   * Kapali olmasi VARSAYILAN degildir — outbox relay ile ayni felsefe: bir
+   * arka plan sureci "unutuldugu icin" degil, "bilerek" kapali olmalidir.
+   */
+  DAILY_REPORT_ENABLED: z.coerce.boolean().default(true),
+
+  /**
+   * Worker'in NE SIKLIKTA baktigi — raporun URETILME SAATI DEGIL.
+   *
+   * Saat `DAILY_REPORT_HOUR_UTC`'dedir. Bu aralik yalnizca "vadesi gelen var
+   * mi" sorgusunun sikligidir; kisa olmasi zararsizdir (bos tur tek bir indeks
+   * sorgusudur) ve worker'in yeniden baslatildigi gun raporun kacirilmamasini
+   * saglar.
+   */
+  DAILY_REPORT_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .default(5 * 60_000),
+
+  /** Tek turda uretilecek en fazla rapor. Her biri bir LLM cagrisidir. */
+  DAILY_REPORT_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(10),
+
+  /**
+   * Raporlarin vadesinin geldigi SABIT UTC saati (ADR-0030 §2.3).
+   *
+   * Tenant bazli saat dilimi KAPSAM DISI. Bu saatten once o gunun raporu
+   * uretilmez — aksi halde "gunluk" rapor, gunun yalnizca ilk saatlerini
+   * ozetlerdi.
+   */
+  DAILY_REPORT_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(6),
+
+  /** Ozetlenecek pencere (ADR-0030 §2.2: son 24 saat). */
+  DAILY_REPORT_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

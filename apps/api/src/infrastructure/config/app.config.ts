@@ -90,6 +90,15 @@ export interface AppConfig {
     readonly askRateLimit: number;
     readonly notesRateLimit: number;
   };
+
+  /** Gunluk rapor worker'i (ADR-0030 §2). */
+  readonly dailyReport: {
+    readonly enabled: boolean;
+    readonly intervalMs: number;
+    readonly batchSize: number;
+    readonly hourUtc: number;
+    readonly windowHours: number;
+  };
 }
 
 /** DI token'i. Symbol kullanildi: string token'lar sessizce cakisabilir. */
@@ -130,7 +139,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     email: toEmailConfig(env),
     embedding: toEmbeddingConfig(env),
     llm: toLlmConfig(env),
-    knowledge: toKnowledgeConfig(env),
+    ...toAiConfig(env),
   };
 }
 
@@ -185,6 +194,30 @@ function toKnowledgeConfig(env: Env): AppConfig['knowledge'] {
     historyMessages: env.KNOWLEDGE_HISTORY_MESSAGES,
     askRateLimit: env.KNOWLEDGE_ASK_RATE_LIMIT,
     notesRateLimit: env.KNOWLEDGE_NOTES_RATE_LIMIT,
+  };
+}
+
+/**
+ * AI ile ilgili uc bolum tek yerde toplanir.
+ *
+ * `createAppConfig` govdesini kisa tutmak icin: o fonksiyon bir ESLESTIRME
+ * listesidir, uzadikca okunurlugunu kaybeder.
+ */
+function toAiConfig(env: Env): Pick<AppConfig, 'knowledge' | 'dailyReport'> {
+  return {
+    knowledge: toKnowledgeConfig(env),
+    dailyReport: toDailyReportConfig(env),
+  };
+}
+
+/** Gunluk rapor worker'i. Deger DONUSTURMEZ; yalnizca eslestirir. */
+function toDailyReportConfig(env: Env): AppConfig['dailyReport'] {
+  return {
+    enabled: env.DAILY_REPORT_ENABLED,
+    intervalMs: env.DAILY_REPORT_INTERVAL_MS,
+    batchSize: env.DAILY_REPORT_BATCH_SIZE,
+    hourUtc: env.DAILY_REPORT_HOUR_UTC,
+    windowHours: env.DAILY_REPORT_WINDOW_HOURS,
   };
 }
 
