@@ -27,24 +27,24 @@ export function MemoryRail({
   degraded?: boolean;
 }) {
   return (
-    <aside className="hidden w-[300px] shrink-0 flex-col border-l border-border bg-sunken p-3 pt-4 xl:flex">
-      <div className="flex items-baseline justify-between px-2 pb-3">
-        <h2 className="font-mono text-[9px] font-semibold tracking-[0.15em] text-fg-3 uppercase">
+    <aside className="hidden w-[296px] shrink-0 flex-col gap-2 border-l border-border p-3 pt-4 xl:flex">
+      <div className="flex items-baseline justify-between px-3 pb-3">
+        <h2 className="font-mono text-[9px] font-semibold tracking-[0.18em] text-fg-3 uppercase">
           Son eklenenler
         </h2>
         {todayCount > 0 ? (
-          <span className="text-[11px] text-fg-3 tabular">bugün {todayCount}</span>
+          <span className="text-[11.5px] text-fg-3 tabular">bugün {todayCount}</span>
         ) : null}
       </div>
 
       {items.length === 0 ? (
-        <p className="px-2 text-[12px] leading-relaxed text-fg-3">
+        <p className="px-3 text-[12px] leading-relaxed text-fg-3">
           {degraded
             ? 'Son eklenenler şu an getirilemedi.'
             : 'Henüz not yok. Aşağıdan ekleyin; buraya düşecek.'}
         </p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
               <RailNote item={item} />
@@ -53,12 +53,15 @@ export function MemoryRail({
         </ul>
       )}
 
-      <div className="flex-1" />
-
       {total > 0 ? (
         <Link
           href="/app/knowledge"
-          className="mt-2 block rounded-[10px] bg-fill py-2.5 text-center text-[12.5px] font-semibold text-fg transition-colors hover:bg-fill-2"
+          className={[
+            'mt-auto block rounded-card border border-border bg-surface py-3 text-center',
+            'text-[12.5px] font-semibold tracking-[-0.008em] text-fg shadow-card',
+            'transition-[transform,box-shadow,color] duration-[260ms] ease-rise',
+            'hover:-translate-y-[2px] hover:text-ink hover:shadow-float',
+          ].join(' ')}
         >
           Tümünü gör ({total})
         </Link>
@@ -71,20 +74,22 @@ function RailNote({ item }: { item: NoteListItem }) {
   return (
     <div
       className={[
-        'group relative flex flex-col gap-0.5 rounded-[10px] px-2.5 py-3',
-        'transition-colors hover:bg-fill',
+        'group relative flex flex-col gap-[5px] overflow-hidden rounded-card px-[15px] py-[13px]',
+        'border border-border bg-surface shadow-card',
+        'transition-[transform,box-shadow] duration-[260ms] ease-rise',
+        'hover:-translate-y-[2px] hover:shadow-float',
       ].join(' ')}
     >
-      {/* Hover'da soldan kayarak giren amber çubuk. */}
+      {/* Hover'da kenardan ısınan terracotta çubuk. */}
       <span
         aria-hidden
         className={[
-          'absolute top-3 bottom-3 left-0.5 w-0.5 origin-center scale-y-[0.4] rounded-sm bg-accent',
-          'opacity-0 transition-[opacity,transform] duration-200 ease-rise',
+          'absolute top-3 bottom-3 left-0 w-[2.5px] origin-center scale-y-[0.25] rounded-r-[3px] bg-accent',
+          'opacity-0 transition-[opacity,transform] duration-[260ms] ease-rise',
           'group-hover:scale-y-100 group-hover:opacity-100',
         ].join(' ')}
       />
-      <time className="font-mono text-[9px] font-medium tracking-[0.09em] text-fg-3 uppercase">
+      <time className="font-mono text-[9.5px] font-medium tracking-[0.09em] text-fg-3 uppercase">
         {formatWhen(item.createdAt)}
       </time>
       {item.title === null ? null : (

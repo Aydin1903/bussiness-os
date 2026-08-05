@@ -109,13 +109,13 @@ export function LoginForm({
       </header>
 
       {justVerified ? (
-        <p className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-fg-muted">
+        <p className="rounded-lg border border-border bg-fill px-3.5 py-2.5 text-sm text-fg-muted">
           E-postanız doğrulandı. Şimdi giriş yapabilirsiniz.
         </p>
       ) : null}
 
       {justReset ? (
-        <p className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-fg-muted">
+        <p className="rounded-lg border border-border bg-fill px-3.5 py-2.5 text-sm text-fg-muted">
           Parolanız sıfırlandı. Yeni parolanızla giriş yapabilirsiniz.
         </p>
       ) : null}

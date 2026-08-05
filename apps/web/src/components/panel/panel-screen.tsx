@@ -253,7 +253,7 @@ export function PanelScreen() {
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[880px] px-6 pt-7 pb-4 md:px-8">
+          <div className="mx-auto w-full max-w-[720px] px-5 pt-10 pb-5 md:px-10">
             <ReindexBanner onRepaired={reload} />
 
             {degraded ? <PartialLoadNotice failures={failures} onRetry={reload} /> : null}
@@ -303,7 +303,7 @@ export function PanelScreen() {
 
             {/* Boş durumda başlangıç soruları — LLM çağrılmadan. */}
             {!loading && turns.length === 0 ? (
-              <div className="pl-[82px]">
+              <div className="pl-[74px]">
                 <Rise delay={RISE.chips}>
                   <FollowUpChips
                     items={starters}
@@ -355,25 +355,24 @@ function PanelHeader({
   loading: boolean;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4 md:px-8">
+    <header className="flex items-center justify-between gap-5 border-b border-border px-5 py-5 md:px-10">
       <Rise delay={RISE.title}>
-        <h1 className="text-[15px] font-semibold tracking-[-0.018em]">Panel</h1>
-        <p className="mt-0.5 text-[11.5px] text-fg-3">Şirketinizin kurumsal hafızası</p>
+        <h1 className="text-[15px] font-semibold tracking-[-0.022em]">Panel</h1>
+        <p className="mt-0.5 text-[11.5px] tracking-[-0.004em] text-fg-3">
+          Şirketinizin kurumsal hafızası
+        </p>
       </Rise>
 
       {loading ? null : (
         <Rise delay={RISE.stats}>
-          <div className="flex items-center gap-2.5 text-[12px] text-fg-2 tabular">
-            <span
-              aria-hidden
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_0_3.5px_var(--glow)]"
-            />
+          <div className="flex items-center gap-2.5 text-[12.5px] text-fg-2 tabular">
+            <span aria-hidden className="pulse-ring h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
             <span>
               <b className="font-semibold text-fg">{total}</b> not
             </span>
             {todayCount > 0 ? (
               <>
-                <span className="text-fg-3 opacity-50">·</span>
+                <span className="text-fg-4">·</span>
                 <span>
                   bugün <b className="font-semibold text-fg">{todayCount} yeni</b>
                 </span>

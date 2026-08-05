@@ -43,7 +43,7 @@ export function NoteList({
   const hasNext = offset + items.length < total;
 
   return (
-    <section className="rounded-card border border-border bg-surface p-6">
+    <section className="rounded-card border border-border bg-raised p-6 shadow-card">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Notlar</h2>
         <span className="text-sm text-fg-muted">{total} not</span>

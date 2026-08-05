@@ -60,7 +60,7 @@ export function UserMenu() {
               onClick={() => {
                 setOpen(false);
               }}
-              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-surface"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-fill"
             >
               Şifre Değiştir
             </Link>
@@ -70,7 +70,7 @@ export function UserMenu() {
                 void onLogout();
               }}
               disabled={loading}
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-surface disabled:opacity-60"
+              className="w-full rounded-lg px-3 py-2 text-left text-sm text-fg hover:bg-fill disabled:opacity-60"
             >
               {loading ? 'Çıkılıyor…' : 'Çıkış'}
             </button>

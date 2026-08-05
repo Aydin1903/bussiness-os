@@ -87,7 +87,7 @@ export function ChangePasswordForm() {
       {succeeded ? (
         <p
           role="status"
-          className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-fg"
+          className="rounded-lg border border-border bg-fill px-3.5 py-2.5 text-sm text-fg"
         >
           Parolan değiştirildi. Diğer cihazlardaki oturumların kapatıldı; bu cihazda oturumun açık
           kalmaya devam ediyor.

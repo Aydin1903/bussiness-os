@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="tr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Business OS — Atölye</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300..600&family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ==================================================================
+         ATÖLYE — Business OS Panel
+         PROTOTİP. Üretim kodu değil; karar ve his aracı.
+
+         TEZ: premium = MALZEME + DERİNLİK.
+         Ekran düz bir yüzey değil, katmanlı bir masa. Kabuk zeminden ayrılır,
+         panel onun üstünde yüzer, kartlar panelin üstünde durur. Işık hep
+         yukarıdan gelir, gölgeler SICAK (nötr siyah değil) — malzeme hissi
+         buradan doğar.
+         ================================================================== */
+
+      /* ============================ 1. TEMEL ============================ */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        /* --- Tipografi ---------------------------------------------------
+           ÜÇ SES, ÜÇ AİLE:
+             Newsreader → AI konuşur. Sıcak, hümanist, optik boyutlu.
+             Inter      → ÜRÜN konuşur. Nötr, okunur, iddiasız.
+             JB Mono    → SİSTEM konuşur. Zaman, sayı, etiket.
+           Ayrım kasıtlı: asistanın söylediği ile arayüzün söylediği aynı
+           sesle konuşmamalı. Kullanıcı kime baktığını FONTTAN anlar.
+
+           NEDEN FRAUNCES DEĞİL: önce o denendi. Karakterliydi ama çok yüksek
+           kontrastlı ve dardı — moda dergisi hissi veriyordu ve ince tırnakları
+           koyu temada kırılganlaşıyordu. Burada okunan şey ürünün ÇEKİRDEK
+           çıktısı; karakter uğruna okunabilirlik verilmez. */
+        --serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+        --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+        /* Modüler ölçek — 1.25 (majör üçlü), 13px tabandan */
+        --t-micro: 10px;    --t-tiny: 11.5px;  --t-small: 12.5px;
+        --t-body: 14px;     --t-read: 16.5px;  --t-lead: 26px;   --t-hero: 33px;
+
+        /* Ritim — 4px ızgara */
+        --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+        --s5: 22px; --s6: 30px; --s7: 40px; --s8: 56px;
+
+        /* Yumuşaklık — köşe yarıçapları tek bir aileden gelir */
+        --r-xs: 8px; --r-sm: 12px; --r-md: 16px; --r-lg: 22px; --r-xl: 28px; --r-pill: 999px;
+
+        /* Hareket — tek eğri. "Çıkışta yavaşla": doğal, pahalı his. */
+        --ease: cubic-bezier(.22, 1, .36, 1);
+        --ease-soft: cubic-bezier(.4, 0, .2, 1);
+        --fast: .16s; --mid: .26s; --slow: .5s;
+      }
+
+      /* ---- GÜNDÜZ ---------------------------------------------------- */
+      [data-theme='light'] {
+        --bg: #f5efe7;
+        --bg-warm: rgba(212, 154, 106, .16);   /* zemine dökülen ılık ışık */
+        --surface: #fffdfb;                    /* yüzen ana panel */
+        --raised: #ffffff;                     /* panelin üstündeki kart */
+        --sunken: #ebe2d6;
+
+        /* Metin rampası — DÖRT KADEME, DÖRDÜ DE OKUNUR.
+           fg-3/fg-4 ilk turda #8f8271 / #b3a693'tü ve "zarif" görünüyordu; 9.5px
+           saat etiketiyle 2.92:1 veriyordu. WCAG AA sınırı 4.5:1 ve küçük punto
+           DAHA FAZLA kontrast ister, daha az değil. Değerler tarayıcıda dört
+           zeminin (bg/surface/raised/sunken) EN KÖTÜSÜNE göre seçildi. */
+        --fg:   #1e1811;   /* 15.9:1 */
+        --fg-2: #574c3f;   /*  8.2:1 */
+        --fg-3: #695c4d;   /*  5.1:1 — en kötü zeminde */
+        --fg-4: #736657;   /*  4.4:1 — yalnızca 11px+ metinde kullanılır */
+
+        --line:   rgba(30, 24, 17, .07);
+        --line-2: rgba(30, 24, 17, .13);
+
+        --accent:      #b25628;
+        --accent-deep: #96481f;
+        --accent-fg:   #fffaf6;
+        --tint:  rgba(178, 86, 40, .085);
+        --tint-2:rgba(178, 86, 40, .15);
+        --glow:  rgba(178, 86, 40, .17);
+
+        /* Gölgeler SICAK: kahve-kızıl bir siyahtan türer. Nötr siyah gölge
+           sıcak bir paletin üstünde "kirli gri" görünür ve malzemeyi öldürür. */
+        --e1: 0 1px 2px rgba(78, 50, 26, .05), 0 2px 5px rgba(78, 50, 26, .04);
+        --e2: 0 2px 4px rgba(78, 50, 26, .05), 0 9px 22px rgba(78, 50, 26, .07);
+        --e3: 0 4px 8px rgba(78, 50, 26, .06), 0 22px 50px rgba(78, 50, 26, .11);
+        --grain: .035;
+      }
+
+      /* ---- GECE ------------------------------------------------------ */
+      [data-theme='dark'] {
+        --bg: #120e0a;
+        --bg-warm: rgba(232, 147, 90, .09);
+        --surface: #1b1611;
+        --raised: #241d16;
+        --sunken: #0d0a07;
+
+        --fg:   #f8f2e9;   /* 16.1:1 */
+        --fg-2: #c2b5a3;   /*  8.9:1 */
+        --fg-3: #b0a390;   /*  6.7:1 — en kötü zeminde */
+        --fg-4: #9a8e7c;   /*  5.2:1 */
+
+        --line:   rgba(248, 242, 233, .075);
+        --line-2: rgba(248, 242, 233, .14);
+
+        --accent:      #e8935a;
+        --accent-deep: #f2a874;
+        --accent-fg:   #1a120b;
+        --tint:  rgba(232, 147, 90, .12);
+        --tint-2:rgba(232, 147, 90, .2);
+        --glow:  rgba(232, 147, 90, .22);
+
+        --e1: 0 1px 2px rgba(0, 0, 0, .4), 0 2px 5px rgba(0, 0, 0, .3);
+        --e2: 0 2px 4px rgba(0, 0, 0, .45), 0 9px 22px rgba(0, 0, 0, .38);
+        --e3: 0 4px 8px rgba(0, 0, 0, .5), 0 22px 50px rgba(0, 0, 0, .5);
+        --grain: .055;
+      }
+
+      html, body { height: 100%; }
+      body {
+        font-family: var(--sans);
+        font-size: var(--t-body);
+        color: var(--fg);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: 'cv05' 1, 'ss03' 1;  /* daha insancıl a/g/l */
+        transition: background var(--mid) var(--ease-soft), color var(--mid) var(--ease-soft);
+      }
+
+      /* Zemin ışığı + doku.
+         DOKU NEDEN VAR: düz bir renk dijitaldir, hafif bir tanecik KAĞITTIR.
+         %3.5'te görünmez ama hissedilir — "malzeme" iddiasının temeli. */
+      body::before {
+        content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        background:
+          radial-gradient(120% 80% at 12% -10%, var(--bg-warm), transparent 60%),
+          radial-gradient(90% 60% at 100% 100%, var(--bg-warm), transparent 55%);
+        transition: opacity var(--mid);
+      }
+      body::after {
+        content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        opacity: var(--grain);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+
+      /* ========================= 2. TEMA ANAHTARI ======================= */
+      .toggle {
+        position: fixed; top: var(--s4); right: var(--s4); z-index: 50;
+        display: flex; gap: 2px; padding: 3px;
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--r-pill); box-shadow: var(--e1);
+      }
+      .toggle button {
+        appearance: none; border: 0; cursor: pointer; font: inherit;
+        font-size: var(--t-tiny); font-weight: 550; letter-spacing: -.005em;
+        color: var(--fg-3); background: transparent;
+        padding: 6px 14px; border-radius: var(--r-pill);
+        transition: color var(--fast), background var(--fast);
+      }
+      .toggle button:hover { color: var(--fg-2); }
+      .toggle button[aria-pressed='true'] { background: var(--fg); color: var(--bg); }
+
+      /* ============================ 3. SAHNE =========================== */
+      .stage {
+        position: relative; z-index: 1;
+        height: 100%; display: grid;
+        grid-template-columns: 236px minmax(0, 1fr) 296px;
+        gap: var(--s3); padding: var(--s3);
+      }
+      /* ⚠️ Responsive kurallar stylesheet'in SONUNDA (bkz. §10).
+         Buraya yazıldığında `.rail { display: flex }` gibi sonradan gelen
+         bileşen kuralları onları eziyordu — eşit özgüllükte SIRA belirler. */
+
+      /* ---------------------------- 4. KABUK --------------------------- */
+      .nav { display: flex; flex-direction: column; gap: var(--s5); padding: var(--s2) var(--s1); min-height: 0; }
+
+      /* Şirket kartı — yüzen, dokunulabilir. Kabuğun tek "kart"ı olması
+         bilinçli: kimlik en üstte ve tek başına durur. */
+      .co {
+        display: flex; align-items: center; gap: var(--s3);
+        padding: 10px 11px; border-radius: var(--r-md);
+        background: var(--surface); box-shadow: var(--e1);
+        border: 1px solid var(--line);
+        cursor: pointer; transition: box-shadow var(--mid) var(--ease), transform var(--mid) var(--ease);
+      }
+      .co:hover { box-shadow: var(--e2); transform: translateY(-1px); }
+      .co__mark {
+        width: 36px; height: 36px; flex: none; border-radius: var(--r-sm);
+        display: grid; place-items: center;
+        background: linear-gradient(150deg, var(--accent), var(--accent-deep));
+        color: var(--accent-fg); font-size: var(--t-tiny); font-weight: 700; letter-spacing: .03em;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+      }
+      .co__name { font-size: 13px; font-weight: 600; letter-spacing: -.014em; line-height: 1.3; }
+      .co__sub  { font-size: var(--t-tiny); color: var(--fg-3); margin-top: 1px; letter-spacing: -.002em; }
+      .co__chev { margin-left: auto; color: var(--fg-4); flex: none; }
+
+      .nav__group { display: flex; flex-direction: column; gap: 2px; }
+      .nav__label {
+        font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .18em;
+        text-transform: uppercase; color: var(--fg-3);
+        padding: 0 12px; margin-bottom: var(--s2);
+      }
+      .nav__item {
+        position: relative; display: flex; align-items: center; gap: 11px;
+        padding: 9px 12px; border-radius: var(--r-sm);
+        font-size: 13.5px; font-weight: 450; color: var(--fg-2); cursor: pointer;
+        transition: color var(--fast), background var(--fast);
+      }
+      .nav__item:hover { background: var(--tint); color: var(--fg); }
+      .nav__item[aria-current] { color: var(--fg); font-weight: 550; background: var(--tint); }
+      /* Aktif işareti: solda kısa bir amber çubuk — dolgu değil, İMZA. */
+      .nav__item[aria-current]::before {
+        content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+        width: 3px; height: 17px; border-radius: 0 3px 3px 0; background: var(--accent);
+      }
+      .nav__ico { width: 15px; height: 15px; flex: none; opacity: .62; }
+      .nav__item[aria-current] .nav__ico { opacity: 1; color: var(--accent); }
+      .nav__soon {
+        margin-left: auto; font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+        letter-spacing: .08em; color: var(--fg-3);
+        border: 1px solid var(--line-2); padding: 2px 5px; border-radius: 5px;
+      }
+
+      .nav__foot { margin-top: auto; }
+      .me {
+        display: flex; align-items: center; gap: var(--s3); padding: 9px 11px;
+        border-radius: var(--r-md); cursor: pointer; transition: background var(--fast);
+      }
+      .me:hover { background: var(--tint); }
+      .me__av {
+        width: 30px; height: 30px; border-radius: var(--r-pill); flex: none;
+        display: grid; place-items: center; font-size: var(--t-micro); font-weight: 650;
+        background: var(--sunken); color: var(--fg-2); border: 1px solid var(--line);
+      }
+
+      /* ---------------------- 5. PANEL — yüzen yüzey -------------------- */
+      .panel {
+        display: flex; flex-direction: column; min-width: 0; min-height: 0;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--r-xl);
+        box-shadow: var(--e2);
+        overflow: hidden;
+      }
+
+      .head {
+        display: flex; align-items: center; justify-content: space-between; gap: var(--s5);
+        padding: var(--s5) var(--s7) var(--s4);
+        border-bottom: 1px solid var(--line);
+      }
+      .head__t { font-size: 15px; font-weight: 600; letter-spacing: -.022em; }
+      .head__s { font-size: var(--t-tiny); color: var(--fg-3); margin-top: 2px; letter-spacing: -.004em; }
+      .stat {
+        display: flex; align-items: center; gap: 9px;
+        font-size: var(--t-small); color: var(--fg-2); font-variant-numeric: tabular-nums;
+      }
+      .stat b { color: var(--fg); font-weight: 600; }
+      .stat__sep { color: var(--fg-4); }
+      /* Nabız: ürün CANLI. Çok yavaş ve çok az — fark edilir, rahatsız etmez. */
+      .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 3.6s var(--ease-soft) infinite; }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 var(--glow); }
+        50%      { box-shadow: 0 0 0 5px transparent; }
+      }
+
+      .scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+      .scroll::-webkit-scrollbar { width: 9px; }
+      .scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 9px; border: 3px solid transparent; background-clip: content-box; }
+      .stream { max-width: 720px; margin: 0 auto; padding: var(--s7) var(--s7) var(--s5); }
+
+      /* ------------------------- 6. AKIŞ ------------------------------- */
+      .entry { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: var(--s5); position: relative; padding-bottom: var(--s6); }
+      .entry__line { position: absolute; left: 51px; top: 16px; bottom: 0; width: 1px; background: var(--line-2); }
+      .entry:last-child .entry__line { display: none; }
+      .entry__when { position: relative; text-align: right; padding-top: 2px; }
+      .entry__clock {
+        font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--fg-3); padding-right: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .entry__pin {
+        position: absolute; right: -3.5px; top: 6px; width: 7px; height: 7px; border-radius: 50%;
+        box-shadow: 0 0 0 4px var(--surface);
+      }
+      .entry--ai  .entry__pin { background: var(--accent); }
+      .entry--you .entry__pin { background: var(--surface); border: 1.5px solid var(--line-2); }
+
+      /* AI sesi — Fraunces. `opsz` büyük boyutta inceltir, küçükte kalınlaştırır:
+         optik boyut olmadan büyük serif "şişman", küçük serif "cılız" görünür. */
+      .said {
+        font-family: var(--serif); color: var(--fg);
+        font-size: var(--t-read); line-height: 1.7; max-width: 58ch;
+        font-weight: 400; letter-spacing: .002em; text-wrap: pretty;
+        font-variation-settings: 'opsz' 16;
+      }
+      /* Günün ilk gözlemi — sayfanın kahramanı.
+         `opsz` 42: büyük boyutta tırnaklar incelir, boşluklar sıkılaşır. Optik
+         boyut olmadan büyük serif "şişman", küçük serif "cılız" görünür. */
+      .said--lead {
+        font-size: var(--t-lead); line-height: 1.42; max-width: 27ch;
+        letter-spacing: -.014em; font-weight: 350;
+        font-variation-settings: 'opsz' 42;
+      }
+      @media (min-width: 1500px) { .said--lead { font-size: var(--t-hero); max-width: 26ch; } }
+
+      /* Kullanıcı sesi — sans, küçük, ikincil. AI baskın kalmalı. */
+      .asked { font-size: 13.5px; font-weight: 550; color: var(--fg-2); max-width: 56ch; letter-spacing: -.008em; }
+
+      .cite { margin-top: var(--s3); display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-tiny); color: var(--fg-3); }
+      .cite b { color: var(--accent); font-weight: 600; }
+      .cite__dot { width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: .55; }
+
+      /* Çipler — "içeride tutan" asıl kaldıraç. Dokunulabilir olmalı:
+         yüzen kart gibi kalkar, basınca oturur. */
+      .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+      .chip {
+        appearance: none; font: inherit; cursor: pointer;
+        background: var(--raised); color: var(--fg);
+        border: 1px solid var(--line); border-radius: var(--r-pill);
+        padding: 9px 15px; font-size: var(--t-small); font-weight: 500; letter-spacing: -.008em;
+        box-shadow: var(--e1);
+        transition: transform var(--mid) var(--ease), box-shadow var(--mid) var(--ease),
+                    border-color var(--fast), color var(--fast);
+      }
+      .chip:hover { transform: translateY(-2px); box-shadow: var(--e2); border-color: var(--tint-2); color: var(--accent-deep); }
+      .chip:active { transform: translateY(0); box-shadow: var(--e1); }
+      [data-theme='dark'] .chip:hover { color: var(--accent-deep); }
+
+      /* ------------------------ 7. YAZMA ALANI ------------------------- */
+      .composer { padding: var(--s4) var(--s7) var(--s5); border-top: 1px solid var(--line); background: var(--surface); }
+      .composer__in { max-width: 720px; margin: 0 auto; }
+
+      .seg { display: inline-flex; position: relative; gap: 0; padding: 3px; margin-bottom: var(--s3);
+             background: var(--sunken); border-radius: var(--r-pill); border: 1px solid var(--line); }
+      /* Kaydıraç: seçim ATLAMAZ, KAYAR. Sürekliliği koruyan tek detay. */
+      .seg__slide {
+        position: absolute; top: 3px; bottom: 3px; left: 3px; width: var(--seg-w, 68px);
+        background: var(--accent); border-radius: var(--r-pill); box-shadow: var(--e1);
+        transition: transform var(--mid) var(--ease), width var(--mid) var(--ease);
+      }
+      .seg button {
+        position: relative; z-index: 1; appearance: none; border: 0; font: inherit; cursor: pointer;
+        padding: 7px 17px; border-radius: var(--r-pill); background: transparent;
+        font-size: var(--t-small); font-weight: 550; letter-spacing: -.008em;
+        color: var(--fg-3); transition: color var(--mid) var(--ease);
+      }
+      .seg button:hover { color: var(--fg-2); }
+      .seg button[aria-pressed='true'] { color: var(--accent-fg); }
+
+      .field {
+        display: flex; align-items: center; gap: var(--s3);
+        background: var(--raised); border: 1px solid var(--line-2);
+        border-radius: var(--r-lg); padding: 7px 7px 7px 18px;
+        box-shadow: var(--e1);
+        transition: border-color var(--mid) var(--ease-soft), box-shadow var(--mid) var(--ease-soft);
+      }
+      .field:focus-within { border-color: var(--accent); box-shadow: var(--e2), 0 0 0 4px var(--glow); }
+      .field input {
+        flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit;
+        font-size: 15px; color: var(--fg); padding: 9px 0; letter-spacing: -.012em;
+      }
+      .field input::placeholder { color: var(--fg-4); }
+      .send {
+        appearance: none; border: 0; font: inherit; cursor: pointer; flex: none;
+        display: inline-flex; align-items: center; gap: 7px;
+        background: linear-gradient(150deg, var(--accent), var(--accent-deep));
+        color: var(--accent-fg); padding: 11px 18px; border-radius: var(--r-md);
+        font-size: 13px; font-weight: 600; letter-spacing: -.008em;
+        box-shadow: var(--e1), inset 0 1px 0 rgba(255,255,255,.2);
+        transition: transform var(--fast) var(--ease), box-shadow var(--fast), filter var(--fast);
+      }
+      .send:hover { transform: translateY(-1px); box-shadow: var(--e2), inset 0 1px 0 rgba(255,255,255,.24); filter: saturate(1.08); }
+      .send:active { transform: translateY(0); }
+      .hint { margin-top: var(--s3); font-size: var(--t-tiny); color: var(--fg-3); letter-spacing: -.002em; }
+
+      /* --------------------------- 8. RAY ------------------------------ */
+      .rail { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s2) var(--s1); min-height: 0; }
+      .rail__head { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 12px var(--s3); }
+      .rail__head h2 {
+        font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .18em;
+        text-transform: uppercase; color: var(--fg-3);
+      }
+      .rail__head span { font-size: var(--t-tiny); color: var(--fg-3); font-variant-numeric: tabular-nums; }
+      .rail__list { display: flex; flex-direction: column; gap: var(--s2); overflow-y: auto; min-height: 0; scrollbar-width: none; }
+      .rail__list::-webkit-scrollbar { display: none; }
+
+      /* Not kartı — fiziksel bir fiş gibi. Kalkar, kenarı ısınır. */
+      .note {
+        position: relative; overflow: hidden;
+        display: flex; flex-direction: column; gap: 5px;
+        padding: 13px 15px; border-radius: var(--r-md);
+        background: var(--surface); border: 1px solid var(--line);
+        box-shadow: var(--e1); cursor: pointer;
+        transition: transform var(--mid) var(--ease), box-shadow var(--mid) var(--ease);
+      }
+      .note::before {
+        content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2.5px;
+        border-radius: 0 3px 3px 0; background: var(--accent);
+        transform: scaleY(.25); opacity: 0; transform-origin: center;
+        transition: transform var(--mid) var(--ease), opacity var(--mid) var(--ease);
+      }
+      .note:hover { transform: translateY(-2px); box-shadow: var(--e2); }
+      .note:hover::before { transform: scaleY(1); opacity: 1; }
+      .note__t { font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--fg-3); }
+      .note__h { font-size: 12.5px; font-weight: 600; letter-spacing: -.012em; }
+      .note__p { font-size: 12px; line-height: 1.55; color: var(--fg-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+      .rail__all {
+        margin-top: auto; text-align: center; padding: 12px;
+        border-radius: var(--r-md); background: var(--surface);
+        border: 1px solid var(--line); box-shadow: var(--e1);
+        font-size: var(--t-small); font-weight: 550; letter-spacing: -.008em; cursor: pointer;
+        transition: transform var(--mid) var(--ease), box-shadow var(--mid) var(--ease), color var(--fast);
+      }
+      .rail__all:hover { transform: translateY(-2px); box-shadow: var(--e2); color: var(--accent-deep); }
+
+      /* ------------------------- 9. GİRİŞ HAREKETİ ---------------------- */
+      /* Sahnelenmiş yükselme: kullanıcı geldiğinde asistan O AN konuşuyor
+         hissi. Yalnızca AÇILIŞTA — sonraki turlar sahnelenmez, yoksa hızlı
+         gelen bir cevap yavaş gösterilmiş olurdu. */
+      @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      .rise { opacity: 0; animation: rise .72s var(--ease) forwards; animation-delay: calc(var(--d, 0) * 1ms); }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: .01ms !important; animation-delay: .01ms !important;
+          animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+        }
+      }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+      /* ====================== 10. DARALMA DAVRANIŞI ====================
+         EN SONDA olmalı: bileşen kuralları (`.rail { display:flex }`) bunlarla
+         aynı özgüllükte; kim sonda yazılıysa o kazanır. Bir kez yanlış sırada
+         yazıldı ve ray, menünün üstüne binen ikinci bir satıra düştü.
+
+         Sırayla ne düşer: önce RAY (taşıdığı bilgi başlıktaki canlı satırda
+         zaten özetleniyor), sonra MENÜ (dar ekranda üç sütun 56ch'lik okuma
+         ölçüsünü yok ederdi). Panel en son ayakta kalan — o olmadan ürün yok. */
+      @media (max-width: 1160px) {
+        .stage { grid-template-columns: 236px minmax(0, 1fr); }
+        .rail { display: none; }
+      }
+      @media (max-width: 920px) {
+        .stage { grid-template-columns: minmax(0, 1fr); padding: var(--s2); }
+        .nav { display: none; }
+        .stream { padding: var(--s6) var(--s5) var(--s4); }
+        .head { padding: var(--s4) var(--s5) var(--s3); }
+        .composer { padding: var(--s3) var(--s5) var(--s4); }
+        .said--lead { font-size: 22px; max-width: none; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="toggle" id="themes">
+      <button data-t="light" aria-pressed="true">Gündüz</button>
+      <button data-t="dark" aria-pressed="false">Gece</button>
+    </div>
+
+    <div class="stage">
+      <!-- ============================= KABUK ========================== -->
+      <nav class="nav">
+        <div class="co rise" style="--d: 0">
+          <div class="co__mark">KB</div>
+          <div style="min-width:0">
+            <div class="co__name">Key Brothers Tech</div>
+            <div class="co__sub">Şirket değiştir</div>
+          </div>
+          <svg class="co__chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5 5 5-5"/></svg>
+        </div>
+
+        <div class="rise" style="--d: 70">
+          <div class="nav__label">Çalışma</div>
+          <div class="nav__group">
+            <div class="nav__item" aria-current="page">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              Panel
+            </div>
+            <div class="nav__item">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              Bilgi Bankası
+            </div>
+          </div>
+        </div>
+
+        <div class="rise" style="--d: 130">
+          <div class="nav__label">Modüller</div>
+          <div class="nav__group">
+            <div class="nav__item">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+              Müşteriler <span class="nav__soon">YAKINDA</span>
+            </div>
+            <div class="nav__item">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              Finans <span class="nav__soon">YAKINDA</span>
+            </div>
+            <div class="nav__item">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+              Projeler <span class="nav__soon">YAKINDA</span>
+            </div>
+            <div class="nav__item">
+              <svg class="nav__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+              Ekip <span class="nav__soon">YAKINDA</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav__foot rise" style="--d: 190">
+          <div class="me">
+            <div class="me__av">AG</div>
+            <div>
+              <div class="co__name" style="font-size:12.5px">Aydın Geçmez</div>
+              <div class="co__sub">Hesabım</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ============================= PANEL ========================== -->
+      <main class="panel rise" style="--d: 40">
+        <header class="head">
+          <div>
+            <div class="head__t">Panel</div>
+            <div class="head__s">Şirketinizin kurumsal hafızası</div>
+          </div>
+          <div class="stat">
+            <span class="pulse"></span>
+            <span><b>142</b> not</span>
+            <span class="stat__sep">·</span>
+            <span>bugün <b>3 yeni</b></span>
+          </div>
+        </header>
+
+        <div class="scroll">
+          <div class="stream">
+            <div class="entry entry--ai">
+              <div class="entry__line"></div>
+              <div class="entry__when"><span class="entry__clock">07:14</span><span class="entry__pin"></span></div>
+              <div class="rise" style="--d: 240">
+                <p class="said said--lead">
+                  Dün üç not eklendi ve üçü de tahsilatla ilgiliydi. Ödemesi geciken iki
+                  müşteriden biri geçen çeyrekte de gecikmişti — bu bir kalıp olabilir.
+                </p>
+              </div>
+            </div>
+
+            <div class="entry entry--you">
+              <div class="entry__line"></div>
+              <div class="entry__when"><span class="entry__clock">Sen</span><span class="entry__pin"></span></div>
+              <div><p class="asked">Hangi müşteri tekrar ediyor?</p></div>
+            </div>
+
+            <div class="entry entry--ai">
+              <div class="entry__when"><span class="entry__clock">07:20</span><span class="entry__pin"></span></div>
+              <div>
+                <p class="said">
+                  Meridyen Yapı. Mart ayında 42 gün, bu ay 38 gün gecikme var. İkisinde de
+                  gecikme, sözleşme yenilemesinden hemen önceki döneme denk geliyor. Nakit
+                  akışı notlarınızda bu iki dönem dışında Meridyen kaynaklı bir sapma yok.
+                </p>
+                <p class="cite"><span class="cite__dot"></span><b>3 nota</b> dayanıyor</p>
+                <div class="chips">
+                  <button class="chip">Sözleşme yenileme tarihleri ne?</button>
+                  <button class="chip">Diğer geciken müşteri kim?</button>
+                  <button class="chip">Bu çeyreğin tahsilat özeti</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer__in">
+            <div class="seg" id="seg">
+              <span class="seg__slide"></span>
+              <button aria-pressed="true">Sor</button>
+              <button aria-pressed="false">Not ekle</button>
+            </div>
+            <div class="field">
+              <input placeholder="Kurumsal hafızaya sor…" />
+              <button class="send">
+                Gönder
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+            <p class="hint">Cevaplar yalnızca sizin notlarınızdan üretilir.</p>
+          </div>
+        </div>
+      </main>
+
+      <!-- ============================== RAY ========================== -->
+      <aside class="rail rise" style="--d: 110">
+        <div class="rail__head">
+          <h2>Son eklenenler</h2>
+          <span>bugün 3</span>
+        </div>
+
+        <div class="rail__list">
+          <div class="note">
+            <div class="note__t">09:41</div>
+            <div class="note__h">Meridyen ödeme planı</div>
+            <div class="note__p">Muhasebe 38 günlük gecikmeyi bildirdi; yeniden yapılandırma önerildi.</div>
+          </div>
+          <div class="note">
+            <div class="note__t">08:12</div>
+            <div class="note__h">Haftalık sürüm notu</div>
+            <div class="note__p">Ekip dört kişi; sürüm salı günleri çıkıyor, test cuma kapanıyor.</div>
+          </div>
+          <div class="note">
+            <div class="note__t">Dün 18:20</div>
+            <div class="note__p">Fatura sürecini Ayşe yönetiyor, yedek onaycı tanımlı değil.</div>
+          </div>
+        </div>
+
+        <div class="rail__all">Tümünü gör (142)</div>
+      </aside>
+    </div>
+
+    <script>
+      const root = document.documentElement;
+
+      document.querySelectorAll('#themes button').forEach((b) =>
+        b.addEventListener('click', () => {
+          root.setAttribute('data-theme', b.dataset.t);
+          document
+            .querySelectorAll('#themes button')
+            .forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t)));
+        }),
+      );
+      addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key.toLowerCase() === 'g') {
+          const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+          document.querySelector(`#themes button[data-t="${next}"]`).click();
+        }
+      });
+
+      /* Segment kaydıracı — seçim atlamaz, kayar. */
+      const seg = document.getElementById('seg');
+      const slide = seg.querySelector('.seg__slide');
+      const segBtns = [...seg.querySelectorAll('button')];
+      function moveSlide(btn) {
+        slide.style.width = btn.offsetWidth + 'px';
+        slide.style.transform = `translateX(${btn.offsetLeft - 3}px)`;
+      }
+      segBtns.forEach((b) => {
+        // Odağı taşıyan olay `mousedown`; engellenince yazma alanı odağını
+        // kaybetmez ve halka sönmez.
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => {
+          segBtns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          moveSlide(b);
+          const ask = b.textContent.trim() === 'Sor';
+          const input = document.querySelector('.field input');
+          input.placeholder = ask ? 'Kurumsal hafızaya sor…' : 'Ne kaydetmek istersiniz?';
+          document.querySelector('.hint').textContent = ask
+            ? 'Cevaplar yalnızca sizin notlarınızdan üretilir.'
+            : 'Eklediğiniz not kurumsal hafızaya girer ve sorularınızda bağlam olur.';
+          input.focus();
+        });
+      });
+      addEventListener('load', () => moveSlide(segBtns[0]));
+      moveSlide(segBtns[0]);
+    </script>
+  </body>
+</html>

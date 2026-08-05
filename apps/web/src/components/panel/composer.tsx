@@ -82,9 +82,9 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-border bg-surface px-6 pt-3.5 pb-4 md:px-8">
-      <div className="mx-auto w-full max-w-[880px]">
-        <div className="mb-2.5 inline-flex gap-0.5 rounded-[10px] bg-fill p-[3px]">
+    <div className="border-t border-border bg-surface px-5 pt-4 pb-5 md:px-10">
+      <div className="mx-auto w-full max-w-[720px]">
+        <div className="mb-3 inline-flex gap-0.5 rounded-full border border-border bg-sunken p-[3px]">
           {(
             [
               ['ask', 'Sor'],
@@ -103,7 +103,8 @@ export function Composer({
                 pickMode(value);
               }}
               className={[
-                'rounded-[7.5px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors',
+                'rounded-full px-[17px] py-[7px] text-[12.5px] font-semibold tracking-[-0.008em]',
+                'transition-[background-color,color] duration-[260ms] ease-rise',
                 mode === value
                   ? 'bg-accent text-accent-fg shadow-card'
                   : 'text-fg-3 hover:text-fg-2',
@@ -119,8 +120,9 @@ export function Composer({
         <form
           noValidate
           className={[
-            'mt-2 flex items-center gap-2.5 rounded-[14px] border border-border-strong bg-raised',
-            'py-2 pr-2 pl-4 shadow-float transition-[border-color,box-shadow] duration-200',
+            'mt-2 flex items-center gap-3 rounded-field border border-border-strong bg-raised',
+            'py-[7px] pr-[7px] pl-[18px] shadow-card',
+            'transition-[border-color,box-shadow] duration-[260ms] ease-rise',
             'focus-within:border-accent focus-within:shadow-[var(--sh-float),0_0_0_4px_var(--glow)]',
           ].join(' ')}
           onSubmit={(event) => {
@@ -138,15 +140,17 @@ export function Composer({
             onChange={(event) => {
               setText(event.target.value);
             }}
-            className="min-w-0 flex-1 bg-transparent py-1 text-[16px] tracking-[-0.008em] text-fg outline-none placeholder:text-fg-3 disabled:opacity-60"
+            className="min-w-0 flex-1 bg-transparent py-[9px] text-[15px] tracking-[-0.012em] text-fg outline-none placeholder:text-fg-4 disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={empty || pending}
             className={[
-              'inline-flex shrink-0 items-center gap-1.5 rounded-[10px] bg-accent px-4 py-2.5',
-              'text-[13px] font-semibold text-accent-fg shadow-card transition-[filter,transform]',
-              'duration-150 hover:-translate-y-px hover:brightness-110',
+              'inline-flex shrink-0 items-center gap-[7px] rounded-card px-[18px] py-[11px]',
+              'bg-linear-150 from-accent to-ink text-[13px] font-semibold tracking-[-0.008em]',
+              'text-accent-fg shadow-card inset-shadow-[0_1px_0_rgba(255,255,255,0.2)]',
+              'transition-[filter,transform,box-shadow] duration-150 ease-rise',
+              'hover:-translate-y-px hover:shadow-float hover:saturate-[1.08]',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0',
             ].join(' ')}
           >
@@ -160,7 +164,7 @@ export function Composer({
           </button>
         </form>
 
-        <p className="mt-2.5 text-[11px] text-fg-3">{hint}</p>
+        <p className="mt-3 text-[11.5px] text-fg-3">{hint}</p>
       </div>
     </div>
   );

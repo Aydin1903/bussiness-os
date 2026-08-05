@@ -84,7 +84,7 @@ export default function SelectTenantPage() {
                   void choose(item.tenantId);
                 }}
                 disabled={selectingId !== null}
-                className="flex w-full items-center justify-between rounded-lg border border-border bg-bg px-4 py-3 text-left transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-raised px-4 py-3 text-left transition-colors hover:bg-fill disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="text-sm font-medium text-fg">{item.tenantName}</span>
                 <span className="text-xs text-fg-muted">

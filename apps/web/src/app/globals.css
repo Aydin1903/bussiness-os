@@ -4,32 +4,38 @@
  * Tasarım token'ları — FRONTEND_ARCHITECTURE §4.
  *
  * ============================================================================
- * SICAK NÖTR ZEMİN + TEK İMZA RENGİ (AMBER)
+ * "ATÖLYE" — premium = MALZEME + DERİNLİK (Product Owner kararı, 2026-08-05)
  * ============================================================================
- * Önceki sistem "renk değil kontrast" diyordu ve saf beyaz/siyahtı. Yeni yön
- * (Product Owner onayı, 2026-08-05) sıcak nötr bir zemin ve TEK bir imza rengi
- * kullanır: amber. Mor/mavi "AI ürünü" klişesinden ve sparkle ikonundan
- * bilinçli olarak kaçınılır.
+ * Ekran düz bir yüzey değil, KATMANLI BİR MASA. Zemin sıcak kağıt; panel onun
+ * üstünde yüzer; kartlar panelin üstünde durur. Işık hep yukarıdan gelir ve
+ * gölgeler SICAK — nötr siyah gölge sıcak bir paletin üstünde "kirli gri"
+ * görünür ve malzeme hissini öldürür.
  *
- * ⚠️ AMBER İKİ TONDUR ve bu zorunluluktur:
- *   `--accent`  → DOLGU (buton, aktif durum). Üstünde `--accent-fg` okunur.
- *   `--ink`     → accent renkli METİN. Dolgu tonu metin olarak sönük kalıyor,
- *                 metin tonu üstünde beyaz yazı okunmuyordu.
- * Koyu modda dolgu parlak amber + KOYU metin taşır (Apple'ın sarı butonları):
- * o zeminde beyaz yazı okunmaz.
+ * İmza rengi amberden TERRACOTTA'ya geçti. Mor/mavi "AI ürünü" klişesinden ve
+ * sparkle ikonundan kaçınma kararı aynen sürüyor.
  *
  * ============================================================================
- * DÖRT YÜZEY KATMANI
+ * ⚠️ YÜZEY SIRASI TERSİNE DÖNDÜ — bu bilinçlidir
  * ============================================================================
- * `sunken` (sağ ray) < `bg` (sayfa) < `surface` (sol menü, yazma alanı) <
- * `raised` (girdi kutusu). Derinlik gölgeyle değil KATMANLA kurulur; gölge
- * yalnızca yükseltilmiş öğeyi ayırmak için ve çok yumuşak.
+ * ESKİ (açık tema): surface, bg'den KOYUYDU (sol menü zemine gömülüydü).
+ * YENİ (açık tema): `bg` (sıcak kağıt) < `surface` (yüzen panel) < `raised`.
+ * Yani sol menü artık zemine gömülmez, panel zeminden YÜKSELİR.
+ *
+ * Bunun kodda tek bir sonucu var ve atlanırsa hata üretir:
+ *   HOVER DURUMLARI `--fill` KULLANIR, `surface`/`raised` DEĞİL.
+ * Açık temada surface ve raised neredeyse beyazdır; `hover:bg-surface` beyaz
+ * bir kartın üstünde GÖRÜNMEZ. `--fill` yarı saydam nötr bir dolgudur ve her
+ * zeminde çalışır.
  *
  * ============================================================================
- * GERİYE UYUMLULUK
+ * METİN RAMPASI — DÖRT KADEME, DÖRDÜ DE OKUNUR
  * ============================================================================
- * `--fg-muted` KORUNDU (kodda 54 kullanımı var) ve `--fg-2`'ye eşitlendi.
- * Silinseydi mevcut ekranların ikincil metinleri sessizce kaybolurdu.
+ * Değerler tarayıcıda ölçüldü ve dört zeminin (bg/surface/raised/sunken)
+ * EN KÖTÜSÜNE göre seçildi; hepsi WCAG AA (4.5:1) üstünde. İlk denemede
+ * fg-3/fg-4 daha soluktu ve 9.5px saat etiketiyle 2.92:1 veriyordu — küçük
+ * punto DAHA FAZLA kontrast ister, daha az değil.
+ *
+ * `--fg-muted` KORUNDU (kodda 38 kullanımı var) ve `--fg-2`'ye eşitlendi.
  *
  * Tailwind v4 CSS-first'tür: SSOT bu dosyadır, `tailwind.config.js` YOKTUR.
  */
@@ -37,110 +43,116 @@
 :root {
   color-scheme: light dark;
 
-  /* — yüzeyler — */
-  --bg: #fcfbf8;
-  --sunken: #f6f3ed;
-  --surface: #f1eee7;
+  /* — yüzeyler: zeminden yukarı — */
+  --bg: #f5efe7;
+  --sunken: #ebe2d6;
+  --surface: #fffdfb;
   --raised: #ffffff;
 
-  /* — çizgiler: iki ağırlık — */
-  --border: #e6e0d5;
-  --border-strong: #d3cbbd;
+  /* Zemine dökülen ılık ışık — köşelerden gelir, merkezde kaybolur. */
+  --bg-warm: rgba(212, 154, 106, 0.16);
+  /* Kağıt taneciği. Düz renk dijitaldir; hafif tanecik KAĞITTIR. */
+  --grain: 0.035;
 
-  /* — metin: üç kademe — */
-  --fg: #191610;
-  --fg-2: #554f46;
-  --fg-3: #8d8578;
+  /* — çizgiler: iki ağırlık, yarı saydam (her zeminde çalışsın) — */
+  --border: rgba(30, 24, 17, 0.07);
+  --border-strong: rgba(30, 24, 17, 0.13);
 
-  /* — amber — */
-  --accent: #96620f;
-  --accent-fg: #fffdf9;
-  --ink: #855508;
-  --tint: rgba(150, 98, 15, 0.1);
-  --tint-2: rgba(150, 98, 15, 0.17);
-  --glow: rgba(150, 98, 15, 0.14);
+  /* — metin: dört kademe (en kötü zemindeki oran) — */
+  --fg: #1e1811; /* 15.9:1 */
+  --fg-2: #574c3f; /*  8.2:1 */
+  --fg-3: #695c4d; /*  5.1:1 */
+  --fg-4: #736657; /*  4.4:1 — yalnızca 11px+ metinde */
 
-  /* — nötr dolgular (ikincil butonlar, hover) — */
-  --fill: rgba(25, 22, 16, 0.05);
-  --fill-2: rgba(25, 22, 16, 0.088);
+  /* — terracotta —
+     İlk seçim `#b85c2b`'ydi ve üstündeki `--accent-fg` metni 4.40:1 veriyordu:
+     AA sınırının (4.5) hemen ALTINDA. Bu renk her yerde DOLGU olarak kullanılıyor
+     (Gönder düğmesi, "BO" rozeti), yani hata tek bir bileşende değil SİSTEMDE
+     olurdu. Bir kademe koyulaştırıldı → 4.76:1, renk gücünden kayıp yok. */
+  --accent: #b25628;
+  --accent-fg: #fffaf6;
+  /* Accent renkli METİN. Dolgu tonu metin olarak kontrastı tutmuyor. */
+  --ink: #96481f;
+  --tint: rgba(178, 86, 40, 0.085);
+  --tint-2: rgba(178, 86, 40, 0.15);
+  --glow: rgba(178, 86, 40, 0.17);
+
+  /* — nötr dolgular: HOVER'IN DOĞRU ARACI — */
+  --fill: rgba(30, 24, 17, 0.05);
+  --fill-2: rgba(30, 24, 17, 0.09);
 
   --danger: #a8281a;
 
-  --sh-card: 0 1px 2px rgba(25, 22, 16, 0.06);
-  --sh-float: 0 2px 4px rgba(25, 22, 16, 0.05), 0 8px 24px rgba(25, 22, 16, 0.06);
+  /* Gölgeler kahve-kızıl bir siyahtan türer; her biri iki katman:
+     yakın temas + geniş ortam. */
+  --sh-card: 0 1px 2px rgba(78, 50, 26, 0.05), 0 2px 5px rgba(78, 50, 26, 0.04);
+  --sh-float: 0 2px 4px rgba(78, 50, 26, 0.05), 0 9px 22px rgba(78, 50, 26, 0.07);
+  --sh-lift: 0 4px 8px rgba(78, 50, 26, 0.06), 0 22px 50px rgba(78, 50, 26, 0.11);
 }
 
+/*
+ * Sistem koyu tercihi — AMA kullanıcı açıkça "açık" dediyse UYGULANMAZ.
+ *
+ * `:not([data-theme='light'])` bunu tek satırda çözer. Eskiden bu blok koşulsuz
+ * uygulanıyor, sonra ayrı bir `:root[data-theme='light']` bloğu değerleri
+ * TEKRAR yazarak geri alıyordu — aynı paletin üç kopyası demekti ve kopyalar
+ * sapmaya açıktı.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #100e0b;
-    --sunken: #0b0a08;
-    --surface: #181510;
-    --raised: #211d17;
-    --border: #2d2820;
-    --border-strong: #443c30;
-    --fg: #f4f0e8;
-    --fg-2: #b3aa9c;
-    --fg-3: #837a6d;
-    --accent: #eaa93c;
-    --accent-fg: #17140e;
-    --ink: #f3c069;
-    --tint: rgba(234, 169, 60, 0.15);
-    --tint-2: rgba(234, 169, 60, 0.25);
-    --glow: rgba(234, 169, 60, 0.22);
-    --fill: rgba(244, 240, 232, 0.065);
-    --fill-2: rgba(244, 240, 232, 0.115);
+  :root:not([data-theme='light']) {
+    --bg: #120e0a;
+    --sunken: #0d0a07;
+    --surface: #1b1611;
+    --raised: #241d16;
+    --bg-warm: rgba(232, 147, 90, 0.09);
+    --grain: 0.055;
+    --border: rgba(248, 242, 233, 0.075);
+    --border-strong: rgba(248, 242, 233, 0.14);
+    --fg: #f8f2e9; /* 16.1:1 */
+    --fg-2: #c2b5a3; /*  8.9:1 */
+    --fg-3: #b0a390; /*  6.7:1 */
+    --fg-4: #9a8e7c; /*  5.2:1 */
+    --accent: #e8935a;
+    --accent-fg: #1a120b;
+    --ink: #f2a874;
+    --tint: rgba(232, 147, 90, 0.12);
+    --tint-2: rgba(232, 147, 90, 0.2);
+    --glow: rgba(232, 147, 90, 0.22);
+    --fill: rgba(248, 242, 233, 0.06);
+    --fill-2: rgba(248, 242, 233, 0.11);
     --danger: #f2a99e;
-    --sh-card: 0 1px 2px rgba(0, 0, 0, 0.55);
-    --sh-float: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
+    --sh-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 5px rgba(0, 0, 0, 0.3);
+    --sh-float: 0 2px 4px rgba(0, 0, 0, 0.45), 0 9px 22px rgba(0, 0, 0, 0.38);
+    --sh-lift: 0 4px 8px rgba(0, 0, 0, 0.5), 0 22px 50px rgba(0, 0, 0, 0.5);
   }
 }
 
-/* Kullanıcının açık tema toggle'ı sistem tercihini EZER. */
-:root[data-theme='light'] {
-  --bg: #fcfbf8;
-  --sunken: #f6f3ed;
-  --surface: #f1eee7;
-  --raised: #ffffff;
-  --border: #e6e0d5;
-  --border-strong: #d3cbbd;
-  --fg: #191610;
-  --fg-2: #554f46;
-  --fg-3: #8d8578;
-  --accent: #96620f;
-  --accent-fg: #fffdf9;
-  --ink: #855508;
-  --tint: rgba(150, 98, 15, 0.1);
-  --tint-2: rgba(150, 98, 15, 0.17);
-  --glow: rgba(150, 98, 15, 0.14);
-  --fill: rgba(25, 22, 16, 0.05);
-  --fill-2: rgba(25, 22, 16, 0.088);
-  --danger: #a8281a;
-  --sh-card: 0 1px 2px rgba(25, 22, 16, 0.06);
-  --sh-float: 0 2px 4px rgba(25, 22, 16, 0.05), 0 8px 24px rgba(25, 22, 16, 0.06);
-}
-
-/* Kullanıcının karanlık tema toggle'ı sistem tercihini EZER. */
+/* Kullanıcının koyu tema seçimi sistem tercihini EZER. */
 :root[data-theme='dark'] {
-  --bg: #100e0b;
-  --sunken: #0b0a08;
-  --surface: #181510;
-  --raised: #211d17;
-  --border: #2d2820;
-  --border-strong: #443c30;
-  --fg: #f4f0e8;
-  --fg-2: #b3aa9c;
-  --fg-3: #837a6d;
-  --accent: #eaa93c;
-  --accent-fg: #17140e;
-  --ink: #f3c069;
-  --tint: rgba(234, 169, 60, 0.15);
-  --tint-2: rgba(234, 169, 60, 0.25);
-  --glow: rgba(234, 169, 60, 0.22);
-  --fill: rgba(244, 240, 232, 0.065);
-  --fill-2: rgba(244, 240, 232, 0.115);
+  --bg: #120e0a;
+  --sunken: #0d0a07;
+  --surface: #1b1611;
+  --raised: #241d16;
+  --bg-warm: rgba(232, 147, 90, 0.09);
+  --grain: 0.055;
+  --border: rgba(248, 242, 233, 0.075);
+  --border-strong: rgba(248, 242, 233, 0.14);
+  --fg: #f8f2e9;
+  --fg-2: #c2b5a3;
+  --fg-3: #b0a390;
+  --fg-4: #9a8e7c;
+  --accent: #e8935a;
+  --accent-fg: #1a120b;
+  --ink: #f2a874;
+  --tint: rgba(232, 147, 90, 0.12);
+  --tint-2: rgba(232, 147, 90, 0.2);
+  --glow: rgba(232, 147, 90, 0.22);
+  --fill: rgba(248, 242, 233, 0.06);
+  --fill-2: rgba(248, 242, 233, 0.11);
   --danger: #f2a99e;
-  --sh-card: 0 1px 2px rgba(0, 0, 0, 0.55);
-  --sh-float: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 5px rgba(0, 0, 0, 0.3);
+  --sh-float: 0 2px 4px rgba(0, 0, 0, 0.45), 0 9px 22px rgba(0, 0, 0, 0.38);
+  --sh-lift: 0 4px 8px rgba(0, 0, 0, 0.5), 0 22px 50px rgba(0, 0, 0, 0.5);
 }
 
 @theme inline {
@@ -154,7 +166,8 @@
   --color-fg: var(--fg);
   --color-fg-2: var(--fg-2);
   --color-fg-3: var(--fg-3);
-  /* Geriye uyumluluk: mevcut 54 `text-fg-muted` kullanımı kırılmasın. */
+  --color-fg-4: var(--fg-4);
+  /* Geriye uyumluluk: mevcut `text-fg-muted` kullanımları kırılmasın. */
   --color-fg-muted: var(--fg-2);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
@@ -165,30 +178,62 @@
   --color-fill-2: var(--fill-2);
   --color-danger: var(--danger);
 
-  /* Arayüz metni. */
-  --font-sans: -apple-system, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
-
   /*
-   * AI SESİ — serif. Arayüz metninden AYRIŞMASI kasıtlı: asistanın söylediği
-   * ile ürünün söylediği aynı sesle konuşmamalı.
+   * ÜÇ SES, ÜÇ AİLE:
+   *   sans  (Inter)      → ÜRÜN konuşur. Nötr, okunur, iddiasız.
+   *   serif (Newsreader) → AI konuşur. Sıcak, hümanist, optik boyutlu.
+   *   mono  (JetBrains)  → SİSTEM konuşur. Zaman, sayı, etiket.
+   * Ayrım kasıtlı: kullanıcı kime baktığını FONTTAN anlar.
+   *
+   * Fontlar `next/font` ile SELF-HOST edilir (layout.tsx): üçüncü tarafa
+   * istek gitmez, FOUT olmaz, gizlilik borcu doğmaz.
    */
-  --font-serif: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --font-sans: var(--font-inter), -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), 'Iowan Old Style', Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', Consolas, monospace;
 
-  /* Zaman damgaları, etiketler. */
-  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
-
-  --radius-card: 0.75rem; /* 12px */
+  /* Köşeler tek bir aileden gelir. */
+  --radius-card: 16px;
+  --radius-panel: 22px;
+  --radius-field: 18px;
 
   --shadow-card: var(--sh-card);
   --shadow-float: var(--sh-float);
+  --shadow-lift: var(--sh-lift);
 
-  /* Giriş hareketi — hızlı çıkar, yumuşak oturur. */
+  /* Hareket — tek eğri. "Çıkışta yavaşla": doğal, pahalı his. */
   --ease-rise: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /*
+ * Zemin ışığı + kağıt taneciği.
+ *
+ * `body::before/after` SABİT konumludur ve `pointer-events: none` taşır:
+ * kaydırmayla kaymaz, tıklamayı yutmaz. `z-index: 0` ile içerik (z-index 1)
+ * daima üstte kalır.
+ */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  background:
+    radial-gradient(120% 80% at 12% -10%, var(--bg-warm), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, var(--bg-warm), transparent 55%);
+}
+
+body::after {
+  opacity: var(--grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/*
  * Başlıklarda sıkı negatif letter-spacing. Gövde nötr kalır.
- * Spacing ve tip ölçeği için Tailwind v4 defaultları kullanılır.
  */
 h1,
 h2,
@@ -203,17 +248,39 @@ time,
 }
 
 /*
+ * AI SESİ — optik boyut.
+ * `opsz` olmadan büyük serif "şişman", küçük serif "cılız" görünür.
+ */
+.ai-voice {
+  font-family: var(--font-serif);
+  font-variation-settings: 'opsz' 16;
+}
+
+/*
+ * Günün ilk gözlemi — sayfanın kahramanı.
+ *
+ * `font-weight` BURADA, Tailwind sınıfında değil: `font-[350]` yazılabiliyor
+ * gibi görünür ama Tailwind `font-[…]`i font-FAMILY olarak yorumlar ve kural
+ * SESSİZCE üretilmez (derlenen CSS'te arandı, yoktu). 400 fazla kalın, 300
+ * (`font-light`) bu boyutta cılız; ara değer yalnızca değişken fontla mümkün.
+ */
+.ai-voice-lead {
+  font-family: var(--font-serif);
+  font-variation-settings: 'opsz' 42;
+  font-weight: 350;
+}
+
+/*
  * GİRİŞ HAREKETİ — gelişin kendisi bir an olmalı.
  *
- * Başlık → gözlem → kaynak → çipler sırayla yükselir (~50 ms arayla).
- * Amaç, kullanıcı ekrana geldiğinde asistanın O ANDA konuştuğunu
- * hissettirmek. `forwards`: animasyon bitince son durumda kalır, yoksa
- * öğe tekrar görünmez olurdu.
+ * Kabuk → panel → ray → gözlem sırayla yükselir. Amaç, kullanıcı ekrana
+ * geldiğinde asistanın O ANDA konuştuğunu hissettirmek. `forwards`: animasyon
+ * bitince son durumda kalır, yoksa öğe tekrar görünmez olurdu.
  */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(9px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -223,8 +290,25 @@ time,
 
 .rise {
   opacity: 0;
-  animation: rise 0.75s var(--ease-rise) forwards;
+  animation: rise 0.72s var(--ease-rise) forwards;
   animation-delay: calc(var(--rise-delay, 0) * 1ms);
+}
+
+/*
+ * Nabız — ürün CANLI. Çok yavaş ve çok az: fark edilir, rahatsız etmez.
+ */
+@keyframes pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--glow);
+  }
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 3.6s ease-in-out infinite;
 }
 
 ::selection {

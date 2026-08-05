@@ -73,7 +73,7 @@ export function CompanySwitcher() {
           setOpen((value) => !value);
         }}
         disabled={items === null || switching}
-        className="flex w-full items-center gap-2.5 rounded-[11px] border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-raised hover:shadow-card disabled:opacity-60"
+        className="flex w-full items-center gap-2.5 rounded-[11px] border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-fill hover:shadow-card disabled:opacity-60"
       >
         {/* Şirket rozeti: baş harfler. İkon yerine harf — çok şirketli bir
             üründe "hangi şirketteyim" sorusuna en hızlı cevap budur. */}
@@ -108,7 +108,7 @@ export function CompanySwitcher() {
                       onClick={() => {
                         void choose(item.tenantId);
                       }}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface"
+                      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-fill"
                     >
                       <span className="truncate text-fg">{item.tenantName}</span>
                       {item.tenantId === currentTenantId ? (

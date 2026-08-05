@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode } from 'react';
  * ============================================================================
  * TEK İPLİK, İKİ SES
  * ============================================================================
- * Girdiler dikey bir hairline üzerinde nokta taşır: AI'ınki DOLU amber,
+ * Girdiler dikey bir hairline üzerinde nokta taşır: AI'ınki DOLU terracotta,
  * kullanıcınınki İÇİ BOŞ halka. Konuşma bir liste değil bir AKIŞ olarak
  * okunur — sohbet balonu klişesine düşmeden.
  *
@@ -38,7 +38,7 @@ export function Rise({ delay = 0, children }: { delay?: number; children: ReactN
 }
 
 /** Zaman sütunu genişliği + boşluk; nokta ipliğin ÜSTÜNE oturur. */
-const GUTTER = 'grid grid-cols-[58px_1fr] gap-6';
+const GUTTER = 'grid grid-cols-[52px_1fr] gap-[22px]';
 
 /**
  * Saat yazısının sütun kenarına bırakması gereken boşluk — NOKTA ŞERİDİ.
@@ -47,16 +47,16 @@ const GUTTER = 'grid grid-cols-[58px_1fr] gap-6';
  * NEDEN VAR
  * ============================================================================
  * Zaman hücresi `text-right`, yani yazı hücrenin sağ kenarına DAYANIR. Nokta
- * ise `-right-[3px]` ile o kenarın üstüne oturur (ipliğe hizalanmak için
+ * ise negatif `right` ile o kenarın üstüne oturur (ipliğe hizalanmak için
  * böyle olmak ZORUNDA). Sonuç: nokta, saatin son rakamının üstüne biniyordu —
- * tarayıcıda ölçüldü, 4 piksel örtüşme (yazı 304→336, nokta 332→339).
+ * tarayıcıda ölçüldü, 4 piksel örtüşme.
  *
  * Nokta KAYDIRILMADI: yeri doğru, ipliğin merkezinde. Kaydırılan yazıdır.
- * 12px, noktanın yarıçapı (3.5px) + kenar payının rahatça üstünde ve
- * "11:51" (~32px) + 12px hâlâ 58px sütuna sığar.
+ * 13px, noktanın yarıçapı (3.5px) + kenar payının rahatça üstünde ve
+ * "11:51" (~32px) + 13px hâlâ 52px sütuna sığar.
  * ============================================================================
  */
-const DOT_LANE = 'pr-3';
+const DOT_LANE = 'pr-[13px]';
 
 export function StreamEntry({
   when,
@@ -72,10 +72,10 @@ export function StreamEntry({
   children: ReactNode;
 }) {
   return (
-    <div className={`relative pb-6 ${GUTTER}`}>
+    <div className={`relative pb-[30px] ${GUTTER}`}>
       {/* İplik — son girdide çizilmez. */}
       {last ? null : (
-        <span aria-hidden className="absolute top-3.5 bottom-0 left-[57px] w-px bg-border" />
+        <span aria-hidden className="absolute top-4 bottom-0 left-[51px] w-px bg-border-strong" />
       )}
 
       <div className="relative pt-0.5 text-right">
@@ -94,9 +94,10 @@ export function StreamEntry({
         <span
           aria-hidden
           className={[
-            'absolute top-[7px] -right-[3px] h-[7px] w-[7px] rounded-full',
-            'shadow-[0_0_0_3px_var(--bg)]',
-            variant === 'ai' ? 'bg-accent' : 'border-[1.5px] border-border-strong bg-bg',
+            'absolute top-[6px] -right-[3.5px] h-[7px] w-[7px] rounded-full',
+            // Halka PANELİN zeminini alır — kabuk zemininin değil.
+            'shadow-[0_0_0_4px_var(--surface)]',
+            variant === 'ai' ? 'bg-accent' : 'border-[1.5px] border-border-strong bg-surface',
           ].join(' ')}
         />
       </div>
@@ -111,10 +112,10 @@ export function AiSaid({ children, lead = false }: { children: ReactNode; lead?:
   return (
     <p
       className={[
-        'font-serif text-fg',
+        'text-fg',
         lead
-          ? 'max-w-[40ch] text-[24px] leading-[1.5] tracking-[-0.012em]'
-          : 'max-w-[57ch] text-[17.5px] leading-[1.66]',
+          ? 'ai-voice-lead max-w-[27ch] text-[26px] leading-[1.42] tracking-[-0.014em]'
+          : 'ai-voice max-w-[58ch] text-[16.5px] leading-[1.7]',
       ].join(' ')}
       style={{ textWrap: 'pretty' }}
     >
@@ -126,14 +127,19 @@ export function AiSaid({ children, lead = false }: { children: ReactNode; lead?:
 /** Kullanıcı sesi — sans, daha küçük: AI baskın kalsın. */
 export function UserAsked({ children }: { children: ReactNode }) {
   return (
-    <p className="max-w-[57ch] text-[14px] font-semibold tracking-[-0.005em] text-fg-2">
+    <p className="max-w-[58ch] text-[13.5px] font-semibold tracking-[-0.008em] text-fg-2">
       {children}
     </p>
   );
 }
 
 export function SourceMeta({ children }: { children: ReactNode }) {
-  return <p className="mt-2.5 text-[11.5px] text-fg-3">{children}</p>;
+  return (
+    <p className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-fg-3">
+      <span aria-hidden className="h-[3px] w-[3px] shrink-0 rounded-full bg-accent opacity-60" />
+      {children}
+    </p>
+  );
 }
 
 /**
@@ -148,7 +154,7 @@ export function SourceMeta({ children }: { children: ReactNode }) {
  */
 export function ThinkingLine() {
   return (
-    <p className="flex items-center gap-2 font-serif text-[17.5px] text-fg-3" role="status">
+    <p className="ai-voice flex items-center gap-2 text-[16.5px] text-fg-3" role="status">
       <span className="sr-only">Cevap üretiliyor…</span>
       <span aria-hidden className="flex gap-1">
         {[0, 1, 2].map((index) => (
@@ -185,7 +191,7 @@ export function FollowUpChips({
   }
 
   return (
-    <div className="mt-3.5 flex flex-wrap gap-[7px]">
+    <div className="mt-4 flex flex-wrap gap-2">
       {items.map((item) => (
         <button
           key={item}
@@ -195,9 +201,11 @@ export function FollowUpChips({
             onPick(item);
           }}
           className={[
-            'rounded-full bg-tint px-3.5 py-2 text-[12.5px] font-medium text-fg',
-            'transition-[background-color,transform,box-shadow] duration-150 ease-rise',
-            'hover:-translate-y-[1.5px] hover:bg-tint-2 hover:shadow-card active:translate-y-0',
+            'rounded-full border border-border bg-raised px-[15px] py-[9px] text-[12.5px]',
+            'font-medium tracking-[-0.008em] text-fg shadow-card',
+            'transition-[transform,box-shadow,border-color,color] duration-[260ms] ease-rise',
+            'hover:-translate-y-[2px] hover:border-tint-2 hover:text-ink hover:shadow-float',
+            'active:translate-y-0 active:shadow-card',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0',
           ].join(' ')}
         >
