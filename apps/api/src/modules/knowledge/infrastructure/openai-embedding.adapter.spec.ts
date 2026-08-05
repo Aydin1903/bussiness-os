@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { type AiCallRecord } from '../../../shared/ai-usage-recorder.port';
 import { EmbeddingFailedError } from '../application/embedding.port';
 import { OpenAiEmbeddingAdapter } from './openai-embedding.adapter';
 
-const OPTIONS = { apiKey: 'sk-test', model: 'text-embedding-3-small' };
+/** Kayit cagrilarini toplayan sahte recorder — testler icinde incelenebilir. */
+function recordingRecorder() {
+  const calls: AiCallRecord[] = [];
+  return { calls, record: (call: AiCallRecord): void => void calls.push(call) };
+}
+
+const OPTIONS = {
+  apiKey: 'sk-test',
+  model: 'text-embedding-3-small',
+  recorder: { record: (): void => undefined },
+  caller: 'knowledge',
+};
 
 interface FetchResult {
   ok: boolean;
@@ -155,5 +167,76 @@ describe('OpenAiEmbeddingAdapter — hata siniflandirmasi', () => {
     }));
 
     await expect(new OpenAiEmbeddingAdapter(OPTIONS).embed('m')).rejects.toThrow(/OpenAI 503/);
+  });
+});
+
+describe('OpenAiEmbeddingAdapter — maliyet kaydi (ROADMAP §8.1)', () => {
+  it('basarili cagriyi saglayicinin usage bilgisiyle kaydeder', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          data: [{ embedding: [0.1, 0.2] }],
+          usage: { prompt_tokens: 7, total_tokens: 7 },
+        }),
+    }));
+
+    await new OpenAiEmbeddingAdapter({ ...OPTIONS, recorder }).embed('metin');
+
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]).toMatchObject({
+      operation: 'embed',
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      caller: 'knowledge',
+      outcome: 'ok',
+      usage: { prompt: 7, total: 7 },
+    });
+  });
+
+  it('OpenAI completion_tokens bildirmez — alan `null`, SIFIR degil', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          data: [{ embedding: [0.1] }],
+          usage: { prompt_tokens: 3, total_tokens: 3 },
+        }),
+    }));
+
+    await new OpenAiEmbeddingAdapter({ ...OPTIONS, recorder }).embed('m');
+
+    // `null` "bilinmiyor" demektir; sifir yazmak toplamlari yanlis yapardi.
+    expect(recorder.calls[0]?.usage.completion).toBeNull();
+  });
+
+  it('BASARISIZ cagri da kaydedilir — retry dongusu gorunmez kalmasin', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({ ok: false, status: 429, text: () => Promise.resolve('rate limited') }));
+
+    await expect(new OpenAiEmbeddingAdapter({ ...OPTIONS, recorder }).embed('m')).rejects.toThrow(
+      EmbeddingFailedError,
+    );
+
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]).toMatchObject({ outcome: 'error' });
+  });
+
+  it('usage yoksa cagri BASARILI sayilir; olcu `null` kalir', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => okResponse([0.1, 0.2]));
+
+    await expect(new OpenAiEmbeddingAdapter({ ...OPTIONS, recorder }).embed('m')).resolves.toEqual([
+      0.1, 0.2,
+    ]);
+
+    expect(recorder.calls[0]).toMatchObject({
+      outcome: 'ok',
+      usage: { prompt: null, completion: null, total: null },
+    });
   });
 });

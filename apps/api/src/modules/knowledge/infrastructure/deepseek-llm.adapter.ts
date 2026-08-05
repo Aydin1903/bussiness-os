@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { type AiTokenUsage, type AiUsageRecorder } from '../../../shared/ai-usage-recorder.port';
 import { CompletionFailedError, type CompleteInput, type LLMPort } from '../application/llm.port';
 
 /** DeepSeek sohbet uc noktasi — canli testle dogrulandi (ADR-0029). */
@@ -15,6 +16,10 @@ export interface DeepSeekLlmOptions {
   readonly apiKey: string;
   /** `deepseek-v4-flash` veya `deepseek-v4-pro`. Config'ten gelir. */
   readonly model: string;
+  /** Maliyet kaydi (ROADMAP §8.1). */
+  readonly recorder: AiUsageRecorder;
+  /** Cagriyi yapan modul — kayit satirina girer. */
+  readonly caller: string;
 }
 
 /**
@@ -47,18 +52,53 @@ export interface DeepSeekLlmOptions {
 export class DeepSeekLlmAdapter implements LLMPort {
   constructor(private readonly options: DeepSeekLlmOptions) {}
 
+  /**
+   * BASARISIZ CAGRI DA KAYDEDILIR — `OpenAiEmbeddingAdapter` ile ayni gerekce
+   * (ROADMAP §8.1).
+   *
+   * Burada ayrica ADR-0029 §3.1'in olcumu kalici olarak izlenebilir hale
+   * geliyor: `thinking` kapali oldugu icin dusuk kalmasi BEKLENEN
+   * `completionTokens`, bir gun sessizce yukselirse kayitta gorunur.
+   */
   async complete(input: CompleteInput): Promise<string> {
-    const response = await this.#post(input);
+    const startedAt = Date.now();
+    let usage = EMPTY_USAGE;
 
-    if (!response.ok) {
-      // Govde teshis icin okunur ama SIR TASIMAZ: yalnizca saglayicinin durum
-      // kodu ve mesaji. Soru ve baglam (kullanici verisi) ASLA hataya konmaz.
-      throw new CompletionFailedError(
-        `DeepSeek ${String(response.status)}: ${await safeErrorText(response)}`,
-      );
+    try {
+      const response = await this.#post(input);
+
+      if (!response.ok) {
+        // Govde teshis icin okunur ama SIR TASIMAZ: yalnizca saglayicinin durum
+        // kodu ve mesaji. Soru ve baglam (kullanici verisi) ASLA hataya konmaz.
+        throw new CompletionFailedError(
+          `DeepSeek ${String(response.status)}: ${await safeErrorText(response)}`,
+        );
+      }
+
+      const payload = await safeJson(response);
+      // Bicim dogrulamasindan ONCE: yanit bozuk cikarsa bile harcanan token
+      // biliniyorsa kayda gecsin.
+      usage = readUsage(payload);
+
+      const content = extractContent(payload);
+      this.#record('ok', startedAt, usage);
+      return content;
+    } catch (error) {
+      this.#record('error', startedAt, usage);
+      throw error;
     }
+  }
 
-    return extractContent(await safeJson(response));
+  #record(outcome: 'ok' | 'error', startedAt: number, usage: AiTokenUsage): void {
+    this.options.recorder.record({
+      operation: 'complete',
+      provider: 'deepseek',
+      model: this.options.model,
+      caller: this.options.caller,
+      outcome,
+      durationMs: Date.now() - startedAt,
+      usage,
+    });
   }
 
   async #post(input: CompleteInput): Promise<Response> {
@@ -170,6 +210,34 @@ function readMessageContent(payload: unknown): unknown {
   }
 
   return readField(readField(choices[0], 'message'), 'content');
+}
+
+/** Usage okunamadiginda kullanilan deger: "bilinmiyor", "sifir" DEGIL. */
+const EMPTY_USAGE: AiTokenUsage = { prompt: null, completion: null, total: null };
+
+/**
+ * `usage` blogunu GUVENLE okur.
+ *
+ * `reasoning_tokens` AYRI bir alan olarak tasinmaz: ADR-0029 §3.1 onun
+ * `completion_tokens`'in ALT KUMESI oldugunu ve ayrica faturalanmadigini
+ * olcerek tespit etti. Ayri bir alan, toplami iki kez saymaya davet olurdu.
+ *
+ * Usage okunamamasi bir HATA DEGILDIR: cagri basarili olmustur, yalnizca
+ * olcusu eksiktir.
+ */
+function readUsage(payload: unknown): AiTokenUsage {
+  const usage = readField(payload, 'usage');
+
+  return {
+    prompt: readNumber(usage, 'prompt_tokens'),
+    completion: readNumber(usage, 'completion_tokens'),
+    total: readNumber(usage, 'total_tokens'),
+  };
+}
+
+function readNumber(source: unknown, field: string): number | null {
+  const value = readField(source, field);
+  return typeof value === 'number' ? value : null;
 }
 
 async function safeJson(response: Response): Promise<unknown> {

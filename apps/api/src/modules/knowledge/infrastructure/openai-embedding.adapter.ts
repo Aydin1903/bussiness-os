@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { type AiTokenUsage, type AiUsageRecorder } from '../../../shared/ai-usage-recorder.port';
 import { EmbeddingFailedError, type EmbeddingPort } from '../application/embedding.port';
 
 /** OpenAI embeddings uc noktasi — canli testle dogrulandi (ADR-0029). */
@@ -15,6 +16,10 @@ export interface OpenAiEmbeddingOptions {
   readonly apiKey: string;
   /** Varsayilan `text-embedding-3-small` (1536 boyut). Config'ten gelir. */
   readonly model: string;
+  /** Maliyet kaydi (ROADMAP §8.1). */
+  readonly recorder: AiUsageRecorder;
+  /** Cagriyi yapan modul — kayit satirina girer. */
+  readonly caller: string;
 }
 
 /**
@@ -65,19 +70,53 @@ function readEmbeddingField(payload: unknown): unknown {
 export class OpenAiEmbeddingAdapter implements EmbeddingPort {
   constructor(private readonly options: OpenAiEmbeddingOptions) {}
 
+  /**
+   * BASARISIZ CAGRI DA KAYDEDILIR (ROADMAP §8.1).
+   *
+   * Hata veren bir cagri cogu zaman para harcamistir (200 donup bicimi bozuk
+   * gelen yanit) ya da bir retry dongusunun isaretidir. Yalnizca basarililari
+   * saymak, maliyetin en tehlikeli turunu gorunmez birakirdi.
+   */
   async embed(text: string): Promise<number[]> {
-    const response = await this.#post(text);
+    const startedAt = Date.now();
+    let usage = EMPTY_USAGE;
 
-    if (!response.ok) {
-      // Govde teshis icin okunur ama SIR TASIMAZ: yalnizca saglayicinin durum
-      // kodu ve mesaji. Gonderilen metin ASLA hataya konmaz — not icerigi
-      // kullanici verisidir ve log'a girmemelidir.
-      throw new EmbeddingFailedError(
-        `OpenAI ${String(response.status)}: ${await safeErrorText(response)}`,
-      );
+    try {
+      const response = await this.#post(text);
+
+      if (!response.ok) {
+        // Govde teshis icin okunur ama SIR TASIMAZ: yalnizca saglayicinin durum
+        // kodu ve mesaji. Gonderilen metin ASLA hataya konmaz — not icerigi
+        // kullanici verisidir ve log'a girmemelidir.
+        throw new EmbeddingFailedError(
+          `OpenAI ${String(response.status)}: ${await safeErrorText(response)}`,
+        );
+      }
+
+      const payload = await safeJson(response);
+      // Usage, bicim dogrulamasindan ONCE okunur: yanit bozuk cikarsa bile
+      // harcanan token BILINIYORSA kayda gecsin.
+      usage = readUsage(payload);
+
+      const embedding = extractEmbedding(payload);
+      this.#record('ok', startedAt, usage);
+      return embedding;
+    } catch (error) {
+      this.#record('error', startedAt, usage);
+      throw error;
     }
+  }
 
-    return extractEmbedding(await safeJson(response));
+  #record(outcome: 'ok' | 'error', startedAt: number, usage: AiTokenUsage): void {
+    this.options.recorder.record({
+      operation: 'embed',
+      provider: 'openai',
+      model: this.options.model,
+      caller: this.options.caller,
+      outcome,
+      durationMs: Date.now() - startedAt,
+      usage,
+    });
   }
 
   async #post(text: string): Promise<Response> {
@@ -116,6 +155,46 @@ function extractEmbedding(payload: unknown): number[] {
   }
 
   return embedding;
+}
+
+/** Usage okunamadiginda kullanilan deger: "bilinmiyor", "sifir" DEGIL. */
+const EMPTY_USAGE: AiTokenUsage = { prompt: null, completion: null, total: null };
+
+/**
+ * `usage` blogunu GUVENLE okur.
+ *
+ * OpenAI embeddings `completion_tokens` DONDURMEZ — uretilen bir metin yoktur.
+ * Alan bulunamazsa `null` kalir; sifir yazmak toplamlari yanlis yapardi.
+ *
+ * Usage okunamamasi bir HATA DEGILDIR: cagri basarili olmustur, yalnizca
+ * olcusu eksiktir. Bu yuzden burada firlatilmaz.
+ */
+function readUsage(payload: unknown): AiTokenUsage {
+  const usage = readField(payload, 'usage');
+
+  return {
+    prompt: readNumber(usage, 'prompt_tokens'),
+    completion: readNumber(usage, 'completion_tokens'),
+    total: readNumber(usage, 'total_tokens'),
+  };
+}
+
+/**
+ * Tip YUKLEMI (`as` DEGIL): tip zorlamasi bozuk bir yaniti gecerli gosterirdi
+ * (DEVELOPMENT_RULES 2.3). `DeepSeekLlmAdapter` ile ayni desen.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Nesneden alan okur; nesne degilse veya alan yoksa `undefined`. */
+function readField(value: unknown, field: string): unknown {
+  return isRecord(value) ? value[field] : undefined;
+}
+
+function readNumber(source: unknown, field: string): number | null {
+  const value = readField(source, field);
+  return typeof value === 'number' ? value : null;
 }
 
 async function safeJson(response: Response): Promise<unknown> {

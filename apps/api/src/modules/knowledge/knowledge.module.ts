@@ -1,10 +1,12 @@
 import { Inject, Logger, Module } from '@nestjs/common';
 
+import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import {
@@ -71,7 +73,18 @@ import { NoteController } from './presentation/note.controller';
  * okuyabildigini tutar.
  * ============================================================================
  */
+/**
+ * AI maliyet kaydinda bu modulun etiketi (ROADMAP §8.1).
+ *
+ * Adapter'lar bugun modul basina saglandigi icin atif KURULUS aninda yapilir;
+ * ADR-0031 Slice 1'de adapter'lar paylasilan hale gelince bu yol degisecek.
+ */
+const KNOWLEDGE_CALLER = 'knowledge';
+
 @Module({
+  // AI cagrilarinin maliyet kaydi (ROADMAP §8.1) — her saglayici cagrisi
+  // yapilandirilmis bir satir birakir.
+  imports: [AiObservabilityModule],
   controllers: [NoteController, AskController, ReindexController, DailyReportController],
   providers: [
     // --- Paylasilan cekirdek port'lari ---------------------------------------
@@ -92,12 +105,14 @@ import { NoteController } from './presentation/note.controller';
       // SAGLAYICI SECIMI TEK BIR YERDE (EmailModule ile ayni desen): hicbir use
       // case somut saglayiciyi bilmez. ADR-0007'nin kabul testi budur.
       provide: EMBEDDING_PORT,
-      inject: [APP_CONFIG],
-      useFactory: (config: AppConfig): EmbeddingPort => {
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort => {
         if (config.embedding.provider === 'openai') {
           return new OpenAiEmbeddingAdapter({
             apiKey: config.embedding.openAiApiKey,
             model: config.embedding.model,
+            recorder,
+            caller: KNOWLEDGE_CALLER,
           });
         }
 
@@ -118,12 +133,14 @@ import { NoteController } from './presentation/note.controller';
       // gidiyor (DeepSeek chat, OpenAI embedding) — ADR-0030 §1.3'un bolunme
       // gerekcesinin somut karsiligi.
       provide: LLM_PORT,
-      inject: [APP_CONFIG],
-      useFactory: (config: AppConfig): LLMPort => {
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): LLMPort => {
         if (config.llm.provider === 'deepseek') {
           return new DeepSeekLlmAdapter({
             apiKey: config.llm.deepSeekApiKey,
             model: config.llm.model,
+            recorder,
+            caller: KNOWLEDGE_CALLER,
           });
         }
 

@@ -58,5 +58,10 @@ const HEALTH_PATH = '/api/v1/health';
       }),
     }),
   ],
+  // `LoggerModule` PinoLogger'i export eder ama Nest kapsulleme geregi bunu
+  // OTOMATIK yeniden export ETMEZ. Yapilandirilmis alan yazmasi gereken
+  // bilesenler (ornegin `LoggingAiUsageRecorder`) `PinoLogger`'i enjekte
+  // edebilsin diye buradan disa aciliyor.
+  exports: [LoggerModule],
 })
 export class AppLoggerModule {}

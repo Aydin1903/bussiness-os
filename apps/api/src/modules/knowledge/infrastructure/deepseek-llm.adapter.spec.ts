@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { type AiCallRecord } from '../../../shared/ai-usage-recorder.port';
 import { CompletionFailedError, type CompleteInput } from '../application/llm.port';
 import { DeepSeekLlmAdapter } from './deepseek-llm.adapter';
 
-const OPTIONS = { apiKey: 'sk-test', model: 'deepseek-v4-flash' };
+/** Kayit cagrilarini toplayan sahte recorder — testler icinde incelenebilir. */
+function recordingRecorder() {
+  const calls: AiCallRecord[] = [];
+  return { calls, record: (call: AiCallRecord): void => void calls.push(call) };
+}
+
+const OPTIONS = {
+  apiKey: 'sk-test',
+  model: 'deepseek-v4-flash',
+  recorder: { record: (): void => undefined },
+  caller: 'knowledge',
+};
 
 interface FetchResult {
   ok: boolean;
@@ -248,5 +260,75 @@ describe('DeepSeekLlmAdapter — hata siniflandirmasi', () => {
     await expect(new DeepSeekLlmAdapter(OPTIONS).complete(input())).rejects.toThrow(
       /cevap metni icermiyor/,
     );
+  });
+});
+
+describe('DeepSeekLlmAdapter — maliyet kaydi (ROADMAP §8.1)', () => {
+  it('basarili cagriyi saglayicinin usage bilgisiyle kaydeder', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          choices: [{ message: { content: 'cevap' } }],
+          usage: { prompt_tokens: 19, completion_tokens: 1, total_tokens: 20 },
+        }),
+    }));
+
+    await new DeepSeekLlmAdapter({ ...OPTIONS, recorder }).complete(input());
+
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]).toMatchObject({
+      operation: 'complete',
+      provider: 'deepseek',
+      model: 'deepseek-v4-flash',
+      caller: 'knowledge',
+      outcome: 'ok',
+      usage: { prompt: 19, completion: 1, total: 20 },
+    });
+  });
+
+  it('BASARISIZ cagri da kaydedilir', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({ ok: false, status: 402, text: () => Promise.resolve('no balance') }));
+
+    await expect(
+      new DeepSeekLlmAdapter({ ...OPTIONS, recorder }).complete(input()),
+    ).rejects.toThrow(CompletionFailedError);
+
+    expect(recorder.calls[0]).toMatchObject({ outcome: 'error' });
+  });
+
+  it('yanit BOZUK olsa da bilinen token harcamasi kaydedilir', async () => {
+    // 200 dondu, para harcandi, ama govde bicimsiz. Usage bicim
+    // dogrulamasindan ONCE okundugu icin kaybolmaz.
+    const recorder = recordingRecorder();
+    stubFetch(() => ({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ choices: [], usage: { prompt_tokens: 55, total_tokens: 55 } }),
+    }));
+
+    await expect(
+      new DeepSeekLlmAdapter({ ...OPTIONS, recorder }).complete(input()),
+    ).rejects.toThrow(CompletionFailedError);
+
+    expect(recorder.calls[0]).toMatchObject({ outcome: 'error', usage: { prompt: 55, total: 55 } });
+  });
+
+  it('SORU ve CEVAP metni kayda GIRMEZ (kullanici verisi)', async () => {
+    const recorder = recordingRecorder();
+    stubFetch(() => ({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ choices: [{ message: { content: 'GIZLI CEVAP' } }] }),
+    }));
+
+    await new DeepSeekLlmAdapter({ ...OPTIONS, recorder }).complete(
+      input({ userMessage: 'GIZLI SORU' }),
+    );
+
+    expect(JSON.stringify(recorder.calls[0])).not.toMatch(/GIZLI/);
   });
 });
