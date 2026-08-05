@@ -1,0 +1,42 @@
+-- Business OS — veritabani eklentileri
+--
+-- ===========================================================================
+-- NEDEN BURADA, MIGRATION'DA DEGIL
+-- ===========================================================================
+-- `vector` TRUSTED bir eklenti DEGILDIR (`pg_available_extension_versions`:
+-- `trusted = false`, `superuser = true`), yani kurulumu SUPERUSER ister.
+-- Migration'lari calistiran rol ise `businessos_owner`'dir ve o bilincli olarak
+-- NOSUPERUSER'dir (01-roles.sql). Dolayisiyla eklenti bir migration'dan
+-- kurulamaz — kurulum bir SEMA degisikligi degil, PROVISIONING adimidir ve
+-- rollerle ayni yere, ayni gerekceyle aittir.
+--
+-- Bu dosya yazilmadan once sunlar yasandi: `docker-compose.yml`'in imaji
+-- `pgvector/pgvector:pg17` olarak degistirildi ama calisan container eski
+-- `postgres:17-alpine` ile kaldi; eklenti bulunamadi, migration 0011 coktu,
+-- drizzle tum partiyi geri aldi ve 0009-0013 uygulanmadan kaldi. Imaj
+-- duzeltildikten SONRA ikinci engel ciktı: `businessos_owner` eklentiyi
+-- kuramiyordu. Sifirdan kurulum o gune kadar hic denenmemisti.
+--
+-- ===========================================================================
+-- MIGRATION 0011'DEKI SATIR SILINMEDI — VE SILINMEMELI
+-- ===========================================================================
+-- 0011 hala `CREATE EXTENSION IF NOT EXISTS vector` icerir. Iki sebeple:
+--
+--   1. Entegrasyon testleri (`test-database.ts`) bu init betiklerini HIC
+--      calistirmaz — duz bir container acip migration'lari SUPERUSER ile
+--      kosar. Oradaki eklentiyi kuran tek satir odur.
+--   2. Eklenti zaten kuruluyken `IF NOT EXISTS`, yetki kontrolune GIRMEDEN
+--      bir NOTICE ile gecer. Yani bu dosya calistiktan sonra 0011'in o satiri
+--      `businessos_owner` icin de zararsizdir.
+--
+-- Ikisi birlikte: sifirdan kurulum burada, testler orada calisir.
+--
+-- ⚠️ Bu dosya YALNIZCA BOS veri dizininde calisir (`docker-entrypoint-initdb.d`
+-- sozlesmesi). Mevcut bir volume'a sonradan eklenti/rol gelmez; oyle bir
+-- durumda adim ELLE uygulanmalidir.
+-- ===========================================================================
+
+-- ADR-0029: embedding `vector(1536)` + HNSW index olarak saklanir.
+-- `public` semasina kurulur (varsayilan): `vector` tipi semadan bagimsiz
+-- olarak her yerden gorunur olmalidir.
+CREATE EXTENSION IF NOT EXISTS vector;
