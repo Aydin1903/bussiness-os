@@ -230,9 +230,9 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 | **Hata modeli**                                     | Akış başladıktan sonra HTTP durumu değiştirilemez; `429`/`502`/RFC 7807 disiplini akış-içi olay tipine dönüşmek zorunda |
 | `sourceNoteIds` · `conversationId` · `followUps`    | Ayrı olaylar olarak önce/sonra gönderilmeli                                                                             |
 
-### 8.4 Retention borcu: beş tablo, tek karar
+### 8.4 Retention borcu: altı tablo, tek karar
 
-Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile **beşe** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) **altıya** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
 | Tablo                        | Neyi biriktiriyor                                                              | Kaynak                                                                           |
 | ---------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -240,9 +240,18 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile **be�
 | `verification_code_requests` | Her doğrulama/sıfırlama kodu isteği                                            | Faz 3                                                                            |
 | `daily_report_runs`          | Tenant başına günde bir satır, kalıcı olarak                                   | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) |
 | `messages`                   | Her soru-cevap iki satır — **en hızlı büyüyen**                                | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
+| `knowledge.conversations`    | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ    | Faz 4 (kapanış denetimi, 2026-08-05)                                             |
 | `knowledge.rate_limits`      | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**               | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)          |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
+
+> **`conversations` denetimde eklendi ve sırası önemlidir.** ADR-0030 "konuşma
+> tabloları hızlı büyür" (çoğul) diyordu ama bu tablo yalnızca `messages`'ı
+> listeliyordu. `messages` → `conversations` **`ON DELETE CASCADE`** taşır
+> (migration `0011`), yani **doğru retention kolu `conversations`'dır**: eski
+> konuşmaları silmek mesajlarını da götürür. Ters yön çalışmaz — sadece
+> `messages` silen bir iş, sonsuza kadar biriken **yetim `conversations`**
+> satırları bırakır. Denetim anında ölçüm: 4 konuşma / 12 mesaj.
 
 `rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.
 

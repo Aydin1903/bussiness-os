@@ -266,16 +266,20 @@ Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
 **Faz 1 tamamlandı** — altyapı iskeleti.
 **Faz 2 tamamlandı** — multi-tenancy çekirdeği kod olarak çalışıyor.
-**Faz 3 sürüyor** — kimlik doğrulama kod olarak çalışıyor; kayıt → doğrulama →
-giriş → tenant açma zinciri uçtan uca kapalı.
-**Frontend (`apps/web`) çalışıyor** — F1 foundation (tasarım token'ları, session
-store, API client, middleware) · F2 auth ekranları (register · verify-email ·
-login+routing · create-tenant · select-tenant · forgot/reset-password · logout) ·
-Dashboard (app shell + company switcher + session bootstrap + `bo_last_tenant`
-reload dayanıklılığı) · **şifre değiştirme ekranı** (`/app/change-password`,
-UserMenu'den). Riskli runtime akışları (bootstrap, tenant değiştirme) gerçek
-tarayıcıda doğrulandı. Vitest + RTL kurulu (~50 test); **kalan borç: Playwright
-e2e yok.** SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
+**Faz 3 tamamlandı** — kimlik doğrulama; kayıt → doğrulama → giriş → tenant açma
+zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
+(tenant-configurable roller · ABAC · izin cache) ve o bilinçli olarak
+**backlog**tadır: üçü de bugün varsayımsal ihtiyaçtır (ROADMAP §1.1).
+**Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
+2026-08-05'te yapıldı (aşağıda).
+
+**Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
+login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
+change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
+**onboarding** (`/app/onboarding`). Riskli runtime akışları (bootstrap, tenant
+değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı. Vitest + RTL
+**143 test**; **kalan borç: Playwright e2e yok.**
+SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
 
@@ -347,20 +351,50 @@ Uç nokta bugün **401** (kimliksiz), **403** (e-posta doğrulanmamış) veya **
 (provisioning başladı) döner. `TENANT_PROVISIONING_UNAVAILABLE` ve
 `IDENTITY_UNAVAILABLE` hata kodları anlamlarını yitirdiği için **kaldırıldı**.
 
+### Faz 4 — Knowledge modülü + AI Context Engine (**kod var ve test edilmiş**)
+
+Projenin **ilk gerçek iş modülü** ve `platform` dışında açılan **ilk şema**.
+Kararlar: ADR-0029 (Knowledge + Context Engine v1) · ADR-0030 (konuşma hafızası,
+günlük rapor, onboarding).
+
+| Katman | Ne var |
+|---|---|
+| Domain | `Note` · `NoteChunk` · `Conversation` · `Message` · chunking · parola benzeri değil ama `RateLimitPolicy` (saatlik kova) · `FollowUpParser` |
+| Application | `CreateNoteUseCase` · `AskKnowledgeUseCase` · `ListNotesUseCase` · `NotesExistUseCase` · `CountUnindexedUseCase` · `ReindexNotesUseCase` · `GenerateDailyReportUseCase` · `EmbeddingPort` + `LLMPort` (ADR-0029 §3: **iki ayrı port**) |
+| Veritabanı | `knowledge` şeması — `notes` · `note_chunks` (pgvector `vector(1536)` + HNSW) · `conversations` · `messages` · `daily_report_runs` · `rate_limits`; hepsi **FORCE RLS** |
+| Infrastructure | OpenAI embedding adapter · DeepSeek LLM adapter · Drizzle repository'leri · `DailyReportWorker` (claim → özetle → işaretle) · iki dar rol (`businessos_report_worker`) |
+| Presentation | `POST /knowledge/notes` · `POST /knowledge/ask` · `POST /knowledge/reindex` · `GET /knowledge/notes` · `/notes/exists` · `/notes/unindexed` · `/daily-report` — **yedisi de RBAC korumalı** |
+| Frontend | `/app` Panel (akış + yazma alanı + hafıza rayı) · `/app/knowledge` arşiv · `/app/onboarding` (7 soru) · onarım banner'ı |
+| Testler | **1237 birim** (api) · **408 entegrasyon** · **143 birim** (web) |
+
+**Faz 4 kapanış denetimi yapıldı (2026-08-05).** Yedi uç gerçek isteklerle
+gezildi (200/401/403/429), RLS izolasyonu iki tenant'la doğrulandı, üç dar rolün
+Constraint 2 sözleşmesi hem dev hem sıfırdan kurulumda 40/40 geçti, sıfırdan
+kurulum ayrı container'da baştan sona çalıştı. Denetim üç belge sapması ve bir
+sözleşme tutarsızlığı buldu; dördü de kapatıldı.
+
+### Tasarım: "Atölye" (2026-08-05)
+
+Frontend tasarım dili değişti — imza rengi **amberden terracottaya**, kabuk
+zeminden ayrıldı ve içerik yüzen bir yüzey oldu. Üç ses üç aile: Inter (ürün),
+Newsreader (AI), JetBrains Mono (sistem); üçü de `next/font` ile self-host.
+SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md` (v1.4).
+
 ### Henüz yok
 
-Authorization (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine + guard, ilk
-korumalı endpoint `member:read`; kalan: tenant-configurable roller, ABAC, izin
-cache) ·
-tenant outbox publisher süreci · iş modülleri · AI katmanı ·
-Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **login_attempts +
-verification_code_requests retention** (sınırsız büyüme; ikisi birlikte).
+Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
+guard; kalan: tenant-configurable roller, ABAC, izin cache) · Faz 5 iş modülleri
+· Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ALTI tablo**
+(ROADMAP §8.4) · **not detay ucu** (ADR-0029 bilinen sınır) · **streaming**
+(ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
+ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·
+**web'in tam mobil turu** (kırılma noktaları hazır; alt gezinme, 44px dokunma
+hedefleri, klavye/`dvh` davranışı kaldı).
 
-Sıradaki adım: **iş modülü** — RBAC + tenant context + RLS artık uçtan uca
-çalışan bir zincir; ilk gerçek iş kaynağı (CRM/müşteri hafızası, ARCHITECTURE
-§6) bu zincirin üzerine oturur ve modül→Authorization permission deklarasyonu
-desenini ikinci kez kullanır.
+Sıradaki adım: **Faz 5 — modül genişlemesi.** Knowledge, modül→Authorization
+permission deklarasyonu desenini kurdu; sıradaki modül onu ikinci kez
+uygulayacak (ROADMAP §3).
 
 > **Kapanan borçlar:** `AUTH_ARCHITECTURE.md` §11.5 (kontroller switch-tenant'ta)
 > · Tenant→Identity döngü riski (`platform/session` üçüncü modülü, `forwardRef`

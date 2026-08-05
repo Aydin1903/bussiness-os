@@ -2,9 +2,9 @@
 
 Business OS — Frontend Mimarisi
 
-> **Durum:** Faz 3 — frontend giriş — ✅ **Kabul edildi**
-> **Sürüm:** 1.3
-> **Son güncelleme:** 2026-08-02
+> **Durum:** Faz 4 kapandı — Panel + "Atölye" tasarım dili — ✅ **Kabul edildi**
+> **Sürüm:** 1.4
+> **Son güncelleme:** 2026-08-05
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -186,16 +186,31 @@ SessionState = {
 
 ### 3.5 Uygulama kabuğu (dashboard)
 
-`/app/*` layout bir **Server Component**tır; kabuk chrome'u (sidebar + header + bootstrap) bir **Client Component** olan `AppShell`'tedir — sidebar daraltma ve mobil hamburger drawer client state gerektirir. `AppShell` §3.4 bootstrap'ını çalıştırır ve **hazır olana kadar çocukları render etmez** (switcher'ın tokensız 401 almaması için). Header'da **CompanySwitcher** (`/me/memberships`'ten gerçek liste, tıkla → `selectTenant`) ve **UserMenu** (V1'de yalnızca logout — token PII taşımaz, profil verisi ileride `/me` ucuyla). Ana içerik **AI-öncelikli** ama şimdilik **placeholder** (statik AI karşılama kartı + "yakında" modül kartları); gerçek AI ve tenant-scoped veri yok.
+`/app/*` layout bir **Server Component**tır; kabuk chrome'u bir **Client Component** olan `AppShell`'tedir — daraltma ve mobil çekmece client state gerektirir. `AppShell` §3.4 bootstrap'ını çalıştırır ve **hazır olana kadar çocukları render etmez** (switcher'ın tokensız 401 almaması için).
+
+**Kimlik SOLDA toplanır.** **CompanySwitcher** (`/me/memberships`'ten gerçek liste, tıkla → `selectTenant`) ve **UserMenu** artık sol menüdedir, başlık şeridinde değil. Gerekçe: çok şirketli bir üründe kullanıcının ilk sorduğu soru "hangi şirketteyim"; cevabı ilk görülen şey olmalı. Masaüstündeki başlık şeridi tümüyle **kaldırıldı** (daraltma düğmesi sol menünün kendi başlığına taşındı) — yüzen panelin ilk satırını harcıyordu; `md` altında yalnızca hamburger için ince bir şerit kalır.
+
+**Sol menü saydamdır, kendi zemini YOKTUR** (§4). Ana içerik artık placeholder değil: `/app` **Panel**'dir — günün AI gözlemi, konuşma akışı, yazma alanı ve hafıza rayı; hepsi gerçek tenant-scoped veriyle.
 
 ---
 
-## 4. Tasarım token sistemi — sıcak nötr + tek imza rengi
+## 4. Tasarım token sistemi — "Atölye": malzeme + derinlik
 
-> **Sürüm 2 (2026-08-05).** Önceki sistem "Apple-vari minimal / beyaz-siyah-krem"
-> idi ve tek vurgusu kontrasttı. Product Owner kararıyla yön değişti: sıcak nötr
-> zemin + **tek imza rengi (amber)**. Referanslar: Linear, Notion, Arc.
+> **Sürüm 3 — "ATÖLYE" (2026-08-05).** Product Owner üç yön arasından bunu seçti.
+> Tez: **premium = MALZEME + DERİNLİK.** Ekran düz bir yüzey değil, katmanlı bir
+> masa — zemin sıcak kağıt, panel onun üstünde yüzer, kartlar panelin üstünde
+> durur. Işık yukarıdan gelir ve gölgeler **SICAK**: nötr siyah gölge sıcak bir
+> paletin üstünde "kirli gri" görünür ve malzeme hissini öldürür.
+>
+> İmza rengi **amberden TERRACOTTA'ya** geçti (`#B25628` / `#E8935A`).
 > Mor/mavi "AI ürünü" klişesi ve sparkle ikonu **bilinçli olarak dışarıda**.
+>
+> ⚠️ **YÜZEY SIRASI TERSİNE DÖNDÜ.** Açık temada eskiden `surface`, `bg`'den
+> KOYUYDU (sol menü zemine gömülüydü); artık `bg` < `surface` < `raised`, yani
+> panel zeminden YÜKSELİR. Kodda tek bir sonucu var ve atlanırsa hata üretir:
+> **hover durumları `--fill` kullanır**, `surface`/`raised` değil — açık temada
+> ikisi de neredeyse beyazdır ve `hover:bg-surface` beyaz kartın üstünde
+> GÖRÜNMEZ.
 
 ### 4.1 Teknik gerçek: Tailwind v4 CSS-first'tür
 
@@ -237,21 +252,41 @@ Bu bir tercih değil zorunluluk — tek ton iki işi birden yapamıyor:
 | `--ink`       | `#855508` | `#F3C069` | accent renkli **METİN**        |
 
 Dolgu tonu metin olarak sönük kalıyor; metin tonunun üstünde beyaz yazı
-okunmuyordu. **Koyu modda dolgu parlak amber + KOYU metin taşır** (Apple'ın
+okunmuyordu. **Koyu modda dolgu parlak terracotta + KOYU metin taşır** (Apple'ın
 sarı butonlarındaki mantık): o zeminde beyaz yazı okunmaz.
+
+> **Kontrast ölçülerek seçildi, göze göre değil.** İlk terracotta `#B85C2B`'ydi
+> ve üstündeki `--accent-fg` metni **4.40:1** veriyordu — WCAG AA sınırının
+> (4.5) hemen altında. Bu renk her yerde DOLGU olduğu için hata tek bir
+> bileşende değil SİSTEMDEYDİ. `#B25628` → 4.76:1. Metin rampasının dört
+> kademesi de dört zeminin (bg/surface/raised/sunken) EN KÖTÜSÜNE göre seçildi;
+> 15 metin öğesi × 2 tema tarayıcıda ölçüldü, en düşük oran 5.68.
 
 Yardımcılar: `--tint` / `--tint-2` (çip dolguları), `--glow` (odak halkası),
 `--fill` / `--fill-2` (nötr ikincil dolgular).
 
-### 4.5 Tipografi — iki ses
+### 4.5 Tipografi — ÜÇ ses, üç aile
 
-- **Arayüz:** `-apple-system, 'SF Pro Text', Inter, 'Segoe UI', system-ui`
-- **AI sesi:** `--font-serif` — `'Iowan Old Style', 'Palatino Linotype', Georgia`
-- **Etiket/zaman:** `--font-mono`
+- **Ürün konuşur:** `--font-sans` — **Inter**. Nötr, okunur, iddiasız.
+- **AI konuşur:** `--font-serif` — **Newsreader**. Sıcak, hümanist, optik boyutlu.
+- **Sistem konuşur:** `--font-mono` — **JetBrains Mono**. Zaman, sayı, etiket.
 
-Serif ayrımı kasıtlıdır: **asistanın söylediği ile ürünün söylediği aynı sesle
-konuşmamalı.** Başlıklarda `-0.02em`; zaman/sayılarda `tabular-nums` (satır
-zıplamasın).
+Ayrım kasıtlıdır: **asistanın söylediği ile ürünün söylediği aynı sesle
+konuşmamalı** — kullanıcı kime baktığını FONTTAN anlar.
+
+**Optik boyut.** AI sesi `opsz` ekseni taşır: gövdede 16, günün gözleminde 42
+(`.ai-voice` / `.ai-voice-lead`). Optik boyut olmadan büyük serif "şişman",
+küçük serif "cılız" görünür. Ağırlık (350) Tailwind sınıfıyla değil bu CSS
+sınıfında verilir: `font-[350]` yazılabiliyor gibi görünür ama Tailwind onu
+font-FAMILY sanar ve kural **sessizce üretilmez**.
+
+**Fontlar `next/font` ile SELF-HOST edilir.** Üçüncü tarafa istek gitmez
+(gizlilik), ek DNS/TLS el sıkışması olmaz, `size-adjust` ile fallback ölçüsü
+eşitlenip düzen kayması (CLS) sıfırlanır. ⚠️ `latin-ext` altkümesi **zorunlu**:
+Türkçe'nin ş/ğ/ı/İ/ç/ö/ü karakterleri `latin`de YOKTUR ve kelimenin ortasında
+font değişirdi.
+
+Başlıklarda `-0.02em`; zaman/sayılarda `tabular-nums` (satır zıplamasın).
 
 ### 4.6 Hareket
 
@@ -264,8 +299,11 @@ değil erişilebilirlik gereğidir.
 
 ### 4.7 Ayrıntılar
 
-`::selection` amber tonunda · `:focus-visible` amber halka (fare tıklamasında
-çıkmaz) · ince sıcak kaydırma çubuğu · `--shadow-card` / `--shadow-float`.
+`::selection` terracotta tonunda · `:focus-visible` terracotta halka (fare
+tıklamasında çıkmaz) · ince sıcak kaydırma çubuğu · üç kademeli sıcak gölge
+(`--shadow-card` / `--shadow-float` / `--shadow-lift`, her biri iki katman:
+yakın temas + geniş ortam) · zemine ılık ışık + **kağıt taneciği** (%3.5 açık,
+%5.5 koyu — görünmez ama hissedilir; "malzeme" iddiasının temeli).
 
 > Tasarım token'ları **geri döndürülebilir görsel dildir**, mimari kısıt
 > değildir — bu yüzden ayrı ADR'si yoktur (Product Owner kararı). Değişirse
