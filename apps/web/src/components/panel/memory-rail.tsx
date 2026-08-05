@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { NoteListItem } from '@business-os/contracts';
 
+import { localRelativeWhen } from '@/lib/format/datetime';
+
 /**
  * Sağ ray — hafızaya son eklenenler.
  *
@@ -94,43 +96,11 @@ function RailNote({ item }: { item: NoteListItem }) {
 }
 
 /**
- * "07:52" · "Dün 18:20" · "3 Ağu".
+ * "07:52" · "Dün 18:20" · "3 Ağu" — hepsi tarayıcının YEREL saatinde.
  *
- * Sabit biçim, `toLocaleDateString` DEĞİL: sunucu ile istemci farklı sonuç
- * verirse Next.js hydration uyuşmazlığı çıkar.
+ * Uygulama `lib/format/datetime.ts`'e taşındı: aynı dönüşüm üç ayrı yerde
+ * kopyalanmıştı ve birinde (`note-list`) UTC'ye kaymıştı.
  */
 function formatWhen(iso: string): string {
-  const parsed = Date.parse(iso);
-  if (Number.isNaN(parsed)) {
-    return '';
-  }
-
-  const date = new Date(parsed);
-  const now = new Date();
-  const clock = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-
-  if (isSameDay(date, now)) {
-    return clock;
-  }
-
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  if (isSameDay(date, yesterday)) {
-    return `Dün ${clock}`;
-  }
-
-  return `${String(date.getDate())} ${MONTHS[date.getMonth()] ?? ''}`;
-}
-
-const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return localRelativeWhen(iso);
 }

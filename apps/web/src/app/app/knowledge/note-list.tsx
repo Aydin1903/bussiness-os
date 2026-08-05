@@ -4,6 +4,7 @@ import type { NoteListItem } from '@business-os/contracts';
 
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
+import { localDay } from '@/lib/format/datetime';
 
 export const PAGE_SIZE = 20;
 
@@ -99,12 +100,13 @@ function NoteRow({ item }: { item: NoteListItem }) {
 }
 
 /**
- * `YYYY-MM-DD` — yerel ay adları yerine sabit biçim.
+ * `YYYY-MM-DD` — YEREL takvim günü.
  *
- * `toLocaleDateString` sunucu ve istemcide farklı sonuç verebilir (Next.js
- * hydration uyuşmazlığı) ve test ortamının yerel ayarına bağımlı olurdu.
+ * Eskiden `toISOString().slice(0, 10)` kullanılıyordu ve o UTC gününü
+ * veriyordu: UTC+3'te gece yarısından sonra eklenen bir not BİR GÜN GERİDE
+ * görünüyordu. Biçim (sabit, locale'siz — hydration gerekçesi) korundu, dilim
+ * düzeltildi; ayrıntı `lib/format/datetime.ts`'te.
  */
 function formatDate(isoTimestamp: string): string {
-  const parsed = Date.parse(isoTimestamp);
-  return Number.isNaN(parsed) ? '' : new Date(parsed).toISOString().slice(0, 10);
+  return localDay(isoTimestamp);
 }

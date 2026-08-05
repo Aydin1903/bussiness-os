@@ -40,6 +40,24 @@ export function Rise({ delay = 0, children }: { delay?: number; children: ReactN
 /** Zaman sütunu genişliği + boşluk; nokta ipliğin ÜSTÜNE oturur. */
 const GUTTER = 'grid grid-cols-[58px_1fr] gap-6';
 
+/**
+ * Saat yazısının sütun kenarına bırakması gereken boşluk — NOKTA ŞERİDİ.
+ *
+ * ============================================================================
+ * NEDEN VAR
+ * ============================================================================
+ * Zaman hücresi `text-right`, yani yazı hücrenin sağ kenarına DAYANIR. Nokta
+ * ise `-right-[3px]` ile o kenarın üstüne oturur (ipliğe hizalanmak için
+ * böyle olmak ZORUNDA). Sonuç: nokta, saatin son rakamının üstüne biniyordu —
+ * tarayıcıda ölçüldü, 4 piksel örtüşme (yazı 304→336, nokta 332→339).
+ *
+ * Nokta KAYDIRILMADI: yeri doğru, ipliğin merkezinde. Kaydırılan yazıdır.
+ * 12px, noktanın yarıçapı (3.5px) + kenar payının rahatça üstünde ve
+ * "11:51" (~32px) + 12px hâlâ 58px sütuna sığar.
+ * ============================================================================
+ */
+const DOT_LANE = 'pr-3';
+
 export function StreamEntry({
   when,
   variant,
@@ -61,7 +79,16 @@ export function StreamEntry({
       )}
 
       <div className="relative pt-0.5 text-right">
-        <span className="font-mono text-[9.5px] leading-[1.9] font-medium tracking-[0.08em] text-fg-3 uppercase tabular">
+        <span
+          className={[
+            'font-mono text-[9.5px] leading-[1.9] font-medium tracking-[0.08em]',
+            'text-fg-3 uppercase tabular',
+            // Boşluk hücreye DEĞİL yazıya verilir: hücreye padding vermek,
+            // mutlak konumlu noktayı da içeri kaydırıp ipliğin hizasından
+            // düşürürdü.
+            DOT_LANE,
+          ].join(' ')}
+        >
           {when}
         </span>
         <span

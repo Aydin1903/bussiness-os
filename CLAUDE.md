@@ -396,3 +396,12 @@ desenini ikinci kez kullanır.
 > Aynı sınıftan ikinci tuzak: `docker/postgres/init/` betikleri **yalnızca boş
 > veri dizininde** çalışır, yani sonradan eklenen roller mevcut volume'a hiç
 > gelmez.
+
+> **Kalıcı ders:** `pnpm dev` çalışırken `pnpm verify` (ya da `pnpm build`)
+> **koşulmaz** — ikisi aynı `apps/web/.next` dizinini paylaşır ve `next build`,
+> `next dev`'in altındaki dosyaları ezer. Sonuç sessiz değil ama yanıltıcıdır:
+> her sayfa `MODULE_NOT_FOUND` ile **500**, her `/_next/static/...` varlığı
+> **404** verir; tarayıcıda görünen metin düpedüz `Internal Server Error`'dır ve
+> uygulama kodunda hiçbir hata yokken bir kod hatası gibi okunur. Çözüm:
+> dev sunucusunu durdur, `apps/web/.next`'i sil, yeniden başlat. Doğrulama
+> gerekiyorsa **önce** dev'i durdur.

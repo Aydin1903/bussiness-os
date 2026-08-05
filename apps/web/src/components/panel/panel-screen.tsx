@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { errorMessage } from '@/lib/api/error-message';
 import { askKnowledge, createNote, fetchDailyReport, listNotes } from '@/lib/api/knowledge';
+import { isToday, localClock } from '@/lib/format/datetime';
 import { ReindexBanner } from '@/app/app/knowledge/reindex-banner';
 import { Composer, type ComposerMode } from './composer';
 import { MemoryRail } from './memory-rail';
@@ -476,25 +477,12 @@ function Opening({
   );
 }
 
+/**
+ * Raporun üretildiği YEREL saat; damga okunamazsa "Bugün".
+ *
+ * Sunucu UTC gönderir (`...T08:51:23.390Z`), ekranda UTC+3'te 11:51 yazar.
+ * Dönüşüm `lib/format/datetime.ts`'te — tek kaynak.
+ */
 function clockOf(iso: string): string {
-  const parsed = Date.parse(iso);
-  if (Number.isNaN(parsed)) {
-    return 'Bugün';
-  }
-  const date = new Date(parsed);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function isToday(iso: string): boolean {
-  const parsed = Date.parse(iso);
-  if (Number.isNaN(parsed)) {
-    return false;
-  }
-  const date = new Date(parsed);
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
+  return localClock(iso, 'Bugün');
 }
