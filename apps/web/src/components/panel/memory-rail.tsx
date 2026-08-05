@@ -16,10 +16,13 @@ export function MemoryRail({
   items,
   total,
   todayCount,
+  degraded = false,
 }: {
   items: readonly NoteListItem[];
   total: number;
   todayCount: number;
+  /** Not listesi çekilemediyse ray "not yok" DEMEZ — bilmediğini söyler. */
+  degraded?: boolean;
 }) {
   return (
     <aside className="hidden w-[300px] shrink-0 flex-col border-l border-border bg-sunken p-3 pt-4 xl:flex">
@@ -34,7 +37,9 @@ export function MemoryRail({
 
       {items.length === 0 ? (
         <p className="px-2 text-[12px] leading-relaxed text-fg-3">
-          Henüz not yok. Aşağıdan ekleyin; buraya düşecek.
+          {degraded
+            ? 'Son eklenenler şu an getirilemedi.'
+            : 'Henüz not yok. Aşağıdan ekleyin; buraya düşecek.'}
         </p>
       ) : (
         <ul className="flex flex-col gap-0.5">

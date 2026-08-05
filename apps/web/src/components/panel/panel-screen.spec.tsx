@@ -104,13 +104,86 @@ describe('PanelScreen — günün açılışı', () => {
     expect(screen.queryByText(/henüz boş/)).not.toBeInTheDocument();
   });
 
-  it('rapor çağrısı çökerse panel ÇÖKMEZ', async () => {
+  it('rapor çağrısı çökerse panel ÇÖKMEZ ama boş durum metni de UYDURULMAZ', async () => {
+    // ESKİ DAVRANIŞ: çöken rapor "yok sayılır" ve boş durum metni gösterilirdi.
+    // Bu, "rapor henüz üretilmedi" ile "raporu getiremedim"i aynı ekrana
+    // düşürüyordu. Test silinmedi, yeni gerçeğe göre güncellendi.
     fetchDailyReport.mockRejectedValue(new Error('ağ'));
 
     render(<PanelScreen />);
 
-    // Rapor yok sayılır, akış boş durum metniyle devam eder.
+    expect(await screen.findByText(/Bazı bilgiler yüklenemedi/)).toBeInTheDocument();
+    expect(screen.queryByText(/İlk günlük özetiniz/)).not.toBeInTheDocument();
+    // Panel çalışmaya devam eder.
+    expect(screen.getByLabelText('Kurumsal hafızaya sor')).toBeInTheDocument();
+  });
+});
+
+describe('PanelScreen — açılış verisi düşünce', () => {
+  it('"0 not" ile "sunucu cevap veremedi" BİRBİRİNE KARIŞMAZ', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    listNotes.mockRejectedValue(apiError(500, 'Beklenmeyen bir hata olustu.'));
+    fetchDailyReport.mockRejectedValue(apiError(500, 'Beklenmeyen bir hata olustu.'));
+
+    render(<PanelScreen />);
+
+    expect(await screen.findByText(/Bazı bilgiler yüklenemedi/)).toBeInTheDocument();
+    // Sayaç ÇİZİLMEZ: "0 not" bir ölçüm değil, ölçememenin sonucudur.
+    expect(screen.queryByText(/not$/)).not.toBeInTheDocument();
+    // Hafıza hakkında hiçbir iddia edilmez.
+    expect(screen.queryByText(/Kurumsal hafızanız henüz boş/)).not.toBeInTheDocument();
+    warn.mockRestore();
+  });
+
+  it('düşen HER çağrı ADIYLA konsola yazılır', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    listNotes.mockRejectedValue(new Error('ağ'));
+    fetchDailyReport.mockRejectedValue(new Error('ağ'));
+
+    render(<PanelScreen />);
+    await screen.findByText(/Bazı bilgiler yüklenemedi/);
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.some((message) => message.includes('GET /knowledge/notes'))).toBe(true);
+    expect(messages.some((message) => message.includes('GET /knowledge/daily-report'))).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('TEK çağrı düşerse diğerinin verisi KAYBOLMAZ', async () => {
+    // `allSettled` korunuyor — bildirim onun yerine geçmiyor, üstüne biniyor.
+    fetchDailyReport.mockRejectedValue(new Error('ağ'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    render(<PanelScreen />);
+
+    expect(await screen.findByText(/Bazı bilgiler yüklenemedi/)).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    warn.mockRestore();
+  });
+
+  it('her şey yolundayken bildirim GÖRÜNMEZ', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    expect(screen.queryByText(/Bazı bilgiler yüklenemedi/)).not.toBeInTheDocument();
+  });
+
+  it('"Yeniden dene" veriyi TEKRAR ÇEKER', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    listNotes.mockRejectedValue(new Error('ağ'));
+    fetchDailyReport.mockRejectedValue(new Error('ağ'));
+
+    render(<PanelScreen />);
+    await screen.findByText(/Bazı bilgiler yüklenemedi/);
+
+    // Sunucu ayağa kalktı.
+    listNotes.mockResolvedValue(page([note()], 12));
+    fetchDailyReport.mockResolvedValue({ report: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Yeniden dene' }));
+
     expect(await screen.findByText(/İlk günlük özetiniz/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bazı bilgiler yüklenemedi/)).not.toBeInTheDocument();
+    warn.mockRestore();
   });
 });
 

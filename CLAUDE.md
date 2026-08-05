@@ -384,3 +384,15 @@ desenini ikinci kez kullanır.
 > (`attempt_count` + `last_error` + backoff + dead-letter, migration `0006`)
 > yazıldı — `AUTH_ARCHITECTURE.md` §16.1. Tenant tarafındaki `platform.outbox`
 > aynı mekanizmadan yoksun; tüketicisi yazıldığında oraya da uygulanmalı.
+
+> **Kalıcı ders:** `docker-compose.yml`'deki `image` değiştiğinde (ör.
+> `postgres:17-alpine` → `pgvector/pgvector:pg17`) **çalışan container kendi
+> kendine güncellenmez** — `docker compose up -d` (gerekirse
+> `--force-recreate`) elle çalıştırılmalıdır. Aksi halde container eski imajla
+> `restart: unless-stopped` altında sessizce çalışmaya devam eder; eklentiler ve
+> migration'lar sessizce eksik kalır. Bir kez yaşandı: `vector` eklentisi
+> bulunamadığı için migration `0011` çöktü, drizzle tüm partiyi geri aldı ve
+> `0009`–`0013` uygulanmadan kaldı — `/app` her Knowledge ucunda 500 verdi.
+> Aynı sınıftan ikinci tuzak: `docker/postgres/init/` betikleri **yalnızca boş
+> veri dizininde** çalışır, yani sonradan eklenen roller mevcut volume'a hiç
+> gelmez.

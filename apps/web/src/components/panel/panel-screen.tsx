@@ -71,6 +71,28 @@ interface Snapshot {
 }
 
 /**
+ * Açılışta yapılan çağrılar — ad, `console.warn` için taşınır.
+ *
+ * Hangi ucun düştüğü LOG'A yazılır ama KULLANICIYA gösterilmez: uç adı onun
+ * ilgilendiği bir şey değil, bakan kişinin ilgilendiği şeydir.
+ */
+const OPENING_CALLS = ['GET /knowledge/notes', 'GET /knowledge/daily-report'] as const;
+
+/**
+ * Hangi açılış çağrısının düştüğü — TEK bir bayrak YETMEZ.
+ *
+ * İkisi ayrı tutulur çünkü sonuçları ayrıdır: notlar geldiyse sayaç GERÇEK bir
+ * ölçümdür ve rapor düştü diye gizlenmemelidir. Tek bir `degraded` bayrağı,
+ * çalışan yarıyı da cezalandırırdı.
+ */
+interface Failures {
+  readonly notes: boolean;
+  readonly report: boolean;
+}
+
+const NO_FAILURES: Failures = { notes: false, report: false };
+
+/**
  * `/app` — Panel. Genel Bakış ile Bilgi Bankası'nın BİRLEŞTİĞİ yüzey.
  *
  * ============================================================================
@@ -99,17 +121,48 @@ export function PanelScreen() {
   const [mode, setMode] = useState<ComposerMode>('ask');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<Failures>(NO_FAILURES);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     // İki çağrı PARALEL: biri diğerini beklemesin, ilk boyama gecikmesin.
-    void Promise.allSettled([listNotes({ limit: RAIL_SIZE, offset: 0 }), fetchDailyReport()])
+    const results = Promise.allSettled([
+      listNotes({ limit: RAIL_SIZE, offset: 0 }),
+      fetchDailyReport(),
+    ]);
+
+    void results
       .then(([notes, report]) => {
         if (!active) {
           return;
         }
+
+        // ⚠️ `allSettled` REDDI YUTAR — bu satırlar bir teşhis sırasında yazıldı.
+        //
+        // Sunucu tarafında `knowledge` şeması yokken her iki uç da 500 döndü;
+        // panel yine de sakince "0 not / hafızanız henüz boş" dedi. Yani
+        // "gerçekten hiç not yok" ile "sunucu cevap veremiyor" EKRANDA
+        // BİRBİRİNDEN AYIRT EDİLEMİYORDU — sessiz bir doğruluk deliği.
+        //
+        // `allSettled` KORUNUYOR (bir uç düşünce diğerinin verisi de kaybolmasın),
+        // ama artık düşen çağrı hem log'a hem ekrana iz bırakıyor.
+        for (const [index, result] of [notes, report].entries()) {
+          if (result.status === 'rejected') {
+            // OnboardingGate ile AYNI desen: kullanıcıya değil, bakana bilgi.
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[PanelScreen] Açılış verisi yüklenemedi: ${OPENING_CALLS[index] ?? 'bilinmeyen çağrı'}.`,
+              result.reason,
+            );
+          }
+        }
+
+        setFailures({
+          notes: notes.status === 'rejected',
+          report: report.status === 'rejected',
+        });
         setSnapshot({
           items: notes.status === 'fulfilled' ? notes.value.items : [],
           total: notes.status === 'fulfilled' ? notes.value.total : 0,
@@ -179,6 +232,7 @@ export function PanelScreen() {
     }
   }
 
+  const degraded = failures.notes || failures.report;
   const hasNotes = snapshot.total > 0;
   const starters = hasNotes ? STARTERS_NO_REPORT : STARTERS_EMPTY;
   const todayCount = snapshot.items.filter((item) => isToday(item.createdAt)).length;
@@ -186,13 +240,30 @@ export function PanelScreen() {
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <PanelHeader total={snapshot.total} todayCount={todayCount} loading={loading} />
+        {/*
+          Not listesi düştüyse sayaç ÇİZİLMEZ: "0 not" bir ölçüm değil,
+          ölçememenin sonucudur. Yalnızca RAPOR düştüyse sayaç GERÇEKTİR ve
+          gösterilmeye devam eder — çalışan yarı cezalandırılmaz.
+        */}
+        <PanelHeader
+          total={snapshot.total}
+          todayCount={todayCount}
+          loading={loading || failures.notes}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[880px] px-6 pt-7 pb-4 md:px-8">
             <ReindexBanner onRepaired={reload} />
 
-            {loading ? null : <Opening report={snapshot.report} hasNotes={hasNotes} />}
+            {degraded ? <PartialLoadNotice failures={failures} onRetry={reload} /> : null}
+
+            {loading ? null : (
+              <Opening
+                report={snapshot.report}
+                hasNotes={hasNotes}
+                reportFailed={failures.report}
+              />
+            )}
 
             {turns.map((turn, index) => (
               <div key={turn.id}>
@@ -263,7 +334,12 @@ export function PanelScreen() {
         />
       </div>
 
-      <MemoryRail items={snapshot.items} total={snapshot.total} todayCount={todayCount} />
+      <MemoryRail
+        items={snapshot.items}
+        total={snapshot.total}
+        todayCount={todayCount}
+        degraded={failures.notes}
+      />
     </div>
   );
 }
@@ -315,13 +391,68 @@ function PanelHeader({
  * Rapor varsa AI'ın gerçek gözlemi; yoksa duruma göre iki farklı statik metin.
  * Statik metinler LLM ÇAĞIRMAZ (Product Owner kararı).
  */
+/**
+ * "Bazı bilgiler yüklenemedi" — SAKİN ama GÖRÜNÜR.
+ *
+ * ============================================================================
+ * NEDEN ALARM DEĞİL
+ * ============================================================================
+ * Panelin kalanı çalışmaya devam ediyor: soru sorulabilir, not eklenebilir.
+ * Kırmızı bir hata bloğu, çalışan bir ekranı çökmüş gibi gösterirdi. Bu yüzden
+ * `ReindexBanner`'ın `danger` yüzeyi DEĞİL, nötr bir dolgu kullanılıyor —
+ * "bir şey eksik" der, "her şey bitti" demez.
+ *
+ * NEDEN SESSİZ DE DEĞİL: sessiz kalırsa "hiç notunuz yok" ile "notlarınızı
+ * getiremedim" aynı ekrana düşer ve kullanıcı var olan hafızasını KAYBOLMUŞ
+ * sanar. İkisini ayırmak bu bileşenin tek varlık sebebidir.
+ * ============================================================================
+ */
+function PartialLoadNotice({ failures, onRetry }: { failures: Failures; onRetry: () => void }) {
+  // NE'nin eksik olduğu söylenir, uç adı DEĞİL. Kullanıcı "notlarım mı, özetim
+  // mi" sorusunun cevabını hak eder; "GET /knowledge/notes"i değil.
+  const missing = [
+    failures.notes ? 'notlarınız' : null,
+    failures.report ? 'günlük özetiniz' : null,
+  ].filter((part): part is string => part !== null);
+
+  return (
+    <section
+      role="status"
+      className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-border bg-fill px-4 py-3"
+    >
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-fg-3" />
+      <p className="min-w-0 flex-1 text-[12.5px] text-fg-2">
+        Bazı bilgiler yüklenemedi — {missing.join(' ve ')} şu an görüntülenemiyor. Soru sormaya ve
+        not eklemeye devam edebilirsiniz.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 rounded-full bg-tint px-3 py-1.5 text-[12px] font-medium text-fg transition-colors duration-150 hover:bg-tint-2"
+      >
+        Yeniden dene
+      </button>
+    </section>
+  );
+}
+
 function Opening({
   report,
   hasNotes,
+  reportFailed,
 }: {
   report: { summary: string; generatedAt: string } | null;
   hasNotes: boolean;
+  /** Rapor ÇEKİLEMEDİ — "henüz üretilmedi" ile aynı şey DEĞİL. */
+  reportFailed: boolean;
 }) {
+  // Rapor çekilemediyse hiçbir iddia edilmez: "İlk özetiniz yarın sabah"
+  // cümlesi, aslında var olan bir raporu yokmuş gibi gösterebilirdi. Yukarıdaki
+  // bildirim zaten durumu söylüyor.
+  if (reportFailed) {
+    return null;
+  }
+
   if (report !== null) {
     return (
       <StreamEntry when={clockOf(report.generatedAt)} variant="ai">
