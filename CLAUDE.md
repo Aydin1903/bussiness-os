@@ -272,6 +272,8 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **backlog**tadır: üçü de bugün varsayımsal ihtiyaçtır (ROADMAP §1.1).
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
+**Faz 5 başladı** — CRM modülü + Context Engine'in platforma yükselmesi
+(ADR-0031 kabul edildi, 2026-08-05). Slice 0.5 yazıldı; kalanı sürüyor (aşağıda).
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -392,9 +394,49 @@ ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilme
 **web'in tam mobil turu** (kırılma noktaları hazır; alt gezinme, 44px dokunma
 hedefleri, klavye/`dvh` davranışı kaldı).
 
-Sıradaki adım: **Faz 5 — modül genişlemesi.** Knowledge, modül→Authorization
-permission deklarasyonu desenini kurdu; sıradaki modül onu ikinci kez
-uygulayacak (ROADMAP §3).
+### Faz 5 — CRM + Context Engine'in platforma yükselmesi (**sürüyor**)
+
+Karar: **ADR-0031** (kabul edildi, 2026-08-05). Faz 5'in ilk modülü CRM'dir.
+ADR yalnızca bir modül tanımlamıyor — Faz 4'ün Knowledge içinde biriken
+platform kodunu dışarı taşıyor. Üç ana karar:
+
+1. **Port paylaşılır, veri paylaşılmaz.** `EmbeddingPort`/`LLMPort` → `shared/`,
+   adapter'lar → `infrastructure/ai/`, chunking → `shared/`. CRM'in kendi
+   `crm.interactions`/`interaction_chunks` tabloları olur. CRM görüşmelerini
+   `knowledge.notes`'a yazmak Kural 6 açısından yasaldı ama cross-schema FK
+   yasak olduğu için **silme cascade'i yazılamazdı** — silinen müşteri AI
+   hafızasında yaşamaya devam ederdi.
+2. **Tek `POST /api/v1/ask`**, modül başına `/ask` DEĞİL. Retrieval ucu
+   `platform/context`'e taşınır; modüller `RetrievalContributor` ile katkı
+   verir ve **çağıranın izinlerine göre elenir** (yoksa birleşik hafıza
+   yetkilendirmeyi delen bir yan kapı olurdu; RLS bunu yakalamaz). CRM iki
+   katkıcı kaydeder: anlamsal (görüşmeler) + **yapısal** (pipeline).
+3. **Kaynak bazlı izinler** — `company`/`contact`/`opportunity`/`interaction` ×
+   `read`/`write`/`delete`. `crm:read` bir *modül* iznidir ve ADR-0025'in
+   `resource:action` modelini ilk kullanımda bozardı.
+
+Üç migration: `platform.rate_limits` · `platform.conversations`/`messages` ·
+`crm.*`. İki breaking change onaylandı: `POST /knowledge/ask` → `POST /ask`,
+`knowledge:ask` → `context:ask`. ADR-0029'da dört, ADR-0030'da iki karar
+**superseded** — metinler silinmedi, üzerlerine not eklendi.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 0 | Doküman hizalaması | ✅ |
+| 0.5 | **AI gözlemlenebilirliği** — her sağlayıcı çağrısı `event: "ai.call"` satırı bırakır | ✅ |
+| 1 | Port'lar `shared/`'a, adapter'lar `infrastructure/ai/`'ya | ⏳ |
+| 2 | `platform.rate_limits` | ⏳ |
+| 3 | `platform/context` + `POST /ask` + konuşma tablolarının taşınması | ⏳ |
+| 4–7 | CRM: şema+şirket/kişi · fırsatlar+takipler · görüşmeler+embedding · iki katkıcı | ⏳ |
+| 8–9 | Frontend CRM ekranları · kapanış denetimi | ⏳ |
+
+> **Slice 0.5 notu:** AI maliyet takibi ROADMAP §8.1'de "Faz 4'e kadar
+> netleşmeli" diye işaretliydi ve Faz 4 o kalem kapanmadan kapandı. Faz 5 onu
+> kötüleştiriyor (CRM ikinci embedding üreticisi, yapısal katkıcı her soruya
+> sabit token ekliyor, fan-out tek `/ask`'i N kaynağa dokunduruyor) — bu yüzden
+> ölçüm koda dokunmadan **önce** yazıldı. Kapsam dar: pano yok, alarm yok,
+> bütçe limiti yok. Oran sınırı hâlâ istek **sayısını** bağlıyor, token
+> harcamasını değil — o bilinen sınır artık **ölçülebilir**, hâlâ zorlanmıyor.
 
 > **Kapanan borçlar:** `AUTH_ARCHITECTURE.md` §11.5 (kontroller switch-tenant'ta)
 > · Tenant→Identity döngü riski (`platform/session` üçüncü modülü, `forwardRef`

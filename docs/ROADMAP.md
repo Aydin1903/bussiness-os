@@ -2,9 +2,9 @@
 
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
-> **Durum:** Faz 4 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.5
-> **Son güncelleme:** 2026-08-02
+> **Durum:** Faz 5 sürüyor — ✅ **Kabul edildi** ([ADR-0031](adr/0031-crm-module.md))
+> **Sürüm:** 1.6
+> **Son güncelleme:** 2026-08-05
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -39,11 +39,12 @@ Bu doküman **sıranın** ve **kapı koşullarının** Single Source of Truth'ud
 
 Ayrıntı [`CLAUDE.md` "Mevcut Durum"](../CLAUDE.md) bölümündedir ve **burada tekrarlanmaz**.
 
-| Faz       | Konu                                                                                                                                                                                                               | Durum (CLAUDE.md'ye göre)           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| **Faz 1** | Temel iskelet — Turborepo, NestJS, Next.js, PostgreSQL, Drizzle, config, logging, RFC 7807, Swagger, Vitest + Testcontainers, GitHub Actions CI                                                                    | ✅ Tamamlandı                       |
-| **Faz 2** | Multi-tenancy çekirdeği — `Tenant`/`Membership`, RLS politikaları, outbox, `SET LOCAL` transaction manager, izolasyon testleri                                                                                     | ✅ Tamamlandı                       |
-| **Faz 3** | Kimlik doğrulama — kayıt → doğrulama → giriş → tenant açma zinciri, refresh rotation, oturum sonlandırma, parola sıfırlama ve **değiştirme**, RBAC v1 (ADR-0025), frontend (`apps/web`) auth ekranları + dashboard | 🟡 **Sürüyor** — bkz. aşağıdaki not |
+| Faz       | Konu                                                                                                                                                                                                               | Durum (CLAUDE.md'ye göre)                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| **Faz 1** | Temel iskelet — Turborepo, NestJS, Next.js, PostgreSQL, Drizzle, config, logging, RFC 7807, Swagger, Vitest + Testcontainers, GitHub Actions CI                                                                    | ✅ Tamamlandı                                                                       |
+| **Faz 2** | Multi-tenancy çekirdeği — `Tenant`/`Membership`, RLS politikaları, outbox, `SET LOCAL` transaction manager, izolasyon testleri                                                                                     | ✅ Tamamlandı                                                                       |
+| **Faz 3** | Kimlik doğrulama — kayıt → doğrulama → giriş → tenant açma zinciri, refresh rotation, oturum sonlandırma, parola sıfırlama ve **değiştirme**, RBAC v1 (ADR-0025), frontend (`apps/web`) auth ekranları + dashboard | 🟡 **Sürüyor** — bkz. aşağıdaki not                                                 |
+| **Faz 4** | Knowledge modülü + AI Context Engine — ADR-0029/0030; kapanış denetimi 2026-08-05                                                                                                                                  | ✅ Tamamlandı — **bir istisnayla**, bkz. [§2.4](#24-zorunlu-alt-adım-cicd--hosting) |
 
 > ⚠️ **Faz 3 formal olarak kapatılmadı.** CLAUDE.md bugün "Faz 3 **sürüyor**" diyor. Açık kalan iki kalem **aynı türden değildir** ve ayrı ayrı ele alınır:
 
@@ -83,7 +84,7 @@ Tespit anında kod tabanında `platform.outbox`'tan **okuyan tek satır yoktu**.
 
 ## 2. Faz 4 — İlk Gerçek Modül + AI Context Engine
 
-> **Durum:** ✅ **Karar verildi** — sıradaki faz.
+> **Durum:** ✅ **Tamamlandı** (kapanış denetimi 2026-08-05) — [§2.4](#24-zorunlu-alt-adım-cicd--hosting)'ün prod koşulu **karşılanmadan**.
 > **Tasarım kararları:**
 > [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modülü + AI Context Engine v1 (veri modeli, chunking, port'lar, akış, rate limiting) ·
 > [ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) — konuşma hafızası, günlük rapor (Queue kararı), onboarding.
@@ -136,6 +137,14 @@ Dördü de bu fazın açık kalemleriydi. [ADR-0029](adr/0029-knowledge-module-a
 
 Gerekçe: prod'a hiç çıkmamış bir sistemin "çalışıyor" iddiası test edilmemiş bir iddiadır. Migration'ların gerçek bir veritabanında sırayla uygulanması, secret yönetimi, ortam ayrımı ve geri alma (rollback) yolu — hepsi ancak gerçek bir dağıtımda ortaya çıkar. Bu iş ne kadar ertelenirse, ilk dağıtımda karşılaşılacak sürpriz o kadar büyür.
 
+> ### ⚠️ Bu koşul KARŞILANMADI ve Faz 4 yine de kapatıldı
+>
+> **Tespit Faz 5 Slice 0'da yapıldı (2026-08-05).** Yukarıdaki cümle _"Bu faz prod'a çıkmadan kapanmaz"_ diyor; Faz 4 kapanış denetiminden geçti ve Faz 5 başladı, ama **CD hâlâ yok ve hosting hâlâ karara bağlanmadı.**
+>
+> Kayıt bilerek duruyor ve metin **yumuşatılmadı**: bir kapı koşulunun sessizce aşılması, koşulun hiç yazılmamış olmasından kötüdür. Yukarıdaki gerekçe bugün de geçerlidir ve borç **büyüyor** — Faz 5 üç yeni migration getiriyor (`platform.rate_limits` · `platform.conversations`/`messages` · `crm.*`, [ADR-0031](adr/0031-crm-module.md)), yani "migration'ların gerçek bir veritabanında sırayla uygulanması" riski her slice ile artıyor.
+>
+> **Bu bir Product Owner kararıdır, mühendislik kararı değil:** ya koşul Faz 5 için yeniden bağlayıcı kılınır, ya da bilinçli olarak gevşetilip yeni bir faza taşınır. Üçüncü seçenek — yazılı durup uygulanmaması — ikisinden de kötüdür.
+
 ### 2.5 Kapı koşulu (Faz 4'e giriş)
 
 🟢 **Karşılandı.** Tek koşul olan tenant outbox drain süreci yazıldı (commit `b07966f`, [§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f)).
@@ -146,11 +155,43 @@ Başka engel yok: RBAC + tenant context + RLS zinciri uçtan uca çalışıyor, 
 
 ## 3. Faz 5 — Modül Genişlemesi
 
+> **Durum:** 🟢 **Başladı** (2026-08-05).
+> **Tasarım kararı:** [ADR-0031](adr/0031-crm-module.md) — CRM modülü + Context Engine'in platforma yükselmesi.
+
 Kalan klasik modüller: **CRM · Finans · İK** (ve ARCHITECTURE §6'da sayılan diğerleri — Projects, Workflow, Reporting).
 
-> **Kapı koşulu:** Faz 4'ün **AI Context Engine deseni en az bir modülde kanıtlanmış** olmalı.
+> **Kapı koşulu:** Faz 4'ün **AI Context Engine deseni en az bir modülde kanıtlanmış** olmalı. 🟢 **Karşılandı.**
 
 Kanıtlanmamış bir deseni üç modüle birden uygulamak, üç modülü birden yeniden yazmak demektir. Faz 4'ün Knowledge/Inbox'ı bu desenin referans uygulamasıdır; Faz 5 onu **ikinci ve üçüncü kez** uygular — desen ancak tekrarlandığında desen olur.
+
+### 3.1 İlk modül: CRM (Product Owner kararı)
+
+Gerekçe: en çok AI bağlamı üretecek modül odur — verisi **anlatısaldır** (görüşme notları) ve Knowledge'ın `notes`/`note_chunks` desenine mimari olarak en uyumlu ilk adaydır.
+
+### 3.2 Tekrarın ürettiği şey: soyutlama
+
+Bu fazın asıl çıktısı ikinci bir modül değil, **tekrarın ortaya çıkardığı ortak zemindir.** ADR-0031 bu yüzden yalnızca CRM'i tanımlamıyor; Faz 4'ün Knowledge içinde biriken platform kodunu dışarı taşıyor:
+
+| Ne                                     | Faz 4'te                             | Faz 5'te                                            |
+| -------------------------------------- | ------------------------------------ | --------------------------------------------------- |
+| `EmbeddingPort` · `LLMPort` · chunking | `modules/knowledge/` içinde          | **`shared/`** + adapter'lar `infrastructure/ai/`'da |
+| Oran sınırı sayacı                     | `knowledge.rate_limits`              | **`platform.rate_limits`**                          |
+| Retrieval ucu                          | `POST /knowledge/ask`                | **`POST /ask`** — `platform/context`                |
+| Konuşma hafızası                       | `knowledge.conversations`/`messages` | **`platform.conversations`/`messages`**             |
+
+Knowledge'ın bunları içinde taşıması bir karar değil, o günkü tek tüketicinin tesadüfüydü. `import/no-restricted-paths` bunu **makine tarafından** ortaya çıkardı: `modules/crm` klasörü açılır açılmaz Knowledge'ın katmanları CRM'e kapanır.
+
+### 3.3 Fazın en önemli kararı: tek kurumsal hafıza
+
+Modül başına `/ask` ucu **reddedildi**. CLAUDE.md'nin kurucu örneği ("son 6 ayımızı analiz et" → CRM + Finans + Projeler _birlikte_) cross-modül bir sorudur ve modül başına uçlarla **yapısal olarak** cevaplanamaz.
+
+Çözüm modül sınırlarını korur: retrieval `platform/context`'e taşınır, modüller `RetrievalContributor` ile **kendi şemalarından** katkı verir, platform birleştirir. Hiçbir modül diğerinin şemasını okumaz (Mutlak Kural 5–6). ADR-0025'in permission registry deseniyle birebir aynı disiplin: **platform mekanizmayı sahiplenir, modül katkısını deklare eder, platform içeriği yorumlamaz.**
+
+Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değil, tasarımın güvenlik ekseni: filtre olmasaydı birleşik hafıza, kullanıcının göremediği bir kaydın içeriğini özet üzerinden sızdıran bir yan kapı olurdu. RLS bunu yakalamaz (tenant sınırını korur, tenant _içindeki_ izin sınırını değil).
+
+### 3.4 Faz 5'in ilk kapı koşulu: ölçüm
+
+**AI maliyet takibi, ilk CRM satırından önce yazıldı** (Slice 0.5 — [§8.1](#81-gözlemlenebilirlik-neden-faz-4e-kadar)). Faz 5 maliyeti üç ayrı yönden artırıyor: CRM ikinci bir embedding üreticisi, yapısal katkıcı her soruya sabit token ekliyor, ve fan-out tek bir `/ask`'i N kaynağa dokunduruyor. Ölçüm bunlardan **sonra** kurulsaydı, artışın nereden geldiği ayırt edilemezdi.
 
 ---
 
@@ -196,19 +237,35 @@ E-posta şablonlarının HTML/marka hâline getirilmesi de buraya bağlıdır ([
 
 Bunlar bir faza ait değildir; ya süreklidir ya da belirtilen faza kadar netleşmesi gerekir.
 
-| Kalem                                                                                                               | Durum                                                     | Ne zaman                                    |
-| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------- |
-| **Gözlemlenebilirlik** — merkezî log toplama, hata izleme, **AI çağrısı maliyet/token takibi**                      | ❌ Yok (bugün yalnızca Pino + correlation ID, lokal)      | **Faz 4'e kadar netleşmeli**                |
-| **Yedekleme / felaket kurtarma**                                                                                    | ❌ Yok                                                    | **Hosting kararıyla birlikte** (Faz 4 §2.4) |
-| **KVKK / GDPR uyumluluğu**                                                                                          | ❌ Ele alınmadı                                           | **Faz 6 öncesi zorunlu kontrol noktası**    |
-| **Playwright e2e**                                                                                                  | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)    | Belirsiz; bilinçli borç                     |
-| **Tablo retention politikası** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages` | ❌ Yok — **büyüyen borç**, dört tablo da sınırsız büyüyor | Faz 4                                       |
-| **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                                 | ❌ Yapılmadı                                              | Faz 4                                       |
-| **Doküman sürüm numarası denetimi**                                                                                 | 🟡 Bilinen tutarsızlık                                    | Faz 4                                       |
+| Kalem                                                                                                               | Durum                                                                                                 | Ne zaman                                     |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Gözlemlenebilirlik** — merkezî log toplama, hata izleme, **AI çağrısı maliyet/token takibi**                      | 🟡 **AI maliyet takibi ✅ kapandı** (Faz 5 Slice 0.5); merkezî log toplama ve hata izleme ❌ hâlâ yok | AI kalemi kapandı — kalanı hosting kararıyla |
+| **Yedekleme / felaket kurtarma**                                                                                    | ❌ Yok                                                                                                | **Hosting kararıyla birlikte** (Faz 4 §2.4)  |
+| **KVKK / GDPR uyumluluğu**                                                                                          | ❌ Ele alınmadı                                                                                       | **Faz 6 öncesi zorunlu kontrol noktası**     |
+| **Playwright e2e**                                                                                                  | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)                                                | Belirsiz; bilinçli borç                      |
+| **Tablo retention politikası** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages` | ❌ Yok — **büyüyen borç**, dört tablo da sınırsız büyüyor                                             | Faz 4                                        |
+| **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                                 | ❌ Yapılmadı                                                                                          | Faz 4                                        |
+| **Doküman sürüm numarası denetimi**                                                                                 | 🟡 Bilinen tutarsızlık                                                                                | Faz 4                                        |
 
 ### 8.1 Gözlemlenebilirlik neden Faz 4'e kadar
 
 AI çağrısı **maliyet ve token takibi**, diğer iki kalemden farklı bir aciliyettedir: AI Context Engine devreye girdiği anda her istek ölçülebilir bir para harcamasına dönüşür. Ölçülmeyen bir maliyet, faturayı gördüğünüzde öğrenilen bir maliyettir. Bu yüzden Context Engine ile **aynı fazda** kurulmalıdır — sonrasında değil.
+
+> ### ✅ AI maliyet takibi kapandı — Faz 5 Slice 0.5 (2026-08-05)
+>
+> **Bu kalem Faz 4'e yetişmedi ve bu kayda geçiyor.** Faz 4, gerekçesi hâlâ geçerliyken kapandı; borç Faz 5'in **ilk işi** olarak kapatıldı — CRM'in tek satırı yazılmadan önce.
+>
+> **Neden Faz 5'e ertelenemezdi:** Faz 5 maliyeti üç ayrı yönden artırıyor (CRM ikinci embedding üreticisi · yapısal katkıcı her soruya sabit token ekliyor · fan-out tek `/ask`'i N kaynağa dokunduruyor). Ölçüm bunlardan sonra kurulsaydı, artışın nereden geldiği ayırt edilemezdi.
+>
+> **Ne var:** her `LLMPort.complete()` ve `EmbeddingPort.embed()` çağrısı sabit `event: "ai.call"` adıyla yapılandırılmış bir satır bırakır — operasyon · sağlayıcı · model · çağıran modül · sonuç · süre · prompt/completion/total token · `tenantId` · `userId` · `correlationId`. Başarısız çağrılar da kaydedilir (retry döngüsü görünmez kalmasın). **Kullanıcı içeriği kayda girmez** — yalnızca sayılar.
+>
+> **Port imzaları değişmedi.** Token harcaması yalnızca sağlayıcının ham yanıtında görünür; `LLMPort` `Promise<string>` döner, yani dışarıdan saran bir decorator token sayısını göremezdi. Adapter, gördüğü usage'ı bir sink'e (`AiUsageRecorder`) bildirir — [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §3'ün "bilerek minimal" port yüzeyi korunur.
+>
+> **Ne YOK — kapsam bilinçli dar:** gerçek zamanlı maliyet panosu · uyarı/alarm · **bütçe limiti**. Bunlar ayrı ve daha büyük bir iştir. Bugünkü tek iddia: _her çağrı geriye dönük incelenebilir bir satır bırakıyor._
+>
+> **Karıştırılmaması gereken sınır:** oran sınırı ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5) istek **sayısını** bağlar, token harcamasını değil. O ADR'nin kendi kaydettiği bilinen sınır — _"mekanizma istek sayısını bağlar, TOKEN harcamasını değil"_ — artık **ölçülebilir**, ama hâlâ **zorlanmıyor**. Token bütçesi ayrı bir karardır.
+
+**Kalan iki kalem hâlâ açık:** merkezî log toplama ve hata izleme. Bugün loglar yalnızca lokal ve yapılandırılmış; toplayıcı yok. `ai.call` satırlarının gerçek değeri onlar toplandığında ortaya çıkar — bu yüzden ikisi **hosting kararına** ([§2.4](#24-zorunlu-alt-adım-cicd--hosting)) bağlıdır.
 
 ### 8.2 KVKK/GDPR neden Faz 6 öncesi
 
@@ -253,6 +310,8 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 > `messages` silen bir iş, sonsuza kadar biriken **yetim `conversations`**
 > satırları bırakır. Denetim anında ölçüm: 4 konuşma / 12 mesaj.
 
+> **Faz 5 bunu SEKİZE çıkaracak** ([ADR-0031](adr/0031-crm-module.md)): `crm.interactions` + `crm.interaction_chunks`. Yukarıdaki `conversations` dersi orada **ilk günden** uygulanıyor — `interaction_chunks → interactions` `ON DELETE CASCADE` taşıdığı için doğru retention kolu `interactions`'dır. Ayrıca iki tablo **taşınıyor** (`rate_limits` ve `conversations`/`messages` → `platform`); bu listeyi kısaltmaz ama çoğalmasını önler: modül başına değil, platformda **tek** kalem.
+
 `rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.
 
 ---
@@ -288,11 +347,12 @@ Header'daki sürüm etiketi `1.1 (2026-07-26)` ile değişiklik geçmişi tablos
 
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0   | 2026-08-02 | İlk sürüm. Faz 4–9 sırası ve kapı koşulları karara bağlandı: **Faz 4 = Knowledge/Inbox + AI Context Engine birlikte** (CRM/Finans/İK değil), Search/Vector + Queue + Cache bu fazda seçilecek, CI/CD + Hosting zorunlu alt-adım. Yatay kalemler ve [§9](#9-uzlaştırılacak-kayıtlar) uyumsuzluk kaydı eklendi. Faz 1–3 **tekrarlanmadı**, CLAUDE.md'ye referans verildi.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 1.1   | 2026-08-02 | **[§9.1](#91-architecturemd-2--adr-0007--uzlaştırıldı) uzlaştırıldı** (commit `ba0fb41`): ARCHITECTURE.md §2/§6.2 ve ADR-0007 bu dokümana hizalandı. **[§1.1](#11-faz-3ten-devreden-açık-kalemler)** eklendi — Faz 3'ten devreden iki kalem ayrıştırıldı: Authorization'ın kalanı (ABAC · configurable roller · izin cache) **hiçbir faza bağlanmadı**, _"gerçek ihtiyaç doğunca"_ etiketiyle backlog'a alındı; **tenant outbox publisher Faz 4'ün önkoşulu** oldu. **[§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)** durum tespiti eklendi: yazma yolu var, **okuma yolu hiç yazılmadı** — bugün işlevsel hata üretmiyor (V1 provisioning senkron) ama iş modülleri event üretmeye başlayınca sessiz veri kaybı olur. **Object storage** §2.3'e dördüncü açık karar olarak eklendi (koşullu: Knowledge/Inbox dosya eki alacaksa zorunlu). |
-| 1.2   | 2026-08-02 | **[§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f) kapatıldı** (commit `b07966f`): tenant outbox drain süreci yazıldı — tüketici + zamanlayıcı + repository + backoff/dead-letter (migration `0009`+`0010`). Faz 4'ün **tek kapı koşulu karşılandı** ([§2.5](#25-kapı-koşulu-faz-4e-giriş)). Yan çıktı: `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı uygulanamaz çıktı ve iki öngörüsü düzeltildi (MT v2.0, superseded notu — metin silinmedi).                                                                                                                                                                                                                                                                                                                                                                                        |
-| 1.3   | 2026-08-02 | **Faz 4 tasarim karari ADR'e baglandi:** [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modulu + AI Context Engine v1. [§2](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine) ve [§2.3](#23-bu-fazda-zorunlu-olarak-karara-bağlanacak-açık-teknik-kararlar) referans aldi. §2.3'teki dort acik karardan **ikisi kapandi** (Vector store → pgvector + HNSW; Object storage → dosya eki kapsam disi kaldigi icin bu fazda gerekmiyor, Faz 5'e devreder), Queue ve Cache acik kaliyor. Search (full-text) ADR-0029'un konusu degil — modul bugun yalnizca anlamsal arama yapiyor.                                                                                                                                                                                                                                                        |
-| 1.4   | 2026-08-02 | **Faz 4 kapsamı genişletildi** ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md)): konuşma hafızası, günlük rapor, onboarding. §2.3'teki **Queue kalemi kapandı** — ayrı broker (BullMQ/Redis) kurulmuyor, zamanlanmış işler PostgreSQL tabanlı (`SKIP LOCKED` + backoff, kanıtlanmış outbox deseni). Açık kalan tek teknik karar: **Cache**. Queue kararının dar okunması gerektiği not edildi: "broker yok" ≠ "kuyruk yok"; kuyruk PostgreSQL.                                                                                                                                                                                                                                                                                                                                                                                        |
-| 1.5   | 2026-08-02 | **Retention borcu güncellendi** ([§8](#8-yatay--sürekli-kalemler), yeni [§8.4](#84-retention-borcu-beş-tablo-tek-karar)): iki tablo yerine **dört** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages`. Tek madde altında tutuldu (çözüm tek karar: süre + temizlik mekanizması) ama ilk ikisinin güvenlik/denetim, son ikisinin kullanıcı verisi olduğu ve dolayısıyla "hepsine tek süre" cevabının yanlış olacağı not edildi. §8.2'deki KVKK kontrol noktasına bağlandı.                                                                                                                                                                                                                                                                                                                                               |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0   | 2026-08-02 | İlk sürüm. Faz 4–9 sırası ve kapı koşulları karara bağlandı: **Faz 4 = Knowledge/Inbox + AI Context Engine birlikte** (CRM/Finans/İK değil), Search/Vector + Queue + Cache bu fazda seçilecek, CI/CD + Hosting zorunlu alt-adım. Yatay kalemler ve [§9](#9-uzlaştırılacak-kayıtlar) uyumsuzluk kaydı eklendi. Faz 1–3 **tekrarlanmadı**, CLAUDE.md'ye referans verildi.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 1.1   | 2026-08-02 | **[§9.1](#91-architecturemd-2--adr-0007--uzlaştırıldı) uzlaştırıldı** (commit `ba0fb41`): ARCHITECTURE.md §2/§6.2 ve ADR-0007 bu dokümana hizalandı. **[§1.1](#11-faz-3ten-devreden-açık-kalemler)** eklendi — Faz 3'ten devreden iki kalem ayrıştırıldı: Authorization'ın kalanı (ABAC · configurable roller · izin cache) **hiçbir faza bağlanmadı**, _"gerçek ihtiyaç doğunca"_ etiketiyle backlog'a alındı; **tenant outbox publisher Faz 4'ün önkoşulu** oldu. **[§1.2](#12-tenant-outbox-publisher--durum-tespiti-2026-08-02)** durum tespiti eklendi: yazma yolu var, **okuma yolu hiç yazılmadı** — bugün işlevsel hata üretmiyor (V1 provisioning senkron) ama iş modülleri event üretmeye başlayınca sessiz veri kaybı olur. **Object storage** §2.3'e dördüncü açık karar olarak eklendi (koşullu: Knowledge/Inbox dosya eki alacaksa zorunlu).                                        |
+| 1.2   | 2026-08-02 | **[§1.2](#12-tenant-outbox-publisher--✅-kapatıldı-commit-b07966f) kapatıldı** (commit `b07966f`): tenant outbox drain süreci yazıldı — tüketici + zamanlayıcı + repository + backoff/dead-letter (migration `0009`+`0010`). Faz 4'ün **tek kapı koşulu karşılandı** ([§2.5](#25-kapı-koşulu-faz-4e-giriş)). Yan çıktı: `MULTI_TENANT_ARCHITECTURE.md` §12.4.2'nin planı uygulanamaz çıktı ve iki öngörüsü düzeltildi (MT v2.0, superseded notu — metin silinmedi).                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 1.3   | 2026-08-02 | **Faz 4 tasarim karari ADR'e baglandi:** [ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) — Knowledge modulu + AI Context Engine v1. [§2](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine) ve [§2.3](#23-bu-fazda-zorunlu-olarak-karara-bağlanacak-açık-teknik-kararlar) referans aldi. §2.3'teki dort acik karardan **ikisi kapandi** (Vector store → pgvector + HNSW; Object storage → dosya eki kapsam disi kaldigi icin bu fazda gerekmiyor, Faz 5'e devreder), Queue ve Cache acik kaliyor. Search (full-text) ADR-0029'un konusu degil — modul bugun yalnizca anlamsal arama yapiyor.                                                                                                                                                                                                                                                                                               |
+| 1.4   | 2026-08-02 | **Faz 4 kapsamı genişletildi** ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md)): konuşma hafızası, günlük rapor, onboarding. §2.3'teki **Queue kalemi kapandı** — ayrı broker (BullMQ/Redis) kurulmuyor, zamanlanmış işler PostgreSQL tabanlı (`SKIP LOCKED` + backoff, kanıtlanmış outbox deseni). Açık kalan tek teknik karar: **Cache**. Queue kararının dar okunması gerektiği not edildi: "broker yok" ≠ "kuyruk yok"; kuyruk PostgreSQL.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 1.6   | 2026-08-05 | **Faz 5 başladı** ([ADR-0031](adr/0031-crm-module.md)): [§3](#3-faz-5--modül-genişlemesi) ADR'ye bağlandı ve genişletildi — ilk modül CRM, tekrarın ürettiği soyutlama (port'lar `shared/`'a, oran sınırı ve konuşma tabloları `platform`'a), ve fazın en önemli kararı **tek kurumsal hafıza** (`POST /ask` + `RetrievalContributor`, izin bazlı eleme). **[§8.1](#81-gözlemlenebilirlik-neden-faz-4e-kadar)'in AI maliyet takibi kalemi KAPANDI** (Slice 0.5) — Faz 4'e yetişmemişti, Faz 5'in ilk işi olarak kapatıldı; merkezî log toplama ve hata izleme açık kaldı. **[§2.4](#24-zorunlu-alt-adım-cicd--hosting)'ün prod koşulunun karşılanmadığı kayda geçirildi** — Faz 4 o koşul sağlanmadan kapatıldı, metin yumuşatılmadı, karar Product Owner'a bırakıldı. Faz 4 [§1](#1-tamamlanan-fazlar) tablosuna ✅ olarak eklendi; §8.4 retention borcunun Faz 5'te sekize çıkacağı not edildi. |
+| 1.5   | 2026-08-02 | **Retention borcu güncellendi** ([§8](#8-yatay--sürekli-kalemler), yeni [§8.4](#84-retention-borcu-beş-tablo-tek-karar)): iki tablo yerine **dört** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages`. Tek madde altında tutuldu (çözüm tek karar: süre + temizlik mekanizması) ama ilk ikisinin güvenlik/denetim, son ikisinin kullanıcı verisi olduğu ve dolayısıyla "hepsine tek süre" cevabının yanlış olacağı not edildi. §8.2'deki KVKK kontrol noktasına bağlandı.                                                                                                                                                                                                                                                                                                                                                                                      |

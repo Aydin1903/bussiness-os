@@ -579,11 +579,23 @@ Format: `NNNN-kisa-baslik.md` → Bağlam · Karar · Gerekçe · Sonuçlar · A
 | 0022 | Kaba kuvvet koruması: katmanlı kilit |
 | 0023 | Oturum sonlandırma ve iptal |
 | 0024 | Parola sıfırlama |
+| 0025 | RBAC v1: sabit roller, statik izin kataloğu, guard tabanlı zorlama |
+| 0026 | Frontend token saklama: `HttpOnly` cookie + dual-transport |
+| 0027 | Frontend rendering ve oturum modeli |
+| 0028 | "Hangi tenant'lara üyeyim" sorgusu — dar `BYPASSRLS` rolü |
+| 0029 | Knowledge modülü + AI Context Engine v1 |
+| 0030 | Faz 4 genişleme: konuşma hafızası, günlük rapor, onboarding |
+| 0031 | CRM modülü + Context Engine'in platforma yükselmesi |
+
+> **0025–0031 bu tabloya Faz 5 Slice 0'da eklendi (2026-08-05).** Tablo 0024'te kalmıştı; Faz 4 kapanış denetimi üç SSOT sapması bulmuştu ama bunu yakalamamıştı. Kayıt olarak bırakılıyor: **ADR'nin yazılması ile kaydedilmesi ayrı iki iştir** ve ikincisi unutulabilir bir iştir.
 
 Bütünsel anlatımlar — her biri kendi alanında **Single Source of Truth**'tur:
 
 - **0012–0016** → [`docs/architecture/MULTI_TENANT_ARCHITECTURE.md`](docs/architecture/MULTI_TENANT_ARCHITECTURE.md)
 - **0017–0024** → [`docs/architecture/AUTH_ARCHITECTURE.md`](docs/architecture/AUTH_ARCHITECTURE.md)
+- **0026–0027** → [`docs/architecture/FRONTEND_ARCHITECTURE.md`](docs/architecture/FRONTEND_ARCHITECTURE.md)
+
+> **0029–0031'in bütünsel bir SSOT dokümanı YOK.** Knowledge/CRM/Context Engine bugün yalnızca ADR'lerde yaşıyor. Faz 5'in modül sayısı arttıkça bu bir eksiklik hâline gelecek; ihtiyaç netleştiğinde ayrı bir doküman açılır — bugünden açmak, henüz kararı verilmemiş bir yapıyı belgelemek olurdu.
 
 ---
 
