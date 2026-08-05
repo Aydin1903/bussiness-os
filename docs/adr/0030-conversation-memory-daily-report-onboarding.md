@@ -40,6 +40,12 @@ ADR-0029'un `notes`/`note_chunks`'i ile BIREBIR ayni desen).
 `messages.tenant_id` denormalizasyonu `note_chunks` ile AYNI gerekcedir: RLS
 politikasi JOIN'siz calisabilsin.
 
+> **SUPERSEDED — [ADR-0031](0031-crm-module.md) §5.2.1.** Iki tablo da
+> **`platform` semasina tasindi** (`platform.conversations` /
+> `platform.messages`). Kolonlar, denormalizasyon gerekcesi, `FORCE RLS` ve
+> `ON DELETE CASCADE` zinciri DEGISMEDI — yalnizca sema adresi degisti.
+> Ayrinti asagida, "Not — iki karar superseded".
+
 #### 1.2 `/knowledge/ask` degisikligi
 
 `conversation_id` **opsiyonel** olarak kabul edilir. Verilmezse yeni bir
@@ -293,3 +299,38 @@ entegrasyonu, per-tenant saglayici secimi, Cache, hassas veri redaksiyonu).
 - **Onboarding tamamlanma durumu kalici olarak izlenmek istenirse:** "hic not yok"
   kosulu yetersiz kalir (kullanici tum notlarini silerse wizard tekrar cikar) ve
   kalici bir alan gerekir.
+
+## Not — IKI KARAR SUPERSEDED: [ADR-0031](0031-crm-module.md) (2026-08-05)
+
+Faz 5'in ilk modulu (CRM) bu ADR'nin iki kararini gecersiz kildi. **Metinler
+yukarida silinmedi.**
+
+| Bu ADR'de                                        | Nerede | Bugun                                              |
+| ------------------------------------------------ | ------ | -------------------------------------------------- |
+| `knowledge.conversations` / `knowledge.messages` | §1.1   | **`platform.conversations` / `platform.messages`** |
+| `/knowledge/ask`'in `conversation_id` alisi      | §1.2   | Ayni davranis, **`POST /api/v1/ask`** ucunda       |
+
+**Gerekce.** Retrieval ucu `platform/context`'e tasindi (ADR-0031 §5): tek bir
+`POST /api/v1/ask` var ve moduller ona `RetrievalContributor` ile katki veriyor.
+Konusma tablolarini `knowledge` semasinda birakmak, bir **platform bileseninin
+bir is modulunun semasina yazmasi** demekti — Mutlak Kural 5'in dogrudan ihlali.
+Tek kacis yolu (konusmayi Knowledge'a public interface uzerinden yazdirmak)
+bagimlilik yonunu tersine cevirirdi: platform, is modulune bagimli hale gelirdi.
+
+Anlam da bunu soyluyor: konusma artik "Knowledge'a sorulan sorularin gecmisi"
+degil, **"sirkete sorulan sorularin gecmisi"**.
+
+**§1.3'un `history` parametresi ve gerekcesi AYNEN GECERLIDIR** — `LLMPort`
+imzasi degismedi, yalnizca port'un tanimlandigi yer `shared/`'a tasindi
+(ADR-0031 §4). "Neden ayri parametre" gerekcesinin uc maddesi de degismedi.
+
+**§2 (gunluk rapor) ve §3 (onboarding) DEGISMEDI.** Ozellikle:
+
+- **§2.4'un "ertelenemez genellestirme" kurali TETIKLENMEDI.** ADR-0031 yeni bir
+  dar `BYPASSRLS` rolu **eklemiyor**; ne CRM tablolari ne `platform.rate_limits`
+  ne de tasinan konusma tablolari tenant'lar arasi okuma gerektiriyor — hepsi
+  tenant-scoped ve `businessos_app` + RLS yetiyor. **Altinci rol hala
+  yazilmadi** ve o kural yururlukte kalmaya devam ediyor.
+- `daily_report_runs`, `businessos_report_worker` ve `SKIP LOCKED` + backoff
+  Queue karari aynen duruyor.
+- Onboarding'in 7 sorusu ve "hic not yoksa goster" tetiklemesi aynen duruyor.

@@ -106,6 +106,12 @@ gerekirse orada ayarlanir.
 
 **`POST /api/v1/knowledge/ask`**
 
+> **SUPERSEDED — [ADR-0031](0031-crm-module.md) §5.2.** Uc **`POST /api/v1/ask`**
+> oldu ve `platform/context`'e tasindi. Asagidaki DORT ADIM aynen gecerlidir;
+> tek fark 2. adimin artik yalnizca `note_chunks`'a degil, **kayitli tum
+> `RetrievalContributor`'lara** sorulmasidir. Ayrinti asagida, "Not — dort karar
+> superseded".
+
 1. Soru embed edilir,
 2. pgvector ile **tenant-scoped** en yakin ~8 chunk cekilir,
 3. `LLMPort.complete()` cagrilir,
@@ -477,3 +483,38 @@ Is listesi turetilmis oldugu icin model degisiminde yalnizca YUKLEM degisir
 ⚠️ Bugun `note_chunks`'ta model/surum kolonu **YOKTUR**. Model degisimi bu
 kolonun eklenmesini gerektirir — ama bu slice'ta yazilan hicbir sey onu
 engellemez.
+
+## Not — DORT KARAR SUPERSEDED: [ADR-0031](0031-crm-module.md) (2026-08-05)
+
+Faz 5'in ilk modulu (CRM) bu ADR'nin dort kararini gecersiz kildi. **Metinler
+yukarida silinmedi**; asagidaki tablo hangisinin nereye tasindigini soyler.
+Sebep tektir ve dordunde de aynidir: bu ADR yazildiginda Knowledge **tek is
+modulu** oldugu icin, aslinda platforma ait olan seyler onun icinde durabiliyordu.
+Ikinci modul o ayrimi zorunlu kildi.
+
+| Bu ADR'de                                     | Nerede         | Bugun                                                    |
+| --------------------------------------------- | -------------- | -------------------------------------------------------- |
+| `POST /api/v1/knowledge/ask`                  | §4 okuma akisi | **`POST /api/v1/ask`** (ADR-0031 §5.2)                   |
+| `knowledge.rate_limits` tablosu               | §5.1           | **`platform.rate_limits`** (§4.2)                        |
+| `EmbeddingPort`/`LLMPort` Knowledge'in icinde | §3             | **`shared/`** + adapter'lar `infrastructure/ai/`'da (§4) |
+| `knowledge:ask` permission'i                  | katalog        | **`context:ask`** (§5.3)                                 |
+
+**§3'un port AYRIMI degismedi** — iki port, iki ayri saglayici, ayni kabul
+testi. Degisen yalnizca **nerede tanimlandiklaridir**: ADR-0007 "`LLMPort`
+hicbir is modulunun mulku degildir" der ve bu ADR'nin onlari Knowledge'in
+`application/` katmanina koymasi bir karar degil, o gunku tek tuketicinin
+tesadufuydu. `chunking.ts` de ayni gerekceyle `shared/`'a tasindi.
+
+**Retrieval ucunun tasinmasinin sebebi urun tanimidir**, kod duzeni degil:
+CLAUDE.md'nin CEO ornegi ("son 6 ayimizi analiz et") cross-modul bir sorudur ve
+modul basina `/ask` uclariyla **yapisal olarak** cevaplanamaz. Uc artik
+`platform/context`'tedir ve moduller ona `RetrievalContributor` ile katki verir;
+hicbir modul digerinin semasini okumaz (Mutlak Kural 5-6 korunur).
+
+**DEGISMEYENLER** — "her sey degisti" izlenimi yanlis olurdu: veri modeli
+(`notes`/`note_chunks`) · chunking esigi ve algoritmasi · `vector(1536)` ·
+HNSW + `vector_cosine_ops` · iki port ayrimi ve minimal arayuz disiplini ·
+§3.1'in `thinking: disabled` adapter karari · §4'un iki transaction'li yazma
+akisi · oran siniri **mekanizmasi** (sayac satiri, sabit saat penceresi, T0'da
+artirma, basarisiz istegin de kotadan dusmesi) · §5'in limit rakamlari · liste
+ucu ve yeniden indeksleme.
