@@ -190,8 +190,8 @@ describe('GET /knowledge/notes/exists (uctan uca)', () => {
 
   // --- Yetki -----------------------------------------------------------------
 
-  it('KIMLIKSIZ istek 403 (guard handler dan ONCE calisir)', async () => {
-    expect((await notesExist(undefined)).status).toBe(403);
+  it('KIMLIKSIZ istek 401 (guard handler dan ONCE calisir)', async () => {
+    expect((await notesExist(undefined)).status).toBe(401);
   });
 
   it('viewer rolu 403 alir (note:read yok)', async () => {

@@ -1,7 +1,8 @@
-import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 
+import { runWithPrincipal } from '../../../infrastructure/auth/auth-context';
 import { runWithTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { PERMISSION_METADATA_KEY } from '../authz.public';
 import { InMemoryPermissionRegistry } from '../application/in-memory-permission-registry';
@@ -77,13 +78,25 @@ describe('PermissionGuard — yetki karari', () => {
   });
 });
 
-describe('PermissionGuard — tenant context YOK', () => {
-  it('tenant context olmadan isaretli endpoint e 403 verir', () => {
+describe('PermissionGuard — tenant context YOK: 401 ile 403 AYRI', () => {
+  it('KIMLIKSIZ istek 401 alir — 403 DEGIL', () => {
     const guard = guardWith();
 
-    // Kimlik token'i tasiyan ama tenant secmemis istek: tenant kaynagina erisim
-    // yetkisi yok. Deny-by-default.
-    expect(() => guard.canActivate(contextRequiring(MEMBER_READ))).toThrow(ForbiddenException);
+    // Token yok/bozuk/suresi dolmus. Istemci acisindan bu tazeleme ya da
+    // yeniden giris tetikleyen bir durumdur; 403 tetiklememeli.
+    expect(() => guard.canActivate(contextRequiring(MEMBER_READ))).toThrow(UnauthorizedException);
+  });
+
+  it('KIMLIGI OLAN ama tenant secmemis istek 403 alir', () => {
+    const guard = guardWith();
+
+    // Kimlik token'iyla gelinmis: kim oldugu biliniyor, tenant kaynagina
+    // yetkisi yok. Yeniden giris bunu DEGISTIRMEZ, o yuzden 401 yanlis olurdu.
+    expect(() =>
+      runWithPrincipal({ userId: 'u-1', sessionId: 's-1', tenantId: null }, () =>
+        guard.canActivate(contextRequiring(MEMBER_READ)),
+      ),
+    ).toThrow(ForbiddenException);
   });
 
   it('sebep sizmaz — mesaj rol/permission ayrintisi vermez', () => {

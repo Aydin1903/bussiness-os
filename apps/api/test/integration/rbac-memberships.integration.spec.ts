@@ -208,8 +208,10 @@ describe('RBAC: GET /memberships (uctan uca)', () => {
     expect(response.status).toBe(403);
   });
 
-  it('kimliksiz istek -> 403', async () => {
-    expect((await listMemberships(undefined)).status).toBe(403);
+  it('kimliksiz istek -> 401', async () => {
+    // Kimlik YOK -> 401. Tenant secilmemis kimlik -> 403 (asagida). Ikisi
+    // AYRI seylerdir: 401 tazeleme/yeniden giris tetikler, 403 tetiklememeli.
+    expect((await listMemberships(undefined)).status).toBe(401);
   });
 
   // --- RLS: liste mevcut tenant'a daralir ----------------------------------

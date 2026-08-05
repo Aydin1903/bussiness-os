@@ -333,8 +333,10 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
 
   // --- Yetki ve dogrulama ---------------------------------------------------
 
-  it('KIMLIKSIZ istek 403 (guard handler dan ONCE calisir)', async () => {
-    expect((await ask(undefined, { question: 'soru' })).status).toBe(403);
+  it('KIMLIKSIZ istek 401 (guard handler dan ONCE calisir)', async () => {
+    // Kimlik YOK -> 401. Tenant secilmemis kimlik -> 403 (asagida). Ikisi
+    // AYRI seylerdir: 401 tazeleme/yeniden giris tetikler, 403 tetiklememeli.
+    expect((await ask(undefined, { question: 'soru' })).status).toBe(401);
   });
 
   it('viewer rolu 403 alir (knowledge:ask yok)', async () => {

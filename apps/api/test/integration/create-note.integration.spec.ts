@@ -307,15 +307,16 @@ describe.skipIf(!HAS_OPENAI_KEY)('POST /knowledge/notes (uctan uca, gercek OpenA
 
   // --- Yetki ve dogrulama ---------------------------------------------------
 
-  it('KIMLIKSIZ istek 403 (guard handler dan ONCE calisir)', async () => {
-    // `rbac-memberships.integration.spec.ts` ile AYNI davranis ve ayni gerekce:
-    // `PermissionGuard` handler'dan once calisir ve principal yoksa
-    // `ForbiddenException` atar. Semantik olarak 401 daha dogru olurdu, ama
-    // davranis TUM RBAC korumali uclarda tutarlidir — burada sapmak, iki farkli
-    // uc noktanin ayni durumda farkli kod dondurmesi demekti.
+  it('KIMLIKSIZ istek 401 (guard handler dan ONCE calisir)', async () => {
+    // ESKI DAVRANIS 403'TU ve bu yorum onu "tutarlilik" diye savunuyordu:
+    // "semantik olarak 401 daha dogru olurdu, ama davranis TUM RBAC korumali
+    // uclarda tutarlidir". Tespit yarim dogruydu — Knowledge uclari kendi
+    // arasinda tutarliydi ama `/me/memberships` ile DEGILDI ve asil kiyas
+    // noktasi oydu. Faz 4 kapanis denetiminde olculdu, `PermissionGuard`
+    // duzeltildi: kimlik yoksa 401, kimlik varsa ama tenant secilmemisse 403.
     const response = await createNote(undefined, { body: 'metin' });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
   });
 
   it('KIMLIK token i (tenant secilmemis) ile 403', async () => {

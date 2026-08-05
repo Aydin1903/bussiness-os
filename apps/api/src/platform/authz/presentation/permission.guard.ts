@@ -3,9 +3,11 @@ import {
   type ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { PERMISSION_METADATA_KEY, type Permission } from '../authz.public';
 import { PolicyEngine } from '../application/policy-engine';
@@ -44,12 +46,37 @@ export class PermissionGuard implements CanActivate {
       return true;
     }
 
+    // ========================================================================
+    // 401 ILE 403 AYRI SEYLERDIR
+    // ========================================================================
+    // Once bu guard her iki durumda da 403 donuyordu: kimliksiz istek de,
+    // kimligi olan ama tenant secmemis istek de. Sonuc, ayni API'nin iki
+    // modulunun AYNI duruma farkli cevap vermesiydi — `/me/memberships`
+    // kimliksiz istege 401 donerken `/knowledge/*` 403 donuyordu.
+    //
+    // RFC 9110: 401 "kim oldugunu kanitlamadin", 403 "kim oldugunu biliyorum
+    // ama bu sana kapali". Istemci acisindan fark islevseldir: 401 tazeleme ya
+    // da yeniden giris tetikler, 403 tetiklememeli — tekrar giris yapmak
+    // yetkiyi degistirmez.
+    //
+    // Faz 4 kapanis denetiminde tespit edildi ve Faz 5 yeni modulleri bu
+    // deseni kopyalamadan ONCE duzeltildi (Product Owner onayi, 2026-08-05).
+    // Uretime cikilmadigi icin sozlesme degisikliginin bedeli yok.
+    // ========================================================================
+
     const tenantContext = getTenantContext();
 
-    // Tenant context YOK: istek tenant-scoped bir token tasimamaktadir (kimlik
-    // token'i veya anonim). Tenant kaynagina erisim yetkisi yoktur -> 403.
-    // Deny-by-default: yetki KANITLANANA kadar reddedilir.
     if (tenantContext === undefined) {
+      // Ayrim YALNIZCA burada yapilir. Tenant context VARSA kimlik zaten
+      // kanitlanmistir: onu kuran middleware auth'tan SONRA calisir ve
+      // membership dogrulamasindan gecer (MT §11.2). Yani principal'i her
+      // istekte ayrica sormak gereksiz bir okuma olurdu.
+      if (getPrincipal() === undefined) {
+        throw new UnauthorizedException('Bu islem icin kimlik dogrulamasi gerekiyor.');
+      }
+
+      // Kimlik VAR ama tenant secilmemis: kim oldugu biliniyor, bu kaynak ona
+      // kapali. Deny-by-default: yetki KANITLANANA kadar reddedilir.
       throw new ForbiddenException('Bu islem icin tenant secilmis bir oturum gerekiyor.');
     }
 

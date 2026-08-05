@@ -315,8 +315,8 @@ describe('Gunluk rapor worker (uctan uca)', () => {
       expect((await fetchReport(tokenA)).body).toEqual({ report: null });
     });
 
-    it('KIMLIKSIZ istek 403', async () => {
-      expect((await fetchReport(undefined)).status).toBe(403);
+    it('KIMLIKSIZ istek 401', async () => {
+      expect((await fetchReport(undefined)).status).toBe(401);
     });
 
     it('viewer rolu 403 alir (report:read yok)', async () => {

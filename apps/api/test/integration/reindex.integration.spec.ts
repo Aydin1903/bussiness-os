@@ -303,9 +303,9 @@ describe('Yeniden indeksleme (uctan uca)', () => {
 
   // --- Yetki -----------------------------------------------------------------
 
-  it('KIMLIKSIZ istekler 403', async () => {
-    expect((await unindexed(undefined)).status).toBe(403);
-    expect((await reindex(undefined)).status).toBe(403);
+  it('KIMLIKSIZ istekler 401', async () => {
+    expect((await unindexed(undefined)).status).toBe(401);
+    expect((await reindex(undefined)).status).toBe(401);
   });
 
   it('viewer rolu ikisinden de 403 alir', async () => {

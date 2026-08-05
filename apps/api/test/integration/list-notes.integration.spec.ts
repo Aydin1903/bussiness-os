@@ -333,8 +333,8 @@ describe('GET /knowledge/notes (uctan uca)', () => {
     expect((await list(token, '?sirala=asc')).status).toBe(422);
   });
 
-  it('KIMLIKSIZ istek 403', async () => {
-    expect((await list(undefined)).status).toBe(403);
+  it('KIMLIKSIZ istek 401', async () => {
+    expect((await list(undefined)).status).toBe(401);
   });
 
   it('viewer rolu 403 alir (note:read yok)', async () => {
