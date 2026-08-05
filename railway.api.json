@@ -5,7 +5,7 @@
     "buildCommand": "pnpm install --frozen-lockfile && pnpm turbo run build --filter=@business-os/api"
   },
   "deploy": {
-    "preDeployCommand": "pnpm --filter @business-os/api run db:migrate",
+    "preDeployCommand": "pnpm --filter @business-os/api run db:preflight && pnpm --filter @business-os/api run db:migrate",
     "startCommand": "node apps/api/dist/main.js",
     "healthcheckPath": "/api/v1/health",
     "healthcheckTimeout": 120,
