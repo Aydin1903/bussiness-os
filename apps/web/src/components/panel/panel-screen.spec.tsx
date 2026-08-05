@@ -312,6 +312,50 @@ describe('PanelScreen — not ekleme (panelden çıkmadan)', () => {
     });
   });
 
+  it('mod değişimi yazma alanının ODAĞINI KAYBETTİRMEZ', async () => {
+    // Bildirilen hata: mod değiştirince alan sönüp yeniden "açılıyor"du.
+    // Sebep remount değil, ODAK KAYBIYDI — form `focus-within` ile halka
+    // taşıyor ve odak gidince halka 200 ms boyunca sönüyordu.
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    const input = screen.getByLabelText('Kurumsal hafızaya sor');
+    input.focus();
+
+    // Odağı ÖNCE düşürüyoruz. jsdom'da `click` zaten odak taşımaz; blur
+    // olmadan bu test düzeltme YOKKEN de geçerdi ve hiçbir şey kanıtlamazdı.
+    // Böylece iddia netleşir: `pickMode` odağı GERİ VERİYOR mu?
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not ekle' }));
+
+    // AYNI düğüm (remount yok) ve odak geri geldi.
+    expect(screen.getByLabelText('Not ekle')).toBe(input);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('mod değişimi YAZILMIŞ METNİ korur', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    const input = screen.getByLabelText('Kurumsal hafızaya sor');
+    fireEvent.change(input, { target: { value: 'yarım kalan metin' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Not ekle' }));
+
+    expect(screen.getByLabelText('Not ekle')).toHaveValue('yarım kalan metin');
+  });
+
+  it('mod düğmesi fare odağını ÇALMAZ (mousedown engellenir)', async () => {
+    render(<PanelScreen />);
+    await screen.findByText('Dün geceden bu yana üç not eklendi.');
+
+    const button = screen.getByRole('button', { name: 'Not ekle' });
+    // `preventDefault` çağrıldıysa tarayıcı odağı BU DÜĞMEYE taşımaz.
+    const prevented = !fireEvent.mouseDown(button);
+    expect(prevented).toBe(true);
+  });
+
   it('not eklenince liste TAZELENİR', async () => {
     render(<PanelScreen />);
     await screen.findByText('Dün geceden bu yana üç not eklendi.');

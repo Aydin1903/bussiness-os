@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { FormError } from '@/components/ui/form-error';
 
@@ -36,7 +36,42 @@ export function Composer({
   hint: string;
 }) {
   const [text, setText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const empty = text.trim() === '';
+
+  /**
+   * Mod değiştirmek yazma alanını TERK ETMEZ.
+   *
+   * ==========================================================================
+   * NE OLUYORDU
+   * ==========================================================================
+   * Segment düğmesine tıklamak odağı input'tan alıyordu. Form
+   * `focus-within:border-accent` + halka taşıdığı ve 200 ms geçişi olduğu için
+   * alan gözle görülür biçimde SÖNÜYOR, kullanıcı tekrar tıklayınca yeniden
+   * "açılıyordu". Metin hiç kaybolmuyordu ama alan kapanıp yeniden açılıyor
+   * gibi görünüyordu — bildirilen hata buydu.
+   *
+   * Remount DEĞİLDİ: input ve form aynı DOM düğümleri olarak kalıyor
+   * (tarayıcıda `data-*` etiketiyle doğrulandı), yükseklik de değişmiyor.
+   *
+   * ==========================================================================
+   * ÇÖZÜM: ODAK HİÇ AYRILMASIN
+   * ==========================================================================
+   * `mousedown`'ın varsayılanı engellenir — odağı taşıyan olay odur. Böylece
+   * halka hiç sönmez; sönüp geri gelmez, çünkü hiç gitmez. `click` yine
+   * çalışır, dolayısıyla mod değişir.
+   *
+   * Ardından odak açıkça input'a verilir: kullanıcı hiç yazmamışken de mod
+   * seçtikten sonra imleç yazacağı yerdedir — bu kontrolün zaten anlatmak
+   * istediği şey "şimdi şunu yazacaksın"dır.
+   *
+   * KLAVYE ETKİLENMEZ: `mousedown` yalnızca fareye aittir. Tab ile gezinme ve
+   * Enter/Space ile etkinleştirme aynen çalışır.
+   */
+  function pickMode(next: ComposerMode): void {
+    onModeChange(next);
+    inputRef.current?.focus();
+  }
 
   function submit(): void {
     if (empty || pending) {
@@ -59,8 +94,13 @@ export function Composer({
             <button
               key={value}
               type="button"
+              // Odağı taşıyan olay `mousedown`; engellenince input odağını
+              // hiç kaybetmez ve halka sönmez.
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
               onClick={() => {
-                onModeChange(value);
+                pickMode(value);
               }}
               className={[
                 'rounded-[7.5px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors',
@@ -89,6 +129,7 @@ export function Composer({
           }}
         >
           <input
+            ref={inputRef}
             value={text}
             disabled={pending}
             aria-label={mode === 'ask' ? 'Kurumsal hafızaya sor' : 'Not ekle'}
