@@ -28,7 +28,7 @@ import { CreateNoteUseCase } from './application/create-note.use-case';
 import {
   RATE_LIMIT_REPOSITORY,
   type RateLimitRepository,
-} from './application/rate-limit.repository.port';
+} from '../../shared/rate-limit.repository.port';
 import {
   DAILY_REPORT_RUN_REPOSITORY,
   type DailyReportRunRepository,
@@ -44,7 +44,7 @@ import { NOTE_REPOSITORY, type NoteRepository } from './application/note.reposit
 import { DeepSeekLlmAdapter } from '../../infrastructure/ai/deepseek-llm.adapter';
 import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
 import { DailyReportWorker } from './infrastructure/daily-report-worker';
-import { DrizzleRateLimitRepository } from './infrastructure/drizzle-rate-limit.repository';
+import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-report-run.repository';
 import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
 import { DrizzleNoteChunkRepository } from './infrastructure/drizzle-note-chunk.repository';

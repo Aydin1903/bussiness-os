@@ -116,7 +116,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
       expect(rows.rowCount).toBe(1);
     });
 
-    it('alti tablo da knowledge semasinda olusturuldu', async () => {
+    it('BES tablo knowledge semasinda olusturuldu (rate_limits platform a tasindi)', async () => {
       const rows = await database.ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'knowledge' ORDER BY table_name",
       );
@@ -126,7 +126,6 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
         'messages',
         'note_chunks',
         'notes',
-        'rate_limits',
       ]);
     });
 
@@ -204,10 +203,10 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
     'conversations',
     'messages',
     'daily_report_runs',
-    // Oran siniri sayaci da SAPMASIZ ayni sablona tabidir (ADR-0029 §5.1).
-    // Burada sessiz bos sonuc ozellikle tehlikeli olurdu: sayac her istekte
-    // 0 okunur ve koruma GORUNMEZ sekilde kapanirdi.
-    'rate_limits',
+    // NOT: `rate_limits` bu listeden CIKTI — tablo `platform` semasina tasindi
+    // (ADR-0031 §4.2, migration `0014`). Ayni sablona hala tabidir ve testleri
+    // `tenant-isolation.integration.spec.ts`'te, digger platform tablolariyla
+    // birlikte durur.
   ] as const;
 
   describe('RLS izolasyonu', () => {
@@ -477,7 +476,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
     });
 
     it('DIGER knowledge tablolarina SELECT REDDEDILIR', async () => {
-      for (const table of ['notes', 'note_chunks', 'conversations', 'messages', 'rate_limits']) {
+      for (const table of ['notes', 'note_chunks', 'conversations', 'messages']) {
         await expect(
           asReportWorker(`SELECT 1 FROM knowledge.${table} LIMIT 1`),
           `knowledge.${table} erisilebilir OLMAMALI`,
@@ -486,7 +485,14 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
     });
 
     it('platform tablolarina SELECT REDDEDILIR (tenants dahil — tembel seed sayesinde gerekmiyor)', async () => {
-      for (const table of ['tenants', 'memberships', 'outbox', 'identity_outbox', 'users']) {
+      for (const table of [
+        'tenants',
+        'memberships',
+        'outbox',
+        'identity_outbox',
+        'users',
+        'rate_limits',
+      ]) {
         await expect(
           asReportWorker(`SELECT 1 FROM platform.${table} LIMIT 1`),
           `platform.${table} erisilebilir OLMAMALI`,

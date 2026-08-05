@@ -5,7 +5,8 @@ import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { AskKnowledgeUseCase, type AskKnowledgeDependencies } from './ask-knowledge.use-case';
 import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
-import { ConversationAccessDeniedError, RateLimitExceededError } from '../domain/knowledge.error';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
+import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
 import { FOLLOW_UP_MARKER, KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import {
@@ -15,7 +16,10 @@ import {
   type LlmMessage,
 } from '../../../shared/llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
-import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';
+import {
+  type RateLimitRepository,
+  type RegisterRequestInput,
+} from '../../../shared/rate-limit.repository.port';
 import { type TenantId } from '../domain/tenant-id.value-object';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
@@ -145,12 +149,9 @@ class FakeRateLimitRepository implements RateLimitRepository {
 
   registerRequest(input: RegisterRequestInput): Promise<number> {
     this.calls.push('rateLimit');
-    const key = [
-      input.tenantId.value,
-      input.userId,
-      input.action,
-      input.windowStart.toISOString(),
-    ].join('|');
+    const key = [input.tenantId, input.userId, input.action, input.windowStart.toISOString()].join(
+      '|',
+    );
     const next = (this.counters.get(key) ?? 0) + 1;
     this.counters.set(key, next);
     return Promise.resolve(next);

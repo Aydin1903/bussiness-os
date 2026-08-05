@@ -1,12 +1,11 @@
-import { type Clock } from '../../../shared/clock.port';
-import { type TransactionManager } from '../../../shared/transaction-manager.port';
-import { RateLimitExceededError } from '../domain/knowledge.error';
+import { type Clock } from './clock.port';
+import { type TransactionManager } from './transaction-manager.port';
 import {
   currentWindowStart,
   evaluateRateLimit,
+  RateLimitExceededError,
   type RateLimitedAction,
-} from '../domain/rate-limit.policy';
-import { type TenantId } from '../domain/tenant-id.value-object';
+} from './rate-limit.policy';
 import { type RateLimitRepository } from './rate-limit.repository.port';
 
 /** T0'in ihtiyaci olan uc bagimlilik; iki use case de bunlari zaten tasir. */
@@ -48,7 +47,7 @@ export interface RateLimitDependencies {
 export async function enforceRateLimit(
   deps: RateLimitDependencies,
   input: {
-    readonly tenantId: TenantId;
+    readonly tenantId: string;
     readonly userId: string;
     readonly action: RateLimitedAction;
     readonly limit: number;

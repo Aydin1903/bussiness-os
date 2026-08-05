@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
-import { RateLimitExceededError } from '../domain/knowledge.error';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { type NoteChunk } from '../domain/note-chunk.entity';
 import { type Note } from '../domain/note.entity';
 import { type EmbeddingPort } from '../../../shared/embedding.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteListPage, type NoteRepository, type UnindexedNote } from './note.repository.port';
-import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';
+import {
+  type RateLimitRepository,
+  type RegisterRequestInput,
+} from '../../../shared/rate-limit.repository.port';
 import { ReindexNotesUseCase, type ReindexNotesDependencies } from './reindex-notes.use-case';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */

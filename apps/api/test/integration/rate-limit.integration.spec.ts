@@ -91,7 +91,7 @@ describe('Oran siniri (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE knowledge.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
         'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
@@ -164,13 +164,13 @@ describe('Oran siniri (uctan uca)', () => {
    */
   async function shiftWindowBack(): Promise<void> {
     await database.ownerPool.query(
-      "UPDATE knowledge.rate_limits SET window_start = window_start - interval '1 hour'",
+      "UPDATE platform.rate_limits SET window_start = window_start - interval '1 hour'",
     );
   }
 
   function countRows(): Promise<number> {
     return database.ownerPool
-      .query('SELECT count(*)::int AS n FROM knowledge.rate_limits')
+      .query('SELECT count(*)::int AS n FROM platform.rate_limits')
       .then((result) => Number(result.rows[0]?.n ?? 0));
   }
 
@@ -372,7 +372,7 @@ describe('Oran siniri (uctan uca)', () => {
       expect(await countRows()).toBe(1);
 
       const row = await database.ownerPool.query<{ request_count: number }>(
-        'SELECT request_count FROM knowledge.rate_limits',
+        'SELECT request_count FROM platform.rate_limits',
       );
       expect(row.rows[0]?.request_count).toBe(ASK_LIMIT);
     });
@@ -382,7 +382,7 @@ describe('Oran siniri (uctan uca)', () => {
       await ask(token);
 
       const row = await database.ownerPool.query<{ window_start: Date }>(
-        'SELECT window_start FROM knowledge.rate_limits',
+        'SELECT window_start FROM platform.rate_limits',
       );
       const windowStart = row.rows[0]?.window_start;
 

@@ -118,33 +118,3 @@ export class ConversationAccessDeniedError extends KnowledgeDomainError {
     super('Bu konusmaya erisiminiz yok.');
   }
 }
-
-/**
- * Oran siniri asildi (ADR-0029 §5).
- *
- * ============================================================================
- * BU BIR GUVENLIK REDDI DEGIL, BUTCE REDDIDIR
- * ============================================================================
- * Kimlik dogrudur, yetki vardir, istek gecerlidir — YALNIZCA bu saat icindeki
- * pay tukenmistir. Bu yuzden 403 degil `429` doner ve mesaj GIZLEMEZ: kac
- * istekten sonra ne zaman tekrar denenebilecegi acikca soylenir.
- *
- * Kimlik akislarindaki P2 disiplini (reddin SEBEBINI sizdirma) burada
- * GECERSIZDIR ve olmamalidir: orada gizlenen sey "bu hesap var mi" idi;
- * burada gizlenecek bir sey yok, kullanici kendi kotasini bilir.
- * ============================================================================
- */
-export class RateLimitExceededError extends KnowledgeDomainError {
-  readonly code = 'RATE_LIMIT_EXCEEDED';
-
-  constructor(
-    readonly limit: number,
-    /** Pencerenin bitisine kalan sure — `Retry-After` basligini besler. */
-    readonly retryAfterSeconds: number,
-  ) {
-    super(
-      `Saatlik istek siniri asildi (en fazla ${String(limit)}). ` +
-        `${String(retryAfterSeconds)} saniye sonra tekrar deneyin.`,
-    );
-  }
-}

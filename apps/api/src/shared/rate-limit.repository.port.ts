@@ -1,10 +1,16 @@
-import { type RateLimitedAction } from '../domain/rate-limit.policy';
-import { type TenantId } from '../domain/tenant-id.value-object';
+import { type RateLimitedAction } from './rate-limit.policy';
 
 export const RATE_LIMIT_REPOSITORY = Symbol('RATE_LIMIT_REPOSITORY');
 
 export interface RegisterRequestInput {
-  readonly tenantId: TenantId;
+  /**
+   * Ham tenant kimligi.
+   *
+   * Modulun `TenantId` value object'i BILEREK kullanilmiyor: o Knowledge'in
+   * domain tipidir ve platform mekanizmasini bir is modulune baglardi. Dogrulama
+   * cagiranin isidir; buraya gelen deger zaten dogrulanmis context'ten gelir.
+   */
+  readonly tenantId: string;
   readonly userId: string;
   readonly action: RateLimitedAction;
   /** Saate yuvarlanmis pencere basi — `currentWindowStart(now)`. */

@@ -407,4 +407,128 @@ describe('tenant izolasyonu (RLS)', () => {
       ),
     ).rejects.toThrow(/tenants_slug_key/);
   });
+  // --- platform.rate_limits — MT §12.6 (ADR-0031 Slice 2) ------------------
+  //
+  // Tablo `knowledge`'ten `platform`'a tasindi (migration `0014`) ve testleri
+  // buraya, diger platform tablolariyla birlikte geldi.
+  //
+  // ⚠️ Bu blok bir TASIMA DEGIL, EKSIGIN KAPATILMASIDIR. `knowledge.rate_limits`
+  // icin dogrudan A<->B RLS testi HIC YAZILMAMISTI: `rate-limit.integration.spec.ts`
+  // davranissaldir (HTTP uzerinden 429) ve `knowledge-schema` testi tabloyu
+  // yalnizca ENABLE/FORCE listesinde tutuyordu. MT §12.6 "izolasyon testi
+  // olmadan tablo merge edilmez" der; o kural bu tablo icin ilk kez burada
+  // gercekten uygulaniyor.
+  //
+  // Oran sinirlayicida sizinti IKI YONLU zarar verir: baskasinin sayacini
+  // OKUMAK kullanim bilgisi sizdirir, YAZMAK ise onun kotasini tuketerek
+  // hizmet reddine donusur.
+
+  /** Sayac satiri yazar — uygulama rolu ve tenant context'i altinda. */
+  async function insertCounter(tenantId: string, userId: string, action = 'ask'): Promise<void> {
+    await inTenantContext(tenantId, (client) =>
+      client.query(
+        `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+         VALUES ($1, $2, $3, date_trunc('hour', now()), 1)
+         ON CONFLICT (tenant_id, user_id, action, window_start)
+         DO UPDATE SET request_count = platform.rate_limits.request_count + 1`,
+        [tenantId, userId, action],
+      ),
+    );
+  }
+
+  it('rate_limits: tenant A, tenant B nin sayacini OKUYAMAZ', async () => {
+    await insertCounter(TENANT_A, USER_A);
+    await insertCounter(TENANT_B, USER_B);
+
+    const rows = await inTenantContext(TENANT_A, async (client) => {
+      const result = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM platform.rate_limits',
+      );
+      return result.rows;
+    });
+
+    // Filtre YAZILMADI; daraltmayi RLS yapti.
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.tenant_id === TENANT_A)).toBe(true);
+  });
+
+  it('rate_limits: tenant A, tenant B adina sayac YAZAMAZ (WITH CHECK)', async () => {
+    // Bu yazma basarili olsaydi A, B'nin kotasini tuketebilirdi — sizintinin
+    // tersi ama ayni derecede yikici (MT §12.2).
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query(
+          `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+           VALUES ($1, $2, 'ask', date_trunc('hour', now()), 999)`,
+          [TENANT_B, USER_B],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/i);
+  });
+
+  it('rate_limits: tenant A, kendi sayacinin tenant_id sini B ye TASIYAMAZ', async () => {
+    await insertCounter(TENANT_A, USER_A, 'create_note');
+
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query('UPDATE platform.rate_limits SET tenant_id = $1', [TENANT_B]),
+      ),
+    ).rejects.toThrow(/row-level security/i);
+  });
+
+  it('rate_limits: tenant context KURULMADAN sorgu HATA verir', async () => {
+    // Sessiz bos sonuc burada ozellikle tehlikelidir: sayac her istekte 0
+    // okunur ve oran siniri GORUNMEZ sekilde devre disi kalir — yani hata,
+    // korumanin kendisini kapatirdi.
+    await expect(appPool.query('SELECT 1 FROM platform.rate_limits')).rejects.toThrow(
+      /unrecognized configuration parameter|invalid input syntax/i,
+    );
+  });
+
+  it('rate_limits: ENABLE + FORCE tasiyor', async () => {
+    const result = await ownerPool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+      `SELECT relrowsecurity, relforcerowsecurity
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'platform' AND c.relname = 'rate_limits'`,
+    );
+
+    expect(result.rows[0]?.relrowsecurity, 'ENABLE').toBe(true);
+    expect(result.rows[0]?.relforcerowsecurity, 'FORCE').toBe(true);
+  });
+
+  it('rate_limits: uygulama rolu tablonun SAHIBI degildir', async () => {
+    // FORCE RLS sahibi de kapsar; ama sahiplik ayrica DDL yetkisi demektir.
+    const result = await ownerPool.query<{ tableowner: string }>(
+      "SELECT tableowner FROM pg_tables WHERE schemaname = 'platform' AND tablename = 'rate_limits'",
+    );
+
+    expect(result.rows[0]?.tableowner).not.toBe(APP_ROLE);
+  });
+
+  it('rate_limits: eylem adinda numaralandiran CHECK YOKTUR (ADR-0031 §4.2)', async () => {
+    // Platform eylem adlarini YORUMLAMAZ: CRM'in `create_interaction`'i
+    // PLATFORM migration'i gerektirmemeli. Bu test sapmayi KAYIT ALTINA ALIR —
+    // biri "eski CHECK'i geri koyalim" derse kirmizi yanar ve gerekceyi okur.
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query(
+          `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+           VALUES ($1, $2, 'create_interaction', date_trunc('hour', now()), 1)`,
+          [TENANT_A, USER_A],
+        ),
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it('rate_limits: BOS eylem adi yine de REDDEDILIR (anlamsiz kisit KALDI)', async () => {
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query(
+          `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+           VALUES ($1, $2, '   ', date_trunc('hour', now()), 1)`,
+          [TENANT_A, USER_A],
+        ),
+      ),
+    ).rejects.toThrow(/rate_limits_action_not_blank/);
+  });
 });

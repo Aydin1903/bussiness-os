@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 
-import { rateLimits } from '../../../infrastructure/database/schema';
-import { requireTransaction } from '../../../infrastructure/database/transaction-context';
+import { rateLimits } from '../database/schema';
+import { requireTransaction } from '../database/transaction-context';
 import type {
   RateLimitRepository,
   RegisterRequestInput,
-} from '../application/rate-limit.repository.port';
+} from '../../shared/rate-limit.repository.port';
 
 /**
  * `RateLimitRepository`'nin Drizzle implementasyonu (ADR-0029 §5).
@@ -34,7 +34,7 @@ export class DrizzleRateLimitRepository implements RateLimitRepository {
     const rows = await db
       .insert(rateLimits)
       .values({
-        tenantId: input.tenantId.value,
+        tenantId: input.tenantId,
         userId: input.userId,
         action: input.action,
         windowStart: input.windowStart,

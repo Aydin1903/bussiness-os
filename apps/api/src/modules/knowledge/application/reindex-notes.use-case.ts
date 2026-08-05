@@ -7,10 +7,11 @@ import { NoteChunkId } from '../domain/note-chunk-id.value-object';
 import { NoteId } from '../domain/note-id.value-object';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
-import { enforceRateLimit } from './enforce-rate-limit';
+import { enforceRateLimit } from '../../../shared/enforce-rate-limit';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository, type UnindexedNote } from './note.repository.port';
-import { type RateLimitRepository } from './rate-limit.repository.port';
+import { type RateLimitRepository } from '../../../shared/rate-limit.repository.port';
+import { KNOWLEDGE_CREATE_NOTE_ACTION } from '../knowledge.rate-limits';
 
 export interface ReindexNotesCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -104,9 +105,9 @@ export class ReindexNotesUseCase {
     // cagrilari) ve ayni butce. Ayri bir kova, onarimi butcesiz bir yan kapiya
     // cevirirdi.
     await enforceRateLimit(this.deps, {
-      tenantId,
+      tenantId: tenantId.value,
       userId: command.userId,
-      action: 'create_note',
+      action: KNOWLEDGE_CREATE_NOTE_ACTION,
       limit: this.deps.rateLimit,
     });
 

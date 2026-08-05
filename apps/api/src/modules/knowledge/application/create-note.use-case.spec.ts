@@ -13,8 +13,11 @@ import { type DailyReportRunRepository } from './daily-report-run.repository.por
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository } from './note.repository.port';
-import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';
-import { RateLimitExceededError } from '../domain/knowledge.error';
+import {
+  type RateLimitRepository,
+  type RegisterRequestInput,
+} from '../../../shared/rate-limit.repository.port';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 
@@ -165,12 +168,9 @@ class FakeRateLimitRepository implements RateLimitRepository {
 
   registerRequest(input: RegisterRequestInput): Promise<number> {
     this.calls.push('rateLimit');
-    const key = [
-      input.tenantId.value,
-      input.userId,
-      input.action,
-      input.windowStart.toISOString(),
-    ].join('|');
+    const key = [input.tenantId, input.userId, input.action, input.windowStart.toISOString()].join(
+      '|',
+    );
     const next = (this.counters.get(key) ?? 0) + 1;
     this.counters.set(key, next);
     return Promise.resolve(next);

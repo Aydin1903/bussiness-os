@@ -10,7 +10,8 @@ import { type Response } from 'express';
 
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
 import { CompletionFailedError } from '../../../shared/llm.port';
-import { KnowledgeDomainError, RateLimitExceededError } from '../domain/knowledge.error';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
+import { KnowledgeDomainError } from '../domain/knowledge.error';
 
 /**
  * Knowledge domain hatalarini HTTP durum kodlarina cevirir.
@@ -69,13 +70,23 @@ const EMBEDDING_FAILED_DETAIL =
  */
 const COMPLETION_FAILED_DETAIL = 'Cevap uretilemedi; lutfen tekrar deneyin.';
 
-@Catch(KnowledgeDomainError, EmbeddingFailedError, CompletionFailedError)
+/**
+ * `RateLimitExceededError` LISTEYE ACIKCA EKLENDI (ADR-0031 Slice 2).
+ *
+ * Onceden `KnowledgeDomainError`'dan turedigi icin ilk girdi uzerinden
+ * yakalaniyordu. Oran siniri mekanizmasi platforma tasinince hata da
+ * `shared/rate-limit.policy.ts`'e gecti ve o hiyerarsiden CIKTI — yani
+ * listeye yazilmasaydi filtre onu GORMEZ, 429 yerine islenmemis bir 500
+ * doner ve `Retry-After` basligi hic uretilmezdi.
+ */
+@Catch(KnowledgeDomainError, EmbeddingFailedError, CompletionFailedError, RateLimitExceededError)
 export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
   // Filtre yaniti KENDISI yazmaz, cevrilmis hatayi global filtreye birakir.
   // TEK istisna `Retry-After` basligidir (asagida): govde degil BASLIK oldugu
   // icin RFC 7807 bicimlendirmesine dokunmaz.
   catch(
-    exception: KnowledgeDomainError | EmbeddingFailedError | CompletionFailedError,
+    exception:
+      KnowledgeDomainError | EmbeddingFailedError | CompletionFailedError | RateLimitExceededError,
     host: ArgumentsHost,
   ): never {
     if (exception instanceof CompletionFailedError) {

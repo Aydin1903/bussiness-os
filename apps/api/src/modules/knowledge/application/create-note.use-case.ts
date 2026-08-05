@@ -10,10 +10,11 @@ import { NoteChunkId } from '../domain/note-chunk-id.value-object';
 import { NoteId } from '../domain/note-id.value-object';
 import { type DailyReportRunRepository } from './daily-report-run.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
-import { enforceRateLimit } from './enforce-rate-limit';
-import { type RateLimitRepository } from './rate-limit.repository.port';
+import { enforceRateLimit } from '../../../shared/enforce-rate-limit';
+import { type RateLimitRepository } from '../../../shared/rate-limit.repository.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository } from './note.repository.port';
+import { KNOWLEDGE_CREATE_NOTE_ACTION } from '../knowledge.rate-limits';
 
 export interface CreateNoteCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -90,9 +91,9 @@ export class CreateNoteUseCase {
     // ONLARCA cagri demektir ve reddedilecek bir istek icin bunun BIR TANESI
     // bile yapilmamalidir.
     await enforceRateLimit(this.deps, {
-      tenantId,
+      tenantId: tenantId.value,
       userId: command.authorUserId,
-      action: 'create_note',
+      action: KNOWLEDGE_CREATE_NOTE_ACTION,
       limit: this.deps.rateLimit,
     });
 

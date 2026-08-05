@@ -5,12 +5,13 @@ import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { type ConversationRepository } from './conversation.repository.port';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
-import { enforceRateLimit } from './enforce-rate-limit';
+import { enforceRateLimit } from '../../../shared/enforce-rate-limit';
 import { parseCompletion } from './follow-up-parser';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
 import { CompletionFailedError, type LLMPort, type LlmMessage } from '../../../shared/llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
-import { type RateLimitRepository } from './rate-limit.repository.port';
+import { type RateLimitRepository } from '../../../shared/rate-limit.repository.port';
+import { KNOWLEDGE_ASK_ACTION } from '../knowledge.rate-limits';
 
 export interface AskKnowledgeCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -94,9 +95,9 @@ export class AskKnowledgeUseCase {
     // --- T0: oran siniri ----------------------------------------------------
     // Embedding'den ONCE: reddedilecek bir istek TEK KURUS harcamamali.
     await enforceRateLimit(this.deps, {
-      tenantId,
+      tenantId: tenantId.value,
       userId: command.userId,
-      action: 'ask',
+      action: KNOWLEDGE_ASK_ACTION,
       limit: this.deps.rateLimit,
     });
 

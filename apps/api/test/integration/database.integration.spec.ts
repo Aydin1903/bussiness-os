@@ -69,6 +69,7 @@ describe('veritabani migration hatti', () => {
       'memberships',
       'outbox',
       'password_reset_codes',
+      'rate_limits',
       'refresh_tokens',
       'tenants',
       'token_families',
@@ -110,6 +111,11 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0014, `knowledge.rate_limits`'i `platform.rate_limits` yapar. EN BASTA
+      // olmali: geri alinmazsa `platform.rate_limits` ayakta kalir ve asagida
+      // `platform.tenants` DUSURULEMEZ (FK). Bu testin yakaladigi ikinci
+      // bagimlilik hatasi tam olarak buydu.
+      '0014_platform_rate_limits.down.sql',
       // 0013 de 0011'in semasinin icindedir; 0012 ile arasinda bagimlilik yok
       // ama sema dusmeden once ikisi de gitmeli.
       '0013_rate_limits.down.sql',
@@ -177,6 +183,7 @@ describe('veritabani migration hatti', () => {
       'memberships',
       'outbox',
       'password_reset_codes',
+      'rate_limits',
       'refresh_tokens',
       'tenants',
       'token_families',

@@ -75,7 +75,7 @@ describe('GET /knowledge/notes/exists (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE knowledge.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
         'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
