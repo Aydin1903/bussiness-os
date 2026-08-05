@@ -9,8 +9,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
-import { TARGET_CHUNK_CHARS } from '../../src/modules/knowledge/domain/chunking';
-import { EMBEDDING_DIMENSIONS } from '../../src/modules/knowledge/domain/note-chunk.entity';
+import { TARGET_CHUNK_CHARS } from '../../src/shared/chunking';
+import { EMBEDDING_DIMENSIONS } from '../../src/shared/embedding.port';
 import { APP_PASSWORD, APP_ROLE } from './support/database-roles';
 import { setIdentityTestEnv } from './support/identity-env';
 import {

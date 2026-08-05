@@ -1,4 +1,4 @@
-import { type LlmMessage } from './llm.port';
+import { type LlmMessage } from '../../../shared/llm.port';
 import { type TenantId } from '../domain/tenant-id.value-object';
 
 /** DI token'i. */

@@ -7,7 +7,7 @@ import type {
   ConversationRepository,
   NewMessage,
 } from '../application/conversation.repository.port';
-import type { LlmMessage } from '../application/llm.port';
+import type { LlmMessage } from '../../../shared/llm.port';
 import type { TenantId } from '../domain/tenant-id.value-object';
 
 /** `role` kolonu `text`; domain yalnizca iki degeri kabul eder. */

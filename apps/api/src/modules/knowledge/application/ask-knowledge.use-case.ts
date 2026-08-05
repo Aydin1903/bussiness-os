@@ -4,11 +4,11 @@ import { type TransactionManager } from '../../../shared/transaction-manager.por
 import { ConversationAccessDeniedError } from '../domain/knowledge.error';
 import { TenantId } from '../domain/tenant-id.value-object';
 import { type ConversationRepository } from './conversation.repository.port';
-import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
+import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
 import { enforceRateLimit } from './enforce-rate-limit';
 import { parseCompletion } from './follow-up-parser';
 import { KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
-import { CompletionFailedError, type LLMPort, type LlmMessage } from './llm.port';
+import { CompletionFailedError, type LLMPort, type LlmMessage } from '../../../shared/llm.port';
 import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
 import { type RateLimitRepository } from './rate-limit.repository.port';
 

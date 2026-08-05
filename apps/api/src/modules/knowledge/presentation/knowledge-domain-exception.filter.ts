@@ -8,8 +8,8 @@ import {
 
 import { type Response } from 'express';
 
-import { EmbeddingFailedError } from '../application/embedding.port';
-import { CompletionFailedError } from '../application/llm.port';
+import { EmbeddingFailedError } from '../../../shared/embedding.port';
+import { CompletionFailedError } from '../../../shared/llm.port';
 import { KnowledgeDomainError, RateLimitExceededError } from '../domain/knowledge.error';
 
 /**

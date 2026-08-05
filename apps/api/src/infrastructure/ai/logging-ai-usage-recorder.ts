@@ -43,13 +43,34 @@ const AI_CALL_EVENT = 'ai.call';
  * olabilir. `null` durust bir cevaptir; uydurulmus bir deger degil.
  * ============================================================================
  *
- * ⚠️ **BILINEN SINIR — `caller` atfi.** Bugun `caller`, adapter'i KURAN modul
- * tarafindan kurulus aninda veriliyor (adapter'lar modul basina saglaniyor).
- * ADR-0031 Slice 1 adapter'lari `infrastructure/ai/` altinda PAYLASILAN hale
- * getirdiginde bu yol calismaz: tek bir adapter ornegi hem Knowledge'a hem
- * CRM'e hizmet edecek. O gun atif ya istek baglamina tasinir ya da modul basina
- * ince bir sarmalayici saglanir. Bugun yanlis bir sey soylemiyor; yarin
- * soyleyebilir.
+ * ============================================================================
+ * `caller` ATFI — Slice 1'de karara baglandi (ADR-0031)
+ * ============================================================================
+ * Slice 0.5 buraya bir uyari birakmisti: "adapter'lar `infrastructure/ai/`
+ * altinda PAYLASILAN hale gelince kurulus anindaki `caller` yanlis olur."
+ *
+ * **Uyarinin varsayimi gerceklesmedi.** Slice 1 adapter KODUNU paylasti,
+ * adapter ORNEGINI degil: her modul kendi ornegini kendi `caller` etiketiyle
+ * kurar (`knowledge.module.ts` -> `caller: 'knowledge'`, CRM gelince
+ * `caller: 'crm'`). Adapter'lar durumsuz `fetch` sarmalayicilaridir; ikinci
+ * bir ornek pratikte bedava.
+ *
+ * **Neden istek baglamina (ALS) TASINMADI** — degerlendirildi ve reddedildi:
+ *   * Her use case cagriyi `runWithCaller(...)` ile sarmak zorunda kalirdi;
+ *     unutmak MUMKUN olurdu ve unutulan yer sessizce `null` etiketli bir
+ *     kayit uretirdi. Kurucu parametresi ise DERLEME zamaninda zorunludur.
+ *   * Gozlemlenebilirlik plumbing'i is mantigina sizardi — port yuzeyini
+ *     temiz tutmak icin (ADR-0029 §3) verilen kararla celisirdi.
+ *   * Arka plan isleri (gunluk rapor) HTTP istek baglami olmadan calisir;
+ *     ALS orada zaten kurulmaz.
+ *
+ * `tenantId`/`userId` icin ALS DOGRU araçtir (istek basina DEGISIR), `caller`
+ * icin degildir (kurulusta SABITTIR). Ayrimin sebebi budur.
+ *
+ * ⚠️ **Bu karar ne zaman yeniden gozden gecirilir:** adapter'lar durum
+ * tutmaya baslarsa (baglanti havuzu, saglayici basina oran siniri, devre
+ * kesici). O gun tek ornek zorunlu olur ve atif cagri basina tasinmalidir.
+ * ============================================================================
  */
 @Injectable()
 export class LoggingAiUsageRecorder implements AiUsageRecorder {

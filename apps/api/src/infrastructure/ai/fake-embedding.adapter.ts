@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
 
-import { type EmbeddingPort } from '../application/embedding.port';
-import { EMBEDDING_DIMENSIONS } from '../domain/note-chunk.entity';
+import { EMBEDDING_DIMENSIONS, type EmbeddingPort } from '../../shared/embedding.port';
 
 /**
  * `EmbeddingPort`'un dev/CI implementasyonu — ag cagrisi YAPMAZ.

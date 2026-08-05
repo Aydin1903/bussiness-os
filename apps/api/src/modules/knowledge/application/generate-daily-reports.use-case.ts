@@ -7,7 +7,7 @@ import {
   type ReportNote,
 } from './daily-report-run.repository.port';
 import { DAILY_REPORT_SYSTEM_PROMPT, EMPTY_DAILY_REPORT_SUMMARY } from './daily-report-prompt';
-import { type LLMPort } from './llm.port';
+import { type LLMPort } from '../../../shared/llm.port';
 
 export interface DailyReportFailure {
   readonly id: string;

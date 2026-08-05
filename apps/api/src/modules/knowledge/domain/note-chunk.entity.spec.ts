@@ -6,7 +6,8 @@ import {
   InvalidChunkIndexError,
   InvalidEmbeddingDimensionsError,
 } from './knowledge.error';
-import { EMBEDDING_DIMENSIONS, NoteChunk } from './note-chunk.entity';
+import { EMBEDDING_DIMENSIONS } from '../../../shared/embedding.port';
+import { NoteChunk } from './note-chunk.entity';
 import { NoteChunkId } from './note-chunk-id.value-object';
 import { NoteId } from './note-id.value-object';
 

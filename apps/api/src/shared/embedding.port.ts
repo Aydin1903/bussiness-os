@@ -55,3 +55,13 @@ export class EmbeddingFailedError extends Error {
     this.name = 'EmbeddingFailedError';
   }
 }
+
+/**
+ * Embedding boyutu — `text-embedding-3-small`'in gercek ciktisi.
+ *
+ * Canli API testiyle DOGRULANDI (ADR-0029 "Not — canli API dogrulamasi") ve
+ * `knowledge.note_chunks.embedding` kolonu (migration 0011) TAM olarak bu
+ * boyuta gore `vector(1536)` tanimlidir. Model degisirse kolon, bu sabit ve
+ * TUM saklanan vektorler birlikte degisir.
+ */
+export const EMBEDDING_DIMENSIONS = 1536;

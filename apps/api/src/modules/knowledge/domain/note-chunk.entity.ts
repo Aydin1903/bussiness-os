@@ -1,3 +1,4 @@
+import { EMBEDDING_DIMENSIONS } from '../../../shared/embedding.port';
 import { type TenantId } from './tenant-id.value-object';
 import {
   EmptyChunkContentError,
@@ -7,16 +8,6 @@ import {
 } from './knowledge.error';
 import { type NoteChunkId } from './note-chunk-id.value-object';
 import { type NoteId } from './note-id.value-object';
-
-/**
- * Embedding boyutu — `text-embedding-3-small`'in gercek ciktisi.
- *
- * Canli API testiyle DOGRULANDI (ADR-0029 "Not — canli API dogrulamasi") ve
- * `knowledge.note_chunks.embedding` kolonu (migration 0011) TAM olarak bu
- * boyuta gore `vector(1536)` tanimlidir. Model degisirse kolon, bu sabit ve
- * TUM saklanan vektorler birlikte degisir.
- */
-export const EMBEDDING_DIMENSIONS = 1536;
 
 /**
  * Notun AI icin okunabilir hale getirilmis bir parcasi (ADR-0029 §1, §2).

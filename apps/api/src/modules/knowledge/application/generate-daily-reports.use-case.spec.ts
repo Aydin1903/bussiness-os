@@ -15,7 +15,7 @@ import {
   GenerateDailyReportsUseCase,
   type GenerateDailyReportsDependencies,
 } from './generate-daily-reports.use-case';
-import { type CompleteInput, type LLMPort } from './llm.port';
+import { type CompleteInput, type LLMPort } from '../../../shared/llm.port';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 

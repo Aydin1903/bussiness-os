@@ -1,12 +1,12 @@
 import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
-import { chunkText } from '../domain/chunking';
+import { chunkText } from '../../../shared/chunking';
 import { NoteChunk } from '../domain/note-chunk.entity';
 import { NoteChunkId } from '../domain/note-chunk-id.value-object';
 import { NoteId } from '../domain/note-id.value-object';
 import { TenantId } from '../domain/tenant-id.value-object';
-import { EmbeddingFailedError, type EmbeddingPort } from './embedding.port';
+import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
 import { enforceRateLimit } from './enforce-rate-limit';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteRepository, type UnindexedNote } from './note.repository.port';

@@ -43,10 +43,11 @@ export interface AiCallRecord {
   /**
    * Cagriyi yapan modul (`knowledge`, ileride `crm`).
    *
-   * Adapter'a KURULUS aninda verilir, cunku adapter bugun modul basina
-   * saglaniyor. Adapter'lar `infrastructure/ai/` altinda PAYLASILAN birer
-   * saglayiciya donustugunde (ADR-0031 Slice 1) bu atif yolu yeniden ele
-   * alinmalidir — bkz. `logging-ai-usage-recorder.ts`.
+   * Adapter'a KURULUS aninda verilir: adapter KODU paylasilir ama her modul
+   * kendi ORNEGINI kendi etiketiyle kurar (ADR-0031 Slice 1 karari). Kurucu
+   * parametresi olmasi, atfi derleme zamaninda zorunlu kilar — ALS tabanli bir
+   * alternatifte unutmak mumkun olurdu. Gerekce:
+   * `infrastructure/ai/logging-ai-usage-recorder.ts`.
    */
   readonly caller: string;
   readonly outcome: AiOutcome;

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
-import { type AiTokenUsage, type AiUsageRecorder } from '../../../shared/ai-usage-recorder.port';
-import { EmbeddingFailedError, type EmbeddingPort } from '../application/embedding.port';
+import { type AiTokenUsage, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
+import { EmbeddingFailedError, type EmbeddingPort } from '../../shared/embedding.port';
 
 /** OpenAI embeddings uc noktasi — canli testle dogrulandi (ADR-0029). */
 const OPENAI_EMBEDDINGS_ENDPOINT = 'https://api.openai.com/v1/embeddings';

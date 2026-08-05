@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { type AiCallRecord } from '../../../shared/ai-usage-recorder.port';
-import { EmbeddingFailedError } from '../application/embedding.port';
+import { type AiCallRecord } from '../../shared/ai-usage-recorder.port';
+import { EmbeddingFailedError } from '../../shared/embedding.port';
 import { OpenAiEmbeddingAdapter } from './openai-embedding.adapter';
 
 /** Kayit cagrilarini toplayan sahte recorder — testler icinde incelenebilir. */

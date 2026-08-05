@@ -33,15 +33,15 @@ import {
   DAILY_REPORT_RUN_REPOSITORY,
   type DailyReportRunRepository,
 } from './application/daily-report-run.repository.port';
-import { EMBEDDING_PORT, type EmbeddingPort } from './application/embedding.port';
-import { LLM_PORT, type LLMPort } from './application/llm.port';
+import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
+import { LLM_PORT, type LLMPort } from '../../shared/llm.port';
 import { NOTE_CHUNK_SEARCH, type NoteChunkSearch } from './application/note-chunk-search.port';
 import {
   NOTE_CHUNK_REPOSITORY,
   type NoteChunkRepository,
 } from './application/note-chunk.repository.port';
 import { NOTE_REPOSITORY, type NoteRepository } from './application/note.repository.port';
-import { DeepSeekLlmAdapter } from './infrastructure/deepseek-llm.adapter';
+import { DeepSeekLlmAdapter } from '../../infrastructure/ai/deepseek-llm.adapter';
 import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
 import { DailyReportWorker } from './infrastructure/daily-report-worker';
 import { DrizzleRateLimitRepository } from './infrastructure/drizzle-rate-limit.repository';
@@ -49,9 +49,9 @@ import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-
 import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
 import { DrizzleNoteChunkRepository } from './infrastructure/drizzle-note-chunk.repository';
 import { DrizzleNoteRepository } from './infrastructure/drizzle-note.repository';
-import { FakeEmbeddingAdapter } from './infrastructure/fake-embedding.adapter';
-import { FakeLlmAdapter } from './infrastructure/fake-llm.adapter';
-import { OpenAiEmbeddingAdapter } from './infrastructure/openai-embedding.adapter';
+import { FakeEmbeddingAdapter } from '../../infrastructure/ai/fake-embedding.adapter';
+import { FakeLlmAdapter } from '../../infrastructure/ai/fake-llm.adapter';
+import { OpenAiEmbeddingAdapter } from '../../infrastructure/ai/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
 import { AskController } from './presentation/ask.controller';
 import { ReindexController } from './presentation/reindex.controller';
@@ -76,8 +76,10 @@ import { NoteController } from './presentation/note.controller';
 /**
  * AI maliyet kaydinda bu modulun etiketi (ROADMAP §8.1).
  *
- * Adapter'lar bugun modul basina saglandigi icin atif KURULUS aninda yapilir;
- * ADR-0031 Slice 1'de adapter'lar paylasilan hale gelince bu yol degisecek.
+ * Adapter SINIFLARI `infrastructure/ai/` altinda paylasilir (ADR-0031 Slice 1)
+ * ama ORNEK modul basinadir: her modul kendi etiketiyle kurar. CRM geldiginde
+ * ayni deseni `caller: 'crm'` ile tekrarlar; ortak bir fabrika BUGUN
+ * yazilmadi — tek tuketici varken soyutlama erken olurdu.
  */
 const KNOWLEDGE_CALLER = 'knowledge';
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { type AiCallRecord } from '../../../shared/ai-usage-recorder.port';
-import { CompletionFailedError, type CompleteInput } from '../application/llm.port';
+import { type AiCallRecord } from '../../shared/ai-usage-recorder.port';
+import { CompletionFailedError, type CompleteInput } from '../../shared/llm.port';
 import { DeepSeekLlmAdapter } from './deepseek-llm.adapter';
 
 /** Kayit cagrilarini toplayan sahte recorder — testler icinde incelenebilir. */

@@ -6,7 +6,7 @@ import { type TransactionManager } from '../../../shared/transaction-manager.por
 import { RateLimitExceededError } from '../domain/knowledge.error';
 import { type NoteChunk } from '../domain/note-chunk.entity';
 import { type Note } from '../domain/note.entity';
-import { type EmbeddingPort } from './embedding.port';
+import { type EmbeddingPort } from '../../../shared/embedding.port';
 import { type NoteChunkRepository } from './note-chunk.repository.port';
 import { type NoteListPage, type NoteRepository, type UnindexedNote } from './note.repository.port';
 import { type RateLimitRepository, type RegisterRequestInput } from './rate-limit.repository.port';

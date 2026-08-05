@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { type CompleteInput, type LLMPort } from '../application/llm.port';
+import { type CompleteInput, type LLMPort } from '../../shared/llm.port';
 
 /**
  * `LLMPort`'un dev/CI implementasyonu — ag cagrisi YAPMAZ.
