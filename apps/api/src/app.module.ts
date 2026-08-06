@@ -9,6 +9,7 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { AuthzModule } from './platform/authz/authz.module';
 import { HealthModule } from './platform/health/health.module';
+import { ContextModule } from './platform/context/context.module';
 import { SessionModule } from './platform/session/session.module';
 import { TenantContextMiddleware } from './platform/session/presentation/tenant-context.middleware';
 
@@ -34,6 +35,9 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // Ilk IS modulu (ADR-0029/0030). Platform cekirdeginden SONRA gelir:
     // permission katalogunu AuthzModule'e kaydeder ve tenant context'e dayanir.
     KnowledgeModule,
+    // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
+    // SONRA gelir: katkicilarini onlar kaydeder.
+    ContextModule,
   ],
 })
 export class AppModule implements NestModule {

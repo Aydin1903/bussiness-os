@@ -27,7 +27,7 @@
  * metnin zamanla ayrismasi demekti.
  * ============================================================================
  */
-export const KNOWLEDGE_SYSTEM_PROMPT = `Sen bir sirketin kurumsal hafizasina erisimi olan asistansin.
+export const ASK_SYSTEM_PROMPT = `Sen bir sirketin kurumsal hafizasina erisimi olan asistansin.
 
 1. YALNIZCA sana verilen baglamdaki bilgiyi kullan. Baglamda olmayan hicbir seyi kendi genel bilginden EKLEME veya UYDURMA.
 2. Baglamda soruyla ilgili hicbir bilgi yoksa duz "bilmiyorum" deme; sunu soyle: "Bu konuda henuz bir notunuz yok. Eklerseniz bir dahaki sefere bu soruyu cevaplayabilirim."

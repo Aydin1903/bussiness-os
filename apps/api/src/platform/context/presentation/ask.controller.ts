@@ -14,59 +14,66 @@ import {
   type AuthenticatedPrincipal,
 } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
-import { RequirePermission } from '../../../platform/authz/authz.public';
-import { AskKnowledgeUseCase } from '../application/ask-knowledge.use-case';
-import { KNOWLEDGE_ASK } from '../knowledge.permissions';
-import { askKnowledgeSchema, type AskKnowledgeBody } from './ask-knowledge.dto';
-import { KnowledgeDomainExceptionFilter } from './knowledge-domain-exception.filter';
+import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
+import { RequirePermission } from '../../authz/authz.public';
+import { AskUseCase, type AnswerSource } from '../application/ask.use-case';
+import { CONTEXT_ASK } from '../context.permissions';
+import { askSchema, type AskBody } from './ask.dto';
+import { ContextDomainExceptionFilter } from './context-domain-exception.filter';
 
-interface AskKnowledgeResponse {
+interface AskResponse {
   readonly answer: string;
-  /** Cevabin dayandigi notlar — alaka sirasinda, tekillestirilmis. */
-  readonly sourceNoteIds: readonly string[];
+  /**
+   * Cevabin dayandigi kaynaklar — alaka sirasinda, tekillestirilmis.
+   *
+   * `sourceNoteIds` DEGIL (ADR-0031 §5.1): uc artik platformundur ve gelen
+   * referans bir not olmak zorunda degil.
+   */
+  readonly sources: readonly AnswerSource[];
   /** Verilen ya da yeni acilan konusma. Istemci sonraki soruda bunu gonderir. */
   readonly conversationId: string;
   /** Modelin onerdigi takip sorulari; bos olabilir. */
   readonly followUps: readonly string[];
+  /**
+   * Cagrilip HATA VEREN kaynaklar. Izni olmadigi icin ELENEN kaynak buraya
+   * GIRMEZ (ADR-0031 §5.5) — "alamadik" ile "goremezsin" ayri seylerdir.
+   */
+  readonly degradedSources: readonly string[];
 }
 
 const ASK_DESCRIPTION =
-  'Soru embed edilir, tenant in notlarindan en yakin parcalar cekilir ve cevap ' +
-  'YALNIZCA o baglamdan uretilir. `conversationId` verilirse son birkac mesaj ' +
+  'Soru BIR KEZ embed edilir, kayitli TUM katkicilara (bugun: knowledge) sorulur ve cevap ' +
+  'YALNIZCA birlesik baglamdan uretilir. Katkicilar cagiranin IZINLERINE gore elenir. ' +
   'gecmis olarak eklenir; verilmezse yeni konusma acilir ve id si yanitta doner. ' +
   'Tenant-scoped access token gerektirir; viewer rolu SORAMAZ.';
 
 const FORBIDDEN_DESCRIPTION =
-  'Kimliksiz istek, tenant secilmemis token veya knowledge:ask yetkisi yok.';
+  'Kimliksiz istek, tenant secilmemis token veya context:ask yetkisi yok.';
 
 const RATE_LIMITED_DESCRIPTION =
   'Saatlik soru payi tukendi (ADR-0029 §5). `Retry-After` basligi, pencerenin ' +
   'bitisine kalan saniyeyi tasir. 403 DEGIL: yetki var, pay yok.';
 
 /**
- * Kurumsal hafizaya soru sorma ucu (ADR-0029 §4, ADR-0030 §1).
+ * Kurumsal hafizaya soru sorma ucu — TEK uc, TUM moduller (ADR-0031 §5.2).
  *
  * ============================================================================
- * NEDEN `NoteController`'DA DEGIL
+ * NEDEN `knowledge` ALTINDA DEGIL
  * ============================================================================
- * Kaynak farkli: bu uc bir NOT olusturmaz ya da okumaz, bir KONUSMA yurutur
- * (`conversations` + `messages`) ve farkli bir permission tasir
- * (`knowledge:ask`, `note:*` degil).
+ * `POST /knowledge/ask` -> `POST /ask` (breaking change, Product Owner onayi).
+ * Uc artik hicbir modulun altinda degil: cevabi TUM kayitli katkicilarin
+ * katkisindan uretiyor. `knowledge` onekinde birakmak, CRM'in gorusmelerinden
+ * gelen bir cevabi "knowledge" yolundan dondurmek olurdu.
  *
- * Ayrilma sinyali somuttu: liste ucu eklenince `NoteController` dorduncu use
- * case'i aldi ve constructor sinirini asti — sinifin iki isi birden yaptiginin
- * isareti. `DailyReportController` ile ayni gerekce ve ayni cozum. Geride kalan
- * `NoteController` uc NOT islemiyle tutarli bir butun.
- *
- * Ayni `@Controller({ path: 'knowledge' })` altinda kalir: modul siniri
- * degismez, yalnizca sinif bolunur.
+ * Iki uc BIRDEN tutulmadi: ayni isi yapan iki uc, her yeni modulde "hangisini
+ * cagiracagim" sorusunu dogururdu.
  * ============================================================================
  */
-@ApiTags('knowledge')
-@Controller({ path: 'knowledge', version: '1' })
-@UseFilters(KnowledgeDomainExceptionFilter)
+@ApiTags('context')
+@Controller({ version: '1' })
+@UseFilters(ContextDomainExceptionFilter)
 export class AskController {
-  constructor(private readonly askKnowledge: AskKnowledgeUseCase) {}
+  constructor(private readonly askUseCase: AskUseCase) {}
 
   /**
    * `200` doner, `201` DEGIL: bir konusma ve iki mesaj yazilsa da bunlar YAN
@@ -78,7 +85,7 @@ export class AskController {
    */
   @Post('ask')
   @HttpCode(HttpStatus.OK)
-  @RequirePermission(KNOWLEDGE_ASK)
+  @RequirePermission(CONTEXT_ASK)
   @ApiOperation({ summary: 'Kurumsal hafizaya soru sorar', description: ASK_DESCRIPTION })
   @ApiResponse({ status: HttpStatus.OK, description: 'Cevap uretildi.' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: FORBIDDEN_DESCRIPTION })
@@ -88,23 +95,25 @@ export class AskController {
     status: HttpStatus.BAD_GATEWAY,
     description: 'Embedding veya completion saglayicisi cevap veremedi.',
   })
-  async ask(
-    @Body(new ZodValidationPipe(askKnowledgeSchema)) body: AskKnowledgeBody,
-  ): Promise<AskKnowledgeResponse> {
+  async ask(@Body(new ZodValidationPipe(askSchema)) body: AskBody): Promise<AskResponse> {
     const principal = requireTenantPrincipal();
 
-    const result = await this.askKnowledge.execute({
+    const result = await this.askUseCase.execute({
       tenantId: principal.tenantId,
       userId: principal.userId,
+      // Rol TOKEN'DAN DEGIL, tenant context'ten okunur (AUTH §10.3, P3):
+      // token bir IDDIA tasir, YETKI degil. Katkici elemesi buna dayanir.
+      role: getTenantContext()?.role ?? '',
       question: body.question,
       conversationId: body.conversationId ?? null,
     });
 
     return {
       answer: result.answer,
-      sourceNoteIds: result.sourceNoteIds,
+      sources: result.sources,
       conversationId: result.conversationId,
       followUps: result.followUps,
+      degradedSources: result.degradedSources,
     };
   }
 }

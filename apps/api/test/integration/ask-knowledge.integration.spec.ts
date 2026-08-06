@@ -19,7 +19,7 @@ import {
 } from './support/test-database';
 
 /**
- * `POST /api/v1/knowledge/ask` — uctan uca, GERCEK OpenAI + GERCEK DeepSeek.
+ * `POST /api/v1/ask` — uctan uca, GERCEK OpenAI + GERCEK DeepSeek.
  *
  * ============================================================================
  * BU TEST GERCEK PARA HARCAR — anahtarlar yoksa ATLANIR
@@ -64,7 +64,18 @@ const PASSWORD = 'parola123';
 const TENANT_A = '018f3a2b-7c4d-7e1f-8a2b-0000000000d1';
 const TENANT_B = '018f3a2b-7c4d-7e1f-8a2b-0000000000d2';
 
-describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', () => {
+/**
+ * `sources` icinden id projeksiyonu (ADR-0031 §5.1).
+ *
+ * `supertest`'in `body`'si `any`'dir; tip DARALTMASI burada yapilir ki
+ * cagri yerleri `any` tasimasin (DEVELOPMENT_RULES 2.3).
+ */
+function sourceIds(body: unknown): string[] {
+  const sources = (body as { sources?: readonly { id: string }[] }).sources ?? [];
+  return sources.map((source) => source.id);
+}
+
+describe.skipIf(!HAS_KEYS)('POST /ask (uctan uca, gercek modeller)', () => {
   let database: TestDatabase;
   let app: INestApplication;
 
@@ -98,7 +109,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE knowledge.daily_report_runs, knowledge.messages, knowledge.conversations, ' +
+      'TRUNCATE knowledge.daily_report_runs, platform.messages, platform.conversations, ' +
         'knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
@@ -165,7 +176,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
   }
 
   function ask(token: string | undefined, body: object) {
-    const call = request(httpServer(app)).post('/api/v1/knowledge/ask');
+    const call = request(httpServer(app)).post('/api/v1/ask');
     return token === undefined
       ? call.send(body)
       : call.set('Authorization', `Bearer ${token}`).send(body);
@@ -191,7 +202,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     // Cevap NOTTAN gelmeli: notta gecen somut bir ayrinti aranir.
     expect(String(response.body.answer).toLowerCase()).toMatch(/logo|e-fatura|son is gunu/);
     // Kaynak, retrieval'in GERCEK satirlarindan turer — model uyduramaz.
-    expect(response.body.sourceNoteIds).toContain(accountingNote);
+    expect(sourceIds(response.body)).toContain(accountingNote);
   }, 120_000);
 
   it('BAGLAMDA OLMAYAN soruda UYDURMAZ, yonlendirir', async () => {
@@ -220,7 +231,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
 
     expect(response.body.conversationId).toMatch(/^[0-9a-f-]{36}$/);
 
-    const rows = await database.ownerPool.query('SELECT 1 FROM knowledge.conversations');
+    const rows = await database.ownerPool.query('SELECT 1 FROM platform.conversations');
     expect(rows.rowCount).toBe(1);
   }, 120_000);
 
@@ -231,7 +242,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     await ask(token, { question: 'Sirket ne is yapiyor?' });
 
     const rows = await database.ownerPool.query<{ role: string }>(
-      'SELECT role FROM knowledge.messages ORDER BY created_at, id',
+      'SELECT role FROM platform.messages ORDER BY created_at, id',
     );
     expect(rows.rows.map((row) => row.role)).toEqual(['user', 'assistant']);
   }, 120_000);
@@ -265,7 +276,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     expect(String(second.body.answer).toLowerCase()).toMatch(/muhasebe/);
 
     // Iki tur = dort mesaj.
-    const rows = await database.ownerPool.query('SELECT 1 FROM knowledge.messages');
+    const rows = await database.ownerPool.query('SELECT 1 FROM platform.messages');
     expect(rows.rowCount).toBe(4);
   }, 180_000);
 
@@ -283,7 +294,7 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
     expect(response.status).toBe(200);
     // Sorguda elle `WHERE tenant_id` YOK — daraltmayi RLS yapiyor. Bu testin
     // asil isi, o gercegin calistigini KANITLAMAK.
-    expect(response.body.sourceNoteIds).not.toContain(secretNote);
+    expect(sourceIds(response.body)).not.toContain(secretNote);
     expect(String(response.body.answer)).not.toContain('gizli');
   }, 120_000);
 
@@ -307,12 +318,12 @@ describe.skipIf(!HAS_KEYS)('POST /knowledge/ask (uctan uca, gercek modeller)', (
 
     // Sessizce YENI konusma da acilmamali: 403 dondurup arka planda devam
     // etmek, hatayi kullanicidan gizlemek olurdu.
-    const conversations = await database.ownerPool.query('SELECT 1 FROM knowledge.conversations');
+    const conversations = await database.ownerPool.query('SELECT 1 FROM platform.conversations');
     expect(conversations.rowCount).toBe(1);
 
     // Alice'in gecmisi buyumemis olmali (iki mesaj: soru + cevap).
     const messages = await database.ownerPool.query(
-      'SELECT 1 FROM knowledge.messages WHERE conversation_id = $1',
+      'SELECT 1 FROM platform.messages WHERE conversation_id = $1',
       [conversationId],
     );
     expect(messages.rowCount).toBe(2);

@@ -62,11 +62,13 @@ describe('veritabani migration hatti', () => {
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      'conversations',
       'credentials',
       'email_verification_codes',
       'identity_outbox',
       'login_attempts',
       'memberships',
+      'messages',
       'outbox',
       'password_reset_codes',
       'rate_limits',
@@ -111,6 +113,10 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0015, konusma tablolarini `platform`'a tasir. EN BASTA olmali: geri
+      // alinmazsa `platform.conversations` ayakta kalir ve asagida
+      // `platform.tenants` DUSURULEMEZ (FK).
+      '0015_platform_conversations.down.sql',
       // 0014, `knowledge.rate_limits`'i `platform.rate_limits` yapar. EN BASTA
       // olmali: geri alinmazsa `platform.rate_limits` ayakta kalir ve asagida
       // `platform.tenants` DUSURULEMEZ (FK). Bu testin yakaladigi ikinci
@@ -176,11 +182,13 @@ describe('veritabani migration hatti', () => {
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
     expect(afterReapply.rows.map((row) => row.table_name)).toEqual([
+      'conversations',
       'credentials',
       'email_verification_codes',
       'identity_outbox',
       'login_attempts',
       'memberships',
+      'messages',
       'outbox',
       'password_reset_codes',
       'rate_limits',

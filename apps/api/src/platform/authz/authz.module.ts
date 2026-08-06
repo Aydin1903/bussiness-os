@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
-import { PERMISSION_REGISTRY, type PermissionRegistry } from './authz.public';
+import { PERMISSION_CHECKER, PERMISSION_REGISTRY, type PermissionRegistry } from './authz.public';
 import { InMemoryPermissionRegistry } from './application/in-memory-permission-registry';
 import { PolicyEngine } from './application/policy-engine';
 import { PermissionGuard } from './presentation/permission.guard';
@@ -34,7 +34,10 @@ import { PermissionGuard } from './presentation/permission.guard';
       useFactory: (registry: PermissionRegistry): PolicyEngine => new PolicyEngine(registry),
     },
     { provide: APP_GUARD, useClass: PermissionGuard },
+    // Guard DISINDA izin sormak icin dar yuz (ADR-0031 §5.3). `useExisting`:
+    // guard ile AYNI ornege cozulur — ikinci bir karar motoru DEGIL.
+    { provide: PERMISSION_CHECKER, useExisting: PolicyEngine },
   ],
-  exports: [PERMISSION_REGISTRY],
+  exports: [PERMISSION_REGISTRY, PERMISSION_CHECKER],
 })
 export class AuthzModule {}

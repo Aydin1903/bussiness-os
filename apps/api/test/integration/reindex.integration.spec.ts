@@ -47,6 +47,17 @@ const TENANT_A = '018f3a2b-7c4d-7e1f-8a2b-0000000000e1';
 const TENANT_B = '018f3a2b-7c4d-7e1f-8a2b-0000000000e2';
 const BATCH_SIZE = 2;
 
+/**
+ * `sources` icinden id projeksiyonu (ADR-0031 §5.1).
+ *
+ * `supertest`'in `body`'si `any`'dir; tip DARALTMASI burada yapilir ki
+ * cagri yerleri `any` tasimasin (DEVELOPMENT_RULES 2.3).
+ */
+function sourceIds(body: unknown): string[] {
+  const sources = (body as { sources?: readonly { id: string }[] }).sources ?? [];
+  return sources.map((source) => source.id);
+}
+
 describe('Yeniden indeksleme (uctan uca)', () => {
   let database: TestDatabase;
   let app: INestApplication;
@@ -80,8 +91,8 @@ describe('Yeniden indeksleme (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
-        'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, platform.messages, ' +
+        'platform.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
@@ -287,18 +298,18 @@ describe('Yeniden indeksleme (uctan uca)', () => {
     await breakIndex(noteId);
 
     const before = await request(httpServer(app))
-      .post('/api/v1/knowledge/ask')
+      .post('/api/v1/ask')
       .set('Authorization', `Bearer ${token}`)
       .send({ question: 'Fatura surecini kim yonetiyor?' });
-    expect(before.body.sourceNoteIds).toEqual([]);
+    expect(before.body.sources).toEqual([]);
 
     await reindex(token);
 
     const after = await request(httpServer(app))
-      .post('/api/v1/knowledge/ask')
+      .post('/api/v1/ask')
       .set('Authorization', `Bearer ${token}`)
       .send({ question: 'Fatura surecini kim yonetiyor?' });
-    expect(after.body.sourceNoteIds).toContain(noteId);
+    expect(sourceIds(after.body)).toContain(noteId);
   });
 
   // --- Yetki -----------------------------------------------------------------

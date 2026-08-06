@@ -49,6 +49,42 @@ export interface PermissionRegistry {
   rolesFor(permission: Permission): readonly string[] | undefined;
 }
 
+/** DI token'i — guard DISINDA izin sormak icin (ADR-0031 §5.3). */
+export const PERMISSION_CHECKER = Symbol('PERMISSION_CHECKER');
+
+/**
+ * Guard'in kullandigi AYNI karar motorunun dar, disa acik yuzu.
+ *
+ * ============================================================================
+ * NEDEN GEREKLI — guard her zaman yeterli DEGIL
+ * ============================================================================
+ * `@RequirePermission` bir UC NOKTAYI korur: "bu istegi yapabilir misin".
+ * `POST /ask`'te ise soru daha incedir — istek MESRUDUR (`context:ask` vardir)
+ * ama cevaba HANGI KAYNAKLARIN girebilecegi cagirana gore degisir. Bu karar
+ * istek basina bir kez degil, KATKICI BASINA verilir ve bir decorator ile
+ * ifade edilemez.
+ *
+ * Filtre olmasaydi birlesik hafiza, yetkilendirmeyi delen bir YAN KAPI olurdu:
+ * kullanici goremedigi bir kaydin icerigini, o kaydi ozetleyen bir cevap
+ * uzerinden okurdu. RLS bunu YAKALAMAZ — RLS tenant sinirini korur, tenant
+ * ICINDEKI izin sinirini degil.
+ *
+ * ============================================================================
+ * IKINCI BIR KARAR YOLU ACILMIYOR
+ * ============================================================================
+ * Bu arayuz `PolicyEngine`'in ta kendisine cozulur; yeni bir kural kaynagi ya
+ * da yeni bir degerlendirme mantigi DEGILDIR. ADR-0025'in "karar tek yerde
+ * verilir" ilkesi korunur; degisen yalnizca kararin SORULABILDIGI yerdir.
+ *
+ * Yuzey bilerek TEK METOTLUK tutuldu: katalog okuma, rol listeleme veya
+ * permission numaralandirma disa ACILMAZ — onlar Authorization'in ic isidir.
+ * ============================================================================
+ */
+export interface PermissionChecker {
+  /** Verilen rol bu permission'i tasiyor mu? Kayitli degilse `false`. */
+  can(role: string, permission: Permission): boolean;
+}
+
 /** `@RequirePermission` metadata anahtari. Guard bunu okur. */
 export const PERMISSION_METADATA_KEY = 'authz:required-permission';
 

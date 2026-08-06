@@ -1,10 +1,10 @@
 import { index, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-import { knowledgeSchema } from './knowledge.schema';
+import { platformSchema } from './platform.schema';
 import { tenants } from './tenants.schema';
 
 /**
- * `knowledge.conversations` — konusma hafizasi (ADR-0030 §1.1).
+ * `platform.conversations` — konusma hafizasi (ADR-0030 §1.1).
  *
  * ============================================================================
  * KONUSMA KULLANICIYA AITTIR, TENANT'A DEGIL
@@ -18,7 +18,7 @@ import { tenants } from './tenants.schema';
  * izolasyon modelinin yuzeyini genisletirdi — ADR-0028'de reddedilen yol.
  * ============================================================================
  */
-export const conversations = knowledgeSchema.table(
+export const conversations = platformSchema.table(
   'conversations',
   {
     id: uuid('id').primaryKey(),

@@ -8,7 +8,6 @@ import type {
   NewMessage,
 } from '../application/conversation.repository.port';
 import type { LlmMessage } from '../../../shared/llm.port';
-import type { TenantId } from '../domain/tenant-id.value-object';
 
 /** `role` kolonu `text`; domain yalnizca iki degeri kabul eder. */
 function toRole(value: string): 'user' | 'assistant' {
@@ -68,7 +67,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
   }
 
   async appendTurn(input: {
-    readonly tenantId: TenantId;
+    readonly tenantId: string;
     readonly userId: string;
     readonly conversationId: string | null;
     readonly newConversationId: string;
@@ -84,7 +83,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
       // olusmaz (bkz. `AskKnowledgeUseCase` sinif yorumu).
       await db.insert(conversations).values({
         id: conversationId,
-        tenantId: input.tenantId.value,
+        tenantId: input.tenantId,
         userId: input.userId,
       });
     }
@@ -94,7 +93,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
     await db.insert(messages).values(
       input.messages.map((message) => ({
         id: message.id,
-        tenantId: input.tenantId.value,
+        tenantId: input.tenantId,
         conversationId,
         role: message.role,
         content: message.content,

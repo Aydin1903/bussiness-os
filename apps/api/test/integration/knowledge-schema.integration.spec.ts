@@ -24,7 +24,6 @@ import { startTestDatabase, type TestDatabase } from './support/test-database';
 const TENANT_A = '018f3a2b-7c4d-7e1f-9b3c-0000000000a1';
 const TENANT_B = '018f3a2b-7c4d-7e1f-9b3c-0000000000b1';
 const USER_A = '018f3a2b-7c4d-7e1f-9b3c-00000000000a';
-const USER_B = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
 
 /** 1536 boyutlu sahte embedding — pgvector'un kabul ettigi bicimde. */
 function embedding(seed: number): string {
@@ -44,7 +43,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE knowledge.daily_report_runs, knowledge.messages, knowledge.conversations, ' +
+      'TRUNCATE knowledge.daily_report_runs, platform.messages, platform.conversations, ' +
         'knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await database.ownerPool.query('TRUNCATE platform.memberships, platform.tenants CASCADE');
@@ -116,14 +115,12 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
       expect(rows.rowCount).toBe(1);
     });
 
-    it('BES tablo knowledge semasinda olusturuldu (rate_limits platform a tasindi)', async () => {
+    it('UC tablo knowledge semasinda kaldi (rate_limits + konusmalar platform da)', async () => {
       const rows = await database.ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'knowledge' ORDER BY table_name",
       );
       expect(rows.rows.map((row) => row.table_name)).toEqual([
-        'conversations',
         'daily_report_runs',
-        'messages',
         'note_chunks',
         'notes',
       ]);
@@ -200,9 +197,10 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
   const TENANT_SCOPED = [
     'notes',
     'note_chunks',
-    'conversations',
-    'messages',
     'daily_report_runs',
+    // NOT: `conversations` ve `messages` bu listeden CIKTI — `platform`
+    // semasina tasindilar (ADR-0031 §5.2.1, migration `0015`). Izolasyon
+    // testleri `tenant-isolation.integration.spec.ts`'e gecti.
     // NOT: `rate_limits` bu listeden CIKTI — tablo `platform` semasina tasindi
     // (ADR-0031 §4.2, migration `0014`). Ayni sablona hala tabidir ve testleri
     // `tenant-isolation.integration.spec.ts`'te, digger platform tablolariyla
@@ -282,36 +280,6 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
         client.query('SELECT 1 FROM knowledge.note_chunks'),
       );
       expect(seenByA.rowCount).toBe(1);
-    });
-
-    it('conversations + messages: tenant A, B nin konusmasini GOREMEZ', async () => {
-      for (const [tenant, user] of [
-        [TENANT_A, USER_A],
-        [TENANT_B, USER_B],
-      ] as const) {
-        const conversationId = randomUUID();
-        await asTenant(tenant, async (client) => {
-          await client.query(
-            'INSERT INTO knowledge.conversations (id, tenant_id, user_id) VALUES ($1, $2, $3)',
-            [conversationId, tenant, user],
-          );
-          await client.query(
-            `INSERT INTO knowledge.messages (id, tenant_id, conversation_id, role, content)
-             VALUES ($1, $2, $3, 'user', $4)`,
-            [randomUUID(), tenant, conversationId, `${tenant} sorusu`],
-          );
-        });
-      }
-
-      const conversations = await asTenant(TENANT_A, (client) =>
-        client.query('SELECT 1 FROM knowledge.conversations'),
-      );
-      const messages = await asTenant(TENANT_A, (client) =>
-        client.query('SELECT 1 FROM knowledge.messages'),
-      );
-
-      expect(conversations.rowCount).toBe(1);
-      expect(messages.rowCount).toBe(1);
     });
 
     it('daily_report_runs: tenant A, B nin raporunu GOREMEZ', async () => {
@@ -401,7 +369,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
       const conversationId = randomUUID();
       await asTenant(TENANT_A, (client) =>
         client.query(
-          'INSERT INTO knowledge.conversations (id, tenant_id, user_id) VALUES ($1, $2, $3)',
+          'INSERT INTO platform.conversations (id, tenant_id, user_id) VALUES ($1, $2, $3)',
           [conversationId, TENANT_A, USER_A],
         ),
       );
@@ -409,7 +377,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
       await expect(
         asTenant(TENANT_A, (client) =>
           client.query(
-            `INSERT INTO knowledge.messages (id, tenant_id, conversation_id, role, content)
+            `INSERT INTO platform.messages (id, tenant_id, conversation_id, role, content)
              VALUES ($1, $2, $3, 'system', 'sistem promptu saklanmaz')`,
             [randomUUID(), TENANT_A, conversationId],
           ),
@@ -476,7 +444,7 @@ describe('knowledge semasi (gercek PostgreSQL)', () => {
     });
 
     it('DIGER knowledge tablolarina SELECT REDDEDILIR', async () => {
-      for (const table of ['notes', 'note_chunks', 'conversations', 'messages']) {
+      for (const table of ['notes', 'note_chunks']) {
         await expect(
           asReportWorker(`SELECT 1 FROM knowledge.${table} LIMIT 1`),
           `knowledge.${table} erisilebilir OLMAMALI`,

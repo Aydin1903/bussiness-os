@@ -91,8 +91,8 @@ describe('Oran siniri (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
-        'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, platform.messages, ' +
+        'platform.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
@@ -142,7 +142,7 @@ describe('Oran siniri (uctan uca)', () => {
 
   function ask(token: string) {
     return request(httpServer(app))
-      .post('/api/v1/knowledge/ask')
+      .post('/api/v1/ask')
       .set('Authorization', `Bearer ${token}`)
       .send({ question: 'Fatura sureci nasil isliyor?' });
   }
@@ -174,9 +174,9 @@ describe('Oran siniri (uctan uca)', () => {
       .then((result) => Number(result.rows[0]?.n ?? 0));
   }
 
-  // --- /knowledge/ask --------------------------------------------------------
+  // --- /ask --------------------------------------------------------
 
-  describe('POST /knowledge/ask', () => {
+  describe('POST /ask', () => {
     it('limit ALTINDAKI istekler gecer', async () => {
       const token = await signInAs('ask-under@example.com');
 

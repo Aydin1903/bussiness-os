@@ -3,24 +3,29 @@ import { describe, expect, it } from 'vitest';
 import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
-import { AskKnowledgeUseCase, type AskKnowledgeDependencies } from './ask-knowledge.use-case';
+import { AskUseCase, type AskDependencies } from './ask.use-case';
 import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
-import { ConversationAccessDeniedError } from '../domain/knowledge.error';
+import { ConversationAccessDeniedError } from '../domain/context.error';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
-import { FOLLOW_UP_MARKER, KNOWLEDGE_SYSTEM_PROMPT } from './knowledge-prompt';
+import { FOLLOW_UP_MARKER, ASK_SYSTEM_PROMPT } from './ask-prompt';
 import {
   CompletionFailedError,
   type CompleteInput,
   type LLMPort,
   type LlmMessage,
 } from '../../../shared/llm.port';
-import { type NoteChunkSearch, type SimilarChunk } from './note-chunk-search.port';
+import {
+  type ContextFragment,
+  type ContributeInput,
+  type RetrievalContributor,
+  type RetrievalContributorRegistry,
+} from './retrieval-contributor.port';
+import { type PermissionChecker } from '../../authz/authz.public';
 import {
   type RateLimitRepository,
   type RegisterRequestInput,
 } from '../../../shared/rate-limit.repository.port';
-import { type TenantId } from '../domain/tenant-id.value-object';
 
 /** Elle yazilmis FAKE'ler — mock kutuphanesi yok (DEVELOPMENT_RULES 5.3). */
 
@@ -33,16 +38,51 @@ const NOTE_B = '018f3a2b-7c4d-7e1f-8a2b-00000000000b';
 
 type CallLog = string[];
 
-class FakeNoteChunkSearch implements NoteChunkSearch {
-  chunks: SimilarChunk[] = [{ content: 'muhasebe notu parcasi', noteId: NOTE_A }];
+/** `sources` icinden id projeksiyonu — iddialar eskisiyle AYNI kalsin diye. */
+function ids(sources: readonly { id: string }[]): string[] {
+  return sources.map((source) => source.id);
+}
+
+/** Tek katkici — `NoteChunkSearch` fake'inin port degisikligindeki karsiligi. */
+class FakeContributor implements RetrievalContributor {
+  readonly source = 'knowledge';
+  readonly permission = 'note:read';
+  fragments: ContextFragment[] = [fragment(NOTE_A, 'muhasebe notu parcasi', 0.9)];
   lastLimit: number | null = null;
+  /** Kurulursa `contribute` firlatir — bozulan katkici senaryosu (§5.5). */
+  failure: Error | null = null;
 
   constructor(private readonly calls: CallLog) {}
 
-  findSimilar(input: { limit: number }): Promise<SimilarChunk[]> {
+  contribute(input: ContributeInput): Promise<ContextFragment[]> {
     this.calls.push('search');
     this.lastLimit = input.limit;
-    return Promise.resolve(this.chunks);
+    if (this.failure !== null) {
+      return Promise.reject(this.failure);
+    }
+    return Promise.resolve(this.fragments);
+  }
+}
+
+function fragment(noteId: string, content: string, score: number): ContextFragment {
+  return { content, score, source: 'knowledge', reference: { kind: 'note', id: noteId } };
+}
+
+class FakeContributorRegistry implements RetrievalContributorRegistry {
+  readonly #items: RetrievalContributor[] = [];
+  register(contributor: RetrievalContributor): void {
+    this.#items.push(contributor);
+  }
+  all(): readonly RetrievalContributor[] {
+    return this.#items;
+  }
+}
+
+/** Varsayilan: her izni verir. Testler `denied` ile daraltir. */
+class FakePermissionChecker implements PermissionChecker {
+  denied = new Set<string>();
+  can(_role: string, permission: string): boolean {
+    return !this.denied.has(permission);
   }
 }
 
@@ -70,7 +110,7 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   appendTurn(input: {
-    tenantId: TenantId;
+    tenantId: string;
     userId: string;
     conversationId: string | null;
     newConversationId: string;
@@ -182,14 +222,15 @@ class SequentialIdGenerator implements IdGenerator {
 }
 
 interface Harness {
-  readonly search: FakeNoteChunkSearch;
+  readonly search: FakeContributor;
+  readonly permissions: FakePermissionChecker;
   readonly rateLimits: FakeRateLimitRepository;
   readonly conversations: FakeConversationRepository;
   readonly embedding: FakeEmbeddingPort;
   readonly llm: FakeLlmPort;
   readonly transactionManager: FakeTransactionManager;
   readonly calls: CallLog;
-  readonly useCase: AskKnowledgeUseCase;
+  readonly useCase: AskUseCase;
 }
 
 function createHarness(
@@ -197,14 +238,18 @@ function createHarness(
 ): Harness {
   const calls: CallLog = [];
   const rateLimits = new FakeRateLimitRepository(calls);
-  const search = new FakeNoteChunkSearch(calls);
+  const search = new FakeContributor(calls);
+  const contributors = new FakeContributorRegistry();
+  contributors.register(search);
+  const permissions = new FakePermissionChecker();
   const conversations = new FakeConversationRepository(calls);
   const embedding = new FakeEmbeddingPort(calls);
   const llm = new FakeLlmPort(calls);
   const transactionManager = new FakeTransactionManager(calls);
 
-  const deps: AskKnowledgeDependencies = {
-    noteChunkSearch: search,
+  const deps: AskDependencies = {
+    contributors,
+    permissionChecker: permissions,
     conversationRepository: conversations,
     rateLimitRepository: rateLimits,
     embeddingPort: embedding,
@@ -219,27 +264,31 @@ function createHarness(
 
   return {
     search,
+    permissions,
     rateLimits,
     conversations,
     embedding,
     llm,
     transactionManager,
     calls,
-    useCase: new AskKnowledgeUseCase(deps),
+    useCase: new AskUseCase(deps),
   };
 }
 
-function command(overrides: Partial<{ question: string; conversationId: string | null }> = {}) {
+function command(
+  overrides: Partial<{ question: string; conversationId: string | null; role: string }> = {},
+) {
   return {
     tenantId: TENANT_ID,
     userId: USER_ID,
+    role: 'owner',
     question: 'Fatura sureci nasil isliyor?',
     conversationId: null,
     ...overrides,
   };
 }
 
-describe('AskKnowledgeUseCase — mutlu yol', () => {
+describe('AskUseCase — mutlu yol', () => {
   it('cevabi doner', async () => {
     const harness = createHarness();
 
@@ -249,7 +298,7 @@ describe('AskKnowledgeUseCase — mutlu yol', () => {
   it('kaynak not id lerini doner', async () => {
     const harness = createHarness();
 
-    expect((await harness.useCase.execute(command())).sourceNoteIds).toEqual([NOTE_A]);
+    expect(ids((await harness.useCase.execute(command())).sources)).toEqual([NOTE_A]);
   });
 
   it('yeni konusma acildiginda id sini doner', async () => {
@@ -279,8 +328,13 @@ describe('AskKnowledgeUseCase — mutlu yol', () => {
 
 // --- ADR-0029 §4: cagri sirasi — bu dosyanin ASIL iddiasi -------------------
 
-describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda', () => {
-  it('sira: T0 -> embed -> T1 -> complete -> T2', async () => {
+describe('AskUseCase — IKI ag cagrisi, IKISI DE transaction disinda', () => {
+  // ⚠️ SIRA DEGISTI (ADR-0031 Slice 3): `search` artik T1'in ICINDE degil,
+  // ONDAN SONRA. Katkicilar PARALEL cagrilir ve her biri KENDI transaction'ini
+  // yonetir; ortak bir transaction paylasmak onlari birbirinin kilidine
+  // baglardi. (Buradaki fake katkici transaction ACMAZ, o yuzden listede
+  // yalnizca `search` gorunur.)
+  it('sira: T0 -> embed -> T1 -> katkicilar -> complete -> T2', async () => {
     const harness = createHarness();
 
     await harness.useCase.execute(command({ conversationId: CONVERSATION_ID }));
@@ -292,9 +346,9 @@ describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda',
       'embed',
       'tx.begin',
       'owner',
-      'search',
       'history',
       'tx.commit',
+      'search',
       'complete',
       'tx.begin',
       'appendTurn',
@@ -340,7 +394,7 @@ describe('AskKnowledgeUseCase — IKI ag cagrisi, IKISI DE transaction disinda',
 
 // --- ADR-0030 §1: konusma hafizasi -----------------------------------------
 
-describe('AskKnowledgeUseCase — gecmis', () => {
+describe('AskUseCase — gecmis', () => {
   it('config teki mesaj sayisiyla gecmisi ceker', async () => {
     const harness = createHarness({ historyMessages: 6 });
 
@@ -386,7 +440,7 @@ describe('AskKnowledgeUseCase — gecmis', () => {
 
 // --- Konusma sahipligi ------------------------------------------------------
 
-describe('AskKnowledgeUseCase — konusma SAHIPLIGI', () => {
+describe('AskUseCase — konusma SAHIPLIGI', () => {
   const OTHER_USER = '018f3a2b-7c4d-7e1f-9b3c-00000000000b';
 
   it('BASKA kullanicinin konusmasi reddedilir', async () => {
@@ -452,7 +506,7 @@ describe('AskKnowledgeUseCase — konusma SAHIPLIGI', () => {
   });
 });
 
-describe('AskKnowledgeUseCase — konusma T2 de acilir', () => {
+describe('AskUseCase — konusma T2 de acilir', () => {
   it('soru ve cevap TEK cagrida, birlikte yazilir', async () => {
     const harness = createHarness();
 
@@ -477,34 +531,34 @@ describe('AskKnowledgeUseCase — konusma T2 de acilir', () => {
 
 // --- systemPrompt: uc kural --------------------------------------------------
 
-describe('AskKnowledgeUseCase — systemPrompt', () => {
+describe('AskUseCase — systemPrompt', () => {
   it('sabit prompt u gecirir (istemci degistiremez)', async () => {
     const harness = createHarness();
 
     await harness.useCase.execute(command());
 
-    expect(harness.llm.lastInput?.systemPrompt).toBe(KNOWLEDGE_SYSTEM_PROMPT);
+    expect(harness.llm.lastInput?.systemPrompt).toBe(ASK_SYSTEM_PROMPT);
   });
 
   it('1. KURAL: yalnizca baglamdan cevap ver, uydurma', () => {
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/YALNIZCA sana verilen baglamdaki bilgiyi kullan/);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/EKLEME veya UYDURMA/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/YALNIZCA sana verilen baglamdaki bilgiyi kullan/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/EKLEME veya UYDURMA/);
   });
 
   it('2. KURAL: bos baglamda duz "bilmiyorum" degil, YONLENDIRME', () => {
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/duz "bilmiyorum" deme/);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/Bu konuda henuz bir notunuz yok/);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/bir dahaki sefere bu soruyu cevaplayabilirim/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/duz "bilmiyorum" deme/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/Bu konuda henuz bir notunuz yok/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/bir dahaki sefere bu soruyu cevaplayabilirim/);
   });
 
   it('3. KURAL: belirsiz soruda tahmin etme, netlestir', () => {
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/belirsiz/);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/tahmin etme/);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/netlestirici bir soru sor/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/belirsiz/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/tahmin etme/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/netlestirici bir soru sor/);
   });
 
   it('dil talimati var (TR/EN icin ayri prompt YOK)', () => {
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toMatch(/Kullanicinin sordugu dilde cevap ver/);
+    expect(ASK_SYSTEM_PROMPT).toMatch(/Kullanicinin sordugu dilde cevap ver/);
   });
 
   it('KISA tutulmus — uzun talimat modeli bulandirir', () => {
@@ -514,18 +568,18 @@ describe('AskKnowledgeUseCase — systemPrompt', () => {
     // Sinir 800'den 1100'e cikarildi (2026-08-05): takip sorusu kurali BILEREK
     // eklendi (ADR-0029 §4, ayri bir LLM cagrisindan kacinmak icin). Testi
     // silmek yerine yeni gercege gore guncellendi — kural hala korunuyor.
-    expect(KNOWLEDGE_SYSTEM_PROMPT.length).toBeLessThan(1100);
+    expect(ASK_SYSTEM_PROMPT.length).toBeLessThan(1100);
   });
 
   it('takip sorusu kurali ve ayrac promptta', () => {
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toContain(FOLLOW_UP_MARKER);
-    expect(KNOWLEDGE_SYSTEM_PROMPT).toContain('takip sorusu');
+    expect(ASK_SYSTEM_PROMPT).toContain(FOLLOW_UP_MARKER);
+    expect(ASK_SYSTEM_PROMPT).toContain('takip sorusu');
   });
 });
 
 // --- Retrieval ----------------------------------------------------------------
 
-describe('AskKnowledgeUseCase — retrieval', () => {
+describe('AskUseCase — retrieval', () => {
   it('config teki limiti kullanir', async () => {
     const harness = createHarness({ retrievalLimit: 3 });
 
@@ -536,10 +590,7 @@ describe('AskKnowledgeUseCase — retrieval', () => {
 
   it('chunk METINLERINI context e gecirir, not id lerini DEGIL', async () => {
     const harness = createHarness();
-    harness.search.chunks = [
-      { content: 'birinci', noteId: NOTE_A },
-      { content: 'ikinci', noteId: NOTE_B },
-    ];
+    harness.search.fragments = [fragment(NOTE_A, 'birinci', 0.9), fragment(NOTE_B, 'ikinci', 0.8)];
 
     await harness.useCase.execute(command());
 
@@ -551,41 +602,38 @@ describe('AskKnowledgeUseCase — retrieval', () => {
 
   it('AYNI nottan gelen parcalar kaynak listesinde TEKILLESIR', async () => {
     const harness = createHarness();
-    harness.search.chunks = [
-      { content: 'p1', noteId: NOTE_A },
-      { content: 'p2', noteId: NOTE_A },
-      { content: 'p3', noteId: NOTE_B },
+    harness.search.fragments = [
+      fragment(NOTE_A, 'p1', 0.9),
+      fragment(NOTE_A, 'p2', 0.8),
+      fragment(NOTE_B, 'p3', 0.7),
     ];
 
     const result = await harness.useCase.execute(command());
 
-    expect(result.sourceNoteIds).toEqual([NOTE_A, NOTE_B]);
+    expect(ids(result.sources)).toEqual([NOTE_A, NOTE_B]);
   });
 
   it('tekillestirme ALAKA SIRASINI korur', async () => {
     const harness = createHarness();
-    harness.search.chunks = [
-      { content: 'p1', noteId: NOTE_B },
-      { content: 'p2', noteId: NOTE_A },
-    ];
+    harness.search.fragments = [fragment(NOTE_B, 'p1', 0.9), fragment(NOTE_A, 'p2', 0.8)];
 
-    expect((await harness.useCase.execute(command())).sourceNoteIds).toEqual([NOTE_B, NOTE_A]);
+    expect(ids((await harness.useCase.execute(command())).sources)).toEqual([NOTE_B, NOTE_A]);
   });
 
   it('hic chunk yoksa bos context ve bos kaynak listesi', async () => {
     const harness = createHarness();
-    harness.search.chunks = [];
+    harness.search.fragments = [];
 
     const result = await harness.useCase.execute(command());
 
     expect(harness.llm.lastInput?.context).toEqual([]);
-    expect(result.sourceNoteIds).toEqual([]);
+    expect(result.sources).toEqual([]);
   });
 });
 
 // --- Hata yollari -------------------------------------------------------------
 
-describe('AskKnowledgeUseCase — hata yollari', () => {
+describe('AskUseCase — hata yollari', () => {
   it('embedding cokerse EmbeddingFailedError ve YALNIZCA T0 acilmis olur', async () => {
     const harness = createHarness();
     harness.embedding.failWith = new Error('saglayici 500');
@@ -634,7 +682,7 @@ describe('AskKnowledgeUseCase — hata yollari', () => {
 
 // --- Oran siniri (ADR-0029 §5) ---------------------------------------------
 
-describe('AskKnowledgeUseCase — oran siniri', () => {
+describe('AskUseCase — oran siniri', () => {
   it('limit ALTINDA istek gecer', async () => {
     const harness = createHarness({ rateLimit: 3 });
     harness.rateLimits.preset({ tenantId: TENANT_ID, userId: USER_ID, action: 'ask', count: 1 });
@@ -708,5 +756,75 @@ describe('AskKnowledgeUseCase — oran siniri', () => {
     });
 
     await expect(harness.useCase.execute(command())).resolves.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// IZIN BAZLI KATKICI ELEMESI (ADR-0031 §5.3) — bu slice'in GUVENLIK EKSENI
+// ---------------------------------------------------------------------------
+//
+// Bu blok TEK KATKICI varken yaziliyor ve bu bilinclidir: iki katkici gelince
+// "hangi icerik hangi katkiciya ait" ayrimini kurmak zorlasir. Bugun kurulan
+// sozlesme, CRM katkicilari eklendiginde deger degistirmeden gecerli kalir.
+//
+// Filtre olmasaydi birlesik hafiza, yetkilendirmeyi delen bir YAN KAPI olurdu:
+// kullanici goremedigi bir kaydin icerigini, o kaydi ozetleyen cevap uzerinden
+// okurdu. RLS bunu YAKALAMAZ — tenant sinirini korur, tenant ICINDEKI izin
+// sinirini degil.
+
+describe('AskUseCase — katkici elemesi', () => {
+  it('IZNI OLMAYAN katkicinin icerigi cevaba GIRMEZ', async () => {
+    const harness = createHarness();
+    harness.permissions.denied.add('note:read');
+
+    const result = await harness.useCase.execute(command());
+
+    // Baglam BOS gitti: modele goremeyecegi hicbir sey verilmedi.
+    expect(harness.llm.lastInput?.context).toEqual([]);
+    expect(result.sources).toEqual([]);
+  });
+
+  it('IZNI OLMAYAN katkici HIC CAGRILMAZ (pahali is yapilmaz)', async () => {
+    const harness = createHarness();
+    harness.permissions.denied.add('note:read');
+
+    await harness.useCase.execute(command());
+
+    // Sonradan filtrelemek bosa is olurdu; eleme cagridan ONCE yapilir.
+    expect(harness.calls).not.toContain('search');
+  });
+
+  it('elenen katkici degradedSources a GIRMEZ (varligini sizdirmaz)', async () => {
+    const harness = createHarness();
+    harness.permissions.denied.add('note:read');
+
+    const result = await harness.useCase.execute(command());
+
+    // "Alamadik" ile "goremezsin" ayri seylerdir. Yetkisi olmayan kullaniciya
+    // bir kaynagin ADINI soylemek, goremedigi verinin VARLIGINI sizdirirdi.
+    expect(result.degradedSources).toEqual([]);
+  });
+
+  it('izin VARSA katkici cagrilir ve icerik cevaba girer', async () => {
+    const harness = createHarness();
+
+    const result = await harness.useCase.execute(command());
+
+    expect(harness.calls).toContain('search');
+    expect(ids(result.sources)).toEqual([NOTE_A]);
+  });
+
+  it('BOZULAN katkici istegi cokertmez ama degradedSources ta RAPORLANIR', async () => {
+    const harness = createHarness();
+    harness.search.failure = new Error('kaynak gecici olarak erisilemez');
+
+    const result = await harness.useCase.execute(command());
+
+    // Istek tamamlanir (bir modulun sorunu sistemi durdurmaz)...
+    expect(result.answer).not.toBe('');
+    // ...ama SESSIZCE atlanmaz: kullanici eksik ama kendinden emin bir cevap
+    // almamalidir.
+    expect(result.degradedSources).toEqual(['knowledge']);
+    expect(result.sources).toEqual([]);
   });
 });

@@ -83,8 +83,8 @@ describe('GET /knowledge/notes (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
-        'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, platform.messages, ' +
+        'platform.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);

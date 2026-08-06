@@ -57,15 +57,26 @@ export const askKnowledgeRequestSchema = z
 export type AskKnowledgeRequest = z.infer<typeof askKnowledgeRequestSchema>;
 
 /**
- * `POST /knowledge/ask` yanıtı.
+ * `POST /ask` yanıtı (ADR-0031 §5.1).
  *
- * `sourceNoteIds` MODELDEN gelmez — retrieval'ın döndürdüğü gerçek satırlardan
+ * `sources` MODELDEN gelmez — katkıcıların döndürdüğü gerçek satırlardan
  * türetilir. Modele kaynak atfı yaptırmak, uydurma bir id'nin yanıta girmesine
  * kapı açardı.
+ *
+ * `sourceNoteIds` DEĞİL: uç artık platformundur ve gelen referans bir not
+ * olmak zorunda değil (CRM görüşmesi, fırsat…).
  */
+export const answerSourceSchema = z.object({
+  /** Hangi modülden geldi (`knowledge`, ileride `crm`). */
+  source: z.string().min(1),
+  /** Kaynağın türü (`note`, ileride `interaction`). */
+  kind: z.string().min(1),
+  id: z.string().min(1),
+});
+
 export const askKnowledgeResponseSchema = z.object({
   answer: z.string().min(1),
-  sourceNoteIds: z.array(z.string()),
+  sources: z.array(answerSourceSchema),
   conversationId: z.string().min(1),
   /**
    * Modelin önerdiği takip soruları — aynı `complete()` çıktısından ayrılır,
@@ -73,8 +84,14 @@ export const askKnowledgeResponseSchema = z.object({
    * istemci o zaman statik örnekler gösterir.
    */
   followUps: z.array(z.string()),
+  /**
+   * Çağrılıp HATA VEREN kaynaklar. İzni olmadığı için ELENEN kaynak buraya
+   * girmez (ADR-0031 §5.5) — "alamadık" ile "göremezsin" ayrı şeylerdir.
+   */
+  degradedSources: z.array(z.string()),
 });
 export type AskKnowledgeResponse = z.infer<typeof askKnowledgeResponseSchema>;
+export type AnswerSource = z.infer<typeof answerSourceSchema>;
 
 /**
  * `GET /knowledge/notes/exists` yanıtı (ADR-0030 §3).

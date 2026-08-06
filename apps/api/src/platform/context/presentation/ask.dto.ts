@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * `POST /api/v1/knowledge/ask` istek govdesi.
+ * `POST /api/v1/ask` istek govdesi.
  *
  * DEVELOPMENT_RULES 2.3: sisteme giren HER dis veri Zod ile dogrulanir.
  *
@@ -21,7 +21,7 @@ import { z } from 'zod';
 /** Uzun soru bir DoS onlemidir; anlamli bir soru bu siniri asmaz. */
 const MAX_QUESTION_LENGTH = 4_000;
 
-export const askKnowledgeSchema = z
+export const askSchema = z
   .object({
     question: z.string().trim().min(1, 'Soru bos olamaz').max(MAX_QUESTION_LENGTH, 'Soru cok uzun'),
 
@@ -36,4 +36,4 @@ export const askKnowledgeSchema = z
   })
   .strict();
 
-export type AskKnowledgeBody = z.infer<typeof askKnowledgeSchema>;
+export type AskBody = z.infer<typeof askSchema>;

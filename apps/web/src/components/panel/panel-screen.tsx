@@ -204,7 +204,7 @@ export function PanelScreen() {
             ? {
                 ...turn,
                 answer: result.answer,
-                sourceCount: result.sourceNoteIds.length,
+                sourceCount: result.sources.length,
                 followUps: result.followUps,
               }
             : turn,

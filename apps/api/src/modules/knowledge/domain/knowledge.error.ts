@@ -101,7 +101,7 @@ export class InvalidEmbeddingDimensionsError extends KnowledgeDomainError {
  * ============================================================================
  * RLS TENANT SINIRINI KORUR, KULLANICI SINIRINI KORUMAZ
  * ============================================================================
- * `knowledge.conversations` RLS politikasi `tenant_id` uzerindedir; ayni
+ * `platform.conversations` RLS politikasi `tenant_id` uzerindedir; ayni
  * tenant'taki BASKA bir kullanicinin konusmasi RLS'e takILMAZ. Kullanici
  * siniri bu yuzden uygulama katmaninda uygulanir (ADR-0030 §1.1'in tablo
  * yorumunda ongorulen kontrol).

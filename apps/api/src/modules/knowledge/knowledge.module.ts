@@ -1,6 +1,8 @@
-import { Inject, Logger, Module } from '@nestjs/common';
+import { Inject, Module } from '@nestjs/common';
 
 import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
+import { ContextModule } from '../../platform/context/context.module';
+import { createEmbeddingPort, createLlmPort } from '../../infrastructure/ai/ai-provider.factory';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
@@ -13,11 +15,6 @@ import {
   TRANSACTION_MANAGER,
   type TransactionManager,
 } from '../../shared/transaction-manager.port';
-import { AskKnowledgeUseCase } from './application/ask-knowledge.use-case';
-import {
-  CONVERSATION_REPOSITORY,
-  type ConversationRepository,
-} from './application/conversation.repository.port';
 import { CheckNotesExistUseCase } from './application/check-notes-exist.use-case';
 import { CountUnindexedNotesUseCase } from './application/count-unindexed-notes.use-case';
 import { GenerateDailyReportsUseCase } from './application/generate-daily-reports.use-case';
@@ -41,19 +38,19 @@ import {
   type NoteChunkRepository,
 } from './application/note-chunk.repository.port';
 import { NOTE_REPOSITORY, type NoteRepository } from './application/note.repository.port';
-import { DeepSeekLlmAdapter } from '../../infrastructure/ai/deepseek-llm.adapter';
-import { DrizzleConversationRepository } from './infrastructure/drizzle-conversation.repository';
 import { DailyReportWorker } from './infrastructure/daily-report-worker';
 import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { DrizzleDailyReportRunRepository } from './infrastructure/drizzle-daily-report-run.repository';
 import { DrizzleNoteChunkSearchRepository } from './infrastructure/drizzle-note-chunk-search.repository';
 import { DrizzleNoteChunkRepository } from './infrastructure/drizzle-note-chunk.repository';
 import { DrizzleNoteRepository } from './infrastructure/drizzle-note.repository';
-import { FakeEmbeddingAdapter } from '../../infrastructure/ai/fake-embedding.adapter';
-import { FakeLlmAdapter } from '../../infrastructure/ai/fake-llm.adapter';
-import { OpenAiEmbeddingAdapter } from '../../infrastructure/ai/openai-embedding.adapter';
 import { KNOWLEDGE_PERMISSIONS } from './knowledge.permissions';
-import { AskController } from './presentation/ask.controller';
+import { KnowledgeRetrievalContributor } from './infrastructure/knowledge-retrieval.contributor';
+import {
+  RETRIEVAL_CONTRIBUTOR_REGISTRY,
+  type RetrievalContributorRegistry,
+} from '../../platform/context/context.public';
+import { getTenantContext } from '../../infrastructure/tenant/tenant-context';
 import { ReindexController } from './presentation/reindex.controller';
 import { DailyReportController } from './presentation/daily-report.controller';
 import { NoteController } from './presentation/note.controller';
@@ -78,16 +75,19 @@ import { NoteController } from './presentation/note.controller';
  *
  * Adapter SINIFLARI `infrastructure/ai/` altinda paylasilir (ADR-0031 Slice 1)
  * ama ORNEK modul basinadir: her modul kendi etiketiyle kurar. CRM geldiginde
- * ayni deseni `caller: 'crm'` ile tekrarlar; ortak bir fabrika BUGUN
- * yazilmadi — tek tuketici varken soyutlama erken olurdu.
+ * ayni deseni `caller: 'crm'` ile tekrarlar. Saglayici SECIMI Slice 3'te ortak
+ * bir fabrikaya alindi (`infrastructure/ai/ai-provider.factory.ts`) — ikinci
+ * tuketici (Context) gelince kopyalanmamasi icin.
  */
 const KNOWLEDGE_CALLER = 'knowledge';
 
 @Module({
   // AI cagrilarinin maliyet kaydi (ROADMAP §8.1) — her saglayici cagrisi
   // yapilandirilmis bir satir birakir.
-  imports: [AiObservabilityModule],
-  controllers: [NoteController, AskController, ReindexController, DailyReportController],
+  // ContextModule katkici defterini export eder; Knowledge kendini oraya
+  // kaydeder (yon: modulden platforma).
+  imports: [AiObservabilityModule, ContextModule],
+  controllers: [NoteController, ReindexController, DailyReportController],
   providers: [
     // --- Paylasilan cekirdek port'lari ---------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -99,59 +99,20 @@ const KNOWLEDGE_CALLER = 'knowledge';
     { provide: NOTE_CHUNK_REPOSITORY, useClass: DrizzleNoteChunkRepository },
     { provide: DAILY_REPORT_RUN_REPOSITORY, useClass: DrizzleDailyReportRunRepository },
     { provide: NOTE_CHUNK_SEARCH, useClass: DrizzleNoteChunkSearchRepository },
-    { provide: CONVERSATION_REPOSITORY, useClass: DrizzleConversationRepository },
     { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
 
     // --- Embedding saglayicisi ------------------------------------------------
     {
-      // SAGLAYICI SECIMI TEK BIR YERDE (EmailModule ile ayni desen): hicbir use
-      // case somut saglayiciyi bilmez. ADR-0007'nin kabul testi budur.
       provide: EMBEDDING_PORT,
       inject: [APP_CONFIG, AI_USAGE_RECORDER],
-      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort => {
-        if (config.embedding.provider === 'openai') {
-          return new OpenAiEmbeddingAdapter({
-            apiKey: config.embedding.openAiApiKey,
-            model: config.embedding.model,
-            recorder,
-            caller: KNOWLEDGE_CALLER,
-          });
-        }
-
-        // Uretimde bu dala HIC girilmez: env semasi `fake`'i orada reddeder
-        // ve surec baslamaz. Uyari dev/CI icindir — sahte embedding ile
-        // calistigini unutan gelistirici, "arama neden sacmaliyor" sorusunun
-        // cevabini burada bulur.
-        new Logger(KnowledgeModule.name).warn(
-          'EMBEDDING_PROVIDER=fake — embedding ler SAHTE, anlamsal arama calismaz.',
-        );
-        return new FakeEmbeddingAdapter();
-      },
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort =>
+        createEmbeddingPort(config, recorder, KNOWLEDGE_CALLER),
     },
-
-    // --- Sohbet/completion saglayicisi ---------------------------------------
     {
-      // Embedding'den AYRI cozulur: iki port GERCEKTEN iki farkli saglayiciya
-      // gidiyor (DeepSeek chat, OpenAI embedding) — ADR-0030 §1.3'un bolunme
-      // gerekcesinin somut karsiligi.
       provide: LLM_PORT,
       inject: [APP_CONFIG, AI_USAGE_RECORDER],
-      useFactory: (config: AppConfig, recorder: AiUsageRecorder): LLMPort => {
-        if (config.llm.provider === 'deepseek') {
-          return new DeepSeekLlmAdapter({
-            apiKey: config.llm.deepSeekApiKey,
-            model: config.llm.model,
-            recorder,
-            caller: KNOWLEDGE_CALLER,
-          });
-        }
-
-        // Uretimde bu dala HIC girilmez (env semasi reddeder); uyari dev/CI icin.
-        new Logger(KnowledgeModule.name).warn(
-          'LLM_PROVIDER=fake — cevaplar SAHTE, soru-cevap anlamli calismaz.',
-        );
-        return new FakeLlmAdapter();
-      },
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): LLMPort =>
+        createLlmPort(config, recorder, KNOWLEDGE_CALLER),
     },
 
     // --- Use case -------------------------------------------------------------
@@ -305,53 +266,41 @@ const KNOWLEDGE_CALLER = 'knowledge';
           intervalMs: config.dailyReport.intervalMs,
         }),
     },
+    // --- Kurumsal hafizaya katki (ADR-0031 §5.1) -----------------------------
+    // Modul KENDI semasindan katki verir; birlestirmeyi platform yapar.
     {
-      provide: AskKnowledgeUseCase,
-      inject: [
-        NOTE_CHUNK_SEARCH,
-        CONVERSATION_REPOSITORY,
-        RATE_LIMIT_REPOSITORY,
-        EMBEDDING_PORT,
-        LLM_PORT,
-        TRANSACTION_MANAGER,
-        ID_GENERATOR,
-        CLOCK,
-        APP_CONFIG,
-      ],
-      // eslint-disable-next-line max-params
+      provide: KnowledgeRetrievalContributor,
+      inject: [NOTE_CHUNK_SEARCH, TRANSACTION_MANAGER],
       useFactory: (
-        noteChunkSearch: NoteChunkSearch,
-        conversationRepository: ConversationRepository,
-        rateLimitRepository: RateLimitRepository,
-        embeddingPort: EmbeddingPort,
-        llmPort: LLMPort,
+        search: NoteChunkSearch,
         transactionManager: TransactionManager,
-        idGenerator: IdGenerator,
-        clock: Clock,
-        config: AppConfig,
-      ): AskKnowledgeUseCase =>
-        new AskKnowledgeUseCase({
-          noteChunkSearch,
-          conversationRepository,
-          rateLimitRepository,
-          embeddingPort,
-          llmPort,
-          transactionManager,
-          idGenerator,
-          clock,
-          // ADR-0030 §1.2: bu sayilar ADR'de SABITLENMEZ, config'ten gelir.
-          retrievalLimit: config.knowledge.retrievalLimit,
-          historyMessages: config.knowledge.historyMessages,
-          rateLimit: config.knowledge.askRateLimit,
+      ): KnowledgeRetrievalContributor =>
+        new KnowledgeRetrievalContributor(search, transactionManager, () => {
+          const context = getTenantContext();
+          if (context === undefined) {
+            // FAIL CLOSED: tenant context'siz bir retrieval, RLS'in
+            // koruyamadigi bir yol acardi.
+            throw new Error('Retrieval icin tenant context gerekiyor.');
+          }
+          return context.tenantId;
         }),
     },
   ],
 })
 export class KnowledgeModule {
-  constructor(@Inject(PERMISSION_REGISTRY) private readonly permissions: PermissionRegistry) {
+  constructor(
+    @Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry,
+    @Inject(RETRIEVAL_CONTRIBUTOR_REGISTRY) contributors: RetrievalContributorRegistry,
+    contributor: KnowledgeRetrievalContributor,
+  ) {
     // §10.1: modul kendi permission'larini Authorization'a DEKLARE eder.
     // Kayit constructor'da yapilir — modul instantiate edilirken, ilk istekten
     // ONCE tamamlanir (TenantModule ile ayni desen).
-    this.permissions.register(KNOWLEDGE_PERMISSIONS);
+    permissions.register(KNOWLEDGE_PERMISSIONS);
+
+    // Ayni desen, ikinci defter: modul kendini kurumsal hafizaya KAYDEDER
+    // (ADR-0031 §5.1). Platform is modullerini import ETMEZ; yon daima
+    // modulden platforma dogrudur.
+    contributors.register(contributor);
   }
 }

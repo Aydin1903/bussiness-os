@@ -1,5 +1,4 @@
 import { type LlmMessage } from '../../../shared/llm.port';
-import { type TenantId } from '../domain/tenant-id.value-object';
 
 /** DI token'i. */
 export const CONVERSATION_REPOSITORY = Symbol('CONVERSATION_REPOSITORY');
@@ -12,7 +11,7 @@ export interface NewMessage {
 }
 
 /**
- * `knowledge.conversations` + `knowledge.messages` kaliciligi (ADR-0030 §1.1).
+ * `platform.conversations` + `platform.messages` kaliciligi (ADR-0030 §1.1).
  *
  * Iki tablo TEK port'ta: mesaj bir konusma OLMADAN var olamaz ve ikisi daima
  * birlikte yazilir. Ayri port'lar, cagirani "once hangisini yaz" kararina
@@ -52,7 +51,13 @@ export interface ConversationRepository {
    * satiri hic olusmaz.
    */
   appendTurn(input: {
-    readonly tenantId: TenantId;
+    /**
+     * Ham tenant kimligi.
+     *
+     * Knowledge'in `TenantId` value object'i BILEREK kullanilmiyor: konusma
+     * artik platformun ve platform bir is modulunun domain tipine baglanamaz.
+     */
+    readonly tenantId: string;
     readonly userId: string;
     /** `null` ise yeni konusma acilir. */
     readonly conversationId: string | null;

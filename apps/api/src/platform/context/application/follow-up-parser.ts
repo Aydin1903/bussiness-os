@@ -1,4 +1,4 @@
-import { FOLLOW_UP_MARKER } from './knowledge-prompt';
+import { FOLLOW_UP_MARKER } from './ask-prompt';
 
 export interface ParsedCompletion {
   readonly answer: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseCompletion } from './follow-up-parser';
-import { FOLLOW_UP_MARKER } from './knowledge-prompt';
+import { FOLLOW_UP_MARKER } from './ask-prompt';
 
 /**
  * Bu ayristiricinin ASIL isi bozuk cikti karsisinda CEVABI KAYBETMEMEK.

@@ -60,14 +60,17 @@ export function fetchDailyReport(): Promise<DailyReportResponse> {
 }
 
 /**
- * `POST /knowledge/ask` — kurumsal hafızaya soru sorar (ADR-0029 §4).
+ * `POST /ask` — kurumsal hafızaya soru sorar (ADR-0029 §4, ADR-0031 §5.2).
+ *
+ * Uç `knowledge` altından çıktı: artık tüm modüllerin katkısını birleştiren
+ * bir **platform** ucudur.
  *
  * `conversationId` OPSİYONELDİR: verilmezse sunucu yeni bir konuşma açar ve
  * id'sini yanıtta döner. İstemci sonraki soruda o id'yi göndererek konuşmayı
  * sürdürür (ADR-0030 §1.2) — geçmişi istemci TAŞIMAZ, yalnızca id'yi taşır.
  */
 export function askKnowledge(body: AskKnowledgeRequest): Promise<AskKnowledgeResponse> {
-  return apiFetch('/knowledge/ask', askKnowledgeResponseSchema, { body });
+  return apiFetch('/ask', askKnowledgeResponseSchema, { body });
 }
 
 /**

@@ -7,7 +7,7 @@ export const NOTE_CHUNK_SEARCH = Symbol('NOTE_CHUNK_SEARCH');
 export interface SimilarChunk {
   /** Parcanin metni — `LLMPort.complete()`'in `context`'ine girer. */
   readonly content: string;
-  /** Hangi nottan geldi — yanittaki `sourceNoteIds` bundan turer. */
+  /** Hangi nottan geldi — yanittaki `sources` referansi bundan turer. */
   readonly noteId: string;
 }
 

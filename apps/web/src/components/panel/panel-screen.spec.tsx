@@ -66,7 +66,11 @@ beforeEach(() => {
   createNote.mockResolvedValue({ noteId: 'n2', chunkCount: 1 });
   askKnowledge.mockResolvedValue({
     answer: 'Fatura sürecini Ayşe Yılmaz yönetiyor.',
-    sourceNoteIds: ['note-1', 'note-2'],
+    sources: [
+      { source: 'knowledge', kind: 'note', id: 'note-1' },
+      { source: 'knowledge', kind: 'note', id: 'note-2' },
+    ],
+    degradedSources: [],
     conversationId: 'conv-1',
     followUps: ['Yedek onaycı var mı?'],
   });
@@ -241,7 +245,8 @@ describe('PanelScreen — soru-cevap akışı', () => {
 
     resolve({
       answer: 'Cevap.',
-      sourceNoteIds: [],
+      sources: [],
+      degradedSources: [],
       conversationId: 'c',
       followUps: [],
     });

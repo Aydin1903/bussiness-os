@@ -95,8 +95,8 @@ describe('Gunluk rapor worker (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, knowledge.messages, ' +
-        'knowledge.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
+      'TRUNCATE platform.rate_limits, knowledge.daily_report_runs, platform.messages, ' +
+        'platform.conversations, knowledge.note_chunks, knowledge.notes CASCADE',
     );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
@@ -370,7 +370,7 @@ describe('Gunluk rapor worker (uctan uca)', () => {
       // Worker'in notlari okumasi gerekiyordu; cozum role yetki EKLEMEK DEGIL,
       // notlari normal tenant context'i altinda okumakti. Bu test o kararin
       // bekcisidir.
-      for (const table of ['notes', 'note_chunks', 'conversations', 'messages']) {
+      for (const table of ['notes', 'note_chunks']) {
         await expect(
           asReportWorker(`SELECT 1 FROM knowledge.${table} LIMIT 1`),
           `knowledge.${table} erisilebilir OLMAMALI`,
@@ -379,7 +379,7 @@ describe('Gunluk rapor worker (uctan uca)', () => {
     });
 
     it('platform semasina erisim REDDEDILIR', async () => {
-      for (const table of ['tenants', 'memberships', 'users']) {
+      for (const table of ['tenants', 'memberships', 'users', 'conversations', 'messages']) {
         await expect(
           asReportWorker(`SELECT 1 FROM platform.${table} LIMIT 1`),
           `platform.${table} erisilebilir OLMAMALI`,

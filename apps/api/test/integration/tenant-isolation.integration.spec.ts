@@ -1,6 +1,8 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { randomUUID } from 'node:crypto';
+
 import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -530,5 +532,123 @@ describe('tenant izolasyonu (RLS)', () => {
         ),
       ),
     ).rejects.toThrow(/rate_limits_action_not_blank/);
+  });
+  // --- platform.conversations / platform.messages — MT §12.6 (ADR-0031) ----
+  //
+  // Tablolar `knowledge`'ten `platform`'a TASINDI (migration `0015`,
+  // `ALTER TABLE ... SET SCHEMA`). Veri, politikalar, FK ve CASCADE nesneyle
+  // birlikte geldi; testler de buraya, diger platform tablolariyla geldi.
+  //
+  // Slice 2'nin dersi burada BASTAN uygulaniyor: yeni bir tablo, izolasyon
+  // testi yazilmadan merge edilmez.
+
+  async function insertConversation(tenantId: string, userId: string): Promise<string> {
+    const conversationId = randomUUID();
+    await inTenantContext(tenantId, async (client) => {
+      await client.query(
+        'INSERT INTO platform.conversations (id, tenant_id, user_id) VALUES ($1, $2, $3)',
+        [conversationId, tenantId, userId],
+      );
+      await client.query(
+        `INSERT INTO platform.messages (id, tenant_id, conversation_id, role, content)
+         VALUES ($1, $2, $3, 'user', 'gizli soru')`,
+        [randomUUID(), tenantId, conversationId],
+      );
+    });
+    return conversationId;
+  }
+
+  it('conversations: tenant A, B nin konusmasini GOREMEZ', async () => {
+    await insertConversation(TENANT_A, USER_A);
+    await insertConversation(TENANT_B, USER_B);
+
+    const rows = await inTenantContext(TENANT_A, async (client) => {
+      const result = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM platform.conversations',
+      );
+      return result.rows;
+    });
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.tenant_id === TENANT_A)).toBe(true);
+  });
+
+  it('messages: tenant A, B nin mesajini GOREMEZ', async () => {
+    await insertConversation(TENANT_B, USER_B);
+
+    const rows = await inTenantContext(TENANT_A, async (client) => {
+      const result = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM platform.messages',
+      );
+      return result.rows;
+    });
+
+    expect(rows.every((row) => row.tenant_id === TENANT_A)).toBe(true);
+  });
+
+  it('conversations: BASKA tenant adina yazmak WITH CHECK ile reddedilir', async () => {
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query(
+          'INSERT INTO platform.conversations (id, tenant_id, user_id) VALUES ($1, $2, $3)',
+          [randomUUID(), TENANT_B, USER_B],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/i);
+  });
+
+  it('conversations: tenant A, kendi konusmasinin tenant_id sini TASIYAMAZ', async () => {
+    await insertConversation(TENANT_A, USER_A);
+
+    await expect(
+      inTenantContext(TENANT_A, (client) =>
+        client.query('UPDATE platform.conversations SET tenant_id = $1', [TENANT_B]),
+      ),
+    ).rejects.toThrow(/row-level security/i);
+  });
+
+  it('conversations/messages: tenant context KURULMADAN sorgu HATA verir', async () => {
+    for (const table of ['conversations', 'messages']) {
+      await expect(
+        appPool.query(`SELECT 1 FROM platform.${table}`),
+        `platform.${table} context siz calismamali`,
+      ).rejects.toThrow(/unrecognized configuration parameter|invalid input syntax/i);
+    }
+  });
+
+  it('conversations/messages: ENABLE + FORCE tasiyor', async () => {
+    for (const table of ['conversations', 'messages']) {
+      const result = await ownerPool.query<{
+        relrowsecurity: boolean;
+        relforcerowsecurity: boolean;
+      }>(
+        `SELECT relrowsecurity, relforcerowsecurity
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'platform' AND c.relname = $1`,
+        [table],
+      );
+
+      expect(result.rows[0]?.relrowsecurity, `${table} ENABLE`).toBe(true);
+      expect(result.rows[0]?.relforcerowsecurity, `${table} FORCE`).toBe(true);
+    }
+  });
+
+  it('messages -> conversations CASCADE tasima SONRASI hala calisiyor', async () => {
+    // `SET SCHEMA`'nin FK'yi ve ON DELETE CASCADE'i korudugu, migration
+    // yazilmadan once deneyle olculmustu; bu test o olcumu KALICI kilar.
+    // ROADMAP §8.4: dogru retention kolu `conversations`'dir cunku mesajlar
+    // ona bagli gider.
+    const conversationId = await insertConversation(TENANT_A, USER_A);
+
+    const remaining = await inTenantContext(TENANT_A, async (client) => {
+      await client.query('DELETE FROM platform.conversations WHERE id = $1', [conversationId]);
+      const result = await client.query<{ count: string }>(
+        'SELECT count(*) AS count FROM platform.messages WHERE conversation_id = $1',
+        [conversationId],
+      );
+      return result.rows[0]?.count;
+    });
+
+    expect(remaining).toBe('0');
   });
 });

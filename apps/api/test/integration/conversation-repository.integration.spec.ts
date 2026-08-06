@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { DrizzleTransactionManager } from '../../src/infrastructure/database/drizzle-transaction-manager.adapter';
-import { TenantId } from '../../src/modules/knowledge/domain/tenant-id.value-object';
-import { DrizzleConversationRepository } from '../../src/modules/knowledge/infrastructure/drizzle-conversation.repository';
+import { DrizzleConversationRepository } from '../../src/platform/context/infrastructure/drizzle-conversation.repository';
 import { startTestDatabase, type TestDatabase } from './support/test-database';
 
 /**
@@ -58,7 +57,7 @@ describe('DrizzleConversationRepository (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await database.ownerPool.query('TRUNCATE knowledge.messages, knowledge.conversations CASCADE');
+    await database.ownerPool.query('TRUNCATE platform.messages, platform.conversations CASCADE');
     await database.ownerPool.query('TRUNCATE platform.memberships, platform.tenants CASCADE');
     await seedTenant(TENANT_A, 'acme');
     await seedTenant(TENANT_B, 'globex');
@@ -85,7 +84,7 @@ describe('DrizzleConversationRepository (gercek PostgreSQL)', () => {
       options.tenantId,
       () =>
         repository.appendTurn({
-          tenantId: TenantId.create(options.tenantId),
+          tenantId: options.tenantId,
           userId: options.userId,
           conversationId: options.conversationId,
           newConversationId: nextId(),
@@ -138,7 +137,7 @@ describe('DrizzleConversationRepository (gercek PostgreSQL)', () => {
     });
 
     const rows = await database.ownerPool.query<{ created_at: Date }>(
-      'SELECT created_at FROM knowledge.messages WHERE conversation_id = $1',
+      'SELECT created_at FROM platform.messages WHERE conversation_id = $1',
       [conversationId],
     );
     const stamps = new Set(rows.rows.map((row) => row.created_at.toISOString()));

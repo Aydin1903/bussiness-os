@@ -2,11 +2,11 @@ import { check, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 import { conversations } from './conversations.schema';
-import { knowledgeSchema } from './knowledge.schema';
+import { platformSchema } from './platform.schema';
 import { tenants } from './tenants.schema';
 
 /**
- * `knowledge.messages` — konusmanin turleri (ADR-0030 §1.1).
+ * `platform.messages` — konusmanin turleri (ADR-0030 §1.1).
  *
  * `role` yalnizca `user` | `assistant` alir. `system` YOKTUR: sistem promptu
  * adapter'da uretilir ve SAKLANMAZ — saklansaydi prompt degisikligi gecmis
@@ -18,7 +18,7 @@ import { tenants } from './tenants.schema';
  * En hizli buyuyen tablo: her soru-cevap IKI satir. Retention kurali henuz yok
  * (ROADMAP §8.3).
  */
-export const messages = knowledgeSchema.table(
+export const messages = platformSchema.table(
   'messages',
   {
     id: uuid('id').primaryKey(),
