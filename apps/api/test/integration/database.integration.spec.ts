@@ -113,6 +113,10 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0016, `crm` semasini ve iki tablosunu dusurur. EN BASTA olmali:
+      // `crm.companies` -> `platform.tenants` FK'si tasir ve geri alinmazsa
+      // asagida `platform.tenants` DUSURULEMEZ.
+      '0016_crm_schema.down.sql',
       // 0015, konusma tablolarini `platform`'a tasir. EN BASTA olmali: geri
       // alinmazsa `platform.conversations` ayakta kalir ve asagida
       // `platform.tenants` DUSURULEMEZ (FK).

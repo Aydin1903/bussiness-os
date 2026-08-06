@@ -5,6 +5,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { AppLoggerModule } from './infrastructure/logging/logger.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
+import { CrmModule } from './modules/crm/crm.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { AuthzModule } from './platform/authz/authz.module';
@@ -35,6 +36,9 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // Ilk IS modulu (ADR-0029/0030). Platform cekirdeginden SONRA gelir:
     // permission katalogunu AuthzModule'e kaydeder ve tenant context'e dayanir.
     KnowledgeModule,
+    // Faz 5'in ilk is modulu (ADR-0031). Bu slice'ta AI YOK: sema + RLS + RBAC
+    // zinciri once AI karmasikligi olmadan kanitlanir.
+    CrmModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

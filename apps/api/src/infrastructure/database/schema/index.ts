@@ -36,3 +36,8 @@ export { conversations } from './conversations.schema';
 export { messages } from './messages.schema';
 export { dailyReportRuns } from './daily-report-runs.schema';
 export { rateLimits } from './rate-limits.schema';
+
+// --- CRM (ADR-0031 §1) ---
+export { crmSchema } from './crm.schema';
+export { companies } from './companies.schema';
+export { contacts } from './contacts.schema';
