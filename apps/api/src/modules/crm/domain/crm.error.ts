@@ -105,3 +105,30 @@ export class OpportunityContactNotFoundError extends CrmDomainError {
     super('Firsatin baglanacagi kisi bulunamadi.');
   }
 }
+
+export class BlankInteractionBodyError extends CrmDomainError {
+  readonly code = 'INTERACTION_BODY_BLANK';
+  constructor() {
+    super('Gorusme metni bos olamaz.');
+  }
+}
+
+export class InteractionCompanyNotFoundError extends CrmDomainError {
+  readonly code = 'INTERACTION_COMPANY_NOT_FOUND';
+  constructor() {
+    super('Gorusmenin baglanacagi sirket bulunamadi.');
+  }
+}
+
+/**
+ * Embedding boyutu beklenenden farkli.
+ *
+ * `vector(1536)` kolonuyla birebir baglidir; saglayici/model degisirse bu
+ * hata ONCE burada goruunur (`NoteChunk` ile ayni disiplin).
+ */
+export class InvalidEmbeddingDimensionsError extends CrmDomainError {
+  readonly code = 'INTERACTION_EMBEDDING_DIMENSIONS_INVALID';
+  constructor(expected: number, actual: number) {
+    super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
+  }
+}

@@ -126,6 +126,25 @@ export const listOpportunitiesQuerySchema = listQuerySchema.extend({
   stage: opportunityStageSchema.optional(),
 });
 
+/** Gorusme metni. Uzun bir sinir DoS onlemidir. */
+const MAX_INTERACTION_BODY = 20_000;
+
+export const createInteractionSchema = z
+  .object({
+    companyId: z.uuid('companyId gecerli bir UUID olmali'),
+    contactId: z.uuid('contactId gecerli bir UUID olmali').nullish(),
+    opportunityId: z.uuid('opportunityId gecerli bir UUID olmali').nullish(),
+    /** Gorusmenin GERCEKLESTIGI gun; kayda gecirildigi an degil. */
+    occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD biciminde olmali'),
+    body: z.string().trim().min(1, 'Gorusme metni bos olamaz').max(MAX_INTERACTION_BODY),
+  })
+  .strict();
+
+export const listInteractionsQuerySchema = listQuerySchema.extend({
+  companyId: z.uuid().optional(),
+  opportunityId: z.uuid().optional(),
+});
+
 export const idParamSchema = z.object({ id: z.uuid('Gecerli bir UUID olmali') }).strict();
 
 export type CreateCompanyBody = z.infer<typeof createCompanySchema>;
@@ -137,3 +156,5 @@ export type ListContactsQuery = z.infer<typeof listContactsQuerySchema>;
 export type CreateOpportunityBody = z.infer<typeof createOpportunitySchema>;
 export type UpdateOpportunityBody = z.infer<typeof updateOpportunitySchema>;
 export type ListOpportunitiesQuery = z.infer<typeof listOpportunitiesQuerySchema>;
+export type CreateInteractionBody = z.infer<typeof createInteractionSchema>;
+export type ListInteractionsQuery = z.infer<typeof listInteractionsQuerySchema>;

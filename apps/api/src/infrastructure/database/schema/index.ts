@@ -42,3 +42,5 @@ export { crmSchema } from './crm.schema';
 export { companies } from './companies.schema';
 export { contacts } from './contacts.schema';
 export { opportunities } from './opportunities.schema';
+export { interactions } from './interactions.schema';
+export { interactionChunks } from './interaction-chunks.schema';

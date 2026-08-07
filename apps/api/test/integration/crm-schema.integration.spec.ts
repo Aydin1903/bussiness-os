@@ -56,7 +56,9 @@ describe('crm semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE crm.opportunities, crm.contacts, crm.companies CASCADE');
+    await ownerPool.query(
+      'TRUNCATE crm.interaction_chunks, crm.interactions, crm.opportunities, crm.contacts, crm.companies CASCADE',
+    );
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -116,7 +118,7 @@ describe('crm semasi (gercek PostgreSQL)', () => {
   }
 
   describe('sema ve kisitlar', () => {
-    it('uc tablo crm semasinda olusturuldu', async () => {
+    it('bes tablo crm semasinda olusturuldu', async () => {
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'crm' ORDER BY table_name",
       );
@@ -124,6 +126,8 @@ describe('crm semasi (gercek PostgreSQL)', () => {
       expect(rows.rows.map((row) => row.table_name)).toEqual([
         'companies',
         'contacts',
+        'interaction_chunks',
+        'interactions',
         'opportunities',
       ]);
     });
@@ -392,6 +396,172 @@ describe('crm semasi (gercek PostgreSQL)', () => {
       // Index yuklemi sorgunun yuklemiyle ayrisirsa index devre disi kalir.
       expect(result.rows[0]?.indexdef).toMatch(/WHERE.*next_follow_up_on IS NOT NULL/s);
       expect(result.rows[0]?.indexdef).toMatch(/won.*lost/s);
+    });
+  });
+
+  describe('interactions + chunks (ADR-0031 §4)', () => {
+    /** 1536 boyutlu sahte vektor — pgvector metin bicimini bekler. */
+    function vector(): string {
+      return `[${Array.from({ length: 1536 }, () => '0.1').join(',')}]`;
+    }
+
+    async function insertInteraction(tenantId: string, companyId: string): Promise<string> {
+      const id = randomUUID();
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO crm.interactions
+             (id, tenant_id, company_id, author_user_id, occurred_on, body)
+           VALUES ($1, $2, $3, $4, '2026-08-12', 'Toplanti iyi gecti')`,
+          [id, tenantId, companyId, USER_A],
+        ),
+      );
+      return id;
+    }
+
+    async function insertChunk(tenantId: string, interactionId: string): Promise<void> {
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO crm.interaction_chunks
+             (id, tenant_id, interaction_id, chunk_index, content, embedding)
+           VALUES ($1, $2, $3, 0, '[Acme · 2026-08-12] Toplanti iyi gecti', $4)`,
+          [randomUUID(), tenantId, interactionId, vector()],
+        ),
+      );
+    }
+
+    it('embedding index i gercekten HNSW (IVFFlat DEGIL)', async () => {
+      const rows = await ownerPool.query<{ indexdef: string }>(
+        "SELECT indexdef FROM pg_indexes WHERE indexname = 'interaction_chunks_embedding_idx'",
+      );
+
+      expect(rows.rows[0]?.indexdef).toMatch(/hnsw/i);
+      // Operator eslesmezse index DEVRE DISI kalir ve sorgu tam tarama yapar.
+      expect(rows.rows[0]?.indexdef).toMatch(/vector_cosine_ops/);
+    });
+
+    it('YANLIS boyutlu embedding veritabaninda REDDEDILIR', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      const interactionId = await insertInteraction(TENANT_A, companyId);
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO crm.interaction_chunks
+               (id, tenant_id, interaction_id, chunk_index, content, embedding)
+             VALUES ($1, $2, $3, 0, 'kisa', '[0.1,0.2]')`,
+            [randomUUID(), TENANT_A, interactionId],
+          ),
+        ),
+      ).rejects.toThrow(/expected 1536 dimensions/i);
+    });
+
+    it('AYNI (interaction, chunk_index) IKI KEZ eklenemez — idempotency', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      const interactionId = await insertInteraction(TENANT_A, companyId);
+      await insertChunk(TENANT_A, interactionId);
+
+      // Bu kisit ILK GUNDEN var; ADR-0029 onu migration 0011'de SONRADAN
+      // ogrenmisti. Es zamanli iki onarimda ikincisi reddedilir, veri BOZULMAZ.
+      await expect(insertChunk(TENANT_A, interactionId)).rejects.toThrow(
+        /interaction_chunks_unique_index/,
+      );
+    });
+
+    it('tenant A, B nin gorusmesini ve parcasini GOREMEZ', async () => {
+      const companyB = await insertCompany(TENANT_B);
+      const interactionB = await insertInteraction(TENANT_B, companyB);
+      await insertChunk(TENANT_B, interactionB);
+
+      const seen = await asTenant(TENANT_A, async (client) => {
+        const a = await client.query<{ count: string }>(
+          'SELECT count(*) AS count FROM crm.interactions',
+        );
+        const b = await client.query<{ count: string }>(
+          'SELECT count(*) AS count FROM crm.interaction_chunks',
+        );
+        return { interactions: a.rows[0]?.count, chunks: b.rows[0]?.count };
+      });
+
+      expect(seen).toEqual({ interactions: '0', chunks: '0' });
+    });
+
+    it('BASKA tenant adina gorusme yazmak WITH CHECK ile reddedilir', async () => {
+      const companyA = await insertCompany(TENANT_A);
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO crm.interactions
+               (id, tenant_id, company_id, author_user_id, occurred_on, body)
+             VALUES ($1, $2, $3, $4, '2026-08-12', 'sizinti')`,
+            [randomUUID(), TENANT_B, companyA, USER_A],
+          ),
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+
+    it('tenant context KURULMADAN sorgu HATA verir', async () => {
+      for (const table of ['interactions', 'interaction_chunks']) {
+        await expect(
+          appPool.query(`SELECT 1 FROM crm.${table}`),
+          `crm.${table} context siz calismamali`,
+        ).rejects.toThrow(/unrecognized configuration parameter|invalid input syntax/i);
+      }
+    });
+
+    it('her iki tablo da ENABLE + FORCE tasiyor', async () => {
+      for (const table of ['interactions', 'interaction_chunks']) {
+        const result = await ownerPool.query<{
+          relrowsecurity: boolean;
+          relforcerowsecurity: boolean;
+        }>(
+          `SELECT relrowsecurity, relforcerowsecurity
+           FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'crm' AND c.relname = $1`,
+          [table],
+        );
+
+        expect(result.rows[0]?.relrowsecurity, `${table} ENABLE`).toBe(true);
+        expect(result.rows[0]?.relforcerowsecurity, `${table} FORCE`).toBe(true);
+      }
+    });
+
+    it('SIRKET silinince gorusme VE parcalari gider (IKI KADEMELI CASCADE)', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      const interactionId = await insertInteraction(TENANT_A, companyId);
+      await insertChunk(TENANT_A, interactionId);
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM crm.companies WHERE id = $1', [companyId]);
+        const a = await client.query<{ count: string }>(
+          'SELECT count(*) AS count FROM crm.interactions',
+        );
+        const b = await client.query<{ count: string }>(
+          'SELECT count(*) AS count FROM crm.interaction_chunks',
+        );
+        return { interactions: a.rows[0]?.count, chunks: b.rows[0]?.count };
+      });
+
+      // `crm` semasinin VAR OLMA GEREKCESI: silinen musteri AI hafizasindan
+      // da silinir. Gorusmeler `knowledge.notes`'a yazilsaydi cross-schema FK
+      // yasagi yuzunden bu cascade YAZILAMAZDI.
+      expect(remaining).toEqual({ interactions: '0', chunks: '0' });
+    });
+
+    it('parcasiz gorusme LEFT JOIN ile TESPIT EDILEBILIR', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      await insertInteraction(TENANT_A, companyId);
+
+      const orphans = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ count: string }>(
+          `SELECT count(*) AS count FROM crm.interactions i
+           LEFT JOIN crm.interaction_chunks c ON c.interaction_id = i.id
+           WHERE c.id IS NULL`,
+        );
+        return result.rows[0]?.count;
+      });
+
+      // Is listesi TURETILMISTIR: ayri bir "onarilacaklar" tablosu yok.
+      expect(orphans).toBe('1');
     });
   });
 

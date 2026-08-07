@@ -95,6 +95,12 @@ export interface AppConfig {
     readonly reindexBatchSize: number;
   };
 
+  /** CRM ayarlari (ADR-0031 Slice 6). */
+  readonly crm: {
+    readonly interactionsRateLimit: number;
+    readonly reindexBatchSize: number;
+  };
+
   /** Gunluk rapor worker'i (ADR-0030 §2). */
   readonly dailyReport: {
     readonly enabled: boolean;
@@ -143,6 +149,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     email: toEmailConfig(env),
     embedding: toEmbeddingConfig(env),
     llm: toLlmConfig(env),
+    crm: {
+      interactionsRateLimit: env.CRM_INTERACTIONS_RATE_LIMIT,
+      reindexBatchSize: env.CRM_REINDEX_BATCH_SIZE,
+    },
     ...toAiConfig(env),
   };
 }

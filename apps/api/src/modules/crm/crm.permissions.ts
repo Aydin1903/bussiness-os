@@ -29,6 +29,16 @@ export const OPPORTUNITY_WRITE = 'opportunity:write';
 export const OPPORTUNITY_DELETE = 'opportunity:delete';
 
 /**
+ * Gorusmeler EKLEME-YALNIZDIR: `write`/`delete` fiilleri YOKTUR.
+ *
+ * `note:create` ile ayni adlandirma ve ayni gerekce — var olmayan bir fiili
+ * deklare etmek yanlis olurdu. Silme yalnizca sirket cascade'i uzerinden
+ * gerceklesir.
+ */
+export const INTERACTION_READ = 'interaction:read';
+export const INTERACTION_CREATE = 'interaction:create';
+
+/**
  * ============================================================================
  * `delete` NEDEN `write`'TAN AYRI
  * ============================================================================
@@ -66,4 +76,7 @@ export const CRM_PERMISSIONS: readonly PermissionRule[] = [
   { permission: OPPORTUNITY_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
   { permission: OPPORTUNITY_WRITE, roles: ['owner', 'admin', 'member'] },
   { permission: OPPORTUNITY_DELETE, roles: ['owner', 'admin'] },
+
+  { permission: INTERACTION_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
+  { permission: INTERACTION_CREATE, roles: ['owner', 'admin', 'member'] },
 ];

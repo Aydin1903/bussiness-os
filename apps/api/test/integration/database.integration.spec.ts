@@ -113,6 +113,9 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0018, gorusmeler + parcalar. 0017/0016'dan ONCE: `crm.companies` ve
+      // `crm.opportunities`'e FK tasir.
+      '0018_crm_interactions.down.sql',
       // 0017, `crm.opportunities`. 0016'dan ONCE: tablo `crm.companies`'e FK
       // tasir ve 0016 semayi dusurmeden once bu gitmeli.
       '0017_crm_opportunities.down.sql',

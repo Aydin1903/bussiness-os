@@ -235,6 +235,29 @@ const baseEnvSchema = z.object({
    */
   KNOWLEDGE_NOTES_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
 
+  // --- CRM (ADR-0031 Slice 6) ----------------------------------------------
+
+  /**
+   * Saatte gorusme sayisi / kullanici.
+   *
+   * `create_note` ile AYNI deger ve AYNI tur: SIGORTA, butce degil. Bir insan
+   * saatte 60 anlamli gorusme yazamaz; o rakama ancak bir istemci retry
+   * hatasi ya da script ulasir.
+   *
+   * AYRI KOVA (ADR-0031 §4.2): Knowledge not payini bitirmis bir kullanicinin
+   * gorusme kaydedememesi anlamsiz olurdu. Yeniden indeksleme bu kovayi
+   * PAYLASIR — ayri bir kova onarimi butcesiz bir yan kapiya cevirirdi.
+   */
+  CRM_INTERACTIONS_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /crm/reindex` cagrisinda onarilacak EN FAZLA gorusme.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil; 10 gorusmelik bir onarim onlarca embedding cagrisi olabilir.
+   */
+  CRM_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+
   // --- Gunluk rapor worker'i (ADR-0030 §2) --------------------------------
 
   /**

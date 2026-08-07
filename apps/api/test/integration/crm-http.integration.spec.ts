@@ -82,8 +82,9 @@ describe('CRM uclari (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE crm.opportunities, crm.contacts, crm.companies CASCADE',
+      'TRUNCATE crm.interaction_chunks, crm.interactions, crm.opportunities, crm.contacts, crm.companies CASCADE',
     );
+    await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
   });
@@ -482,5 +483,174 @@ describe('CRM uclari (uctan uca)', () => {
     const owner = await tokenFor('owner');
     const response = await createOpportunity(owner, nextId('9c3d'));
     expect(response.status).toBe(404);
+  });
+  // --- Gorusmeler + embedding (ADR-0031 §4) -------------------------------
+  //
+  // Bu blok CRM'in AI'a ILK KEZ dokundugu yolu kanitlar. Entegrasyon
+  // ortaminda `EMBEDDING_PROVIDER=fake`'tir: vektorler sahtedir ama AKIS
+  // gercektir (chunking, baglam basligi, iki transaction, parca yazimi).
+
+  function createInteraction(token: string, companyId: string, body: Record<string, unknown> = {}) {
+    return api()
+      .post('/api/v1/crm/interactions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        companyId,
+        occurredOn: '2026-08-12',
+        body: 'Toplanti iyi gecti, butce onaylandi.',
+        ...body,
+      });
+  }
+
+  it('gorusme kaydedilir ve PARCALANIR', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    const response = await createInteraction(owner, String(company.body.id));
+
+    expect(response.status).toBe(201);
+    expect(response.body.chunkCount).toBeGreaterThan(0);
+  });
+
+  it('PARCA METNI BAGLAM BASLIGI TASIR — bu slice in kritik iddiasi', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner, 'Acme Tekstil');
+
+    // Govde "Acme" kelimesini HIC gecirmez.
+    const body = 'Toplanti iyi gecti, butce onaylandi.';
+    expect(body).not.toContain('Acme');
+
+    const created = await createInteraction(owner, String(company.body.id), { body });
+
+    const rows = await database.ownerPool.query<{ content: string }>(
+      'SELECT content FROM crm.interaction_chunks WHERE interaction_id = $1',
+      [String(created.body.interactionId)],
+    );
+
+    // Baslik olmasaydi "Acme ile ne konustuk?" sorusu HICBIR parcayla
+    // eslesmezdi: gorusmenin kimligi FK kolonundadir, metinde degil.
+    expect(rows.rows[0]?.content).toContain('Acme Tekstil');
+    expect(rows.rows[0]?.content).toContain('2026-08-12');
+    expect(rows.rows[0]?.content).toContain('butce onaylandi');
+  });
+
+  it('viewer gorusme OKUR ama YAZAMAZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    const viewer = await tokenFor('viewer');
+
+    const read = await api()
+      .get('/api/v1/crm/interactions')
+      .set('Authorization', `Bearer ${viewer}`);
+    expect(read.status).toBe(200);
+    expect(read.body.items).toHaveLength(1);
+
+    const write = await createInteraction(viewer, String(company.body.id));
+    expect(write.status).toBe(403);
+  });
+
+  it('gorusme VAR OLMAYAN sirkete baglanamaz -> 404', async () => {
+    const owner = await tokenFor('owner');
+    const response = await createInteraction(owner, nextId('9c3d'));
+    expect(response.status).toBe(404);
+  });
+
+  it('BOS govde 422', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const response = await createInteraction(owner, String(company.body.id), { body: '   ' });
+    expect(response.status).toBe(422);
+  });
+
+  it('gorusmeler companyId ile filtrelenir', async () => {
+    const owner = await tokenFor('owner');
+    const first = await createCompany(owner, 'Birinci');
+    const second = await createCompany(owner, 'Ikinci');
+
+    await createInteraction(owner, String(first.body.id), { body: 'Birinci gorusme' });
+    await createInteraction(owner, String(second.body.id), { body: 'Ikinci gorusme' });
+
+    const filtered = await api()
+      .get(`/api/v1/crm/interactions?companyId=${String(first.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0].body).toBe('Birinci gorusme');
+  });
+
+  // --- Yeniden indeksleme — ILK GUNDEN (ADR-0029 dersinin karsiligi) ------
+
+  it('parcasiz gorusme TESPIT edilir ve ONARILIR', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createInteraction(owner, String(company.body.id));
+
+    // Parcalari silerek "parcasiz gorusme" durumunu uret — T1 commit olduktan
+    // sonra embedding cokerse ortaya cikan durumun aynisi.
+    await database.ownerPool.query('DELETE FROM crm.interaction_chunks WHERE interaction_id = $1', [
+      String(created.body.interactionId),
+    ]);
+
+    const before = await api()
+      .get('/api/v1/crm/interactions/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(before.body.count).toBe(1);
+
+    const repaired = await api()
+      .post('/api/v1/crm/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(repaired.status).toBe(200);
+    expect(repaired.body.repaired).toBe(1);
+
+    const after = await api()
+      .get('/api/v1/crm/interactions/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(after.body.count).toBe(0);
+  });
+
+  it('onarilan parca da BAGLAM BASLIGI tasir', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner, 'Acme Tekstil');
+    const created = await createInteraction(owner, String(company.body.id));
+
+    await database.ownerPool.query('DELETE FROM crm.interaction_chunks WHERE interaction_id = $1', [
+      String(created.body.interactionId),
+    ]);
+    await api().post('/api/v1/crm/reindex').set('Authorization', `Bearer ${owner}`);
+
+    const rows = await database.ownerPool.query<{ content: string }>(
+      'SELECT content FROM crm.interaction_chunks WHERE interaction_id = $1',
+      [String(created.body.interactionId)],
+    );
+
+    // Denormalizasyonun telafisi budur: sirket adi degisirse reindex duzeltir.
+    expect(rows.rows[0]?.content).toContain('Acme Tekstil');
+  });
+
+  it('viewer reindex CAGIRAMAZ (interaction:create yok)', async () => {
+    const viewer = await tokenFor('viewer');
+    const response = await api()
+      .post('/api/v1/crm/reindex')
+      .set('Authorization', `Bearer ${viewer}`);
+    expect(response.status).toBe(403);
+  });
+
+  it('gorusme payi ASILINCA 429 doner ve gorusme YAZILMAZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    // Kovayi doldur: `create_interaction` AYRI bir kovadir.
+    await database.ownerPool.query(
+      `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+       SELECT $1, u.id, 'create_interaction', date_trunc('hour', now()), 100000
+       FROM platform.users u LIMIT 1`,
+      [TENANT_A],
+    );
+
+    const response = await createInteraction(owner, String(company.body.id));
+    expect(response.status).toBe(429);
+    expect(response.headers['retry-after']).toBeDefined();
   });
 });

@@ -1,10 +1,20 @@
 import { Inject, Module } from '@nestjs/common';
 
+import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
+import { createEmbeddingPort } from '../../infrastructure/ai/ai-provider.factory';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
+import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
+import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
+import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
+import {
+  RATE_LIMIT_REPOSITORY,
+  type RateLimitRepository,
+} from '../../shared/rate-limit.repository.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import {
   TRANSACTION_MANAGER,
@@ -18,14 +28,21 @@ import {
   OPPORTUNITY_REPOSITORY,
   type OpportunityRepository,
 } from './application/opportunity.repository.port';
+import {
+  INTERACTION_REPOSITORY,
+  type InteractionRepository,
+} from './application/interaction.repository.port';
+import { InteractionUseCases } from './application/interaction.use-cases';
 import { OpportunityUseCases } from './application/opportunity.use-cases';
 import { CRM_PERMISSIONS } from './crm.permissions';
 import { DrizzleCompanyRepository } from './infrastructure/drizzle-company.repository';
 import { DrizzleContactRepository } from './infrastructure/drizzle-contact.repository';
+import { DrizzleInteractionRepository } from './infrastructure/drizzle-interaction.repository';
 import { DrizzleOpportunityRepository } from './infrastructure/drizzle-opportunity.repository';
 import { CompanyController } from './presentation/company.controller';
 import { ContactController } from './presentation/contact.controller';
 import { FollowUpController } from './presentation/follow-up.controller';
+import { InteractionController } from './presentation/interaction.controller';
 import { OpportunityController } from './presentation/opportunity.controller';
 
 /**
@@ -44,8 +61,20 @@ import { OpportunityController } from './presentation/opportunity.controller';
  * kaydedecek — bugun ikisi de YOK.
  * ============================================================================
  */
+/** AI maliyet kaydinda bu modulun etiketi (ROADMAP §8.1, Slice 1 karari). */
+const CRM_CALLER = 'crm';
+
 @Module({
-  controllers: [CompanyController, ContactController, OpportunityController, FollowUpController],
+  // CRM ILK KEZ AI'a dokunuyor (Slice 6): her saglayici cagrisi
+  // `event: "ai.call"` satiri birakir.
+  imports: [AiObservabilityModule],
+  controllers: [
+    CompanyController,
+    ContactController,
+    OpportunityController,
+    FollowUpController,
+    InteractionController,
+  ],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -54,6 +83,17 @@ import { OpportunityController } from './presentation/opportunity.controller';
     { provide: COMPANY_REPOSITORY, useClass: DrizzleCompanyRepository },
     { provide: CONTACT_REPOSITORY, useClass: DrizzleContactRepository },
     { provide: OPPORTUNITY_REPOSITORY, useClass: DrizzleOpportunityRepository },
+    { provide: INTERACTION_REPOSITORY, useClass: DrizzleInteractionRepository },
+    { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
+
+    // Adapter SINIFLARI paylasilir, ORNEK modul basinadir: `caller` kurulusta
+    // sabitlenir (ADR-0031 Slice 1). LLM_PORT YOK — CRM completion cagirmaz.
+    {
+      provide: EMBEDDING_PORT,
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort =>
+        createEmbeddingPort(config, recorder, CRM_CALLER),
+    },
 
     {
       provide: CompanyUseCases,
@@ -112,6 +152,43 @@ import { OpportunityController } from './presentation/opportunity.controller';
           transactionManager,
           idGenerator,
           clock,
+        }),
+    },
+    {
+      provide: InteractionUseCases,
+      inject: [
+        INTERACTION_REPOSITORY,
+        COMPANY_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
+        EMBEDDING_PORT,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+        APP_CONFIG,
+      ],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
+      // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        repository: InteractionRepository,
+        companyRepository: CompanyRepository,
+        rateLimitRepository: RateLimitRepository,
+        embeddingPort: EmbeddingPort,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+        config: AppConfig,
+      ): InteractionUseCases =>
+        new InteractionUseCases({
+          repository,
+          companyRepository,
+          rateLimitRepository,
+          embeddingPort,
+          transactionManager,
+          idGenerator,
+          clock,
+          rateLimit: config.crm.interactionsRateLimit,
+          reindexBatchSize: config.crm.reindexBatchSize,
         }),
     },
   ],
