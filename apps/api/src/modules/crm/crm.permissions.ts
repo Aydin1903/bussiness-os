@@ -24,6 +24,10 @@ export const CONTACT_READ = 'contact:read';
 export const CONTACT_WRITE = 'contact:write';
 export const CONTACT_DELETE = 'contact:delete';
 
+export const OPPORTUNITY_READ = 'opportunity:read';
+export const OPPORTUNITY_WRITE = 'opportunity:write';
+export const OPPORTUNITY_DELETE = 'opportunity:delete';
+
 /**
  * ============================================================================
  * `delete` NEDEN `write`'TAN AYRI
@@ -53,4 +57,13 @@ export const CRM_PERMISSIONS: readonly PermissionRule[] = [
   { permission: CONTACT_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
   { permission: CONTACT_WRITE, roles: ['owner', 'admin', 'member'] },
   { permission: CONTACT_DELETE, roles: ['owner', 'admin'] },
+
+  // `opportunity:read` AYRI bir izindir ve bu ayrim bugunden karsiligini
+  // verir: "musteri listesini gorur ama anlasma tutarlarini gormez" klasik
+  // bir CRM talebidir ve TEK SATIRLIK bir degisiklikle karsilanabilir.
+  // Alan bazli izin (yalnizca `estimated_value`) ABAC'tir ve backlog'tadir
+  // (ROADMAP §1.1) — ama kaba hali burada zaten ifade edilebilir.
+  { permission: OPPORTUNITY_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
+  { permission: OPPORTUNITY_WRITE, roles: ['owner', 'admin', 'member'] },
+  { permission: OPPORTUNITY_DELETE, roles: ['owner', 'admin'] },
 ];

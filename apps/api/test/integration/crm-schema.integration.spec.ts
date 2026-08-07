@@ -56,7 +56,7 @@ describe('crm semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE crm.contacts, crm.companies CASCADE');
+    await ownerPool.query('TRUNCATE crm.opportunities, crm.contacts, crm.companies CASCADE');
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -99,13 +99,33 @@ describe('crm semasi (gercek PostgreSQL)', () => {
     return id;
   }
 
+  async function insertOpportunity(
+    tenantId: string,
+    companyId: string,
+    overrides: { stage?: string; followUp?: string | null } = {},
+  ): Promise<string> {
+    const id = randomUUID();
+    await asTenant(tenantId, (client) =>
+      client.query(
+        `INSERT INTO crm.opportunities (id, tenant_id, company_id, title, stage, next_follow_up_on)
+         VALUES ($1, $2, $3, 'Yillik sozlesme', $4, $5)`,
+        [id, tenantId, companyId, overrides.stage ?? 'in_discussion', overrides.followUp ?? null],
+      ),
+    );
+    return id;
+  }
+
   describe('sema ve kisitlar', () => {
-    it('iki tablo crm semasinda olusturuldu', async () => {
+    it('uc tablo crm semasinda olusturuldu', async () => {
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'crm' ORDER BY table_name",
       );
 
-      expect(rows.rows.map((row) => row.table_name)).toEqual(['companies', 'contacts']);
+      expect(rows.rows.map((row) => row.table_name)).toEqual([
+        'companies',
+        'contacts',
+        'opportunities',
+      ]);
     });
 
     it('sirket adi TEKIL DEGILDIR (ADR-0031 Slice 4 karari)', async () => {
@@ -130,6 +150,53 @@ describe('crm semasi (gercek PostgreSQL)', () => {
 
     it('kisi VAR OLMAYAN sirkete baglanamaz (FK)', async () => {
       await expect(insertContact(TENANT_A, randomUUID())).rejects.toThrow(/foreign key/i);
+    });
+
+    it('GECERSIZ asama veritabaninda REDDEDILIR', async () => {
+      // `platform.rate_limits`ten FARKLI olarak burada numaralandiran CHECK
+      // VARDIR: tablo modulun KENDISININDIR, kendi sozlugunu tasimasi mesru.
+      const companyId = await insertCompany(TENANT_A);
+      await expect(insertOpportunity(TENANT_A, companyId, { stage: 'arsivlendi' })).rejects.toThrow(
+        /opportunities_stage_valid/,
+      );
+    });
+
+    it('TUTAR varsa PARA BIRIMI zorunlu (veritabani seviyesinde)', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO crm.opportunities (id, tenant_id, company_id, title, estimated_value)
+             VALUES ($1, $2, $3, 'Birimsiz tutar', 1000)`,
+            [randomUUID(), TENANT_A, companyId],
+          ),
+        ),
+      ).rejects.toThrow(/opportunities_currency_required_with_value/);
+    });
+
+    it('kisi silinince firsat OLMEZ, baglantisi kopar (SET NULL)', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      const contactId = await insertContact(TENANT_A, companyId);
+      const opportunityId = randomUUID();
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query(
+          `INSERT INTO crm.opportunities (id, tenant_id, company_id, contact_id, title)
+           VALUES ($1, $2, $3, $4, 'Sozlesme')`,
+          [opportunityId, TENANT_A, companyId, contactId],
+        );
+        await client.query('DELETE FROM crm.contacts WHERE id = $1', [contactId]);
+
+        // CASCADE olsaydi bir kisiyi silmek acik bir anlasmayi da silerdi —
+        // silme niyetiyle orantisiz bir yikim.
+        const result = await client.query<{ contact_id: string | null }>(
+          'SELECT contact_id FROM crm.opportunities WHERE id = $1',
+          [opportunityId],
+        );
+        return result.rows[0];
+      });
+
+      expect(remaining?.contact_id).toBeNull();
     });
   });
 
@@ -231,6 +298,100 @@ describe('crm semasi (gercek PostgreSQL)', () => {
       );
 
       expect(result.rows[0]?.count).toBe('0');
+    });
+  });
+
+  describe('opportunities — RLS ve takipler (ADR-0031 §2, §3)', () => {
+    it('tenant A, B nin firsatini GOREMEZ', async () => {
+      const companyB = await insertCompany(TENANT_B);
+      await insertOpportunity(TENANT_B, companyB);
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ id: string }>('SELECT id FROM crm.opportunities');
+        return result.rows;
+      });
+
+      expect(rows).toHaveLength(0);
+    });
+
+    it('BASKA tenant adina firsat yazmak WITH CHECK ile reddedilir', async () => {
+      const companyA = await insertCompany(TENANT_A);
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO crm.opportunities (id, tenant_id, company_id, title)
+             VALUES ($1, $2, $3, 'sizinti')`,
+            [randomUUID(), TENANT_B, companyA],
+          ),
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+
+    it('ENABLE + FORCE tasir', async () => {
+      const result = await ownerPool.query<{
+        relrowsecurity: boolean;
+        relforcerowsecurity: boolean;
+      }>(
+        `SELECT relrowsecurity, relforcerowsecurity
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'crm' AND c.relname = 'opportunities'`,
+      );
+
+      expect(result.rows[0]?.relrowsecurity).toBe(true);
+      expect(result.rows[0]?.relforcerowsecurity).toBe(true);
+    });
+
+    it('tenant context KURULMADAN sorgu HATA verir', async () => {
+      await expect(appPool.query('SELECT 1 FROM crm.opportunities')).rejects.toThrow(
+        /unrecognized configuration parameter|invalid input syntax/i,
+      );
+    });
+
+    it('sirket silinince firsatlari da gider (CASCADE)', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      await insertOpportunity(TENANT_A, companyId);
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM crm.companies WHERE id = $1', [companyId]);
+        const result = await client.query<{ count: string }>(
+          'SELECT count(*) AS count FROM crm.opportunities',
+        );
+        return result.rows[0]?.count;
+      });
+
+      expect(remaining).toBe('0');
+    });
+
+    it('takipler sorgusu KAPANAN firsati DISLAR', async () => {
+      const companyId = await insertCompany(TENANT_A);
+      await insertOpportunity(TENANT_A, companyId, {
+        stage: 'in_discussion',
+        followUp: '2026-08-12',
+      });
+      await insertOpportunity(TENANT_A, companyId, { stage: 'won', followUp: '2026-08-11' });
+      await insertOpportunity(TENANT_A, companyId, { stage: 'lost', followUp: '2026-08-10' });
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ next_follow_up_on: string }>(
+          `SELECT next_follow_up_on FROM crm.opportunities
+           WHERE next_follow_up_on IS NOT NULL AND stage NOT IN ('won', 'lost')
+           ORDER BY next_follow_up_on ASC, id ASC`,
+        );
+        return result.rows;
+      });
+
+      // Kapanan firsat listeden KENDILIGINDEN duser — elle silme isi yok.
+      expect(rows).toHaveLength(1);
+    });
+
+    it('takipler icin KISMI index kuruldu (sorgu yuklemiyle birebir)', async () => {
+      const result = await ownerPool.query<{ indexdef: string }>(
+        "SELECT indexdef FROM pg_indexes WHERE indexname = 'opportunities_follow_up_idx'",
+      );
+
+      // Index yuklemi sorgunun yuklemiyle ayrisirsa index devre disi kalir.
+      expect(result.rows[0]?.indexdef).toMatch(/WHERE.*next_follow_up_on IS NOT NULL/s);
+      expect(result.rows[0]?.indexdef).toMatch(/won.*lost/s);
     });
   });
 

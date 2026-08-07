@@ -48,6 +48,12 @@ const PASSWORD = 'parola123';
 const TENANT_A = '018f3a2b-7c4d-7e1f-8a2b-0000000000c1';
 const TENANT_B = '018f3a2b-7c4d-7e1f-8a2b-0000000000c2';
 
+/** `items[].title` projeksiyonu — `supertest` body'si `any`'dir. */
+function followUpTitles(body: unknown): string[] {
+  const items = (body as { items?: readonly { title: string }[] }).items ?? [];
+  return items.map((row) => row.title);
+}
+
 describe('CRM uclari (uctan uca)', () => {
   let app: INestApplication;
   let database: TestDatabase;
@@ -75,7 +81,9 @@ describe('CRM uclari (uctan uca)', () => {
   });
 
   beforeEach(async () => {
-    await database.ownerPool.query('TRUNCATE crm.contacts, crm.companies CASCADE');
+    await database.ownerPool.query(
+      'TRUNCATE crm.opportunities, crm.contacts, crm.companies CASCADE',
+    );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
   });
@@ -313,5 +321,166 @@ describe('CRM uclari (uctan uca)', () => {
 
     expect(filtered.body.items).toHaveLength(1);
     expect(filtered.body.items[0].fullName).toBe('Ayse');
+  });
+  // --- Firsatlar ve takipler (ADR-0031 §2, §3) ----------------------------
+
+  function createOpportunity(token: string, companyId: string, body: Record<string, unknown> = {}) {
+    return api()
+      .post('/api/v1/crm/opportunities')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ companyId, title: 'Yillik sozlesme', ...body });
+  }
+
+  it('viewer firsat OKUR ama YAZAMAZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createOpportunity(owner, String(company.body.id));
+
+    const viewer = await tokenFor('viewer');
+
+    const read = await api()
+      .get('/api/v1/crm/opportunities')
+      .set('Authorization', `Bearer ${viewer}`);
+    expect(read.status).toBe(200);
+    expect(read.body.items).toHaveLength(1);
+
+    const write = await createOpportunity(viewer, String(company.body.id));
+    expect(write.status).toBe(403);
+  });
+
+  it('member firsat SILEMEZ (opportunity:delete owner/admin)', async () => {
+    const member = await tokenFor('member');
+    const company = await createCompany(member);
+    const created = await createOpportunity(member, String(company.body.id));
+    expect(created.status).toBe(201);
+
+    const deleted = await api()
+      .delete(`/api/v1/crm/opportunities/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${member}`);
+    expect(deleted.status).toBe(403);
+  });
+
+  it('TUTAR varsa PARA BIRIMI zorunlu -> 422', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    const response = await createOpportunity(owner, String(company.body.id), {
+      estimatedValue: '250000.00',
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it('KAYBEDILDI -> GORUSULUYOR gecisi 200 doner (asama sirasi DAYATILMAZ)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createOpportunity(owner, String(company.body.id), { stage: 'lost' });
+
+    const reopened = await api()
+      .patch(`/api/v1/crm/opportunities/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ stage: 'in_discussion' });
+
+    expect(reopened.status).toBe(200);
+    expect(reopened.body.stage).toBe('in_discussion');
+  });
+
+  it('AYNI asama tekrar gonderilince stageChangedAt DEGISMEZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createOpportunity(owner, String(company.body.id), {
+      stage: 'in_discussion',
+    });
+    const before = String(created.body.stageChangedAt);
+
+    const patched = await api()
+      .patch(`/api/v1/crm/opportunities/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ stage: 'in_discussion', title: 'Yeni baslik' });
+
+    // "Kac gundur bu asamada" sinyali bir no-op guncellemeyle silinemez.
+    expect(String(patched.body.stageChangedAt)).toBe(before);
+    expect(patched.body.title).toBe('Yeni baslik');
+  });
+
+  it('GERCEK asama degisiminde stageChangedAt ILERLER', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createOpportunity(owner, String(company.body.id), {
+      stage: 'potential',
+    });
+
+    const patched = await api()
+      .patch(`/api/v1/crm/opportunities/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ stage: 'proposal_sent' });
+
+    expect(new Date(String(patched.body.stageChangedAt)).getTime()).toBeGreaterThanOrEqual(
+      new Date(String(created.body.stageChangedAt)).getTime(),
+    );
+  });
+
+  it('takipler KRONOLOJIK doner ve GECIKMIS olanlar DAHILDIR', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    await createOpportunity(owner, String(company.body.id), {
+      title: 'Gelecek',
+      nextFollowUpOn: '2026-12-01',
+    });
+    await createOpportunity(owner, String(company.body.id), {
+      title: 'Gecikmis',
+      nextFollowUpOn: '2020-01-01',
+    });
+
+    const response = await api()
+      .get('/api/v1/crm/follow-ups')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+    // Gecikmisler EN ONEMLILERIDIR: dislanmaz, basa gelir.
+    expect(followUpTitles(response.body)).toEqual(['Gecikmis', 'Gelecek']);
+  });
+
+  it('takipler KAPANAN firsati DISLAR (kendiliginden duser)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createOpportunity(owner, String(company.body.id), {
+      nextFollowUpOn: '2026-09-01',
+    });
+
+    const before = await api()
+      .get('/api/v1/crm/follow-ups')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(before.body.items).toHaveLength(1);
+
+    await api()
+      .patch(`/api/v1/crm/opportunities/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ stage: 'won' });
+
+    const after = await api().get('/api/v1/crm/follow-ups').set('Authorization', `Bearer ${owner}`);
+
+    // Ayri bir tabloda bunu ELLE silmek gerekirdi ve biri unutuldugunda liste
+    // yalan soylerdi.
+    expect(after.body.items).toHaveLength(0);
+  });
+
+  it('takipler TARIHI OLMAYAN firsati DISLAR', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createOpportunity(owner, String(company.body.id));
+
+    const response = await api()
+      .get('/api/v1/crm/follow-ups')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.body.items).toHaveLength(0);
+  });
+
+  it('firsat VAR OLMAYAN sirkete baglanamaz -> 404', async () => {
+    const owner = await tokenFor('owner');
+    const response = await createOpportunity(owner, nextId('9c3d'));
+    expect(response.status).toBe(404);
   });
 });

@@ -41,3 +41,4 @@ export { rateLimits } from './rate-limits.schema';
 export { crmSchema } from './crm.schema';
 export { companies } from './companies.schema';
 export { contacts } from './contacts.schema';
+export { opportunities } from './opportunities.schema';

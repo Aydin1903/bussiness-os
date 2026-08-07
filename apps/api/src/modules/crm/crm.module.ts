@@ -14,11 +14,19 @@ import { COMPANY_REPOSITORY, type CompanyRepository } from './application/compan
 import { CompanyUseCases } from './application/company.use-cases';
 import { CONTACT_REPOSITORY, type ContactRepository } from './application/contact.repository.port';
 import { ContactUseCases } from './application/contact.use-cases';
+import {
+  OPPORTUNITY_REPOSITORY,
+  type OpportunityRepository,
+} from './application/opportunity.repository.port';
+import { OpportunityUseCases } from './application/opportunity.use-cases';
 import { CRM_PERMISSIONS } from './crm.permissions';
 import { DrizzleCompanyRepository } from './infrastructure/drizzle-company.repository';
 import { DrizzleContactRepository } from './infrastructure/drizzle-contact.repository';
+import { DrizzleOpportunityRepository } from './infrastructure/drizzle-opportunity.repository';
 import { CompanyController } from './presentation/company.controller';
 import { ContactController } from './presentation/contact.controller';
+import { FollowUpController } from './presentation/follow-up.controller';
+import { OpportunityController } from './presentation/opportunity.controller';
 
 /**
  * CRM modulu — Faz 5'in ilk is modulu (ADR-0031).
@@ -37,7 +45,7 @@ import { ContactController } from './presentation/contact.controller';
  * ============================================================================
  */
 @Module({
-  controllers: [CompanyController, ContactController],
+  controllers: [CompanyController, ContactController, OpportunityController, FollowUpController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -45,6 +53,7 @@ import { ContactController } from './presentation/contact.controller';
 
     { provide: COMPANY_REPOSITORY, useClass: DrizzleCompanyRepository },
     { provide: CONTACT_REPOSITORY, useClass: DrizzleContactRepository },
+    { provide: OPPORTUNITY_REPOSITORY, useClass: DrizzleOpportunityRepository },
 
     {
       provide: CompanyUseCases,
@@ -70,6 +79,36 @@ import { ContactController } from './presentation/contact.controller';
         new ContactUseCases({
           repository,
           companyRepository,
+          transactionManager,
+          idGenerator,
+          clock,
+        }),
+    },
+    {
+      provide: OpportunityUseCases,
+      inject: [
+        OPPORTUNITY_REPOSITORY,
+        COMPANY_REPOSITORY,
+        CONTACT_REPOSITORY,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+      ],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
+      // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        repository: OpportunityRepository,
+        companyRepository: CompanyRepository,
+        contactRepository: ContactRepository,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+      ): OpportunityUseCases =>
+        new OpportunityUseCases({
+          repository,
+          companyRepository,
+          contactRepository,
           transactionManager,
           idGenerator,
           clock,

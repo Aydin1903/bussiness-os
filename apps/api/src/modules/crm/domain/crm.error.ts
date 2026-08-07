@@ -56,3 +56,52 @@ export class InvalidCrmTimestampError extends CrmDomainError {
     super('Guncelleme zamani olusturma zamanindan once olamaz.');
   }
 }
+
+export class BlankOpportunityTitleError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_TITLE_BLANK';
+  constructor() {
+    super('Firsat basligi bos olamaz.');
+  }
+}
+
+export class InvalidOpportunityStageError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_STAGE_INVALID';
+  constructor(stage: string) {
+    super(`Gecersiz firsat asamasi: ${stage}`);
+  }
+}
+
+/**
+ * Tutar var ama para birimi yok.
+ *
+ * Birimsiz bir tutar toplamlari SESSIZCE yanlis yapar. Veritabaninda da ayni
+ * kisit vardir (`0017`); burada yakalanmasi 500 yerine 422 dondurur.
+ */
+export class CurrencyRequiredError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_CURRENCY_REQUIRED';
+  constructor() {
+    super('Tahmini deger girildiginde para birimi zorunludur.');
+  }
+}
+
+export class OpportunityNotFoundError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_NOT_FOUND';
+  constructor() {
+    super('Firsat bulunamadi.');
+  }
+}
+
+/** Firsat, var olmayan (ya da gorunmeyen) bir sirkete/kisiye baglanamaz. */
+export class OpportunityCompanyNotFoundError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_COMPANY_NOT_FOUND';
+  constructor() {
+    super('Firsatin baglanacagi sirket bulunamadi.');
+  }
+}
+
+export class OpportunityContactNotFoundError extends CrmDomainError {
+  readonly code = 'OPPORTUNITY_CONTACT_NOT_FOUND';
+  constructor() {
+    super('Firsatin baglanacagi kisi bulunamadi.');
+  }
+}

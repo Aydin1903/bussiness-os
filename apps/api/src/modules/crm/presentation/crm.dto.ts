@@ -75,6 +75,57 @@ export const listContactsQuerySchema = listQuerySchema.extend({
   companyId: z.uuid().optional(),
 });
 
+/** ISO takvim gunu (`YYYY-MM-DD`). Saat YOK — tip `date` (ADR-0031 §3). */
+const calendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD biciminde olmali')
+  .nullish();
+
+/** `numeric` — string olarak tasinir; kayan noktali sayida para tutulmaz. */
+const money = z
+  .string()
+  .regex(/^\d+(\.\d{1,2})?$/, 'Tutar en fazla iki ondalikli pozitif sayi olmali')
+  .nullish();
+
+export const opportunityStageSchema = z.enum([
+  'potential',
+  'in_discussion',
+  'proposal_sent',
+  'won',
+  'lost',
+]);
+
+export const createOpportunitySchema = z
+  .object({
+    companyId: z.uuid('companyId gecerli bir UUID olmali'),
+    contactId: z.uuid('contactId gecerli bir UUID olmali').nullish(),
+    title: z.string().trim().min(1, 'Firsat basligi bos olamaz').max(MAX_NAME),
+    /** Verilmezse `potential` — hat hep bastan baslar. */
+    stage: opportunityStageSchema.default('potential'),
+    estimatedValue: money,
+    currency: optionalText(10),
+    nextFollowUpOn: calendarDay,
+  })
+  .strict();
+
+/**
+ * `companyId` BURADA YOKTUR: firsati baska sirkete tasimak bir TASIMA
+ * islemidir (`Contact` ile ayni gerekce) ve sessizce izin vermek, sirket
+ * silinince yanlis firsatlarin cascade ile gitmesine yol acardi.
+ */
+export const updateOpportunitySchema = createOpportunitySchema
+  .omit({ companyId: true })
+  .partial()
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'En az bir alan gonderilmelidir',
+  });
+
+export const listOpportunitiesQuerySchema = listQuerySchema.extend({
+  companyId: z.uuid().optional(),
+  stage: opportunityStageSchema.optional(),
+});
+
 export const idParamSchema = z.object({ id: z.uuid('Gecerli bir UUID olmali') }).strict();
 
 export type CreateCompanyBody = z.infer<typeof createCompanySchema>;
@@ -83,3 +134,6 @@ export type CreateContactBody = z.infer<typeof createContactSchema>;
 export type UpdateContactBody = z.infer<typeof updateContactSchema>;
 export type ListQuery = z.infer<typeof listQuerySchema>;
 export type ListContactsQuery = z.infer<typeof listContactsQuerySchema>;
+export type CreateOpportunityBody = z.infer<typeof createOpportunitySchema>;
+export type UpdateOpportunityBody = z.infer<typeof updateOpportunitySchema>;
+export type ListOpportunitiesQuery = z.infer<typeof listOpportunitiesQuerySchema>;
