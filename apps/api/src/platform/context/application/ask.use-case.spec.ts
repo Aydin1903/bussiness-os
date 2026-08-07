@@ -223,6 +223,7 @@ class SequentialIdGenerator implements IdGenerator {
 
 interface Harness {
   readonly search: FakeContributor;
+  readonly contributors: FakeContributorRegistry;
   readonly permissions: FakePermissionChecker;
   readonly rateLimits: FakeRateLimitRepository;
   readonly conversations: FakeConversationRepository;
@@ -264,6 +265,7 @@ function createHarness(
 
   return {
     search,
+    contributors,
     permissions,
     rateLimits,
     conversations,
@@ -826,5 +828,96 @@ describe('AskUseCase — katkici elemesi', () => {
     // almamalidir.
     expect(result.degradedSources).toEqual(['knowledge']);
     expect(result.sources).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// IKI KATKICI ile eleme (ADR-0031 Slice 7)
+// ---------------------------------------------------------------------------
+//
+// Slice 3'te eleme TEK katkiciyla kurulmustu; "izinli olan gecer, olmayan
+// elenir" ayrimi o gun GOZLENEMIYORDU (elenince ortada hicbir sey kalmiyordu).
+//
+// ⚠️ Bu sozlesme HTTP'den SINANAMAZ: rol matrisi geregi "context:ask VAR ama
+// bir kaynagin izni YOK" bir kullanici bugun URETILEMEZ (owner/admin/member
+// ucu de hepsini tasir, viewer hicbirini). Bu yuzden ayrim BURADA sinanir.
+
+describe('AskUseCase — IKI katkici, KISMI izin', () => {
+  function twoContributors(harness: ReturnType<typeof createHarness>) {
+    const second: RetrievalContributor = {
+      source: 'crm-interactions',
+      permission: 'interaction:read',
+      contribute: () => {
+        harness.calls.push('crm-search');
+        return Promise.resolve([
+          {
+            content: 'CRM gorusme parcasi',
+            score: 0.8,
+            source: 'crm-interactions',
+            reference: { kind: 'interaction', id: 'gorusme-1' },
+          },
+        ]);
+      },
+    };
+    harness.contributors.register(second);
+  }
+
+  it('IZINLI katkici gecer, IZINSIZ olan ELENIR', async () => {
+    const harness = createHarness();
+    twoContributors(harness);
+    harness.permissions.denied.add('interaction:read');
+
+    const result = await harness.useCase.execute(command());
+
+    // Knowledge gecti...
+    expect(ids(result.sources)).toEqual([NOTE_A]);
+    // ...CRM icerigi baglama HIC girmedi.
+    expect(harness.llm.lastInput?.context).not.toContain('CRM gorusme parcasi');
+  });
+
+  it('IZINSIZ katkici HIC CAGRILMAZ, izinli olan CAGRILIR', async () => {
+    const harness = createHarness();
+    twoContributors(harness);
+    harness.permissions.denied.add('interaction:read');
+
+    await harness.useCase.execute(command());
+
+    expect(harness.calls).toContain('search');
+    // Eleme cagridan ONCE yapilir: yetkisiz kullanici icin pahali is yok.
+    expect(harness.calls).not.toContain('crm-search');
+  });
+
+  it('ELENEN katkici degradedSources ta GORUNMEZ', async () => {
+    const harness = createHarness();
+    twoContributors(harness);
+    harness.permissions.denied.add('interaction:read');
+
+    const result = await harness.useCase.execute(command());
+
+    // Bir kaynagin ADINI soylemek, goremedigi verinin VARLIGINI sizdirirdi.
+    expect(result.degradedSources).toEqual([]);
+  });
+
+  it('IKI izin de varsa IKI kaynak da cevaba girer', async () => {
+    const harness = createHarness();
+    twoContributors(harness);
+
+    const result = await harness.useCase.execute(command());
+
+    expect(result.sources.map((source) => source.source)).toEqual([
+      'knowledge',
+      'crm-interactions',
+    ]);
+  });
+
+  it('BIRI bozulursa digeri calisir; yalnizca bozulan raporlanir', async () => {
+    const harness = createHarness();
+    twoContributors(harness);
+    harness.search.failure = new Error('knowledge cokti');
+
+    const result = await harness.useCase.execute(command());
+
+    expect(result.degradedSources).toEqual(['knowledge']);
+    expect(result.sources.map((source) => source.source)).toEqual(['crm-interactions']);
   });
 });

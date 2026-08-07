@@ -3,6 +3,14 @@ import { type ListPage } from './company.repository.port';
 
 export const INTERACTION_REPOSITORY = Symbol('INTERACTION_REPOSITORY');
 
+/** Anlamsal aramanin dondurdugu tek parca. */
+export interface SimilarInteractionChunk {
+  /** Parca metni — BAGLAM BASLIGI dahil (gomulen sey tam olarak budur). */
+  readonly content: string;
+  /** Hangi gorusmeden geldi — kaynak atfi bundan turer. */
+  readonly interactionId: string;
+}
+
 /** Yeniden indekslenecek gorusme — is listesi TURETILMISTIR (ADR-0029). */
 export interface UnindexedInteraction {
   readonly interactionId: string;
@@ -40,4 +48,16 @@ export interface InteractionRepository {
    */
   countUnindexed(): Promise<number>;
   findUnindexed(limit: number): Promise<UnindexedInteraction[]>;
+
+  /**
+   * ANLAMSAL arama (ADR-0031 §5.4 — `crm-interactions` katkicisi).
+   *
+   * TENANT FILTRESI YOK ve bu BILINCLI: daraltmayi RLS yapar (migration
+   * `0018`) ve cagiran zaten tenant transaction'i icindedir.
+   * `DrizzleNoteChunkSearchRepository` ile birebir ayni gerekce.
+   */
+  findSimilarChunks(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarInteractionChunk[]>;
 }

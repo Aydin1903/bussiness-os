@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, cosineDistance, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
 import {
   companies,
@@ -10,6 +10,7 @@ import { requireTransaction } from '../../../infrastructure/database/transaction
 import { type ListPage } from '../application/company.repository.port';
 import {
   type InteractionRepository,
+  type SimilarInteractionChunk,
   type UnindexedInteraction,
 } from '../application/interaction.repository.port';
 import { Interaction, InteractionChunk } from '../domain/interaction.entity';
@@ -135,5 +136,34 @@ export class DrizzleInteractionRepository implements InteractionRepository {
       occurredOn: row.occurredOn,
       body: row.body,
     }));
+  }
+
+  /**
+   * ANLAMSAL arama — `DrizzleNoteChunkSearchRepository` ile BIREBIR ayni desen.
+   *
+   * SORGUDA `WHERE tenant_id` YOK: daraltmayi RLS yapar (migration `0018`).
+   * Elle filtre eklemek (a) korumanin RLS'te oldugu gercegini bulanikllastirir,
+   * (b) filtre bir gun unutulursa RLS'in hala koruyor oldugu FARK EDILMEZ.
+   *
+   * `cosineDistance` (`<=>`) HNSW index'iyle eslesir: index
+   * `vector_cosine_ops` ile kuruldu. Farkli bir operator index'i DEVRE DISI
+   * birakir ve sorgu tam tarama yapar.
+   */
+  async findSimilarChunks(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarInteractionChunk[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({
+        content: interactionChunks.content,
+        interactionId: interactionChunks.interactionId,
+      })
+      .from(interactionChunks)
+      .orderBy(asc(cosineDistance(interactionChunks.embedding, [...input.embedding])))
+      .limit(input.limit);
+
+    return rows;
   }
 }

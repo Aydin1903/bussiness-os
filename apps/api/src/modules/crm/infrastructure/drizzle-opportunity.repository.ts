@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, isNotNull, notInArray, sql, type SQL } from 'drizzle-orm';
 
-import { opportunities } from '../../../infrastructure/database/schema';
+import { companies, opportunities } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { type ListPage } from '../application/company.repository.port';
 import {
   type FollowUpRow,
   type OpportunityRepository,
+  type PipelineRow,
 } from '../application/opportunity.repository.port';
 import { InvalidOpportunityStageError } from '../domain/crm.error';
 import {
@@ -85,6 +86,53 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
       .where(eq(opportunities.id, id))
       .returning({ id: opportunities.id });
     return deleted.length;
+  }
+
+  /**
+   * ACIK firsat anlik goruntusu — YAPISAL katki (ADR-0031 §5.4).
+   *
+   * SIRALAMA iki kademelidir ve bu KASITLIDIR:
+   *   1. GECIKMIS takipler once — "yapilacak is" sinyalinin en guclusu.
+   *   2. Sonra tahmini deger (buyukten kucuge); degeri olmayan en sonda.
+   *
+   * `limit` katkicidan gelir ve KUCUKTUR (3): yapisal katki her soruda
+   * gonderilir, bu yuzden sabit ve kucuk tutulmak ZORUNDADIR.
+   */
+  async listOpenPipeline(input: { limit: number }): Promise<PipelineRow[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({
+        opportunityId: opportunities.id,
+        companyName: companies.name,
+        title: opportunities.title,
+        stage: opportunities.stage,
+        estimatedValue: opportunities.estimatedValue,
+        currency: opportunities.currency,
+        stageChangedAt: opportunities.stageChangedAt,
+        nextFollowUpOn: opportunities.nextFollowUpOn,
+      })
+      .from(opportunities)
+      .innerJoin(companies, eq(companies.id, opportunities.companyId))
+      .where(notInArray(opportunities.stage, [...CLOSED_STAGES]))
+      .orderBy(
+        // Gecikmis olanlar ONCE. `NULLS LAST` degeri olmayani sona atar.
+        sql`(${opportunities.nextFollowUpOn} IS NOT NULL AND ${opportunities.nextFollowUpOn} < CURRENT_DATE) DESC`,
+        sql`${opportunities.estimatedValue} DESC NULLS LAST`,
+        asc(opportunities.id),
+      )
+      .limit(input.limit);
+
+    return rows.map((row) => ({
+      opportunityId: row.opportunityId,
+      companyName: row.companyName,
+      title: row.title,
+      stage: toStage(row.stage),
+      estimatedValue: row.estimatedValue,
+      currency: row.currency,
+      stageChangedAt: row.stageChangedAt,
+      nextFollowUpOn: row.nextFollowUpOn,
+    }));
   }
 
   /**

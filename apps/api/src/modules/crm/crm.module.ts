@@ -8,6 +8,11 @@ import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/driz
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { ContextModule } from '../../platform/context/context.module';
+import {
+  RETRIEVAL_CONTRIBUTOR_REGISTRY,
+  type RetrievalContributorRegistry,
+} from '../../platform/context/context.public';
 import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
@@ -37,6 +42,8 @@ import { OpportunityUseCases } from './application/opportunity.use-cases';
 import { CRM_PERMISSIONS } from './crm.permissions';
 import { DrizzleCompanyRepository } from './infrastructure/drizzle-company.repository';
 import { DrizzleContactRepository } from './infrastructure/drizzle-contact.repository';
+import { CrmInteractionsContributor } from './infrastructure/crm-interactions.contributor';
+import { CrmPipelineContributor } from './infrastructure/crm-pipeline.contributor';
 import { DrizzleInteractionRepository } from './infrastructure/drizzle-interaction.repository';
 import { DrizzleOpportunityRepository } from './infrastructure/drizzle-opportunity.repository';
 import { CompanyController } from './presentation/company.controller';
@@ -67,7 +74,9 @@ const CRM_CALLER = 'crm';
 @Module({
   // CRM ILK KEZ AI'a dokunuyor (Slice 6): her saglayici cagrisi
   // `event: "ai.call"` satiri birakir.
-  imports: [AiObservabilityModule],
+  // ContextModule katkici defterini export eder; CRM kendini oraya kaydeder
+  // (yon: modulden platforma — platform is modullerini import ETMEZ).
+  imports: [AiObservabilityModule, ContextModule],
   controllers: [
     CompanyController,
     ContactController,
@@ -191,11 +200,43 @@ const CRM_CALLER = 'crm';
           reindexBatchSize: config.crm.reindexBatchSize,
         }),
     },
+    // --- Kurumsal hafizaya IKI KATKI (ADR-0031 §5.1, §5.4) -------------------
+    // Anlamsal: gorusme parcalari. Yapisal: acik firsat anlik goruntusu.
+    // Ikisi de KENDI semasindan okur; birlestirmeyi platform yapar.
+    {
+      provide: CrmInteractionsContributor,
+      inject: [INTERACTION_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: InteractionRepository,
+        transactionManager: TransactionManager,
+      ): CrmInteractionsContributor =>
+        new CrmInteractionsContributor(repository, transactionManager),
+    },
+    {
+      provide: CrmPipelineContributor,
+      inject: [OPPORTUNITY_REPOSITORY, TRANSACTION_MANAGER, CLOCK],
+      useFactory: (
+        repository: OpportunityRepository,
+        transactionManager: TransactionManager,
+        clock: Clock,
+      ): CrmPipelineContributor =>
+        new CrmPipelineContributor(repository, transactionManager, clock),
+    },
   ],
 })
 export class CrmModule {
-  constructor(@Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry) {
+  constructor(
+    @Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry,
+    @Inject(RETRIEVAL_CONTRIBUTOR_REGISTRY) contributors: RetrievalContributorRegistry,
+    interactionsContributor: CrmInteractionsContributor,
+    pipelineContributor: CrmPipelineContributor,
+  ) {
     // §10.1: modul kendi permission'larini Authorization'a DEKLARE eder.
     permissions.register(CRM_PERMISSIONS);
+
+    // Ayni desen, ikinci defter: modul kendini kurumsal hafizaya KAYDEDER
+    // (ADR-0031 §5.1). Bu satirla `POST /ask` ilk kez CRM icerigi dondurebilir.
+    contributors.register(interactionsContributor);
+    contributors.register(pipelineContributor);
   }
 }
