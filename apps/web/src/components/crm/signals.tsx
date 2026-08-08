@@ -25,7 +25,12 @@ import { quietCompanyDays, staleStageDays } from '@/lib/config/crm';
  *
  * `--danger` HİÇBİRİNDE kullanılmaz: geciken bir takip ya da uzun süredir
  * beklemiş bir fırsat HATA değildir, yapılacak iştir. Sistemde dikkat çeken
- * renk zaten terracottadır.
+ * renk zaten modülün imza rengidir.
+ *
+ * ⚠️ Bu cümle 2026-08-08'de düzeltildi: eskiden "zaten terracottadır" diyordu
+ * ve modül başına renk geldiğinde YANLIŞ hâle geldi. Kural değişmedi (dikkat =
+ * `--ink`), yalnızca o token'ın değeri artık modülündür — CRM'de çivit mavisi.
+ * Terracotta bundan sonra yalnızca AI'ın sesidir (`--ai-ink`).
  */
 export function Mark({ children, quiet = false }: { children: ReactNode; quiet?: boolean }) {
   return (

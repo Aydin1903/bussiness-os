@@ -6,19 +6,24 @@ import { OPPORTUNITY_STAGE_LABELS, type OpportunityStage } from '@business-os/co
  * ============================================================================
  * NEDEN BEŞ RENK YOK
  * ============================================================================
- * Beş aşama var, palette TEK imza rengi (terracotta) var. Yaygın çözüm her
- * aşamaya bir renk vermektir — yeşil kazanıldı, kırmızı kaybedildi, mavi
- * görüşülüyor. Bu, Atölye'nin bütün renk disiplinini tek bileşende çökertirdi:
- * `globals.css`'te tanımlı olmayan üç yeni renk ekranın en çok tekrarlanan
- * öğesine girer ve sistem oradan dağılırdı.
+ * Beş aşama var, modülün TEK imza rengi var. Yaygın çözüm her aşamaya bir renk
+ * vermektir — yeşil kazanıldı, kırmızı kaybedildi, mavi görüşülüyor. Bu,
+ * Atölye'nin bütün renk disiplinini tek bileşende çökertirdi: `globals.css`'te
+ * tanımlı olmayan üç yeni renk ekranın en çok tekrarlanan öğesine girer ve
+ * sistem oradan dağılırdı.
+ *
+ * ⚠️ MODÜL BAŞINA RENK BU KARARI DEĞİŞTİRMEZ, GÜÇLENDİRİR (2026-08-08).
+ * Artık on iki imza rengi var ama bir EKRANDA hâlâ tek bir tanesi geçerlidir;
+ * aşama rozeti bulunduğu modülün rengini okur. Aşamaya göre renk vermek, o tek
+ * rengi beşe bölüp modül kimliğini de yok ederdi.
  *
  * Bunun yerine ayrım TON YOĞUNLUĞUYLA yapılır ve hattın ilerleyişi görsel
- * olarak "ısınma" gibi okunur:
+ * olarak "ısınma" gibi okunur (aşağıda "imza rengi" = CRM'de çivit mavisi):
  *
  *   potential      boş kenarlık, soluk metin   → henüz bir şey yok
  *   in_discussion  nötr dolgu                  → temas var
- *   proposal_sent  terracotta tint + ink       → sıcak
- *   won            DOLU terracotta             → kapandı, kazanıldı
+ *   proposal_sent  imza rengi tint + ink       → sıcak
+ *   won            DOLU imza rengi             → kapandı, kazanıldı
  *   lost           soluk, dolgusuz             → kapandı, geçti
  *
  * `--danger` KAYIP için kullanılmadı: o bir HATA rengidir ve kaybedilen bir

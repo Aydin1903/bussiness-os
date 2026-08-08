@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './module-colors.css';
 
 /*
  * Tasarım token'ları — FRONTEND_ARCHITECTURE §4.
@@ -13,6 +14,22 @@
  *
  * İmza rengi amberden TERRACOTTA'ya geçti. Mor/mavi "AI ürünü" klişesinden ve
  * sparkle ikonundan kaçınma kararı aynen sürüyor.
+ *
+ * ============================================================================
+ * ⚠️ TERRACOTTA ARTIK "ÜRÜNÜN RENGİ" DEĞİL, "AI'IN SESİ" — 2026-08-08
+ * ============================================================================
+ * Her modül kendi imza rengini alır (`module-colors.css`, FRONTEND §4.8).
+ * Bu dosyadaki terracotta iki şeyin rengidir ve yalnızca onların:
+ *   1. MARKA — "BO" rozeti, şirket seçici, zemin ışığı, sıcak gölgeler.
+ *      Bunlar modül kapsamının DIŞINDA (kabuk/sidebar) olduğu için hiç
+ *      dokunulmadan terracotta kalırlar.
+ *   2. AI'IN SESİ — `--ai-accent` / `--ai-ink` / `--ai-tint`. Modülün İÇİNDE
+ *      AI konuştuğunda (müşteri özeti, günlük rapor) bu token'lar kullanılır
+ *      ve modülün rengi onları ETKİLEMEZ.
+ *
+ * Aşağıdaki `--accent`/`--ink`/`--tint` ise MODÜL token'larıdır. Kökteki
+ * değerleri `--ai-*`'a eşittir — yani bir modül kapsamına girilmediği sürece
+ * (Panel, auth ekranları, kabuk) her şey bugünkü gibi terracotta kalır.
  *
  * ============================================================================
  * ⚠️ YÜZEY SIRASI TERSİNE DÖNDÜ — bu bilinçlidir
@@ -64,16 +81,27 @@
   --fg-3: #695c4d; /*  5.1:1 */
   --fg-4: #736657; /*  4.4:1 — yalnızca 11px+ metinde */
 
-  /* — terracotta —
+  /* — terracotta: AI'IN SESİ, ezilemez —
      İlk seçim `#b85c2b`'ydi ve üstündeki `--accent-fg` metni 4.40:1 veriyordu:
      AA sınırının (4.5) hemen ALTINDA. Bu renk her yerde DOLGU olarak kullanılıyor
      (Gönder düğmesi, "BO" rozeti), yani hata tek bir bileşende değil SİSTEMDE
-     olurdu. Bir kademe koyulaştırıldı → 4.76:1, renk gücünden kayıp yok. */
-  --accent: #b25628;
+     olurdu. Bir kademe koyulaştırıldı → 4.76:1, renk gücünden kayıp yok.
+
+     `--ai-*` hiçbir modül tarafından ezilmez. Modülün İÇİNDE AI konuştuğunda
+     (`bg-ai-accent`, `text-ai-ink`) bu değerler kullanılır. */
+  --ai-accent: #b25628;
+  --ai-ink: #96481f;
+  --ai-tint: rgba(178, 86, 40, 0.085);
+
+  /* — modül token'ları — kökte AI'ın sesine EŞİTTİR.
+     Tek kaynak: terracotta iki yere ayrı ayrı yazılmaz, ikincisi birincisini
+     okur. Bir modül kapsamına girilmediği sürece (Panel, auth, kabuk) her şey
+     bugünkü gibi terracotta kalır. `module-colors.css` bunları ezer. */
+  --accent: var(--ai-accent);
   --accent-fg: #fffaf6;
   /* Accent renkli METİN. Dolgu tonu metin olarak kontrastı tutmuyor. */
-  --ink: #96481f;
-  --tint: rgba(178, 86, 40, 0.085);
+  --ink: var(--ai-ink);
+  --tint: var(--ai-tint);
   --tint-2: rgba(178, 86, 40, 0.15);
   --glow: rgba(178, 86, 40, 0.17);
 
@@ -112,10 +140,13 @@
     --fg-2: #c2b5a3; /*  8.9:1 */
     --fg-3: #b0a390; /*  6.7:1 */
     --fg-4: #9a8e7c; /*  5.2:1 */
-    --accent: #e8935a;
+    --ai-accent: #e8935a;
+    --ai-ink: #f2a874;
+    --ai-tint: rgba(232, 147, 90, 0.12);
+    --accent: var(--ai-accent);
     --accent-fg: #1a120b;
-    --ink: #f2a874;
-    --tint: rgba(232, 147, 90, 0.12);
+    --ink: var(--ai-ink);
+    --tint: var(--ai-tint);
     --tint-2: rgba(232, 147, 90, 0.2);
     --glow: rgba(232, 147, 90, 0.22);
     --fill: rgba(248, 242, 233, 0.06);
@@ -141,10 +172,13 @@
   --fg-2: #c2b5a3;
   --fg-3: #b0a390;
   --fg-4: #9a8e7c;
-  --accent: #e8935a;
+  --ai-accent: #e8935a;
+  --ai-ink: #f2a874;
+  --ai-tint: rgba(232, 147, 90, 0.12);
+  --accent: var(--ai-accent);
   --accent-fg: #1a120b;
-  --ink: #f2a874;
-  --tint: rgba(232, 147, 90, 0.12);
+  --ink: var(--ai-ink);
+  --tint: var(--ai-tint);
   --tint-2: rgba(232, 147, 90, 0.2);
   --glow: rgba(232, 147, 90, 0.22);
   --fill: rgba(248, 242, 233, 0.06);
@@ -174,6 +208,17 @@
   --color-ink: var(--ink);
   --color-tint: var(--tint);
   --color-tint-2: var(--tint-2);
+  /*
+   * AI'ın sesi — `bg-ai-accent`, `text-ai-ink`, `bg-ai-tint`.
+   *
+   * Modülün İÇİNDE AI konuştuğu her yerde bunlar kullanılır. Bugün Panel bir
+   * modül DEĞİL (kapsam dışı), yani oradaki `bg-accent` zaten terracotta
+   * kalırdı — ama bu "tesadüfen doğru"dur: Panel bir gün modül kimliği alırsa
+   * AI'ın noktaları SESSİZCE renk değiştirirdi. Açık token kuralı koda yazar.
+   */
+  --color-ai-accent: var(--ai-accent);
+  --color-ai-ink: var(--ai-ink);
+  --color-ai-tint: var(--ai-tint);
   --color-fill: var(--fill);
   --color-fill-2: var(--fill-2);
   --color-danger: var(--danger);

@@ -69,6 +69,52 @@ describe('Sidebar — gezinme', () => {
 });
 
 /**
+ * Modül başına imza rengi — satır kendi kapsamını TAŞIR.
+ *
+ * ============================================================================
+ * NEDEN BU TEST VAR: `data-module` UNUTULURSA HATA SESSİZDİR
+ * ============================================================================
+ * Attribute eksik olduğunda ekran çalışmaya devam eder, yalnızca terracotta
+ * kalır. Ne tip denetimi ne lint bunu yakalar — bir kullanıcı fark edene kadar
+ * hiçbir sinyal yoktur. Test, o sessizliği sese çevirir.
+ *
+ * Renk DEĞERİ burada test EDİLMEZ ve edilemez: değer `module-colors.css`'te
+ * yaşar, jsdom stylesheet'i çözmez. Test edilen şey doğru olan tek şeydir —
+ * kapsamın deklare edilmiş olması.
+ */
+describe('Sidebar — modül renk kapsamı', () => {
+  it('Müşteriler satırı CRM kapsamını deklare eder', () => {
+    renderAt('/app');
+
+    expect(screen.getByRole('link', { name: 'Müşteriler' })).toHaveAttribute('data-module', 'crm');
+  });
+
+  it('Panel kapsam TAŞIMAZ — bir modül değil, AI’ın yüzeyi', () => {
+    // Panel'de imza rengi terracottadır ve öyle kalmalıdır. Buraya bir
+    // `data-module` konsaydı AI'ın kendi ekranı bir modül gibi boyanırdı.
+    renderAt('/app');
+
+    expect(screen.getByRole('link', { name: 'Panel' })).not.toHaveAttribute('data-module');
+  });
+
+  it('"yakında" satırları da kendi kimliğini taşır', () => {
+    renderAt('/app');
+
+    const rows: readonly (readonly [label: string, module: string])[] = [
+      ['Projeler', 'projects'],
+      ['Finans', 'finance'],
+    ];
+
+    for (const [label, module] of rows) {
+      expect(screen.getByText(label).closest('[data-module]')).toHaveAttribute(
+        'data-module',
+        module,
+      );
+    }
+  });
+});
+
+/**
  * Aktiflik — iki canlı satır olduğu anda HESAPLANMAK zorunda.
  *
  * Eskiden vurgu koşulsuzdu ve tek satır varken doğru görünüyordu; ikinci satır

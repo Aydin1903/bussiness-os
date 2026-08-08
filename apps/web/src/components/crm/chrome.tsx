@@ -195,8 +195,13 @@ export function PillButton({
 /**
  * Birincil eylem — `composer.tsx`'in Gönder düğmesiyle aynı dolgu.
  *
- * Terracotta gradyan + iç ışık çizgisi; sistemde "asıl yapılacak iş" bu
- * görünümü taşır ve ekran başına BİR TANE olur.
+ * İmza rengi gradyanı (`accent → ink`) + iç ışık çizgisi; sistemde "asıl
+ * yapılacak iş" bu görünümü taşır ve ekran başına BİR TANE olur.
+ *
+ * Renk modülündür: CRM'de çivit mavisi, Finans'ta yosun yeşili. Gradyanın iki
+ * ucu on iki rengin hepsinde doğru yönde durur — `--ink` açık temada
+ * `--accent`'ten koyu, koyu temada açıktır — yani `--accent-fg` kontrastı
+ * gradyanın her noktasında tutar (`module-colors.css`'teki ölçüm tablosu).
  */
 export function PrimaryButton({
   children,

@@ -20,6 +20,15 @@ interface NavItem {
   readonly label: string;
   readonly icon: IconType;
   readonly href?: string;
+  /**
+   * Modülün imza rengi anahtarı — `module-colors.css`'teki `[data-module=…]`.
+   *
+   * Satır kendi rengini TAŞIR, kabuktan almaz. Bunun iki sonucu var:
+   * "yakında" satırları da kimliğini gösterebilir, ve Panel bu alanı
+   * TAŞIMAZ — Panel bir modül değil, AI'ın kendi yüzeyidir; orada imza rengi
+   * terracottadır ve öyle kalmalıdır.
+   */
+  readonly module?: string;
 }
 
 /**
@@ -35,13 +44,23 @@ interface NavItem {
  */
 const LIVE: readonly NavItem[] = [
   { label: 'Panel', icon: OverviewIcon, href: '/app' },
-  { label: 'Müşteriler', icon: CustomersIcon, href: '/app/crm' },
+  { label: 'Müşteriler', icon: CustomersIcon, href: '/app/crm', module: 'crm' },
 ];
 
-/** Henüz gelmemiş modüller. Tıklanabilir görüntü VERİLMEZ: vaat olurdu. */
+/**
+ * Henüz gelmemiş modüller. Tıklanabilir görüntü VERİLMEZ: vaat olurdu.
+ *
+ * ⚠️ BURAYA ON İKİ SATIR KONMADI — bilinçli (Product Owner kararı, 2026-08-08).
+ * ROADMAP §3.5 on iki modül sayıyor ve hepsinin rengi `module-colors.css`'te
+ * hazır. Hepsini listelemek sidebar'ı bir gezinme aracı olmaktan çıkarıp yol
+ * haritasına çevirir; kullanıcı her gün ulaşamayacağı on kalem görür. Sıradaki
+ * ikisi gösterilir, modül canlandığı gün LIVE'a taşınır.
+ *
+ * Sıra ROADMAP §3.5'e hizalandı: 2) Projeler, 3) Finans.
+ */
 const SOON: readonly NavItem[] = [
-  { label: 'Finans', icon: FinanceIcon },
-  { label: 'Projeler', icon: ProjectsIcon },
+  { label: 'Projeler', icon: ProjectsIcon, module: 'projects' },
+  { label: 'Finans', icon: FinanceIcon, module: 'finance' },
 ];
 
 /**
@@ -169,7 +188,12 @@ function GroupLabel({ children }: { children: string }) {
 const ROW = 'flex items-center gap-[11px] rounded-[12px] px-3 py-2.5 text-[13.5px]';
 
 /**
- * Aktif satırın imzası: sol kenardaki terracotta çubuk + `--tint` dolgu.
+ * Aktif satırın imzası: sol kenardaki çubuk + `--tint` dolgu.
+ *
+ * ⚠️ SINIFLAR DEĞİŞMEDİ, DEĞERLERİ MODÜLÜNDÜR. Satır kendi `data-module`'ünü
+ * taşıdığı için `bg-accent`/`bg-tint`/`text-ink` o modülün rengini okur —
+ * Müşteriler çivit mavisi, Projeler zeytin. Panel `data-module` taşımaz ve
+ * terracotta kalır: o bir modül değil, AI'ın kendi yüzeyidir.
  *
  * Pasif satır hover'da `--fill` alır, `surface`/`raised` DEĞİL: açık temada
  * ikisi de neredeyse beyazdır ve sıcak kağıdın üstünde görünmezdi
@@ -200,6 +224,7 @@ function LiveRow({
     <Link
       href={item.href ?? '/app'}
       title={collapsed ? item.label : undefined}
+      {...(item.module ? { 'data-module': item.module } : {})}
       {...(active ? { 'aria-current': 'page' } : {})}
       className={[
         ROW,
@@ -222,9 +247,16 @@ function SoonRow({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
     <span
       title={collapsed ? `${item.label} (yakında)` : undefined}
       aria-disabled="true"
+      {...(item.module ? { 'data-module': item.module } : {})}
       className={`${ROW} cursor-not-allowed font-medium text-fg-2 ${collapsed ? 'justify-center' : ''}`}
     >
-      <Icon className="shrink-0 opacity-55" width={15} height={15} />
+      {/*
+        İkon modülün rengini SOLUK taşır: kimliğini gösterir ama canlı satırla
+        karıştırılmaz. Renk burada TEK bilgi taşıyıcısı değildir — yanındaki
+        etiket ve "yakında" rozeti aynı şeyi zaten söyler; renk körlüğü altında
+        satır hiçbir anlam kaybetmez.
+      */}
+      <Icon className="shrink-0 text-ink opacity-55" width={15} height={15} />
       {collapsed ? null : (
         <>
           <span>{item.label}</span>

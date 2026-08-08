@@ -97,7 +97,9 @@ export function StreamEntry({
             'absolute top-[6px] -right-[3.5px] h-[7px] w-[7px] rounded-full',
             // Halka PANELİN zeminini alır — kabuk zemininin değil.
             'shadow-[0_0_0_4px_var(--surface)]',
-            variant === 'ai' ? 'bg-accent' : 'border-[1.5px] border-border-strong bg-surface',
+            // `bg-ai-accent`, `bg-accent` DEĞİL: bu nokta AI'ın imzasıdır ve
+            // bir modülün içinde çizilse bile terracotta kalmalıdır.
+            variant === 'ai' ? 'bg-ai-accent' : 'border-[1.5px] border-border-strong bg-surface',
           ].join(' ')}
         />
       </div>
@@ -136,7 +138,8 @@ export function UserAsked({ children }: { children: ReactNode }) {
 export function SourceMeta({ children }: { children: ReactNode }) {
   return (
     <p className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-fg-3">
-      <span aria-hidden className="h-[3px] w-[3px] shrink-0 rounded-full bg-accent opacity-60" />
+      {/* Kaynak işareti AI'ın cevabına aittir → `ai-accent`. */}
+      <span aria-hidden className="h-[3px] w-[3px] shrink-0 rounded-full bg-ai-accent opacity-60" />
       {children}
     </p>
   );

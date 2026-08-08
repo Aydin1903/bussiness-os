@@ -380,7 +380,34 @@ sözleşme tutarsızlığı buldu; dördü de kapatıldı.
 Frontend tasarım dili değişti — imza rengi **amberden terracottaya**, kabuk
 zeminden ayrıldı ve içerik yüzen bir yüzey oldu. Üç ses üç aile: Inter (ürün),
 Newsreader (AI), JetBrains Mono (sistem); üçü de `next/font` ile self-host.
-SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md` (v1.4).
+SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md` (v1.5).
+
+### Modül başına imza rengi (2026-08-08) — **bağlayıcı**
+
+Her modül kendi imza rengini alır (on iki renk, FRONTEND §4.8'de ölçülmüş
+palet; ilk uygulama CRM = **çivit mavisi**). Bu, geri döndürülebilir bir görsel
+tercih değil, yazılacak on bir modülü de bağlayan bir kuraldır:
+
+> **AI'ın sesi HER MODÜLDE terracotta kalır.** Modülün rengi yalnızca modülün
+> kendi arayüzünü boyar (düğme, rozet, sidebar aktif göstergesi, kart vurgu
+> çizgisi). AI'ın konuştuğu her yer — Panel'in serif metinleri, günlük özet,
+> müşteri özeti — `--ai-accent` / `--ai-ink` kullanır ve **hiçbir modül bunları
+> ezemez**.
+
+Gerekçe süs değil anlam: bir ekranda terracotta görüldüğünde tek bir şey
+demelidir — *"burada asistan konuşuyor"*. Bu yüzden **CRM de terracottayı
+bıraktı**; referans modülün onu koruması tam olarak bu ayrımı yok ederdi.
+
+Mekanizma `[data-module]` alt ağaç override'ıdır ve kapsam **modülün kendi
+`layout.tsx`'indedir**, kabukta değil (ADR-0025/0031 disiplini: platform
+mekanizmayı sahiplenir, modül kimliğini deklare eder). Yeni modülün rengi iki
+satırdır: `module-colors.css`'te bir palet bloğu + layout'ta bir attribute.
+
+⚠️ `data-module` unutulursa hata **sessizdir** — ekran çalışır, terracotta
+kalır; lint yakalamaz. Renk ayrıca hiçbir yerde **tek** bilgi taşıyıcısı
+olmamalıdır (renk körlüğü). Modülün rengi iki biçimde yazılır (hex + `R G B`)
+ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir geri düşüş
+ürettiği için bilinçli olarak terk edildi (FRONTEND §4.8, üç bilinen sınır).
 
 ### Henüz yok
 
@@ -424,11 +451,29 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 |---|---|---|
 | 0 | Doküman hizalaması | ✅ |
 | 0.5 | **AI gözlemlenebilirliği** — her sağlayıcı çağrısı `event: "ai.call"` satırı bırakır | ✅ |
-| 1 | Port'lar `shared/`'a, adapter'lar `infrastructure/ai/`'ya | ⏳ |
-| 2 | `platform.rate_limits` | ⏳ |
-| 3 | `platform/context` + `POST /ask` + konuşma tablolarının taşınması | ⏳ |
-| 4–7 | CRM: şema+şirket/kişi · fırsatlar+takipler · görüşmeler+embedding · iki katkıcı | ⏳ |
-| 8–9 | Frontend CRM ekranları · kapanış denetimi | ⏳ |
+| 1 | Port'lar `shared/`'a, adapter'lar `infrastructure/ai/`'ya | ✅ |
+| 2 | `platform.rate_limits` | ✅ |
+| 3 | `platform/context` + `POST /ask` + konuşma tablolarının taşınması | ✅ |
+| 4–7 | CRM: şema+şirket/kişi · fırsatlar+takipler · görüşmeler+embedding · iki katkıcı | ✅ |
+| 8 + 9-B | Frontend CRM ekranları (5 rota, 33 bileşen) + düzen/odak çalışması | ✅ |
+| — | **Modül başına imza rengi** — CRM referans modül (FRONTEND §4.8) | ✅ |
+| Katman 2 | Müşteri özeti (ADR-0032) | ⏳ |
+| 9 | Kapanış denetimi | ⏳ |
+
+> ### Slice 9 kapanış denetimi — biriken kontrol listesi
+>
+> Faz 4'ün denetimi gibi **gerçek isteklerle ve gerçek tarayıcıda** yapılır.
+> Buraya iş ilerledikçe madde eklenir; denetim günü listenin tamamı gezilir.
+>
+> - [ ] **Her modül rotası kendi rengini gösteriyor mu** — `data-module`
+>   unutulduğunda hata **sessizdir**: ekran çalışır, yalnızca terracotta kalır
+>   ve ne lint ne tip denetimi yakalar. Bugün tek modül rotası CRM'dir
+>   (`/app/crm` ve dört alt rotası); her biri açık **ve** koyu temada gezilir.
+> - [ ] **AI'ın sesi modül içinde terracotta kalıyor mu** — Panel'in noktaları
+>   ve kaynak atfı (`bg-ai-accent` / `text-ai-ink`); Katman 2 geldiğinde
+>   müşteri özeti de bu listeye girer.
+> - [ ] Yedi CRM ucu gerçek isteklerle (200/401/403/429), iki tenant'la RLS
+>   izolasyonu, dar rollerin sözleşmesi — Faz 4 denetiminin CRM karşılığı.
 
 > **Slice 0.5 notu:** AI maliyet takibi ROADMAP §8.1'de "Faz 4'e kadar
 > netleşmeli" diye işaretliydi ve Faz 4 o kalem kapanmadan kapandı. Faz 5 onu

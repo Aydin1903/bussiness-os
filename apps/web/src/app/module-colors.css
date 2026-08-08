@@ -1,0 +1,302 @@
+/*
+ * MODÜL BAŞINA İMZA RENGİ — FRONTEND_ARCHITECTURE §4.8.
+ *
+ * ============================================================================
+ * KURAL: AI'IN SESİ HER MODÜLDE TERRACOTTADIR
+ * ============================================================================
+ * Bu dosya YALNIZCA modülün kendi arayüzünü boyar: düğmeler, rozetler,
+ * sidebar'ın aktif göstergesi, kartların vurgu çizgisi. AI'ın konuştuğu her
+ * yer (Panel'in serif metinleri, günlük özet, müşteri özeti) `--ai-accent` /
+ * `--ai-ink` kullanır ve bu dosyadan ETKİLENMEZ.
+ *
+ * Ayrım anlam içindir, süs değil: bir ekranda terracotta görüldüğünde tek bir
+ * şey demektir — "burada asistan konuşuyor". Modül rengi terracotta olsaydı o
+ * cümle kurulamazdı, çünkü aynı renk iki farklı şeyi söylerdi.
+ *
+ * ============================================================================
+ * NEDEN BU MEKANİZMA ÇALIŞIR — ölçülmüş bir Tailwind gerçeği
+ * ============================================================================
+ * `globals.css`'teki `@theme inline`, utility'lerin ARA değişkeni atlamasını
+ * sağlar. Derlenmiş çıktı şudur:
+ *
+ *   .bg-accent { background-color: var(--accent); }   ← var(--color-accent) DEĞİL
+ *
+ * (`--color-accent` derlenmiş CSS'te hiç geçmez — Tailwind 4.3.3 ile izole
+ * derlenip doğrulandı.) Bu yüzden bir alt ağaçta `--accent`'i ezmek, mevcut
+ * ~80 kullanımın hepsini tek satırda döndürür. `inline` olmasaydı çalışmazdı:
+ * `--color-accent: var(--accent)` kökte çözülür ve alt ağaç kökün HESAPLANMIŞ
+ * değerini miras alırdı.
+ *
+ * ============================================================================
+ * KAPSAM MODÜLÜN KENDİ `layout.tsx`'İNDEDİR, KABUKTA DEĞİL
+ * ============================================================================
+ * `data-module` her modülün kendi layout'unda verilir. Kabuğa koymak,
+ * `app-shell.tsx` içinde merkezî bir `pathname → modül` haritası gerektirirdi;
+ * ADR-0025/0031'in disiplini burada da geçerli: platform mekanizmayı
+ * sahiplenir, modül kimliğini DEKLARE eder. 13. modül geldiğinde kabuk
+ * dosyasına dokunulmaz.
+ *
+ * İkinci faydası: sidebar ve kabuk bu kapsamın DIŞINDA kalır, yani "BO" rozeti
+ * ve şirket seçici hiç dokunulmadan terracotta kalır — onlar marka, modül
+ * değil.
+ *
+ * ⚠️ `data-module` unutulursa hata SESSİZDİR: ekran çalışır, yalnızca
+ * terracotta kalır. Lint bunu yakalayamaz; Slice 9 denetim listesinde
+ * "her modül rotası kendi rengini gösteriyor mu" maddesi bunun içindir.
+ *
+ * ============================================================================
+ * RENKLER GÖZ KARARIYLA SEÇİLMEDİ
+ * ============================================================================
+ * Her renk OKLCH'te sabit bir hue'ya oturtuldu, sonra açıklık TARANARAK
+ * kontrast hedefini tutturan değer seçildi. Hedef "AA'yı geç" (4.5) değil,
+ * bugünkü terracottanın KARAKTERİNİ tutturmaktı — ilk denemede eşiği geçen
+ * ilk değer alınıyordu ve koyu temada 4.6 civarı SÖNÜK renkler çıkıyordu:
+ * terracottanın koyu temadaki 7.7'lik parlaklığı kayboluyordu.
+ *
+ *   ölçüm                                terracotta   12 modülün aralığı
+ *   ------------------------------------ ------------ ------------------
+ *   açık: --accent-fg dolgunun üstünde   4.76         4.82 – 4.88
+ *   açık: --ink en kötü zeminde (#fff)   5.05         4.92 – 5.08
+ *   koyu: --accent-fg dolgunun üstünde   7.71         7.68 – 7.74
+ *   koyu: --ink en kötü zeminde (#241d16) 8.42        8.36 – 8.44
+ *   metin dışı (çubuk/nokta), eşik 3.0   3.85         3.90 – 3.95
+ *
+ * `--accent-fg` MODÜL BAŞINA DEĞİŞMEZ: yukarıdaki 4.82 / 7.68 alt sınırları
+ * zaten kökteki `#fffaf6` ve `#1a120b` değerlerine karşı ölçüldü.
+ *
+ * Üç seçim kuralı:
+ *   1. TURUNCU BANDI YASAK. Terracottanın çevresinde ±35°'lik koridor boş.
+ *      AI'ın sesi her modülde terracotta kalacaksa, modülün rengi ondan bir
+ *      bakışta ayrılmalı. Stok'un hardalı bandın en yakın komşusu ve bilinçli
+ *      olarak sarıya çekildi.
+ *   2. AKRABA MODÜLLER KOMŞU HUE ALIR. Tedarikçi, CRM'in yanında (ROADMAP
+ *      §3.5: "CRM deseninin ucuz tekrarı"); Teklif/Fatura, Finans'ın yanında
+ *      ("Finans uzantısı"). Renk bu akrabalığı söyler.
+ *   3. BELGE/SÖZLEŞME BİLİNÇLİ OLARAK EN SÖNÜK — tek düşük doygunluklu renk.
+ *      Sözleşme ekranı dikkat çekmek için değil okumak için vardır. Nötr
+ *      olduğu için Randevu'nun petroline hue olarak yakın olması sorun
+ *      değildir; göz onu "gri" okur.
+ *
+ * ⚠️ RENK TEK BAŞINA BİLGİ TAŞIMAZ. 12 rengin bir kısmı renk körlüğü altında
+ * yakınlaşır. Hiçbir yerde renk TEK ayırt edici olmamalı — bugün de değil
+ * (aktif satırın ayrıca kalın yazısı ve `aria-current`'ı var). Yeni modül
+ * eklenirken bu kural hatırlanmalı.
+ */
+
+/*
+ * ============================================================================
+ * 1. MODÜL BAŞINA DEĞER — iki tema yan yana, tek blok
+ * ============================================================================
+ * Sıra ROADMAP §3.5'tir. Bir modül henüz yazılmamış olsa da rengi burada
+ * durur: renk, modülün ilk satırından önce kararlaştırılmış olur ve o modülü
+ * yazan kişinin seçeceği bir şey değildir.
+ *
+ * ⚠️ HER RENK İKİ BİÇİMDE YAZILIR ve ikisi AYNI rengi göstermek zorundadır:
+ * hex (`--mc-light`) dolgu ve metin için, `R G B` üçlüsü (`--mc-light-rgb`)
+ * tint türetmesi için. Sebebi aşağıda "3. SİSTEME BAĞLANMA" bölümünde: alfa'lı
+ * türetme `rgb(… / %)` ile yapılıyor ve o sözdizimi bileşenleri ayrı ister.
+ * Yeni bir modül eklerken ikisini birlikte güncelleyin.
+ */
+[data-module='crm'] {
+  --mc-light: #3173af;
+  --mc-light-rgb: 49 115 175;
+  --mc-light-ink: #1d619c;
+  --mc-dark: #6bacec;
+  --mc-dark-rgb: 107 172 236;
+  --mc-dark-ink: #7bbdfe;
+}
+
+[data-module='projects'] {
+  --mc-light: #717325;
+  --mc-light-rgb: 113 115 37;
+  --mc-light-ink: #60620c;
+  --mc-dark: #a8ac5f;
+  --mc-dark-rgb: 168 172 95;
+  --mc-dark-ink: #b9bd70;
+}
+
+[data-module='finance'] {
+  --mc-light: #307d54;
+  --mc-light-rgb: 48 125 84;
+  --mc-light-ink: #1a6b43;
+  --mc-dark: #6cb78b;
+  --mc-dark-rgb: 108 183 139;
+  --mc-dark-ink: #7dc89b;
+}
+
+[data-module='booking'] {
+  --mc-light: #057a89;
+  --mc-light-rgb: 5 122 137;
+  --mc-light-ink: #006a77;
+  --mc-dark: #51b5c5;
+  --mc-dark-rgb: 81 181 197;
+  --mc-dark-ink: #64c6d7;
+}
+
+[data-module='documents'] {
+  --mc-light: #557380;
+  --mc-light-rgb: 85 115 128;
+  --mc-light-ink: #45626e;
+  --mc-dark: #8dacba;
+  --mc-dark-rgb: 141 172 186;
+  --mc-dark-ink: #9dbdcb;
+}
+
+[data-module='inventory'] {
+  --mc-light: #876b1c;
+  --mc-light-rgb: 135 107 28;
+  --mc-light-ink: #785c00;
+  --mc-dark: #c2a45a;
+  --mc-dark-rgb: 194 164 90;
+  --mc-dark-ink: #d3b56b;
+}
+
+[data-module='suppliers'] {
+  --mc-light: #5c6cab;
+  --mc-light-rgb: 92 108 171;
+  --mc-light-ink: #4c5b98;
+  --mc-dark: #92a5e8;
+  --mc-dark-rgb: 146 165 232;
+  --mc-dark-ink: #a3b6fa;
+}
+
+[data-module='invoicing'] {
+  --mc-light: #257c6c;
+  --mc-light-rgb: 37 124 108;
+  --mc-light-ink: #076b5b;
+  --mc-dark: #64b6a4;
+  --mc-dark-rgb: 100 182 164;
+  --mc-dark-ink: #75c7b5;
+}
+
+[data-module='hr'] {
+  --mc-light: #896096;
+  --mc-light-rgb: 137 96 150;
+  --mc-light-ink: #784f84;
+  --mc-dark: #c498d2;
+  --mc-dark-rgb: 196 152 210;
+  --mc-dark-ink: #d6a9e4;
+}
+
+[data-module='feedback'] {
+  --mc-light: #56793e;
+  --mc-light-rgb: 86 121 62;
+  --mc-light-ink: #45672d;
+  --mc-dark: #8cb274;
+  --mc-dark-rgb: 140 178 116;
+  --mc-dark-ink: #9dc385;
+}
+
+[data-module='marketing'] {
+  --mc-light: #7665a6;
+  --mc-light-rgb: 118 101 166;
+  --mc-light-ink: #655493;
+  --mc-dark: #ae9de2;
+  --mc-dark-rgb: 174 157 226;
+  --mc-dark-ink: #bfaef4;
+}
+
+[data-module='loyalty'] {
+  --mc-light: #9a5a84;
+  --mc-light-rgb: 154 90 132;
+  --mc-light-ink: #874972;
+  --mc-dark: #d792be;
+  --mc-dark-rgb: 215 146 190;
+  --mc-dark-ink: #e9a3d0;
+}
+
+/*
+ * ============================================================================
+ * 2. TEMA SEÇİMİ — MODÜL BAŞINA DEĞİL, TOPLAM ÜÇ BLOK
+ * ============================================================================
+ * Modül başına üç tema bloğu yazılsaydı 36 blok olurdu ve `globals.css`'in
+ * kendi uyarısı ("aynı paletin üç kopyası demekti ve kopyalar sapmaya
+ * açıktı") on iki katına çıkardı. Burada 12 değer bloğu + 3 tema bloğu var:
+ * palet tablosu tek yerde okunur, tema mantığı tek yerde durur.
+ *
+ * Özgüllük hesabı: `[data-module]` = (0,1,0), `:root[data-theme='dark']
+ * [data-module]` = (0,2,0), `@media` içindeki `:root:not([data-theme='light'])
+ * [data-module]` = (0,3,0). Üçü de AYNI öğeye uygulanır, yani sıra değil
+ * özgüllük karar verir ve koyu tema kazanır. `data-theme='light'` seçiliyken
+ * sistem koyu olsa bile `:not()` bloğu eler ve açık değerler kalır — kökteki
+ * desenin birebir aynısı.
+ */
+[data-module] {
+  --mc: var(--mc-light);
+  --mc-rgb: var(--mc-light-rgb);
+  --mc-ink: var(--mc-light-ink);
+  --mc-tint-a: 8.5%;
+  --mc-tint-2-a: 15%;
+  --mc-glow-a: 17%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-module] {
+    --mc: var(--mc-dark);
+    --mc-rgb: var(--mc-dark-rgb);
+    --mc-ink: var(--mc-dark-ink);
+    --mc-tint-a: 12%;
+    --mc-tint-2-a: 20%;
+    --mc-glow-a: 22%;
+  }
+}
+
+:root[data-theme='dark'] [data-module] {
+  --mc: var(--mc-dark);
+  --mc-rgb: var(--mc-dark-rgb);
+  --mc-ink: var(--mc-dark-ink);
+  --mc-tint-a: 12%;
+  --mc-tint-2-a: 20%;
+  --mc-glow-a: 22%;
+}
+
+/*
+ * ============================================================================
+ * 3. SİSTEME BAĞLANMA — dönüşüm formülü TEK yerde
+ * ============================================================================
+ * Bu blok, seçilmiş modül rengini sistemin token'larına yazar. Bileşenlerin
+ * hiçbiri değişmez: `bg-accent`, `text-ink`, `bg-tint` aynı sınıflardır,
+ * yalnızca değerleri modülündür.
+ *
+ * ⚠️ TINT'LER NEDEN BURADA TÜRETİLİYOR (kökte değil):
+ * `--tint` kökte türetilseydi, kökün HESAPLANMIŞ değeri miras alınırdı ve modül
+ * `--accent`'i ezse bile tint terracotta kalırdı — `@theme inline`'ın çözdüğü
+ * sorunun aynısı. Türetme, `--accent`'in ezildiği yerde tekrar yapılmak ZORUNDA.
+ *
+ * ============================================================================
+ * ⚠️ NEDEN `color-mix` DEĞİL — derlenmiş çıktıya bakılarak vazgeçildi
+ * ============================================================================
+ * İlk yazımda `color-mix(in srgb, var(--mc) 8.5%, transparent)` kullanıldı;
+ * matematiksel olarak `rgb(R G B / 8.5%)` ile AYNI sonucu verir ve kökteki
+ * terracotta değeri (`rgba(178,86,40,.085)` = `#b25628` @ 8.5%) bunun kanıtı.
+ * Ama derlenmiş CSS'e bakınca (`.next/static/css`) Lightning CSS'in ne yaptığı
+ * görüldü — girdiler değişken olduğu için karışımı ÖNCEDEN hesaplayamıyor ve
+ * şu geri düşüşü üretiyor:
+ *
+ *   [data-module]{--tint:var(--mc)}                            ← geri düşüş
+ *   @supports (color:color-mix(in lab,red,red)){ …gerçek değer… }
+ *
+ * Yani `color-mix` desteklemeyen bir tarayıcıda `--tint` %8.5'lik ince bir
+ * yıkama değil DOLU RENK olur. `bg-tint` taşıyan çiplerin zemini tamamen
+ * dolar ve üstündeki `text-fg` okunmaz hâle gelir. Bu, "tint kaybolur"dan
+ * daha kötü bir bozulmadır — sessiz değil, YANLIŞ.
+ *
+ * `rgb(var(--mc-rgb) / 8.5%)` aynı sonucu verir ve hiçbir geri düşüş
+ * gerektirmez: eğik çizgili alfa sözdizimi Chrome 65 · Safari 12.1 · Firefox 52
+ * (2017–2019). Böylece tarayıcı bağımlılığı tamamen ORTADAN KALKTI.
+ *
+ * Bedeli: her modül rengi iki biçimde yazılır (hex + `R G B` üçlüsü) ve ikisi
+ * senkron kalmalıdır. Yan yana durdukları için sapma gözle görülür; kazanılan
+ * şey ise bir bütün tarayıcı destek matrisidir.
+ *
+ * Kökteki terracotta değerleri (`--tint`, `--tint-2`, `--glow`) BİLEREK
+ * dokunulmadan bırakıldı: tarayıcıda ölçülmüş ve kanıtlanmışlardır, ve modül
+ * kapsamı dışında zaten sabittirler — türetmeye ihtiyaçları yok.
+ */
+[data-module] {
+  --accent: var(--mc);
+  --ink: var(--mc-ink);
+  --tint: rgb(var(--mc-rgb) / var(--mc-tint-a));
+  --tint-2: rgb(var(--mc-rgb) / var(--mc-tint-2-a));
+  --glow: rgb(var(--mc-rgb) / var(--mc-glow-a));
+}

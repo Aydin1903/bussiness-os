@@ -283,7 +283,8 @@ export function PanelScreen() {
                       <AiSaid>{turn.answer}</AiSaid>
                       {turn.sourceCount > 0 ? (
                         <SourceMeta>
-                          <b className="font-semibold text-ink">
+                          {/* AI'ın kendi cevabına yaptığı atıf → `ai-ink`. */}
+                          <b className="font-semibold text-ai-ink">
                             {turn.sourceCount} nota dayanıyor
                           </b>
                         </SourceMeta>

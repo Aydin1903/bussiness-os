@@ -2,9 +2,9 @@
 
 Business OS — Frontend Mimarisi
 
-> **Durum:** Faz 4 kapandı — Panel + "Atölye" tasarım dili — ✅ **Kabul edildi**
-> **Sürüm:** 1.4
-> **Son güncelleme:** 2026-08-05
+> **Durum:** Faz 5 sürüyor — Panel + "Atölye" + modül başına imza rengi — ✅ **Kabul edildi**
+> **Sürüm:** 1.5
+> **Son güncelleme:** 2026-08-08
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -265,6 +265,16 @@ sarı butonlarındaki mantık): o zeminde beyaz yazı okunmaz.
 Yardımcılar: `--tint` / `--tint-2` (çip dolguları), `--glow` (odak halkası),
 `--fill` / `--fill-2` (nötr ikincil dolgular).
 
+> ⚠️ **Bu tablodaki üç token artık MODÜLE GÖRE DEĞİŞİR** (2026-08-08, [§4.8](#48-modül-başına-imza-rengi)).
+> `--accent` / `--ink` ve türevleri (`--tint`, `--tint-2`, `--glow`) bir modül
+> kapsamının içinde o modülün rengini alır — CRM'de çivit mavisi. Yukarıdaki
+> terracotta değerleri **kök** değerlerdir ve modül kapsamı dışında (Panel,
+> auth ekranları, kabuk) aynen geçerlidir. Değişmeyen tek şey `--accent-fg`:
+> on iki rengin hepsi için ölçüldü, tek değer yetiyor.
+>
+> Terracottanın kendisi `--ai-accent` / `--ai-ink` / `--ai-tint` adıyla ayrıca
+> durur ve **hiçbir modül tarafından ezilmez**.
+
 ### 4.5 Tipografi — ÜÇ ses, üç aile
 
 - **Ürün konuşur:** `--font-sans` — **Inter**. Nötr, okunur, iddiasız.
@@ -308,6 +318,151 @@ yakın temas + geniş ortam) · zemine ılık ışık + **kağıt taneciği** (%
 > Tasarım token'ları **geri döndürülebilir görsel dildir**, mimari kısıt
 > değildir — bu yüzden ayrı ADR'si yoktur (Product Owner kararı). Değişirse
 > yalnızca bu bölüm güncellenir.
+
+### 4.8 Modül başına imza rengi
+
+> **Product Owner kararı, 2026-08-08.** İlk uygulama CRM (referans modül).
+> Kaynak: `apps/web/src/app/module-colors.css`.
+
+Her modül kendi imza rengini alır. **Bu bölüm, §4'ün geri kalanının aksine
+bağlayıcıdır**: yalnızca bugünün görünümünü değil, yazılacak on bir modülün
+hepsini bağlayan bir kural tanımlar.
+
+#### Kural: AI'ın sesi her modülde terracottadır
+
+Modülün rengi **yalnızca modülün kendi arayüzünü** boyar — düğmeler, rozetler,
+sidebar'ın aktif göstergesi, kartların vurgu çizgisi. **AI'ın konuştuğu hiçbir
+yer bu renkten etkilenmez**: Panel'in serif metinleri, günlük özet, müşteri
+özeti terracotta kalır ve `--ai-accent` / `--ai-ink` / `--ai-tint` token'larını
+kullanır.
+
+Ayrım anlam içindir, süs değil: bir ekranda terracotta görüldüğünde tek bir şey
+demektir — _"burada asistan konuşuyor"_. Modülün rengi de terracotta olsaydı o
+cümle kurulamazdı, çünkü aynı renk iki farklı şeyi söylerdi. Bu, §4.5'in
+tipografi ayrımıyla aynı disiplinin renkteki karşılığıdır: **kullanıcı kime
+baktığını fonttan anlar, artık renkten de anlar.**
+
+Aynı sebeple **CRM de terracottayı bırakıp kendi rengini aldı**: referans modül
+olarak terracottayı korumak, ilk uygulamada tam olarak bu çakışmayı üretirdi.
+
+#### Palet — on iki modül
+
+Sıra [`ROADMAP.md` §3.5](../ROADMAP.md)'tir.
+
+| #   | Modül            | Pigment       | Açık `--accent` / `--ink` | Koyu `--accent` / `--ink` |
+| --- | ---------------- | ------------- | ------------------------- | ------------------------- |
+| —   | **AI (sabit)**   | Terracotta    | `#b25628` · `#96481f`     | `#e8935a` · `#f2a874`     |
+| 1   | Müşteriler (CRM) | Çivit mavisi  | `#3173af` · `#1d619c`     | `#6bacec` · `#7bbdfe`     |
+| 2   | Projeler         | Zeytin        | `#717325` · `#60620c`     | `#a8ac5f` · `#b9bd70`     |
+| 3   | Finans           | Yosun yeşili  | `#307d54` · `#1a6b43`     | `#6cb78b` · `#7dc89b`     |
+| 4   | Randevu          | Petrol mavisi | `#057a89` · `#006a77`     | `#51b5c5` · `#64c6d7`     |
+| 5   | Belge/Sözleşme   | Arduvaz       | `#557380` · `#45626e`     | `#8dacba` · `#9dbdcb`     |
+| 6   | Stok/Envanter    | Hardal-bronz  | `#876b1c` · `#785c00`     | `#c2a45a` · `#d3b56b`     |
+| 7   | Tedarikçi        | Lavanta-çivit | `#5c6cab` · `#4c5b98`     | `#92a5e8` · `#a3b6fa`     |
+| 8   | Teklif/Fatura    | Deniz yeşili  | `#257c6c` · `#076b5b`     | `#64b6a4` · `#75c7b5`     |
+| 9   | İK/Personel      | Mürdüm        | `#896096` · `#784f84`     | `#c498d2` · `#d6a9e4`     |
+| 10  | Anket            | Çim yeşili    | `#56793e` · `#45672d`     | `#8cb274` · `#9dc385`     |
+| 11  | Kampanya         | Menekşe       | `#7665a6` · `#655493`     | `#ae9de2` · `#bfaef4`     |
+| 12  | Sadakat          | Gül kurusu    | `#9a5a84` · `#874972`     | `#d792be` · `#e9a3d0`     |
+
+**Renkler göz kararıyla seçilmedi.** Her biri OKLCH'te sabit bir hue'ya
+oturtuldu, sonra açıklık taranarak kontrast hedefini tutturan değer alındı.
+Hedef "AA'yı geç" (4.5) **değil**, §4.4'te ölçülmüş terracottanın karakterini
+tutturmaktı — ilk denemede eşiği geçen ilk değer alınıyordu ve koyu temada
+sönük renkler çıkıyordu, terracottanın koyu temadaki 7.7'lik parlaklığı
+kayboluyordu.
+
+| Ölçüm                                     | Terracotta | 12 modülün aralığı |
+| ----------------------------------------- | ---------- | ------------------ |
+| Açık: `--accent-fg` dolgunun üstünde      | 4.76       | **4.82 – 4.88**    |
+| Açık: `--ink` en kötü zeminde (`#fff`)    | 5.05       | **4.92 – 5.08**    |
+| Koyu: `--accent-fg` dolgunun üstünde      | 7.71       | **7.68 – 7.74**    |
+| Koyu: `--ink` en kötü zeminde (`#241d16`) | 8.42       | **8.36 – 8.44**    |
+| Metin dışı (çubuk/nokta) — eşik 3.0       | 3.85       | **3.90 – 3.95**    |
+
+Üç seçim kuralı: **(1) turuncu bandı yasak** — terracottanın çevresinde ±35°
+koridor boş, çünkü AI'ın sesi ondan bir bakışta ayrılmalı; **(2) akraba modüller
+komşu hue alır** — Tedarikçi CRM'in, Teklif/Fatura Finans'ın yanında, çünkü
+ROADMAP §3.5 ikisini de o modülün uzantısı olarak tanımlıyor; **(3)
+Belge/Sözleşme bilinçli olarak en sönük** — tek düşük doygunluklu renk, çünkü
+sözleşme ekranı dikkat çekmek için değil okumak için var.
+
+#### Mekanizma — üç katman
+
+`[data-module='crm']` alt ağacında `--accent` ve türevleri ezilir. **Hiçbir
+bileşen değişmez**: `bg-accent` aynı sınıftır, değeri modülündür.
+
+Bu, §4.1'in `@theme inline` kararının doğrudan sonucudur ve derleyici çıktısıyla
+doğrulandı — utility'ler ara değişkeni **atlar**:
+
+```css
+.bg-accent {
+  background-color: var(--accent);
+} /* var(--color-accent) DEĞİL */
+```
+
+`inline` olmasaydı çalışmazdı: `--color-accent: var(--accent)` kökte çözülür ve
+alt ağaç kökün **hesaplanmış** değerini miras alırdı. Aynı sebeple `--tint` /
+`--tint-2` / `--glow` da modül kapsamının içinde **yeniden türetilmek zorunda**
+— kökte türetilseydi modül `--accent`'i ezse bile tint terracotta kalırdı.
+
+Dosya üç katmandır: **(1)** modül başına değer (12 blok, iki tema yan yana);
+**(2)** tema seçimi (**3** blok — modül başına yazılsaydı 36 olurdu ve §4.2'nin
+"aynı paletin üç kopyası sapmaya açıktır" uyarısı on iki katına çıkardı);
+**(3)** sisteme bağlanma, dönüşüm formülü tek yerde.
+
+#### Kapsam modülün kendi `layout.tsx`'indedir
+
+`data-module` kabuğa değil, modülün kendi layout'una konur
+(`app/app/crm/layout.tsx`). Kabuğa koymak orada merkezî bir `pathname → modül`
+haritası gerektirirdi; ADR-0025 (permission registry) ve ADR-0031
+(`RetrievalContributor`) ile aynı disiplin: **platform mekanizmayı sahiplenir,
+modül kimliğini deklare eder.** İkinci sonucu bilinçlidir — sidebar ve kabuk
+kapsamın **dışında** kalır, yani "BO" rozeti ve şirket seçici terracotta kalır;
+onlar marka, modül değil.
+
+Sidebar satırları kapsamı **kendileri taşır** (`NavItem.module`), böylece
+"yakında" satırları da kimliğini gösterebilir ve Panel — bir modül değil, AI'ın
+kendi yüzeyi — kapsam taşımaz.
+
+#### ⚠️ Üç bilinen sınır
+
+1. **`data-module` unutulursa hata sessizdir.** Ekran çalışır, yalnızca
+   terracotta kalır; ne tip denetimi ne lint yakalar. Karşı önlemler: Slice 9
+   denetim listesindeki _"her modül rotası kendi rengini gösteriyor mu"_ maddesi
+   ve `sidebar.spec.tsx`'teki kapsam testleri.
+
+2. **Modül rengi iki biçimde yazılır ve ikisi senkron kalmalıdır** — hex
+   (`--mc-light`) dolgu/metin için, `R G B` üçlüsü (`--mc-light-rgb`) tint
+   türetmesi için. Yan yana durdukları için sapma gözle görülür, ama yeni modül
+   eklenirken ikisi **birlikte** güncellenmelidir.
+
+   > **Bu, `color-mix`'ten vazgeçilerek kabul edilen bedeldir — ve derlenmiş
+   > çıktıya bakılarak alınmış bir karardır.** İlk yazım `color-mix(in srgb,
+var(--mc) 8.5%, transparent)` kullanıyordu; matematiksel olarak aynı
+   > sonucu verir ve tek bir kaynak yeterdi. Ama `.next/static/css`'teki
+   > derlenmiş CSS'e bakınca Lightning CSS'in davranışı görüldü: girdiler
+   > değişken olduğu için karışımı önceden hesaplayamıyor ve
+   > `[data-module]{--tint:var(--mc)}` şeklinde bir **geri düşüş** üretip
+   > gerçek değeri `@supports` bloğuna alıyor.
+   >
+   > Yani `color-mix` desteklemeyen bir tarayıcıda `--tint` %8.5'lik ince bir
+   > yıkama değil **dolu renk** olurdu; `bg-tint` taşıyan çiplerin zemini
+   > tamamen dolar ve üstündeki metin okunmaz hâle gelirdi. Bu, "tint kaybolur"
+   > değil "tint YANLIŞ" demektir — sessiz bir bozulma değil, görünür bir hata.
+   >
+   > `rgb(var(--mc-rgb) / 8.5%)` aynı sonucu verir ve geri düşüş gerektirmez:
+   > eğik çizgili alfa sözdizimi Chrome 65 · Safari 12.1 · Firefox 52 (2017–2019).
+   > **Böylece kararın tek yeni tarayıcı bağımlılığı tamamen ortadan kalktı** —
+   > projede yazılı bir tarayıcı destek matrisi olmadığı için bu, belgelenecek
+   > bir bağımlılıktan iyidir.
+
+3. **Renk tek başına bilgi taşımaz.** On iki rengin bir kısmı renk körlüğü
+   altında yakınlaşır. Hiçbir yerde renk **tek** ayırt edici olmamalıdır — bugün
+   de değildir (aktif satırın ayrıca kalın yazısı ve `aria-current`'ı, "yakında"
+   satırının rozeti ve etiketi var). Yeni bir modül ya da bileşen eklenirken bu
+   kural hatırlanmalıdır; renkle söylenen her şey ayrıca **yazıyla ya da biçimle**
+   de söylenmelidir.
 
 ---
 
@@ -377,9 +532,10 @@ Bu ikisi olmadan switcher yalnızca "girişten hemen sonra" çalışırdı. Baş
 
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                         |
-| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0   | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0).                                                                                                                                                                                               |
-| 1.1   | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef.                                                                                                                                                                          |
-| 1.2   | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2.                                                       |
-| 1.3   | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok. |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0   | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 1.1   | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 1.2   | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 1.3   | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 1.5   | 2026-08-08 | **Modül başına imza rengi** (Product Owner kararı; yeni [§4.8](#48-modül-başına-imza-rengi), ilk uygulama CRM). On iki modülün paleti OKLCH'te hue'ya oturtulup açıklık taranarak seçildi; hedef AA eşiği değil §4.4'te ölçülmüş terracottanın karakteriydi. **Kural bağlayıcıdır: AI'ın sesi her modülde terracotta kalır** (`--ai-accent`/`--ai-ink`/`--ai-tint`, hiçbir modül ezemez) — CRM dahil her modül kendi rengini alır, çünkü referans modülün terracottayı koruması tam da ayrımı yok edecek çakışmayı üretirdi. Mekanizma `[data-module]` alt ağaç override'ıdır ve §4.1'in `@theme inline` kararının doğrudan sonucudur (derleyici çıktısıyla doğrulandı: `bg-accent` → `var(--accent)`, ara değişken atlanır); kapsam modülün kendi `layout.tsx`'indedir, kabukta değil. **§4.4'e uyarı eklendi** — oradaki `--accent`/`--ink` artık kök değerleridir, modül içinde değişir. Üç bilinen sınır kayda geçti: `data-module` unutulursa hata sessizdir · **modül rengi iki biçimde yazılır** (hex + `R G B`) ve senkron kalmalıdır — bu, `color-mix`'ten vazgeçilerek kabul edilen bedeldir: derlenmiş CSS'e bakınca Lightning CSS'in `color-mix` için ürettiği geri düşüşün `--tint`'i ince bir yıkama yerine **dolu renk** yaptığı görüldü (çip zeminleri okunmaz olurdu), `rgb(… / %)` ise geri düşüş gerektirmiyor ve kararın tek tarayıcı bağımlılığı böylece ortadan kalktı · **renk tek başına bilgi taşımaz** (renk körlüğü). Not: `1.4` (Atölye) başlıkta kullanılmış ama bu tabloya hiç girmemişti — geçmiş yeniden yazılmadı, ROADMAP §8'in "doküman sürüm numarası denetimi" kalemine bir örnek daha. |
