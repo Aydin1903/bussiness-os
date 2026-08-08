@@ -121,9 +121,16 @@ export const updateOpportunitySchema = createOpportunitySchema
     message: 'En az bir alan gonderilmelidir',
   });
 
+/**
+ * Siralama anahtari. Varsayilan `recent` — mevcut yuzeyler DEGISMEZ.
+ * Gerekce `opportunity.repository.port.ts`'te.
+ */
+export const opportunityOrderSchema = z.enum(['recent', 'priority']);
+
 export const listOpportunitiesQuerySchema = listQuerySchema.extend({
   companyId: z.uuid().optional(),
   stage: opportunityStageSchema.optional(),
+  order: opportunityOrderSchema.default('recent'),
 });
 
 /** Gorusme metni. Uzun bir sinir DoS onlemidir. */

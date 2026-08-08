@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { ComponentType, SVGProps } from 'react';
 
 import {
@@ -20,19 +23,49 @@ interface NavItem {
 }
 
 /**
- * Gerçek modüller. Bugün tek: Panel.
+ * Gerçek modüller.
  *
  * "Bilgi Bankası" ARTIK BURADA DEĞİL — çalışma yüzeyi Panel'in kendisi oldu
  * (sor + not ekle orada). Not arşivine sağ raydaki "Tümünü gör" ile gidilir.
+ *
+ * "Müşteriler" Faz 5 Slice 8a'da SOON'dan buraya taşındı: CRM'in şirket ve
+ * kişi ekranları çalışıyor. Bu satırın taşınmaması, Faz 4'te bir kez yaşanan
+ * hatanın tekrarı olurdu — modül çalışır hâldeyken sidebar "yakında" rozetini
+ * taşımaya devam etmiş ve modül kullanıcı için ERİŞİLEMEZ kalmıştı.
  */
-const LIVE: readonly NavItem[] = [{ label: 'Panel', icon: OverviewIcon, href: '/app' }];
+const LIVE: readonly NavItem[] = [
+  { label: 'Panel', icon: OverviewIcon, href: '/app' },
+  { label: 'Müşteriler', icon: CustomersIcon, href: '/app/crm' },
+];
 
 /** Henüz gelmemiş modüller. Tıklanabilir görüntü VERİLMEZ: vaat olurdu. */
 const SOON: readonly NavItem[] = [
-  { label: 'Müşteriler', icon: CustomersIcon },
   { label: 'Finans', icon: FinanceIcon },
   { label: 'Projeler', icon: ProjectsIcon },
 ];
+
+/**
+ * Aktif satır — EN UZUN eşleşen önek kazanır.
+ *
+ * ============================================================================
+ * NEDEN BASİT BİR `pathname === href` YETMEZ
+ * ============================================================================
+ * İki canlı satır olduğu andan itibaren aktiflik HESAPLANMAK zorunda: eskiden
+ * `LiveRow` vurguyu koşulsuz veriyordu ve tek satır varken bu doğru
+ * görünüyordu. İkinci satır eklenince ikisi birden aktif görünürdü.
+ *
+ * Eşitlik de yetmez: `/app/crm/<id>` detay sayfasındayken "Müşteriler"
+ * sönerdi. Önek kontrolü tek başına da yetmez: her yol `/app` ile başladığı
+ * için Panel HER SAYFADA aktif olurdu. İkisinin birleşimi — en uzun eşleşen
+ * önek — her iki tuzağı da kapatır ve yeni modül eklendiğinde kural
+ * DEĞİŞMEDEN çalışmaya devam eder.
+ */
+function activeHrefOf(pathname: string): string | undefined {
+  return LIVE.map((item) => item.href)
+    .filter((href): href is string => href !== undefined)
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+}
 
 /**
  * Sol gezinme — saydam katman, kendi zemini YOK.
@@ -64,6 +97,8 @@ export function Sidebar({
   /** Yalnızca masaüstünde verilir; çekmecede daraltma diye bir şey yok. */
   onToggleCollapse?: () => void;
 }) {
+  const activeHref = activeHrefOf(usePathname());
+
   return (
     <div className="flex h-full flex-col gap-5">
       <div className={collapsed ? 'flex flex-col items-center gap-1' : ''}>
@@ -98,7 +133,13 @@ export function Sidebar({
         <div className="flex flex-col gap-0.5">
           {collapsed ? null : <GroupLabel>Çalışma</GroupLabel>}
           {LIVE.map((item) => (
-            <LiveRow key={item.label} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+            <LiveRow
+              key={item.label}
+              item={item}
+              collapsed={collapsed}
+              active={item.href === activeHref}
+              onNavigate={onNavigate}
+            />
           ))}
         </div>
 
@@ -127,13 +168,30 @@ function GroupLabel({ children }: { children: string }) {
 
 const ROW = 'flex items-center gap-[11px] rounded-[12px] px-3 py-2.5 text-[13.5px]';
 
+/**
+ * Aktif satırın imzası: sol kenardaki terracotta çubuk + `--tint` dolgu.
+ *
+ * Pasif satır hover'da `--fill` alır, `surface`/`raised` DEĞİL: açık temada
+ * ikisi de neredeyse beyazdır ve sıcak kağıdın üstünde görünmezdi
+ * (`globals.css`'in açıkça uyardığı hata).
+ */
+const ACTIVE_ROW = [
+  'relative bg-tint font-semibold text-fg',
+  'before:absolute before:top-1/2 before:left-0 before:h-[17px] before:w-[3px]',
+  'before:-translate-y-1/2 before:rounded-r-[3px] before:bg-accent',
+].join(' ');
+
+const INACTIVE_ROW = 'font-medium text-fg-2 hover:bg-fill hover:text-fg';
+
 function LiveRow({
   item,
   collapsed,
+  active,
   onNavigate,
 }: {
   item: NavItem;
   collapsed: boolean;
+  active: boolean;
   onNavigate: (() => void) | undefined;
 }) {
   const Icon = item.icon;
@@ -142,17 +200,16 @@ function LiveRow({
     <Link
       href={item.href ?? '/app'}
       title={collapsed ? item.label : undefined}
+      {...(active ? { 'aria-current': 'page' } : {})}
       className={[
         ROW,
-        'relative bg-tint font-semibold text-fg transition-colors',
-        // Sol kenardaki terracotta çubuk: aktif satırın İMZASI — dolgu değil.
-        'before:absolute before:top-1/2 before:left-0 before:h-[17px] before:w-[3px]',
-        'before:-translate-y-1/2 before:rounded-r-[3px] before:bg-accent',
+        'transition-colors',
+        active ? ACTIVE_ROW : INACTIVE_ROW,
         collapsed ? 'justify-center' : '',
       ].join(' ')}
       {...(onNavigate ? { onClick: onNavigate } : {})}
     >
-      <Icon className="shrink-0 text-ink" width={15} height={15} />
+      <Icon className={`shrink-0 ${active ? 'text-ink' : ''}`} width={15} height={15} />
       {collapsed ? null : <span>{item.label}</span>}
     </Link>
   );

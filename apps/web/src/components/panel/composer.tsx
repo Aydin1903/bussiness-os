@@ -123,7 +123,28 @@ export function Composer({
             'mt-2 flex items-center gap-3 rounded-field border border-border-strong bg-raised',
             'py-[7px] pr-[7px] pl-[18px] shadow-card',
             'transition-[border-color,box-shadow] duration-[260ms] ease-rise',
-            'focus-within:border-accent focus-within:shadow-[var(--sh-float),0_0_0_4px_var(--glow)]',
+            /*
+             * ============================================================================
+             * ODAK GÖSTERGESİ TEK — "iki kutu" görüntüsü DÜZELTİLDİ
+             * ============================================================================
+             * Eskiden odakta `0 0 0 4px var(--glow)` vardı: 1px terracotta kenarlığın
+             * DIŞINDA, aynı köşe yarıçapında 4px'lik yarı saydam bir halka. Sonuç iki
+             * iç içe yuvarlak dikdörtgendi ve kullanıcı "neden iki yazma yeri var" diye
+             * sordu — bildirilen hata buydu.
+             *
+             * Çözüm halkayı İNCELTMEK değil, ONU KENARLIĞA KATMAK: `0 0 0 1px` ve
+             * kenarlıkla AYNI renk. `box-shadow` kenarlığın hemen dışına bitişik
+             * çizildiği için ikisi tek bir 2px'lik kenarlık olarak okunur — ayrı bir
+             * kutu belirmez.
+             *
+             * `border-width`i 1px'ten 2px'e çıkarmak da aynı görüntüyü verirdi ama
+             * kutuyu 1px büyütüp odakta içeriği kaydırırdı; `box-shadow` yer kaplamaz.
+             *
+             * ⚠️ İKİNCİ VE ASIL SEBEP INPUT'TAYDI — aşağıdaki
+             * `focus-visible:outline-none`. Halkayı sadeleştirmek yetmedi, çünkü
+             * içteki kutu `globals.css`'in GLOBAL `:focus-visible` kuralıydı.
+             */
+            'focus-within:border-accent focus-within:shadow-[var(--sh-float),0_0_0_1px_var(--accent)]',
           ].join(' ')}
           onSubmit={(event) => {
             event.preventDefault();
@@ -140,6 +161,12 @@ export function Composer({
             onChange={(event) => {
               setText(event.target.value);
             }}
+            /*
+             * Odak göstergesi BURADA DEĞİL, sarmalayan formda: alan odaklanınca
+             * form kenarlığı terracottaya dönüp kalınlaşır. Global `:focus-visible`
+             * outline'ının bu alana çizilmemesi `globals.css`'te sağlanır — orada
+             * neden bileşen tarafında çözülemediği de yazılı (CSS katman sırası).
+             */
             className="min-w-0 flex-1 bg-transparent py-[9px] text-[15px] tracking-[-0.012em] text-fg outline-none placeholder:text-fg-4 disabled:opacity-60"
           />
           <button

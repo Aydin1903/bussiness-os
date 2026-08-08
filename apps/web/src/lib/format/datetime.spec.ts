@@ -1,6 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { isToday, localClock, localDay, localRelativeWhen, localShortDate } from './datetime';
+import {
+  calendarDayDelta,
+  formatCalendarDay,
+  isToday,
+  localClock,
+  localDay,
+  localRelativeWhen,
+  localShortDate,
+  todayCalendarDay,
+} from './datetime';
 
 /**
  * Zaman damgası biçimlendirme — YEREL saat sözleşmesi.
@@ -99,5 +108,103 @@ describe('localRelativeWhen', () => {
 
   it('geçersiz damgada boş metin', () => {
     expect(localRelativeWhen('bozuk', now)).toBe('');
+  });
+});
+
+/**
+ * ============================================================================
+ * TAKVİM GÜNÜ — ANDAN AYRI BİR TİP
+ * ============================================================================
+ * Bu blok bir TUZAĞI kanıtlamak için var: `crm.interactions.occurred_on` bir
+ * PostgreSQL `date` kolonudur ve `"2026-08-05"` olarak gelir. Onu `Date`'e
+ * çevirip yerel alıcılarla okumak, NEGATİF UTC ofsetlerinde günü bir geriye
+ * kaydırır.
+ *
+ * Dilim burada bilerek `America/Chicago`'ya (UTC-5) alınır: dosyanın geri
+ * kalanı UTC+3'te koşuyor ve UTC+3'te bu hata GÖRÜNMEZ — geliştirme
+ * makinesinde asla fark edilmeyecek bir hatanın testi, o makinenin dilimiyle
+ * yazılamaz.
+ */
+describe('formatCalendarDay — negatif UTC ofsetinde', () => {
+  const ISTANBUL = process.env.TZ;
+
+  beforeAll(() => {
+    process.env.TZ = 'America/Chicago';
+  });
+
+  afterAll(() => {
+    process.env.TZ = ISTANBUL;
+  });
+
+  it('takvim gününü OLDUĞU GİBİ biçimler', () => {
+    expect(formatCalendarDay('2026-08-05')).toBe('5 Ağu');
+  });
+
+  it('⚠️ `localShortDate` AYNI girdide bir gün GERİ verir — bu fonksiyonun varlık sebebi', () => {
+    // Kanıt: an-biçimleyicisi takvim gününde kullanılamaz.
+    expect(localShortDate('2026-08-05')).toBe('4 Ağu');
+    expect(formatCalendarDay('2026-08-05')).not.toBe(localShortDate('2026-08-05'));
+  });
+
+  it('yerel takvim günü UTC gününden farklıyken bile YEREL olanı verir', () => {
+    // Chicago'da 5 Ağustos 21:00 → UTC'de 6 Ağustos 02:00.
+    const localEvening = new Date(2026, 7, 5, 21, 0, 0);
+    expect(todayCalendarDay(localEvening)).toBe('2026-08-05');
+  });
+});
+
+describe('formatCalendarDay — biçim', () => {
+  it('baştaki sıfırı DÜŞÜRÜR', () => {
+    expect(formatCalendarDay('2026-01-03')).toBe('3 Oca');
+  });
+
+  it('geçersiz girdide metnin kendisini döner (uydurmaz)', () => {
+    expect(formatCalendarDay('bozuk')).toBe('bozuk');
+    expect(formatCalendarDay('2026-13-01')).toBe('2026-13-01');
+  });
+});
+
+/**
+ * Takvim günü FARKI — takiplerin "gecikmiş" hesabı buna dayanır.
+ *
+ * Dilim `America/Chicago`: hem negatif UTC ofseti hem de YAZ SAATİ olan bir
+ * dilim. Türkiye 2016'dan beri kalıcı UTC+3'tür, yani DST tuzağı dosyanın
+ * varsayılan diliminde HİÇ görünmez.
+ */
+describe('calendarDayDelta', () => {
+  const ISTANBUL = process.env.TZ;
+
+  beforeAll(() => {
+    process.env.TZ = 'America/Chicago';
+  });
+
+  afterAll(() => {
+    process.env.TZ = ISTANBUL;
+  });
+
+  it('geçmiş gün NEGATİF döner (takip gecikmiş)', () => {
+    expect(calendarDayDelta('2026-08-01', '2026-08-08')).toBe(-7);
+  });
+
+  it('aynı gün sıfır', () => {
+    expect(calendarDayDelta('2026-08-08', '2026-08-08')).toBe(0);
+  });
+
+  it('gelecek gün POZİTİF döner', () => {
+    expect(calendarDayDelta('2026-08-12', '2026-08-08')).toBe(4);
+  });
+
+  it('YAZ SAATİ geçişini doğru sayar — aradaki gün 47 saat sürse bile', () => {
+    // ABD yaz saati 8 Mart 2026'da başlar; 7→9 Mart yerel olarak 47 saattir.
+    expect(calendarDayDelta('2026-03-09', '2026-03-07')).toBe(2);
+  });
+
+  it('ay ve yıl sınırını aşar', () => {
+    expect(calendarDayDelta('2027-01-01', '2026-12-30')).toBe(2);
+  });
+
+  it('geçersiz girdide `null` — sayı UYDURULMAZ', () => {
+    expect(calendarDayDelta('bozuk', '2026-08-08')).toBeNull();
+    expect(calendarDayDelta('2026-08-08', 'bozuk')).toBeNull();
   });
 });

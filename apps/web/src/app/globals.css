@@ -327,6 +327,38 @@ time,
 }
 
 /*
+ * ============================================================================
+ * FORM ALANLARI BU OUTLINE'I ALMAZ — "iki kutu" hatasının kaynağı buydu
+ * ============================================================================
+ * Yukarıdaki kural her odaklanabilir öğeye 2px'lik, 2px kaçıklıklı, 8px köşeli
+ * bir dikdörtgen çiziyordu. Yazma alanlarında sonuç ŞUYDU: alanın kendi
+ * kenarlığı odakta terracottaya dönüyor, üstüne bir de bu outline biniyor ve
+ * kullanıcı İKİ İÇ İÇE KUTU görüyordu. Bildirilen hata buydu: "neden iki yazma
+ * yeri var".
+ *
+ * ⚠️ NEDEN BİLEŞENDE ÇÖZÜLEMEDİ — kayda değer bir CSS gerçeği:
+ * Tailwind v4 utility'leri `@layer utilities` içindedir; yukarıdaki kural ise
+ * KATMANSIZDIR. CSS'te katmansız bildirimler, özgüllüğü ne olursa olsun
+ * katmanlı olanları EZER. Yani `focus-visible:outline-none` gibi bir utility
+ * bu kuralı hiçbir koşulda geçemez — denendi, işe yaramadı ve sebebi
+ * tarayıcıda `getComputedStyle` ile ölçülerek bulundu. Düzeltmenin bu dosyada
+ * olması bir tercih değil, zorunluluk.
+ *
+ * ERİŞİLEBİLİRLİK KAYBI YOK: uygulamadaki ÜÇ form kontrolü ailesinin üçü de
+ * kendi görünür odak göstergesini taşıyor —
+ *   `ui/input.tsx`        → `focus:border-accent` + `focus:ring-2`
+ *   `crm/form-kit.tsx`    → `focus:border-accent` + 1px accent gölge
+ *   `panel/composer.tsx`  → odak göstergesi SARMALAYAN formda
+ * Yeni bir form kontrolü eklenirken bu şart hatırlanmalı: kendi odak stilini
+ * getirmeyen bir alan artık hiçbir gösterge almaz.
+ */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/*
  * Chrome'un otomatik doldurma MAVİSİ paleti deler.
  * `background-color` doğrudan ezilemez (UA stili kazanır); standart çözüm
  * uzun süreli bir iç gölgeyle zemini boyamaktır.

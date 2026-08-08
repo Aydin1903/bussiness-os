@@ -90,6 +90,91 @@ export function localShortDate(iso: string, fallback = ''): string {
   return `${String(date.getDate())} ${MONTHS[date.getMonth()] ?? ''}`;
 }
 
+/**
+ * ============================================================================
+ * TAKVİM GÜNÜ (`YYYY-MM-DD`) — ANDAN AYRI BİR TİPTİR
+ * ============================================================================
+ * Yukarıdaki fonksiyonlar bir ANI (UTC ISO-8601) yerel dilime çevirir.
+ * Aşağıdakiler ise PostgreSQL `date` kolonlarından gelen TAKVİM GÜNLERİ
+ * içindir (`crm.interactions.occurred_on`, `crm.opportunities.next_follow_up_on`)
+ * ve dilim dönüşümüne SOKULMAZ.
+ *
+ * ⚠️ Bir takvim gününü `Date`'e çevirmek SESSİZ BİR HATADIR.
+ * `Date.parse('2026-08-05')` değeri UTC gece yarısı sayar; `getDate()` ise
+ * yerel dilimde okur. UTC-5'te sonuç **4 Ağustos** çıkar — görüşmenin günü bir
+ * gün geriye kayar. UTC+3'te doğru göründüğü için bu hata geliştirme
+ * makinesinde ASLA fark edilmez; bu yüzden ayrı fonksiyon olarak yazıldı,
+ * `localShortDate` yeniden kullanılmadı.
+ *
+ * Çözüm basit: metin zaten parçalıdır, ayrıştırmaya gerek yoktur.
+ * ============================================================================
+ */
+
+/** `"2026-08-05"` → `"5 Ağu"`. Geçersiz girdide metnin kendisi döner. */
+export function formatCalendarDay(day: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (match === null) {
+    return day;
+  }
+
+  const [, , month, dayOfMonth] = match;
+  const monthName = MONTHS[Number(month) - 1];
+
+  return monthName === undefined ? day : `${String(Number(dayOfMonth))} ${monthName}`;
+}
+
+/** Tarayıcının YEREL takvim gününü `YYYY-MM-DD` olarak verir. */
+export function todayCalendarDay(now: Date = new Date()): string {
+  return `${String(now.getFullYear())}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * İki takvim günü arasındaki GÜN farkı: `day - reference`.
+ *
+ * Negatif = geçmişte (takip GECİKMİŞ), `0` = bugün, pozitif = gelecek.
+ * Geçersiz girdide `null` — sayı uydurulmaz.
+ *
+ * ============================================================================
+ * NEDEN `Date.UTC`
+ * ============================================================================
+ * İki tarafı da UTC gece yarısına sabitlemek farkı TAM SAYI yapar: aradaki
+ * gün sayısı ne olursa olsun bölme sonucu tamdır.
+ *
+ * Yerel `new Date(y, m, d)` ile aynı hesap, yaz saati geçen bir aralıkta 47
+ * ya da 49 saat üretir (ölçüldü: `America/Chicago`, 7→9 Mart 2026 = 47 saat).
+ * `Math.round` küçük aralıklarda bunu toparlar, ama doğruluk yuvarlamanın
+ * şansına kalır — aralık büyüdükçe kalan saatler birikir. UTC'ye sabitlemek
+ * doğruluğu YAPISAL kılar, yuvarlamaya bırakmaz.
+ *
+ * Bu, dilim dönüşümü DEĞİLDİR: her iki gün de aynı biçimde sabitlendiği için
+ * ofset sadeleşir. Karşılaştırmanın referansı yine YEREL bugündür
+ * (`todayCalendarDay`) — kullanıcının takvimi, sunucununki değil.
+ */
+export function calendarDayDelta(
+  day: string,
+  reference: string = todayCalendarDay(),
+): number | null {
+  const left = toUtcMidnight(day);
+  const right = toUtcMidnight(reference);
+
+  if (left === null || right === null) {
+    return null;
+  }
+
+  return Math.round((left - right) / 86_400_000);
+}
+
+/** `YYYY-MM-DD` → UTC gece yarısı (ms); biçim tutmuyorsa `null`. */
+function toUtcMidnight(day: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (match === null) {
+    return null;
+  }
+
+  const [, year, month, dayOfMonth] = match;
+  return Date.UTC(Number(year), Number(month) - 1, Number(dayOfMonth));
+}
+
 /** İki `Date` aynı YEREL takvim gününde mi. */
 export function isSameLocalDay(a: Date, b: Date): boolean {
   return (

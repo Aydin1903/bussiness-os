@@ -17,6 +17,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
+import { type OpportunityListRow } from '../application/opportunity.repository.port';
 import { OpportunityUseCases } from '../application/opportunity.use-cases';
 import { type OpportunityState } from '../domain/opportunity.entity';
 import { OPPORTUNITY_DELETE, OPPORTUNITY_READ, OPPORTUNITY_WRITE } from '../crm.permissions';
@@ -31,9 +32,21 @@ import {
 } from './crm.dto';
 import { CrmDomainExceptionFilter } from './crm-domain-exception.filter';
 
-/** Liste yaniti — sirket/kisi ikizleriyle ayni desen. */
+/**
+ * Liste yaniti — sirket/kisi ikizleriyle ayni desen, TEK farkla: satirlar
+ * `companyName` TASIR.
+ *
+ * Fark hattin (pipeline) gercek ihtiyacindan dogdu: orasi sirketler arasi bir
+ * gorunumdur ve her kart hangi sirkete ait oldugunu SOYLEMEK zorundadir.
+ * Alternatif — istemcinin tum sirketleri cekip id->ad haritasi kurmasi — hem
+ * her ekrana fazladan bir cagri ekler hem de sayfa basina 100 sirket sinirinin
+ * uzerinde satirin sirketini GOSTEREMEZDI.
+ *
+ * Tek kayit uclari (`GET :id`, `POST`, `PATCH`) DEGISMEDI: orada sirket zaten
+ * baglamdan bellidir.
+ */
 interface OpportunityListResponse {
-  readonly items: readonly OpportunityState[];
+  readonly items: readonly OpportunityListRow[];
   readonly total: number;
   readonly limit: number;
   readonly offset: number;
@@ -100,6 +113,7 @@ export class OpportunityController {
       offset: query.offset,
       companyId: query.companyId ?? null,
       stage: query.stage ?? null,
+      orderBy: query.order,
     });
 
     return { ...page, limit: query.limit, offset: query.offset };

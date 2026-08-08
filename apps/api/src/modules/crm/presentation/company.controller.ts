@@ -17,6 +17,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
+import { type CompanyListRow } from '../application/company.repository.port';
 import { CompanyUseCases } from '../application/company.use-cases';
 import { type CompanyState } from '../domain/company.entity';
 import { COMPANY_DELETE, COMPANY_READ, COMPANY_WRITE } from '../crm.permissions';
@@ -46,9 +47,18 @@ import { CrmDomainExceptionFilter } from './crm-domain-exception.filter';
  * gerekcesi tam olarak bunu ONLEMEKTI.
  * ============================================================================
  */
-/** Liste yaniti — `GET /me/memberships` ile AYNI desen (ADR-0029 liste notu). */
+/**
+ * Liste yaniti — `GET /me/memberships` ile AYNI desen (ADR-0029 liste notu).
+ *
+ * Satirlar `lastInteractionOn` TASIR: "bu musteriyle en son ne zaman
+ * gorustuk" sorusu musteri listesinin en sik sorulan sorusudur ve her kart
+ * icin ayri bir istek atmak N+1 olurdu. Deger `crm.interactions`tan TURER,
+ * `crm.companies`e kopyalanmaz.
+ *
+ * Tek kayit uclari (`GET :id`, `POST`, `PATCH`) DEGISMEDI.
+ */
 interface CompanyListResponse {
-  readonly items: readonly CompanyState[];
+  readonly items: readonly CompanyListRow[];
   readonly total: number;
   readonly limit: number;
   readonly offset: number;

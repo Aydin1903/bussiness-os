@@ -4,6 +4,7 @@ import { type Clock } from '../../../shared/clock.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import {
   type FollowUpRow,
+  type OpportunityListRow,
   type OpportunityRepository,
   type PipelineRow,
 } from '../application/opportunity.repository.port';
@@ -47,7 +48,7 @@ class FakeOpportunityRepository implements OpportunityRepository {
   findById(): Promise<Opportunity | null> {
     throw new Error('kullanilmiyor');
   }
-  list(): Promise<ListPage<Opportunity>> {
+  list(): Promise<ListPage<OpportunityListRow>> {
     throw new Error('kullanilmiyor');
   }
   deleteById(): Promise<number> {

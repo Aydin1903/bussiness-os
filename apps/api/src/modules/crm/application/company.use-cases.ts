@@ -8,7 +8,11 @@ import {
   type CompanyState,
 } from '../domain/company.entity';
 import { CompanyNotFoundError } from '../domain/crm.error';
-import { type CompanyRepository, type ListPage } from './company.repository.port';
+import {
+  type CompanyListRow,
+  type CompanyRepository,
+  type ListPage,
+} from './company.repository.port';
 
 /**
  * Sirket yasam dongusu (ADR-0031 §1).
@@ -53,12 +57,17 @@ export class CompanyUseCases {
     return company.toState();
   }
 
-  async list(input: { limit: number; offset: number }): Promise<ListPage<CompanyState>> {
-    const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+  /**
+   * Sayfali liste — repository PROJEKSIYON doner, entity degil.
+   *
+   * `lastInteractionOn` `Company` entity'sinde YOKTUR (ve olmamalidir): baska
+   * bir tablodan turer. Ayni karar `OpportunityUseCases.list`te de verildi;
+   * gerekce `company.repository.port.ts`'te.
+   */
+  async list(input: { limit: number; offset: number }): Promise<ListPage<CompanyListRow>> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(() =>
       this.deps.repository.list(input),
     );
-
-    return { items: page.items.map((company) => company.toState()), total: page.total };
   }
 
   async get(id: string): Promise<CompanyState> {

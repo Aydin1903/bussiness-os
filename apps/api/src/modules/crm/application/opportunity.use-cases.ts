@@ -15,7 +15,12 @@ import {
 } from '../domain/opportunity.entity';
 import { type CompanyRepository, type ListPage } from './company.repository.port';
 import { type ContactRepository } from './contact.repository.port';
-import { type FollowUpRow, type OpportunityRepository } from './opportunity.repository.port';
+import {
+  type FollowUpRow,
+  type OpportunityListRow,
+  type OpportunityOrder,
+  type OpportunityRepository,
+} from './opportunity.repository.port';
 
 /** Firsat yasam dongusu. Dosya birlestirme gerekcesi: bkz. `CompanyUseCases`. */
 export interface OpportunityDependencies {
@@ -58,17 +63,23 @@ export class OpportunityUseCases {
     });
   }
 
+  /**
+   * Sayfali liste — repository PROJEKSIYON doner, entity degil.
+   *
+   * Eskiden burada `item.toState()` esleme adimi vardi; `companyName` entity'de
+   * OLMADIGI (ve olmamasi gerektigi) icin okuma yolu projeksiyona gecti ve
+   * esleme gereksizlesti. Gerekce `opportunity.repository.port.ts`'te.
+   */
   async list(input: {
     limit: number;
     offset: number;
     companyId: string | null;
     stage: OpportunityStage | null;
-  }): Promise<ListPage<OpportunityState>> {
-    const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+    orderBy: OpportunityOrder;
+  }): Promise<ListPage<OpportunityListRow>> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(() =>
       this.deps.repository.list(input),
     );
-
-    return { items: page.items.map((item) => item.toState()), total: page.total };
   }
 
   async get(id: string): Promise<OpportunityState> {

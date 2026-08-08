@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, isNotNull, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, notInArray, sql, type SQL } from 'drizzle-orm';
 
 import { companies, opportunities } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { type ListPage } from '../application/company.repository.port';
 import {
   type FollowUpRow,
+  type OpportunityListRow,
+  type OpportunityOrder,
   type OpportunityRepository,
   type PipelineRow,
 } from '../application/opportunity.repository.port';
@@ -49,12 +51,26 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
     return row === undefined ? null : toEntity(row);
   }
 
+  /**
+   * Sayfali liste — sirket adiyla.
+   *
+   * ============================================================================
+   * `innerJoin` SATIR DUSURMEZ
+   * ============================================================================
+   * `company_id` NOT NULL ve `ON DELETE CASCADE` ile `crm.companies`e baglidir:
+   * eslesmeyen bir firsat satiri VAR OLAMAZ. Bu yuzden `leftJoin` gereksizdir
+   * ve `companyName`i `string | null` yapip her cagirana bos kontrol yazdirirdi.
+   * `listOpenPipeline` ayni join'i ayni gerekceyle zaten yapiyor.
+   *
+   * SAYIM sorgusu join'SIZ kalir: 1:1 oldugu icin sonuc ayni, maliyeti daha az.
+   */
   async list(input: {
     limit: number;
     offset: number;
     companyId: string | null;
     stage: OpportunityStage | null;
-  }): Promise<ListPage<Opportunity>> {
+    orderBy: OpportunityOrder;
+  }): Promise<ListPage<OpportunityListRow>> {
     const { db } = requireTransaction();
 
     // IS filtreleri elle yazilir; TENANT filtresi yine RLS'in isidir.
@@ -64,10 +80,11 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
     const where = filters.length === 0 ? undefined : and(...filters);
 
     const rows = await db
-      .select()
+      .select({ opportunity: opportunities, companyName: companies.name })
       .from(opportunities)
+      .innerJoin(companies, eq(companies.id, opportunities.companyId))
       .where(where)
-      .orderBy(desc(opportunities.createdAt), desc(opportunities.id))
+      .orderBy(...orderColumns(input.orderBy))
       .limit(input.limit)
       .offset(input.offset);
 
@@ -76,7 +93,13 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
       .from(opportunities)
       .where(where);
 
-    return { items: rows.map(toEntity), total: counted?.total ?? 0 };
+    return {
+      items: rows.map((row) => ({
+        ...toEntity(row.opportunity).toState(),
+        companyName: row.companyName,
+      })),
+      total: counted?.total ?? 0,
+    };
   }
 
   async deleteById(id: string): Promise<number> {
@@ -154,9 +177,12 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
         title: opportunities.title,
         stage: opportunities.stage,
         companyId: opportunities.companyId,
+        companyName: companies.name,
         nextFollowUpOn: opportunities.nextFollowUpOn,
       })
       .from(opportunities)
+      // Satir DUSURMEZ: `company_id` NOT NULL + FK (bkz. `list` yorumu).
+      .innerJoin(companies, eq(companies.id, opportunities.companyId))
       .where(where)
       // KRONOLOJIK: en yakin (ve GECIKMIS) takip once. `id` tie-breaker.
       .orderBy(asc(opportunities.nextFollowUpOn), asc(opportunities.id))
@@ -174,11 +200,42 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
         title: row.title,
         stage: toStage(row.stage),
         companyId: row.companyId,
+        companyName: row.companyName,
         nextFollowUpOn: String(row.nextFollowUpOn),
       })),
       total: counted?.total ?? 0,
     };
   }
+}
+
+/**
+ * Siralama anahtarlari.
+ *
+ * ============================================================================
+ * `priority` — GECIKMIS ONCE, SONRA EN SON GUNCELLENEN
+ * ============================================================================
+ * Hat (pipeline) sutun basina yalnizca birkac kart gosterir; hangi birkaci
+ * oldugu bu siralamayla belirlenir. Gecikmis yuklemi `listOpenPipeline` ile
+ * BIREBIR AYNI ifadedir — iki yerde farkli yazilsa, ayni firsat bir ekranda
+ * "gecikmis" sayilip digerinde sayilmayabilirdi.
+ *
+ * Ikincil anahtar `updated_at`: "en son dokunulan is en ustte". `created_at`
+ * olsaydi aylar once acilmis ama dun guncellenmis bir firsat dibe duserdi.
+ *
+ * `id` her ikisinde de TIE-BREAKER: ayni milisaniyede olusan iki kayitta
+ * kararsiz siralama, sayfalamada bir kaydin iki kez ya da hic gorunmesi
+ * demektir (ADR-0029'un liste ucunda ogrenilen ders).
+ */
+function orderColumns(order: OpportunityOrder): [SQL, ...SQL[]] {
+  if (order === 'priority') {
+    return [
+      sql`(${opportunities.nextFollowUpOn} IS NOT NULL AND ${opportunities.nextFollowUpOn} < CURRENT_DATE) DESC`,
+      sql`${opportunities.updatedAt} DESC`,
+      sql`${opportunities.id} ASC`,
+    ];
+  }
+
+  return [sql`${opportunities.createdAt} DESC`, sql`${opportunities.id} DESC`];
 }
 
 /** Satiri entity'ye cevirir; `stage` daraltmasi tek yerde yapilir. */

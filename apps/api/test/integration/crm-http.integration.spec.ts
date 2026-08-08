@@ -421,6 +421,74 @@ describe('CRM uclari (uctan uca)', () => {
     );
   });
 
+  /**
+   * ============================================================================
+   * `order=priority` — GECIKMIS ONCE, SONRA EN SON GUNCELLENEN
+   * ============================================================================
+   * Hat (pipeline) sutun basina yalnizca birkac kart gosterir; hangi birkaci
+   * oldugunu bu siralama belirler. Siralama ISTEMCIDE yapilsaydi, cekilen
+   * sayfanin DISINDA kalan gecikmis bir firsat hic gorunmezdi ve "gecikmis
+   * once" iddiasi sessizce yanlis olurdu.
+   */
+  it('order=priority GECIKMIS takipli firsati basa alir', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const id = String(company.body.id);
+
+    // Once "yeni" olani olustur ki `recent` siralamasinda o basta olsun.
+    await createOpportunity(owner, id, { title: 'Gecikmis', nextFollowUpOn: '2020-01-01' });
+    await createOpportunity(owner, id, { title: 'Yeni ama gecikmemis' });
+
+    const recent = await api()
+      .get('/api/v1/crm/opportunities')
+      .set('Authorization', `Bearer ${owner}`);
+    const priority = await api()
+      .get('/api/v1/crm/opportunities?order=priority')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const titles = (body: unknown): string[] =>
+      (body as { items: { title: string }[] }).items.map((i) => i.title);
+
+    // VARSAYILAN degismedi: en yeni once.
+    expect(titles(recent.body)[0]).toBe('Yeni ama gecikmemis');
+    // `priority`: gecikmis olan basa gecti.
+    expect(titles(priority.body)[0]).toBe('Gecikmis');
+  });
+
+  it('order=priority esitlikte EN SON GUNCELLENENI ustte tutar', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const id = String(company.body.id);
+
+    const first = await createOpportunity(owner, id, { title: 'Once acilan' });
+    await createOpportunity(owner, id, { title: 'Sonra acilan' });
+
+    // Ilk firsata DOKUN: `updated_at` ilerler.
+    await api()
+      .patch(`/api/v1/crm/opportunities/${String(first.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ title: 'Once acilan (guncellendi)' });
+
+    const response = await api()
+      .get('/api/v1/crm/opportunities?order=priority')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const items: { title: string }[] = response.body.items;
+    // Ikincil anahtar `updated_at`: `created_at` olsaydi dun guncellenen ama
+    // aylar once acilmis bir firsat dibe duserdi.
+    expect(items[0]?.title).toBe('Once acilan (guncellendi)');
+  });
+
+  it('gecersiz order degeri 422', async () => {
+    const owner = await tokenFor('owner');
+
+    const response = await api()
+      .get('/api/v1/crm/opportunities?order=bilinmeyen')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(422);
+  });
+
   it('takipler KRONOLOJIK doner ve GECIKMIS olanlar DAHILDIR', async () => {
     const owner = await tokenFor('owner');
     const company = await createCompany(owner);
@@ -441,6 +509,73 @@ describe('CRM uclari (uctan uca)', () => {
     expect(response.status).toBe(200);
     // Gecikmisler EN ONEMLILERIDIR: dislanmaz, basa gelir.
     expect(followUpTitles(response.body)).toEqual(['Gecikmis', 'Gelecek']);
+  });
+
+  /**
+   * ============================================================================
+   * `companyName` — LISTE PROJEKSIYONLARINDA JOIN ILE GELIR (Slice 8b)
+   * ============================================================================
+   * Hat ve takipler SIRKETLER ARASI gorunumlerdir: her satir hangi sirkete ait
+   * oldugunu SOYLEMEK zorundadir. Alternatif — istemcinin tum sirketleri cekip
+   * id->ad haritasi kurmasi — her ekrana fazladan bir cagri ekler ve 100
+   * sirketi asan tenant'ta satirin sirketini GOSTEREMEZDI.
+   *
+   * `companyId` KALDIRILMADI: id baglanti icin, ad gosterim icin gerekli.
+   */
+  it('takipler sirket ADINI da doner — id ile BIRLIKTE', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner, 'Kuzey Mimarlik');
+    await createOpportunity(owner, String(company.body.id), { nextFollowUpOn: '2026-09-01' });
+
+    const response = await api()
+      .get('/api/v1/crm/follow-ups')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items[0].companyName).toBe('Kuzey Mimarlik');
+    expect(response.body.items[0].companyId).toBe(String(company.body.id));
+  });
+
+  it('firsat listesi sirket ADINI doner ve HER satirda dogru sirketi gosterir', async () => {
+    const owner = await tokenFor('owner');
+    const kuzey = await createCompany(owner, 'Kuzey Mimarlik');
+    const bati = await createCompany(owner, 'Bati Yapi');
+
+    await createOpportunity(owner, String(kuzey.body.id), { title: 'Kuzey anlasmasi' });
+    await createOpportunity(owner, String(bati.body.id), { title: 'Bati anlasmasi' });
+
+    const response = await api()
+      .get('/api/v1/crm/opportunities')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+
+    // Satir->sirket eslesmesi TEK TEK dogrulanir: join yanlis kolonu
+    // baglasaydi iki satir da ayni adi tasir ve "alan var" testi yine gecerdi.
+    const items: { title: string; companyName: string }[] = response.body.items;
+    const byTitle = new Map(items.map((item) => [item.title, item.companyName]));
+
+    expect(byTitle.get('Kuzey anlasmasi')).toBe('Kuzey Mimarlik');
+    expect(byTitle.get('Bati anlasmasi')).toBe('Bati Yapi');
+  });
+
+  it('sirket adi degisince liste YENI adi doner (kopya DEGIL, join)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner, 'Eski Unvan');
+    await createOpportunity(owner, String(company.body.id));
+
+    await api()
+      .patch(`/api/v1/crm/companies/${String(company.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ name: 'Yeni Unvan' });
+
+    const response = await api()
+      .get('/api/v1/crm/opportunities')
+      .set('Authorization', `Bearer ${owner}`);
+
+    // Ad firsat satirina KOPYALANSAYDI burada hala "Eski Unvan" yazardi —
+    // ikinci bir dogruluk kaynagi ve zamanla yalan soyleyen bir alan.
+    expect(response.body.items[0].companyName).toBe('Yeni Unvan');
   });
 
   it('takipler KAPANAN firsati DISLAR (kendiliginden duser)', async () => {
@@ -562,6 +697,183 @@ describe('CRM uclari (uctan uca)', () => {
     const company = await createCompany(owner);
     const response = await createInteraction(owner, String(company.body.id), { body: '   ' });
     expect(response.status).toBe(422);
+  });
+
+  /**
+   * ============================================================================
+   * `lastInteractionOn` — SON TEMAS, TURETILMIS (Slice 9-B)
+   * ============================================================================
+   * `crm.companies`te "son temas" kolonu YOKTUR; deger her sorguda
+   * `crm.interactions`tan turer. Kaliciya yazmak ikinci bir dogruluk kaynagi
+   * yaratirdi ve gorusme silindiginde/tarihi degistiginde kart yalan soylerdi.
+   */
+  it('musteri listesi SON TEMAS gununu doner', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    await createInteraction(owner, String(company.body.id), { occurredOn: '2026-08-01' });
+    await createInteraction(owner, String(company.body.id), { occurredOn: '2026-08-09' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+    // EN SON gorusme — ilk eklenen degil, en buyuk `occurred_on`.
+    expect(response.body.items[0].lastInteractionOn).toBe('2026-08-09');
+  });
+
+  /**
+   * `LEFT` semantigi: `INNER JOIN` olsaydi yeni eklenmis her musteri listede
+   * HIC gorunmezdi — sessizce kaybolan kayitlar.
+   */
+  it('hic gorusmesi olmayan musteri listede KALIR, degeri `null` olur', async () => {
+    const owner = await tokenFor('owner');
+    await createCompany(owner, 'Gorusmesiz Musteri');
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0].name).toBe('Gorusmesiz Musteri');
+    expect(response.body.items[0].lastInteractionOn).toBeNull();
+  });
+
+  /**
+   * `occurred_on`, `created_at` DEGIL: dun yapilan bir gorusme bugun
+   * yazilabilir. Kullanicinin sordugu soru "en son ne zaman konustuk".
+   */
+  it('SON TEMAS gorusmenin OLDUGU gundur, kaydedildigi gun degil', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    // BUGUN kaydedilen ama GECMISTE gerceklesen gorusme.
+    await createInteraction(owner, String(company.body.id), { occurredOn: '2020-03-04' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.body.items[0].lastInteractionOn).toBe('2020-03-04');
+  });
+
+  it('BASKA musterinin gorusmesi son temasi ETKILEMEZ', async () => {
+    const owner = await tokenFor('owner');
+    const sessiz = await createCompany(owner, 'Sessiz');
+    const aktif = await createCompany(owner, 'Aktif');
+
+    await createInteraction(owner, String(aktif.body.id), { occurredOn: '2026-08-09' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const byName = new Map(
+      (response.body.items as { name: string; lastInteractionOn: string | null }[]).map((item) => [
+        item.name,
+        item.lastInteractionOn,
+      ]),
+    );
+
+    expect(byName.get('Aktif')).toBe('2026-08-09');
+    expect(byName.get('Sessiz')).toBeNull();
+    expect(String(sessiz.body.id)).not.toBe(String(aktif.body.id));
+  });
+
+  /**
+   * ============================================================================
+   * KART SAYAÇLARI — yetkili + ACIK firsat (Slice 9-B, yogunluk 2)
+   * ============================================================================
+   * Musteri karti 720px genisliginde ve iki kisa satirla seyrek gorunuyordu.
+   * Sayaclar karti "dolduran" susler DEGIL: "kac yetkilisi var, kac acik isim
+   * var" musteri listesine bakarken gercekten sorulan sorulardir.
+   */
+  it('musteri listesi yetkili ve ACIK firsat sayilarini doner', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const id = String(company.body.id);
+
+    await api()
+      .post('/api/v1/crm/contacts')
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ companyId: id, fullName: 'Ayse Kaya' });
+    await api()
+      .post('/api/v1/crm/contacts')
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ companyId: id, fullName: 'Mehmet Uz' });
+
+    await createOpportunity(owner, id, { title: 'Acik is', stage: 'in_discussion' });
+    await createOpportunity(owner, id, { title: 'Kazanilan', stage: 'won' });
+    await createOpportunity(owner, id, { title: 'Kaybedilen', stage: 'lost' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items[0].contactCount).toBe(2);
+    // KAPANMISLAR SAYILMAZ: sorulan soru "su an kac isim var", "toplam kac is
+    // yaptik" degil. Uc firsat var ama yalnizca biri acik.
+    expect(response.body.items[0].openOpportunityCount).toBe(1);
+  });
+
+  it('hicbiri yoksa sayaclar SIFIR doner — `null` degil', async () => {
+    const owner = await tokenFor('owner');
+    await createCompany(owner);
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    // Gruplanmis sayim yalnizca EN AZ BIR satiri olan musteriyi dondurur;
+    // haritada bulunmayan icin sifire dusulur.
+    expect(response.body.items[0].contactCount).toBe(0);
+    expect(response.body.items[0].openOpportunityCount).toBe(0);
+  });
+
+  it('sayaclar SAYIDIR — `count` sonucu metne kaymaz', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    await api()
+      .post('/api/v1/crm/contacts')
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ companyId: String(company.body.id), fullName: 'Ayse Kaya' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    // `::int` olmadan surucu `bigint`i STRING dondururdu ve ekranda "1" yerine
+    // tirnakli bir deger olurdu.
+    expect(typeof response.body.items[0].contactCount).toBe('number');
+  });
+
+  it('BASKA musterinin yetkilisi/firsati sayaca girmez', async () => {
+    const owner = await tokenFor('owner');
+    const bos = await createCompany(owner, 'Bos Musteri');
+    const dolu = await createCompany(owner, 'Dolu Musteri');
+
+    await api()
+      .post('/api/v1/crm/contacts')
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ companyId: String(dolu.body.id), fullName: 'Ayse Kaya' });
+    await createOpportunity(owner, String(dolu.body.id), { stage: 'potential' });
+
+    const response = await api()
+      .get('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const items: { name: string; contactCount: number; openOpportunityCount: number }[] =
+      response.body.items;
+    const byName = new Map(items.map((item) => [item.name, item]));
+
+    expect(byName.get('Dolu Musteri')?.contactCount).toBe(1);
+    expect(byName.get('Dolu Musteri')?.openOpportunityCount).toBe(1);
+    expect(byName.get('Bos Musteri')?.contactCount).toBe(0);
+    expect(byName.get('Bos Musteri')?.openOpportunityCount).toBe(0);
+    expect(String(bos.body.id)).not.toBe(String(dolu.body.id));
   });
 
   it('gorusmeler companyId ile filtrelenir', async () => {
