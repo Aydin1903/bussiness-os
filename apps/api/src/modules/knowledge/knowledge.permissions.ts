@@ -11,22 +11,30 @@ import { type PermissionRule } from '../../platform/authz/authz.public';
  */
 export const NOTE_CREATE = 'note:create';
 
-/**
- * `knowledge:ask` -> ayni roller (owner, admin, member; `viewer` HARIC).
- *
+/*
  * ============================================================================
- * NEDEN `note:create` YENIDEN KULLANILMADI
+ * `knowledge:ask` KALDIRILDI — Faz 5 kapanis denetimi, 2026-08-09
  * ============================================================================
- * Bugun roller AYNI — ama `note:create` bir YAZMA fiilidir ve bir okuma ucuna
- * onu kosmak ADR-0025'in `resource:action` modelini bozardi. Ileride "kim soru
- * sorabilir" ile "kim not yazabilir" ayrismak istendiginde (cok olasi: `viewer`
- * belki sorabilmeli) tek permission'i bolmek gerekirdi ve o an geriye donuk bir
- * degisiklik olurdu.
+ * Bu izin `context:ask`a TASINDI (ADR-0031 §3, onaylanmis breaking change):
+ * retrieval ucu `POST /knowledge/ask`tan `POST /ask`e, yani `platform/context`e
+ * gecti ve orasi izni kendi katalogunda deklare ediyor
+ * (`platform/context/context.permissions.ts`).
  *
- * Iki permission, bugun ayni kume — yarin bagimsiz degisebilir.
+ * Tasima yapildiginda buradaki deklarasyon SILINMEDI ve dokuz commit boyunca
+ * kayitli kaldi. Islevsel bir hata uretmedi — hicbir uc onu istemiyordu — ama
+ * izin katalogu VAR OLMAYAN bir yetenegi ilan ediyordu. Kapanis denetimi bunu
+ * "olu izin" olarak buldu ve satir kaldirildi.
+ *
+ * ⚠️ ALINAN DERS, silinen satirdan daha degerli: bir izin BASKA BIR MODULE
+ * tasindiginda, tasima ancak ESKI DEKLARASYON DA KALDIRILDIGINDA biter.
+ * Registry cift kayda itiraz etmez; ikisi de sessizce kayitli kalir ve
+ * katalog zamanla gercegi anlatmayi birakir.
+ *
+ * Rol kumesi tasima sirasinda DEGISMEDI (owner, admin, member; `viewer`
+ * HARIC) ve gerekcesi `context.permissions.ts`te yasiyor: `context:ask`
+ * "soru sorabilir mi", yani bir MALIYET sorusudur.
  * ============================================================================
  */
-export const KNOWLEDGE_ASK = 'knowledge:ask';
 
 /**
  * `note:read` -> bugun ayni roller (owner, admin, member; `viewer` HARIC).
@@ -58,6 +66,5 @@ export const REPORT_READ = 'report:read';
 export const KNOWLEDGE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: NOTE_CREATE, roles: ['owner', 'admin', 'member'] },
   { permission: NOTE_READ, roles: ['owner', 'admin', 'member'] },
-  { permission: KNOWLEDGE_ASK, roles: ['owner', 'admin', 'member'] },
   { permission: REPORT_READ, roles: ['owner', 'admin', 'member'] },
 ];

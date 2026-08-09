@@ -310,7 +310,7 @@ AI çağrısı **maliyet ve token takibi**, diğer iki kalemden farklı bir acil
 
 ### 8.2 KVKK/GDPR neden Faz 6 öncesi
 
-Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.5](#85-retention-borcu-altı-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
+Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.5](#85-retention-borcu-sekiz-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
 
 ### 8.3 Cevabın akarak yazılması (streaming) — ayrı slice + ADR
 
@@ -344,9 +344,9 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: altı tablo, tek karar
+### 8.5 Retention borcu: sekiz tablo, tek karar
 
-Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) **altıya** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, **Faz 5 kapanış denetiminde (2026-08-09) sekize** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
 | Tablo                        | Neyi biriktiriyor                                                              | Kaynak                                                                           |
 | ---------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -356,6 +356,8 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 | `messages`                   | Her soru-cevap iki satır — **en hızlı büyüyen**                                | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
 | `knowledge.conversations`    | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ    | Faz 4 (kapanış denetimi, 2026-08-05)                                             |
 | `knowledge.rate_limits`      | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**               | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)          |
+| `crm.interactions`           | Her görüşme kaydı — CRM'in AI'a bağlam üreten tek yüzeyi                       | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
+| `crm.interaction_chunks`     | Görüşme başına N parça + vektör — **satır başına en PAHALI** (`vector(1536)`)  | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
@@ -369,7 +371,9 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 
 > **`crm.company_summaries` bu listeye GİRMEZ** ([ADR-0032](adr/0032-company-summary.md)): şirket başına **tek satır** tutar ve şirket silinince cascade ile gider — sınırsız büyüyen bir tablo değildir. `daily_report_runs`'tan yapısal farkı budur (o tenant başına **günde** bir satır ekler ve kalıcıdır). Kayıt buraya, listeyi uzatmamak için değil, **neden uzatmadığı** görülsün diye düşüldü: bir AI çıktısını saklamak otomatik olarak retention borcu doğurmaz; borcu doğuran şey satırın ZAMANLA çoğalmasıdır.
 
-> **Faz 5 bunu SEKİZE çıkaracak** ([ADR-0031](adr/0031-crm-module.md)): `crm.interactions` + `crm.interaction_chunks`. Yukarıdaki `conversations` dersi orada **ilk günden** uygulanıyor — `interaction_chunks → interactions` `ON DELETE CASCADE` taşıdığı için doğru retention kolu `interactions`'dır. Ayrıca iki tablo **taşınıyor** (`rate_limits` ve `conversations`/`messages` → `platform`); bu listeyi kısaltmaz ama çoğalmasını önler: modül başına değil, platformda **tek** kalem.
+> **Faz 5 bunu SEKİZE ÇIKARDI** ([ADR-0031](adr/0031-crm-module.md)) — cümle Faz 5 kapanış denetiminde (2026-08-09) gelecek zamandan geçmiş zamana alındı; iki satır o güne kadar tabloya **hiç girmemişti**. Yukarıdaki `conversations` dersi burada **ilk günden** uygulandı: `interaction_chunks → interactions` `ON DELETE CASCADE` taşıdığı için doğru retention kolu `interactions`'dır. Ayrıca iki tablo **taşındı** (`rate_limits` ve `conversations`/`messages` → `platform`); bu listeyi kısaltmaz ama çoğalmasını önler — modül başına değil, platformda **tek** kalem.
+>
+> ⚠️ `crm.interaction_chunks` bu listenin **satır başına en pahalı** kalemidir: her satır 1536 boyutlu bir vektör taşır (~6 KB). Diğer yedisi metin ve sayaçtır. Retention kararı verilirken "kaç satır" kadar "satır ne kadar yer kaplıyor" da sorulmalı.
 
 `rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.
 
