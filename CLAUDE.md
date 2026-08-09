@@ -272,8 +272,11 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **backlog**tadır: üçü de bugün varsayımsal ihtiyaçtır (ROADMAP §1.1).
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
-**Faz 5 başladı** — CRM modülü + Context Engine'in platforma yükselmesi
-(ADR-0031 kabul edildi, 2026-08-05). Slice 0.5 yazıldı; kalanı sürüyor (aşağıda).
+**Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**1. modül CRM ✅ bitti** ve **prod'da canlı** (ADR-0031 + ADR-0032; kapanış
+denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
+**2. modül Projeler 🟢 başladı** (ADR-0033 kabul edildi, 2026-08-10); Slice 1
+yazıldı ve prod'a çıktı. İkisi de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -412,10 +415,12 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 ### Henüz yok
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
-guard; kalan: tenant-configurable roller, ABAC, izin cache) · Faz 5 iş modülleri
+guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
+on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler 🟢)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ALTI tablo**
-(ROADMAP §8.4) · **not detay ucu** (ADR-0029 bilinen sınır) · **streaming**
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: SEKİZ tablo**
+(ROADMAP §8.5; Projeler Slice 3 onu **ONA** çıkaracak) · **not detay ucu**
+(ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·
 **web'in tam mobil turu** (kırılma noktaları hazır; alt gezinme, 44px dokunma
@@ -458,23 +463,27 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 | 8 + 9-B | Frontend CRM ekranları (5 rota, 33 bileşen) + düzen/odak çalışması | ✅ |
 | — | **Modül başına imza rengi** — CRM referans modül (FRONTEND §4.8) | ✅ |
 | Katman 2 | **Müşteri özeti** (ADR-0032) — istek-tetiklemeli önbellek, worker değil | ✅ |
-| 9 | Kapanış denetimi | ⏳ |
+| 9 | Kapanış denetimi | ✅ |
 
-> ### Slice 9 kapanış denetimi — biriken kontrol listesi
+> ### Slice 9 kapanış denetimi — **yapıldı, 2026-08-09**
 >
-> Faz 4'ün denetimi gibi **gerçek isteklerle ve gerçek tarayıcıda** yapılır.
-> Buraya iş ilerledikçe madde eklenir; denetim günü listenin tamamı gezilir.
+> **CRM kapandı ve prod'da canlı.** Denetimin en ağır çıktısı aşağıdaki
+> "⚠️ Railway prod CANLI" bölümüdür: beş rol, 20/20 migration, altı CRM tablosu
+> `RLS + FORCE`, fail-closed davranışının prod'da kanıtlanması, ve
+> `NODE_ENV=production` + e-posta gönderiminin ayırt edici kanıtla
+> doğrulanması. O bölüm denetimin kaydıdır ve **burada tekrarlanmaz**.
 >
-> - [ ] **Her modül rotası kendi rengini gösteriyor mu** — `data-module`
+> Denetim listesinin iki maddesi **Projeler'in kapanış denetimine devrediyor**
+> — çünkü ikisi de "modül başına imza rengi" kuralını sınıyor ve o kural ancak
+> **ikinci** modülde gerçekten sınanmış olur:
+>
+> - **Her modül rotası kendi rengini gösteriyor mu** — `data-module`
 >   unutulduğunda hata **sessizdir**: ekran çalışır, yalnızca terracotta kalır
->   ve ne lint ne tip denetimi yakalar. Bugün tek modül rotası CRM'dir
->   (`/app/crm` ve dört alt rotası); her biri açık **ve** koyu temada gezilir.
-> - [ ] **AI'ın sesi modül içinde terracotta kalıyor mu** — Panel'in noktaları
->   ve kaynak atfı, **ve müşteri özeti** (`/app/crm/[id]` en üstteki serif
->   blok): CRM çivit mavisiyken o blok terracotta kalmalı. Bu, §4.8 kuralının
->   tek gerçek örneğidir — yanlışsa kural yazılı ama uygulanmamış demektir.
-> - [ ] Yedi CRM ucu gerçek isteklerle (200/401/403/429), iki tenant'la RLS
->   izolasyonu, dar rollerin sözleşmesi — Faz 4 denetiminin CRM karşılığı.
+>   ve ne lint ne tip denetimi yakalar. CRM (çivit mavisi) gezildi; Projeler
+>   (zeytin) rotaları yazıldığında aynı tur açık **ve** koyu temada tekrarlanır.
+> - **AI'ın sesi modül içinde terracotta kalıyor mu** — CRM'de tek örneği
+>   müşteri özetiydi. Projeler'de v1'de modül içi AI yüzeyi **yok** (ADR-0033
+>   §10); eklendiği gün bu madde tekrar bağlayıcı olur.
 
 > **Slice 0.5 notu:** AI maliyet takibi ROADMAP §8.1'de "Faz 4'e kadar
 > netleşmeli" diye işaretliydi ve Faz 4 o kalem kapanmadan kapandı. Faz 5 onu
@@ -496,6 +505,73 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 > işlemidir — `GET /me/memberships` ile aynı okuma. Yeni ADR yazılmadı: iş, var
 > olan desenlerin (login transaction sırası, reset-password `outcome` deseni)
 > uygulanmasıdır.
+
+### Faz 5 / 2. modül — Projeler (**sürüyor**)
+
+Karar: **ADR-0033** (kabul edildi, 2026-08-10). ROADMAP §3.5'in ikinci sırası:
+_"İş · teslimat · zaman — yürütme hafızası"_.
+
+**Bu modülün ADR'si CRM'inkinden bilinçli olarak KISA.** ADR-0031 bir modül
+tanımlamanın yanında Faz 4'ün platform kodunu dışarı taşıyordu; o iş **bir kez**
+yapıldı. Projeler port'ları `shared/`'dan, retrieval'i `platform/context`'ten,
+RLS şablonunu MT §12.2'den ve izin modelini ADR-0025'ten **hazır** alır — yani
+ADR'nin kısalması mimarinin işe yaradığının ölçüsüdür.
+
+Gerçekten yeni **dört** karar:
+
+1. **Cross-modül referans** (proje → CRM şirketi, opsiyonel). CRM'de bu soru
+   **hiç doğmadı**: CRM hiçbir modülün verisine bakmıyordu. Projeler bunu
+   isteyen **ilk modül** ve verilen cevap **kalan on modülü bağlıyor**.
+   Cross-schema FK yasak (Kural 5), o yüzden üç parçalı desen: **FK yok** ·
+   ad denormalize edilmez, `crm.public.ts`'ten okunur (kopyalansaydı yeniden
+   adlandırmada bayatlardı) · okuma **`company:read` iznine bağlı** (yoksa
+   Projeler, CRM adlarını sızdıran bir yan kapı olurdu — ADR-0031 §5.3'ün aynı
+   dersi). Silinen şirketin id'si **sarkta kalır ve tolere edilir**; okuyan her
+   yol buna dayanıklı yazılır. ⚠️ **Bağımlılık TEK YÖNLÜ: Projeler → CRM.**
+   Tersi modül döngüsü kurar (Tenant ↔ Identity tuzağı; çözümü `forwardRef`
+   değil üçüncü bir modüldü).
+2. **`tasks.project_id` NULLABLE** — ADR-0031'in `interactions.company_id NOT
+   NULL` kararından **bilinçli sapma**. Görüşme tanımı gereği bir şirketle
+   yapılır; görev tanımı gereği bir projeye ait değildir. Zorunlu olsaydı
+   kullanıcı sahte "Genel" projeleri açardı ve bu, yapısal katkıcının "durgun
+   proje" sorgusunu bozardı — yani **modülün AI'a kazandırdığı bağlamı
+   zehirlerdi**.
+3. **Görev TEK kişiye atanır.** Çok atama "kim sorumlu" cevabını bir listeye
+   çevirir. Sonradan `task_participants` eklemek mümkün, geri almak değil.
+4. **Durgunluk TÜRETİLİR**, `last_activity_at` kolonu **YOK** — projede beşinci
+   kez verilen aynı karar. Bir tazeleme yolu unutulunca hata **sessizdir**:
+   canlı proje "durgun" görünür ve AI yanlış uyarır.
+
+Üç migration: `0020` şema+projeler · `0021` görevler · `0022` ilerleme notları.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 1 | `projects` şeması + proje yaşam döngüsü (`0020`) | ✅ |
+| 2 | Görevler — projesiz dahil, tek atama (`0021`) | 🟢 |
+| 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | ⏳ |
+| 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ⏳ |
+| 5 | Frontend: üç rota, `data-module="projects"`, sidebar `SOON` → `LIVE` | ⏳ |
+| 6 | Kapanış denetimi | ⏳ |
+
+> **Renk:** Projeler'in imza rengi **zeytin**'dir ve `module-colors.css`'te
+> zaten ayrılmıştır. ⚠️ Anahtar **`projects`**, `projeler` DEĞİL — on iki
+> modülün hepsi İngilizce anahtar taşır, Türkçe olan yalnızca **etikettir**.
+
+> **Slice 1 notu — `company_id` kolonu var ama API kabul etmiyor.** Kolon
+> `0020`'de açıldı (ADR üç migration öngörüyor, dördüncü bir `ALTER`'a gerek
+> yok) ama yazma yolu **Slice 4'e** bırakıldı: doğrulaması ve adın çözülmesi
+> için gereken `crm.public.ts` orada yazılıyor. Doğrulanamayan bir işaretçiyi
+> bugünden kabul etmek, **ilk günden sarkan satır üretmek** olurdu.
+
+> **Kalıcı ders (Slice 1'de yakalandı):** yeni bir migration eklerken
+> `database.integration.spec`'in **geri alma listesine de** eklenmeli.
+> Migration `0019` (ADR-0032) o listeye hiç girmemişti ve test o günden beri
+> kırmızıydı — `crm.company_summaries` ayakta kaldığı için `0016`'nın geri
+> alması `cannot drop table crm.companies` ile patlıyordu. Testin kendi
+> gerekçesi kendini kanıtladı: _"down dosyası yazılmış olabilir ama çalışmıyor
+> olabilir"_ — eksik olan down dosyası değil, onu **çalıştıran satırdı**. Aynı
+> commit'te `crm-schema.integration.spec`'in "beş tablo" iddiası da `0019`'dan
+> beri güncellenmemişti. İkisi de kapatıldı.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
