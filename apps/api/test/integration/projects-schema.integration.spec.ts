@@ -55,7 +55,7 @@ describe('projects semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE projects.projects CASCADE');
+    await ownerPool.query('TRUNCATE projects.tasks, projects.projects CASCADE');
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -95,15 +95,45 @@ describe('projects semasi (gercek PostgreSQL)', () => {
     return id;
   }
 
+  async function insertTask(
+    tenantId: string,
+    overrides: {
+      projectId?: string | null;
+      title?: string;
+      status?: string;
+      dueOn?: string | null;
+      assignee?: string | null;
+    } = {},
+  ): Promise<string> {
+    const id = randomUUID();
+    await asTenant(tenantId, (client) =>
+      client.query(
+        `INSERT INTO projects.tasks (id, tenant_id, project_id, title, status, due_on, assignee_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          id,
+          tenantId,
+          overrides.projectId ?? null,
+          overrides.title ?? 'Ana sayfayi yeniden tasarla',
+          overrides.status ?? 'todo',
+          overrides.dueOn ?? null,
+          overrides.assignee ?? null,
+        ],
+      ),
+    );
+    return id;
+  }
+
   describe('sema ve kisitlar', () => {
-    it('tek tablo projects semasinda olusturuldu', async () => {
+    it('iki tablo projects semasinda olusturuldu', async () => {
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'projects' ORDER BY table_name",
       );
 
-      // Slice 2 `tasks`, Slice 3 `progress_notes` + `progress_note_chunks`
-      // ekleyecek. Bugun tek tablo olmasi BEKLENEN durumdur.
-      expect(rows.rows.map((row) => row.table_name)).toEqual(['projects']);
+      // Slice 3 `progress_notes` + `progress_note_chunks` ekleyecek. Bu satir
+      // her yeni tabloda guncellenir — `crm-schema`nin "bes tablo" iddiasinin
+      // `0019`dan sonra guncellenmemis olmasi testi aylarca kirmizi birakmisti.
+      expect(rows.rows.map((row) => row.table_name)).toEqual(['projects', 'tasks']);
     });
 
     it('proje adi TEKIL DEGILDIR (ADR-0033 §1 karari)', async () => {
@@ -147,6 +177,80 @@ describe('projects semasi (gercek PostgreSQL)', () => {
           ),
         ),
       ).resolves.toBeDefined();
+    });
+  });
+
+  describe('gorevler (ADR-0033 §3, §4)', () => {
+    it('PROJESIZ gorev yazilabilir — "Yapilacaklar" kutusu', async () => {
+      // ADR-0033 §3'un karakteristik karari. NOT NULL olsaydi kullanici sahte
+      // "Genel" projeleri acardi ve yapisal katkicinin sorgusu bozulurdu.
+      await expect(insertTask(TENANT_A, { projectId: null })).resolves.toBeDefined();
+    });
+
+    it('gorev VAR OLMAYAN projeye baglanamaz (FK)', async () => {
+      await expect(insertTask(TENANT_A, { projectId: randomUUID() })).rejects.toThrow(
+        /foreign key/i,
+      );
+    });
+
+    it('proje silinince gorevleri de gider (CASCADE)', async () => {
+      const projectId = await insertProject(TENANT_A);
+      await insertTask(TENANT_A, { projectId });
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM projects.projects WHERE id = $1', [projectId]);
+        const result = await client.query<{ n: string }>(
+          'SELECT count(*)::int AS n FROM projects.tasks',
+        );
+        return result.rows[0]?.n;
+      });
+
+      expect(Number(remaining)).toBe(0);
+    });
+
+    it('PROJESIZ gorevler cascade e GIRMEZ', async () => {
+      // Yalnizca acikca silinirler. Bir projeyi silmek yapilacaklar kutusunu
+      // bosaltsaydi, silme niyetiyle orantisiz bir yikim olurdu.
+      const projectId = await insertProject(TENANT_A);
+      await insertTask(TENANT_A, { projectId });
+      await insertTask(TENANT_A, { projectId: null, title: 'Faturayi gonder' });
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM projects.projects WHERE id = $1', [projectId]);
+        const result = await client.query<{ title: string }>('SELECT title FROM projects.tasks');
+        return result.rows;
+      });
+
+      expect(remaining.map((row) => row.title)).toEqual(['Faturayi gonder']);
+    });
+
+    it('BOS gorev basligi reddedilir (veritabani seviyesinde)', async () => {
+      await expect(insertTask(TENANT_A, { title: '  ' })).rejects.toThrow(/tasks_title_not_blank/);
+    });
+
+    it('GECERSIZ gorev durumu veritabaninda REDDEDILIR', async () => {
+      await expect(insertTask(TENANT_A, { status: 'ertelendi' })).rejects.toThrow(
+        /tasks_status_valid/,
+      );
+    });
+
+    it('assignee_user_id UZERINDE FOREIGN KEY YOKTUR', async () => {
+      // ⚠️ Yine bir seyin YOKLUGUNU kanitliyor. `platform.users` baska bir sema;
+      // dogrulama YAZMA ANINDA `TenantAccessQuery` ile yapilir, veritabaninda
+      // degil. Biri FK eklerse cross-schema bagimlilik sessizce dogar.
+      const rows = await ownerPool.query<{ conname: string; target: string }>(
+        `SELECT conname, confrelid::regclass::text AS target FROM pg_constraint
+         WHERE conrelid = 'projects.tasks'::regclass AND contype = 'f'
+         ORDER BY conname`,
+      );
+
+      // Iki mesru FK: `tenant_id -> platform.tenants` ve
+      // `project_id -> projects.projects` (SEMA ICI). Baskasi yok.
+      expect(rows.rows.map((row) => row.target)).toEqual(['projects.projects', 'platform.tenants']);
+    });
+
+    it('VAR OLMAYAN bir kullanici id si YAZILABILIR — dogrulama uygulamada', async () => {
+      await expect(insertTask(TENANT_A, { assignee: randomUUID() })).resolves.toBeDefined();
     });
   });
 
@@ -223,6 +327,53 @@ describe('projects semasi (gercek PostgreSQL)', () => {
       // Sifir satir: RLS silmeyi sessizce KAPSAM DISI birakti, hata vermedi.
       // Use case bunu `ProjectNotFoundError`e cevirir.
       expect(deleted).toBe(0);
+    });
+
+    it('tasks: tenant A, B nin gorevini GOREMEZ', async () => {
+      const projectB = await insertProject(TENANT_B);
+      await insertTask(TENANT_B, { projectId: projectB, title: 'B nin gorevi' });
+      await insertTask(TENANT_A, { projectId: null, title: 'A nin gorevi' });
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ title: string }>('SELECT title FROM projects.tasks');
+        return result.rows;
+      });
+
+      expect(rows.map((row) => row.title)).toEqual(['A nin gorevi']);
+    });
+
+    it('tasks: BASKA tenant adina yazmak WITH CHECK ile reddedilir', async () => {
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query('INSERT INTO projects.tasks (id, tenant_id, title) VALUES ($1, $2, $3)', [
+            randomUUID(),
+            TENANT_B,
+            'sizinti denemesi',
+          ]),
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+
+    it('tasks: tenant A, B nin gorevini SILEMEZ', async () => {
+      await insertTask(TENANT_B, { projectId: null });
+
+      const deleted = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query('DELETE FROM projects.tasks');
+        return result.rowCount;
+      });
+
+      expect(deleted).toBe(0);
+    });
+
+    it('tasks: tenant context i OLMADAN sorgu HATA verir', async () => {
+      const client = await appPool.connect();
+      try {
+        await expect(client.query('SELECT * FROM projects.tasks')).rejects.toThrow(
+          /unrecognized configuration parameter|invalid input syntax/i,
+        );
+      } finally {
+        client.release();
+      }
     });
 
     it('TENANT CONTEXT YOKKEN sorgu SESSIZCE BOS DONMEZ, HATA VERIR', async () => {

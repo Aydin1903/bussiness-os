@@ -58,3 +58,55 @@ export class InvalidProjectsTimestampError extends ProjectsDomainError {
     super('Guncelleme zamani olusturma zamanindan once olamaz.');
   }
 }
+
+export class BlankTaskTitleError extends ProjectsDomainError {
+  readonly code = 'TASK_TITLE_BLANK';
+  constructor() {
+    super('Gorev basligi bos olamaz.');
+  }
+}
+
+export class InvalidTaskStatusError extends ProjectsDomainError {
+  readonly code = 'TASK_STATUS_INVALID';
+  constructor(status: string) {
+    super(`Gecersiz gorev durumu: ${status}`);
+  }
+}
+
+/** `ProjectNotFoundError` ile ayni "yok mu senin degil mi" disiplini. */
+export class TaskNotFoundError extends ProjectsDomainError {
+  readonly code = 'TASK_NOT_FOUND';
+  constructor() {
+    super('Gorev bulunamadi.');
+  }
+}
+
+/** Gorev, var olmayan (ya da gorunmeyen) bir projeye baglanamaz. */
+export class TaskProjectNotFoundError extends ProjectsDomainError {
+  readonly code = 'TASK_PROJECT_NOT_FOUND';
+  constructor() {
+    super('Gorevin baglanacagi proje bulunamadi.');
+  }
+}
+
+/**
+ * Atanan kisi bu tenant'in aktif uyesi degil (ADR-0033 §4).
+ *
+ * ============================================================================
+ * MESAJ "KULLANICI YOK" ILE "UYE DEGIL"I AYIRT ETMEZ — bilincli
+ * ============================================================================
+ * Ayirmak, bir e-posta ya da id'nin sistemde KAYITLI OLDUGUNU sizdirirdi;
+ * `CompanyNotFoundError`in "yok mu senin degil mi" disiplininin ayni
+ * uygulamasi (P2). Cagiran icin iki durumun sonucu zaten aynidir: bu kisiye
+ * gorev atanamaz.
+ *
+ * 404 DEGIL 422: istekteki KAYNAK (gorev) yok degil — govdedeki bir ALAN
+ * gecersiz. `TaskProjectNotFoundError`den farki budur; orada gercekten
+ * bulunamayan bir kaynak vardir.
+ */
+export class TaskAssigneeNotMemberError extends ProjectsDomainError {
+  readonly code = 'TASK_ASSIGNEE_NOT_MEMBER';
+  constructor() {
+    super('Gorev yalnizca bu sirketin aktif bir uyesine atanabilir.');
+  }
+}

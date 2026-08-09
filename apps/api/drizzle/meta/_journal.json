@@ -148,6 +148,13 @@
       "when": 1784840000000,
       "tag": "0020_projects_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784850000000,
+      "tag": "0021_projects_tasks",
+      "breakpoints": true
     }
   ]
 }

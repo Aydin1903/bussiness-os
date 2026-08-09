@@ -113,8 +113,11 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
-      // 0020, `projects` semasi ve tek tablosu. `crm`'den BAGIMSIZDIR (cross-
-      // schema FK yok — ADR-0033 §2) ama konvansiyon geregi en yeni once.
+      // 0021, `projects.tasks`. 0020'den ONCE: `projects.projects`'e FK tasir
+      // ve 0020 semayi dusurmeden once bu gitmeli.
+      '0021_projects_tasks.down.sql',
+      // 0020, `projects` semasi ve `projects.projects`. `crm`'den
+      // BAGIMSIZDIR (cross-schema FK yok — ADR-0033 §2).
       '0020_projects_schema.down.sql',
       // 0019, `crm.company_summaries`. 0016'dan ONCE: `crm.companies`'e FK
       // tasir.

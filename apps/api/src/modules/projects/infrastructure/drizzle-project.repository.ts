@@ -1,9 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { desc, eq, sql } from 'drizzle-orm';
 
 import { projects } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
-import { type ListPage, type ProjectRepository } from '../application/project.repository.port';
+import {
+  type ListPage,
+  type ProjectListRow,
+  type ProjectRepository,
+} from '../application/project.repository.port';
+import { TASK_REPOSITORY, type TaskRepository } from '../application/task.repository.port';
 import { isProjectStatus, Project, type ProjectStatus } from '../domain/project.entity';
 import { InvalidProjectStatusError } from '../domain/projects.error';
 
@@ -16,6 +21,18 @@ import { InvalidProjectStatusError } from '../domain/projects.error';
  */
 @Injectable()
 export class DrizzleProjectRepository implements ProjectRepository {
+  /**
+   * ⚠️ Proje repository'si GOREV repository'sine bagimlidir — ters degil.
+   *
+   * Sayaclar `projects.tasks`tan turer ve o sorgu gorev tarafinin bilgisidir
+   * (kapanmis durum kumesi, kismi index'le eslesen yuklem). Buraya ikinci bir
+   * `tasks` sorgusu yazmak, ayni yuklemin IKI kopyasini uretirdi ve biri
+   * degistiginde digeri sessizce ayrisirdi.
+   *
+   * Yon tek ve dongusuzdur: `TaskRepository` `projects` tablosuna dokunmaz.
+   */
+  constructor(@Inject(TASK_REPOSITORY) private readonly taskRepository: TaskRepository) {}
+
   async save(project: Project): Promise<void> {
     const { db } = requireTransaction();
     const state = project.toState();
@@ -54,7 +71,8 @@ export class DrizzleProjectRepository implements ProjectRepository {
     limit: number;
     offset: number;
     status: ProjectStatus | null;
-  }): Promise<ListPage<Project>> {
+    today: string;
+  }): Promise<ListPage<ProjectListRow>> {
     const { db } = requireTransaction();
 
     // Siralamada `id` TIE-BREAKER'dir: ayni milisaniyede olusan iki kayitta
@@ -79,7 +97,25 @@ export class DrizzleProjectRepository implements ProjectRepository {
       .from(projects)
       .where(filter);
 
-    return { items: rows.map(toProject), total: counted?.total ?? 0 };
+    // Sayaclar yalnizca SAYFADAKI id'ler icin — N+1 degil, sabit iki sorgu
+    // (gerekce `TaskRepository.countsByProject`ta).
+    const counts = await this.taskRepository.countsByProject({
+      projectIds: rows.map((row) => row.id),
+      today: input.today,
+    });
+
+    return {
+      items: rows.map((row) => {
+        const count = counts.get(row.id);
+        return {
+          ...toProject(row).toState(),
+          // Haritada YOKSA sifir: hic gorevi olmayan proje listeden DUSMEZ.
+          openTaskCount: count?.open ?? 0,
+          overdueTaskCount: count?.overdue ?? 0,
+        };
+      }),
+      total: counted?.total ?? 0,
+    };
   }
 
   async deleteById(id: string): Promise<number> {

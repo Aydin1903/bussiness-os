@@ -34,9 +34,17 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   PROJECT_STATUS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   PROJECT_DUE_BEFORE_START: HttpStatus.UNPROCESSABLE_ENTITY,
   PROJECTS_TIMESTAMP_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  TASK_TITLE_BLANK: HttpStatus.UNPROCESSABLE_ENTITY,
+  TASK_STATUS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+
+  // 422, 404 DEGIL: istekteki KAYNAK yok degil — govdedeki bir ALAN gecersiz.
+  // Ayrimin gerekcesi `TaskAssigneeNotMemberError`de.
+  TASK_ASSIGNEE_NOT_MEMBER: HttpStatus.UNPROCESSABLE_ENTITY,
 
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).
   PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  TASK_NOT_FOUND: HttpStatus.NOT_FOUND,
+  TASK_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
 };
 
 @Catch(ProjectsDomainError)

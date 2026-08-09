@@ -9,7 +9,12 @@ import {
   type ProjectStatus,
 } from '../domain/project.entity';
 import { ProjectNotFoundError } from '../domain/projects.error';
-import { type ListPage, type ProjectRepository } from './project.repository.port';
+import {
+  type ListPage,
+  type ProjectListRow,
+  type ProjectRepository,
+} from './project.repository.port';
+import { today } from './today';
 
 /**
  * Proje yasam dongusu (ADR-0033 §1).
@@ -51,16 +56,21 @@ export class ProjectUseCases {
     return project.toState();
   }
 
+  /**
+   * Sayfali liste — repository PROJEKSIYON doner, entity degil.
+   *
+   * `openTaskCount` / `overdueTaskCount` `Project` entity'sinde YOKTUR (ve
+   * olmamalidir): baska bir tablodan turer. `CompanyUseCases.list` ile ayni
+   * karar; gerekce `project.repository.port.ts`te.
+   */
   async list(input: {
     limit: number;
     offset: number;
     status: ProjectStatus | null;
-  }): Promise<ListPage<ProjectState>> {
-    const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
-      this.deps.repository.list(input),
+  }): Promise<ListPage<ProjectListRow>> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.list({ ...input, today: today(this.deps.clock) }),
     );
-
-    return { items: page.items.map((project) => project.toState()), total: page.total };
   }
 
   async get(id: string): Promise<ProjectState> {

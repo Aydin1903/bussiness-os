@@ -52,3 +52,4 @@ export { companySummaries } from './company-summaries.schema';
 // sema dosyasi ustlendi (gerekce `projects-schema.schema.ts`'te).
 export { projectsSchema } from './projects-schema.schema';
 export { projects } from './projects.schema';
+export { tasks } from './tasks.schema';

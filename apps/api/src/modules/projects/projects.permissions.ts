@@ -14,17 +14,29 @@ import { type PermissionRule } from '../../platform/authz/authz.public';
  * karsilanabilir.
  *
  * ============================================================================
- * BU SLICE YALNIZCA `project:*` DEKLARE EDER
+ * KATALOG UCLA BIRLIKTE BUYUR
  * ============================================================================
- * `task:*` (Slice 2) ve `progress_note:*` (Slice 3) BURADA YOK. Var olmayan bir
- * fiili deklare etmek yanlis olurdu — `interaction:create`in `write` yerine
- * secilmesindeki ayni gerekce. Katalog uctan ONCE degil, ucla BIRLIKTE buyur.
+ * `progress_note:*` (Slice 3) HENUZ BURADA YOK. Var olmayan bir fiili deklare
+ * etmek yanlis olurdu — `interaction:create`in `write` yerine secilmesindeki
+ * ayni gerekce. `task:*` bu slice'ta uclariyla BIRLIKTE geldi.
  * ============================================================================
  */
 
 export const PROJECT_READ = 'project:read';
 export const PROJECT_WRITE = 'project:write';
 export const PROJECT_DELETE = 'project:delete';
+
+/**
+ * Gorev izinleri (ADR-0033 §7).
+ *
+ * ⚠️ `task:delete` VAR — `interaction`da YOKTU. Gorusme bir GUNLUK kaydidir
+ * (ekleme-yalniz); gorev ise YASAYAN bir is kalemidir ve yanlis acilmis bir
+ * gorev silinebilmelidir. Ayrimin somut sonucu: gorev `write` ve `delete`
+ * fiillerinin ikisini de tasir, `interaction` yalnizca `create` tasiyordu.
+ */
+export const TASK_READ = 'task:read';
+export const TASK_WRITE = 'task:write';
+export const TASK_DELETE = 'task:delete';
 
 /**
  * ============================================================================
@@ -47,4 +59,13 @@ export const PROJECTS_PERMISSIONS: readonly PermissionRule[] = [
   { permission: PROJECT_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
   { permission: PROJECT_WRITE, roles: ['owner', 'admin', 'member'] },
   { permission: PROJECT_DELETE, roles: ['owner', 'admin'] },
+
+  // ⚠️ `task:write` KENDI GOREVI ile BASKASININ GOREVI arasinda ayrim YAPMAZ:
+  // `member` herkesin gorevini duzenleyebilir ve herkese atama yapabilir.
+  // "Yalnizca kendi gorevlerim" bir ABAC kuralidir ve backlog'tadir
+  // (ROADMAP §1.1) — `resource:action` modeli o katmanin altina bozulmadan
+  // girecek sekilde tasarlandi (ARCHITECTURE §10.1).
+  { permission: TASK_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
+  { permission: TASK_WRITE, roles: ['owner', 'admin', 'member'] },
+  { permission: TASK_DELETE, roles: ['owner', 'admin'] },
 ];

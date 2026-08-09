@@ -1,10 +1,44 @@
-import { type Project, type ProjectStatus } from '../domain/project.entity';
+import { type Project, type ProjectState, type ProjectStatus } from '../domain/project.entity';
 
 export const PROJECT_REPOSITORY = Symbol('PROJECT_REPOSITORY');
 
 export interface ListPage<T> {
   readonly items: readonly T[];
   readonly total: number;
+}
+
+/**
+ * Proje listesinin tek satiri — `ProjectState` + GOREV SAYACLARI.
+ *
+ * ============================================================================
+ * SAYACLAR TURETILIR, KOPYALANMAZ
+ * ============================================================================
+ * `projects.projects` uzerinde "gorev sayisi" diye bir kolon YOKTUR ve
+ * olmayacaktir. Degerler her sorguda `projects.tasks`tan turetilir —
+ * `CompanyListRow`un `contactCount` / `openOpportunityCount` sayaclariyla
+ * birebir ayni karar (ve projede besinci kez).
+ *
+ * Somut bedeli: bir gorev silindiginde ya da durumu degistiginde sayac
+ * KENDILIGINDEN duzelir. Kopyalanmis bir kolonda bunu elle guncellemek gerekir
+ * ve biri unutuldugunda kart yalan soylerdi.
+ */
+export interface ProjectListRow extends ProjectState {
+  /**
+   * ACIK gorev sayisi — kapanmislar (`done`) HARIC.
+   *
+   * Kapanmislari saymak sayaci "bu projede toplam kac is vardi"ya cevirirdi;
+   * sorulan soru ise "su an kac isim var". Ayni ayrim `overdueTaskCount`ta ve
+   * Slice 4'un yapisal katkicisinda da yapilir.
+   */
+  readonly openTaskCount: number;
+
+  /**
+   * GECIKMIS gorev sayisi — `due_on < bugun AND status <> 'done'`.
+   *
+   * Projenin "basi dertte mi" sorusunun tek sayilik cevabi. `openTaskCount`in
+   * ALT KUMESIDIR; ikisi toplanmaz.
+   */
+  readonly overdueTaskCount: number;
 }
 
 /**
@@ -40,16 +74,20 @@ export interface ProjectRepository {
    * degeri `undefined`" ayri tiplerdir ve Zod'un `.optional()` ciktisi
    * ikincisidir. `ListContactsQuery` ile ayni cevrim (controller'da `?? null`).
    *
-   * ⚠️ GOREV SAYACLARI BURADA YOK. `crm.companies` listesi `contactCount` /
-   * `openOpportunityCount` tasiyor ama onlar Slice 5 ve 6'da EKLENDI, ilk
-   * slice'ta degil. Ayni sira burada da korunuyor: `tasks` tablosu Slice 2'de
-   * aciliyor, sayaclar da o zaman.
+   * PROJEKSIYON doner, entity DEGIL: `openTaskCount` / `overdueTaskCount`
+   * `Project` aggregate'ine ait alanlar DEGILDIR, baska bir tablodan turer.
+   * `CompanyRepository.list` ile birebir ayni ayrim — yazma yolu `findById`in
+   * dondurdugu entity'yi kullanir, liste kullanmaz.
+   *
+   * `today` sayaclar icindir (`YYYY-MM-DD`); `Clock`tan gelir, `CURRENT_DATE`
+   * kullanilmaz.
    */
   list(input: {
     limit: number;
     offset: number;
     status: ProjectStatus | null;
-  }): Promise<ListPage<Project>>;
+    today: string;
+  }): Promise<ListPage<ProjectListRow>>;
 
   /** Silinen satir sayisi; `0` = kayit yok (ya da baska tenant'in). */
   deleteById(id: string): Promise<number>;
