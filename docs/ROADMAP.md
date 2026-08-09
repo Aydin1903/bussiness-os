@@ -2,9 +2,9 @@
 
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
-> **Durum:** Faz 5 sürüyor — ✅ **Kabul edildi** ([ADR-0031](adr/0031-crm-module.md))
-> **Sürüm:** 1.8
-> **Son güncelleme:** 2026-08-08
+> **Durum:** Faz 5 sürüyor — 1. modül (CRM) bitti, 2. modül (Projeler) başladı ([ADR-0033](adr/0033-projects-module.md))
+> **Sürüm:** 1.9
+> **Son güncelleme:** 2026-08-10
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -25,7 +25,7 @@ Bu doküman **sıranın** ve **kapı koşullarının** Single Source of Truth'ud
 
 1. [Tamamlanan fazlar](#1-tamamlanan-fazlar)
 2. [Faz 4 — İlk Gerçek Modül + AI Context Engine](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine)
-3. [Faz 5 — Modül Genişlemesi](#3-faz-5--modül-genişlemesi)
+3. [Faz 5 — Modül Genişlemesi](#3-faz-5--modül-genişlemesi) · [3.6 2. modül: Projeler](#36-2-modül-projeler--yeni-olan-tek-şey-cross-modül-referans)
 4. [Faz 6 — Faturalama](#4-faz-6--faturalama)
 5. [Faz 7 — Native Mobil](#5-faz-7--native-mobil)
 6. [Faz 8 — OAuth](#6-faz-8--oauth)
@@ -158,7 +158,7 @@ Başka engel yok: RBAC + tenant context + RLS zinciri uçtan uca çalışıyor, 
 > **Durum:** 🟢 **Başladı** (2026-08-05).
 > **Tasarım kararı:** [ADR-0031](adr/0031-crm-module.md) — CRM modülü + Context Engine'in platforma yükselmesi.
 
-Faz 5 **on iki iş modülü** kapsar. Sıra ve kapsam [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı)'te; ilki CRM'dir ve sürüyor.
+Faz 5 **on iki iş modülü** kapsar. Sıra ve kapsam [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı)'te. **1. modül (CRM) bitti** ve prod'a çıktı; **2. modül (Projeler) sürüyor** ([§3.6](#36-2-modül-projeler--yeni-olan-tek-şey-cross-modül-referans)).
 
 > **Kapı koşulu:** Faz 4'ün **AI Context Engine deseni en az bir modülde kanıtlanmış** olmalı. 🟢 **Karşılandı.**
 
@@ -199,8 +199,8 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 
 | #      | Modül                              | Kapsam notu                                                                                               | Durum       |
 | ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------- | ----------- |
-| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md)) | 🟢 Sürüyor  |
-| **2**  | **Projeler**                       | İş · teslimat · zaman — CLAUDE.md'nin "yürütme hafızası"                                                  | ⏳ Bekliyor |
+| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md)) | ✅ Bitti    |
+| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))       | 🟢 Sürüyor  |
 | **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza"                                                           | ⏳ Bekliyor |
 | **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt                                                                                      | ⏳ Bekliyor |
 | **5**  | **Belge / Sözleşme Yönetimi**      | ⚠️ **Object storage kararını tetikler** — bkz. aşağıdaki not                                              | ⏳ Bekliyor |
@@ -225,6 +225,24 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 > Sebep teknik değil hukukidir: sağlık verisi KVKK'da **özel nitelikli kişisel veri**dir ve maaş verisiyle birlikte, bugün sistemde bulunmayan kontrolleri (ayrı erişim rejimi, alan bazlı şifreleme, ayrıntılı işleme envanteri) **zorunlu** kılar. Bu kapsam genişlemesi [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasından **önce** yapılamaz ve yapılırsa o kontrol noktasını geçersiz kılar. Genişletme talebi geldiğinde **ayrı bir ADR** ister.
 
 > **Knowledge bu listede yok** ve bu doğrudur: o Faz 4'ün modülüdür ([§2](#2-faz-4--i̇lk-gerçek-modül--ai-context-engine)) ve zaten yazıldı. Liste Faz 5'in kapsamını sayar, sistemdeki tüm modülleri değil.
+
+### 3.6 2. modül: Projeler — yeni olan tek şey cross-modül referans
+
+> **Tasarım kararı:** [ADR-0033](adr/0033-projects-module.md) — kabul edildi, 2026-08-10.
+
+Bu modülün ADR'si CRM'inkinden **kısadır ve bu kasıtlıdır**: port'lar `shared/`'da, `RetrievalContributor` platformda, RLS şablonu ve kaynak bazlı izin modeli kanıtlanmış durumda. Projeler bunlardan **yalnızca tüketicidir** — [§3.2](#32-tekrarın-ürettiği-şey-soyutlama)'nin vaadinin ilk sınavı.
+
+**Sıralama açısından burada kayda değer tek şey şudur:** Projeler, başka bir modülün kaydına işaret etmek isteyen **ilk modüldür** (proje → CRM şirketi, opsiyonel). CRM'de bu soru hiç doğmadı çünkü CRM hiçbir modülün verisine bakmıyordu. Cross-schema FK **yasak** olduğu için (Mutlak Kural 5) ADR-0033 §2 üç parçalı bir desen kurdu:
+
+| Parça                                               | Neyi çözer                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| FK yok, çıplak `uuid` kolon                         | Mutlak Kural 5                                                                                          |
+| Ad denormalize edilmez, public interface'ten okunur | Yeniden adlandırmada bayatlamayı — ikinci doğruluk kaynağı oluşmasını                                   |
+| Okuma, hedef kaynağın iznine bağlı (`company:read`) | Yetkilendirmeyi delen yan kapıyı ([§3.3](#33-fazın-en-önemli-kararı-tek-kurumsal-hafıza)'ün aynı dersi) |
+
+**Bu desen kalan on modülü bağlar** — Teklif/Fatura → Finans, Tedarikçi → Stok, Sadakat → CRM. Bir kez daha tekrarlandığında (3. modül, Finans) genelleştirme değerlendirilir; bugün genelleştirmek, tek örnekten desen çıkarmak olurdu.
+
+⚠️ **Bağımlılık yönü TEK YÖNLÜDÜR: Projeler → CRM.** Tersi (CRM'in şirket detayında projeleri listelemesi) kapsam dışıdır çünkü bir modül döngüsü kurardı. Bu tuzak projede bir kez yaşandı (Tenant ↔ Identity) ve çözümü `forwardRef` değil **üçüncü bir modül** oldu (`platform/session`). Ters yön istenirse aynı çözüm uygulanır.
 
 ---
 
@@ -430,4 +448,5 @@ Fark iki yönlü: §3.5 sekiz modül **ekliyor** (Finans, Randevu, Stok, Tedarik
 | 1.6   | 2026-08-05 | **Faz 5 başladı** ([ADR-0031](adr/0031-crm-module.md)): [§3](#3-faz-5--modül-genişlemesi) ADR'ye bağlandı ve genişletildi — ilk modül CRM, tekrarın ürettiği soyutlama (port'lar `shared/`'a, oran sınırı ve konuşma tabloları `platform`'a), ve fazın en önemli kararı **tek kurumsal hafıza** (`POST /ask` + `RetrievalContributor`, izin bazlı eleme). **[§8.1](#81-gözlemlenebilirlik-neden-faz-4e-kadar)'in AI maliyet takibi kalemi KAPANDI** (Slice 0.5) — Faz 4'e yetişmemişti, Faz 5'in ilk işi olarak kapatıldı; merkezî log toplama ve hata izleme açık kaldı. **[§2.4](#24-zorunlu-alt-adım-cicd--hosting)'ün prod koşulunun karşılanmadığı kayda geçirildi** — Faz 4 o koşul sağlanmadan kapatıldı, metin yumuşatılmadı, karar Product Owner'a bırakıldı. Faz 4 [§1](#1-tamamlanan-fazlar) tablosuna ✅ olarak eklendi; §8.4 retention borcunun Faz 5'te sekize çıkacağı not edildi.                                                                                                                                                                                                                                                                                                                      |
 | 1.7   | 2026-08-08 | **[§8.4](#84-fırsatlar-ekranı-kapanmış-anlaşmaları-özet-şeridine-alma--💡-fikir) eklendi — fikir kaydı, uygulanmadı.** Slice 9-B düzen çalışmasında ortaya çıktı: `/app/crm/pipeline` beş aşamayı da eşit sütun çiziyor ama `won`/`lost` hat değildir ve kod bu ayrımı zaten üç yerde yapıyor (`listFollowUps`, `listOpenPipeline`, `openOpportunityCount`). Kapanmışları özet şeridine alıp üç açık aşamayı genişletmek kart yoğunluğu sorununu yatayda çözerdi. Product Owner **şimdi uygulanmayacağına** karar verdi (beş sütunun da görünmesi bilinçli bir istekti); fikir yeniden keşfedilmesin diye kayda geçti. Retention borcu §8.4 → **§8.5**'e kaydı; yaşayan çapraz referans güncellendi, tarihsel kayıtlara dokunulmadı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 1.8   | 2026-08-08 | **Faz 5'in kapsamı sayıldı, Faz 6'nın kapısı sertleşti** (Product Owner kararı). Yeni [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı): Faz 5 **on iki modül** — CRM · Projeler · Finans · Randevu/Rezervasyon · Belge/Sözleşme · Stok/Envanter · Tedarikçi · Teklif/Fatura · İK(temel) · Anket · Kampanya · Sadakat. Üç bağımlılık kayda geçti (Teklif/Fatura → Finans · Tedarikçi → CRM deseni · Belge/Sözleşme → **object storage kararını tetikler**, §2.3'ün ertelenmiş kalemi artık bir tarihe bağlı). **İK'nın kapsamı bir sınır olarak yazıldı:** maaş ve sağlık verisi kapsam dışı — sağlık verisi KVKK'da özel niteliklidir, genişletme ayrı ADR ister. **[§4](#4-faz-6--faturalama)'ün kapı koşulu "1–2 modül"den on iki modülün TAMAMINA çıkarıldı** — eski koşul bugün karşılanmış sayılabilirdi, metin silinmedi ki koşulun sıkılaştığı görülsün; kararın bedeli (gelirin en sona itilmesi) ve bunun §2.4 hosting ile §8.2 KVKK üzerindeki baskısı açıkça yazıldı. **[§9.3](#93-architecturemd-62-modül-haritası--açık) açıldı:** `ARCHITECTURE.md` §6.2 bu listeyle çelişiyor (Workflow ve Reporting yok) — düştü mü ertelendi mi sorusu Product Owner'a bırakıldı, §6.2'ye dokunulmadı. |
+| 1.9   | 2026-08-10 | **2. modül başladı** ([ADR-0033](adr/0033-projects-module.md) kabul edildi): [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı) tablosunda CRM ✅, Projeler 🟢 oldu; yeni [§3.6](#36-2-modül-projeler--yeni-olan-tek-şey-cross-modül-referans) eklendi. Sıralama açısından kayda değen tek yenilik: Projeler, **başka bir modülün kaydına işaret etmek isteyen ilk modül** (proje → CRM şirketi). Cross-schema FK yasak olduğu için üç parçalı bir desen kuruldu (FK yok · ad public interface'ten okunur · okuma hedefin iznine bağlı) ve **bu desen kalan on modülü bağlar**. Bağımlılık yönünün tek yönlü olduğu (Projeler → CRM) ve tersinin modül döngüsü kuracağı kayda geçti — Tenant ↔ Identity tuzağının aynısı, çözümü aynı: üçüncü bir modül. ROADMAP §3.5'in "zaman" kelimesi **son tarih/takvim** olarak okundu; **zaman takibi (timesheet) kapsam dışıdır** (Product Owner onayı, 2026-08-10).                                                                                                                                                                                                                                                                                              |
 | 1.5   | 2026-08-02 | **Retention borcu güncellendi** ([§8](#8-yatay--sürekli-kalemler), yeni [§8.4](#84-retention-borcu-beş-tablo-tek-karar)): iki tablo yerine **dört** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages`. Tek madde altında tutuldu (çözüm tek karar: süre + temizlik mekanizması) ama ilk ikisinin güvenlik/denetim, son ikisinin kullanıcı verisi olduğu ve dolayısıyla "hepsine tek süre" cevabının yanlış olacağı not edildi. §8.2'deki KVKK kontrol noktasına bağlandı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
