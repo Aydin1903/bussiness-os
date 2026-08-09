@@ -134,6 +134,13 @@
       "when": 1784820000000,
       "tag": "0018_crm_interactions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784830000000,
+      "tag": "0019_crm_company_summaries",
+      "breakpoints": true
     }
   ]
 }

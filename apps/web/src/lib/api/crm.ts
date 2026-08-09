@@ -1,10 +1,12 @@
 import {
   companyListResponseSchema,
   companySchema,
+  companySummarySchema,
   contactListResponseSchema,
   contactSchema,
   createInteractionResponseSchema,
   followUpListResponseSchema,
+  generateCompanySummaryResponseSchema,
   interactionListResponseSchema,
   opportunityListResponseSchema,
   opportunitySchema,
@@ -12,6 +14,7 @@ import {
   unindexedInteractionsResponseSchema,
   type Company,
   type CompanyListResponse,
+  type CompanySummary,
   type Contact,
   type ContactListResponse,
   type CreateCompanyRequest,
@@ -20,6 +23,7 @@ import {
   type CreateInteractionResponse,
   type CreateOpportunityRequest,
   type FollowUpListResponse,
+  type GenerateCompanySummaryResponse,
   type InteractionListResponse,
   type Opportunity,
   type OpportunityListResponse,
@@ -205,4 +209,33 @@ export function countUnindexedInteractions(): Promise<UnindexedInteractionsRespo
  */
 export function reindexInteractions(): Promise<ReindexInteractionsResponse> {
   return apiFetch('/crm/reindex', reindexInteractionsResponseSchema, { method: 'POST' });
+}
+
+/* ========================================================================== */
+/* Müşteri özeti (ADR-0032)                                                   */
+/* ========================================================================== */
+
+/**
+ * `GET /crm/companies/:id/summary` — ÜCRETSİZ okuma.
+ *
+ * Sayfa her açıldığında çağrılır ve model çağırmaz. Bu uç oran sınırına tabi
+ * DEĞİLDİR; ücretli olsaydı müşteri sayfasına bakmak para harcamak olurdu.
+ */
+export function getCompanySummary(companyId: string): Promise<CompanySummary> {
+  return apiFetch(`/crm/companies/${companyId}/summary`, companySummarySchema);
+}
+
+/**
+ * `POST /crm/companies/:id/summary` — PARA harcayabilir.
+ *
+ * "Harcayabilir", çünkü israf freni devredeyse (kaynakların imzası
+ * değişmemişse) model hiç çağrılmaz ve `regenerated: false` döner. Arayüz bu
+ * ayrımı kullanıcıya göstermek zorundadır.
+ *
+ * 409 → başka bir istek şu anda üretiyor. 422 → özetlenecek görüşme yok.
+ */
+export function generateCompanySummary(companyId: string): Promise<GenerateCompanySummaryResponse> {
+  return apiFetch(`/crm/companies/${companyId}/summary`, generateCompanySummaryResponseSchema, {
+    method: 'POST',
+  });
 }

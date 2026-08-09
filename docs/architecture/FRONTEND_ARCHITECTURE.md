@@ -345,6 +345,14 @@ baktığını fonttan anlar, artık renkten de anlar.**
 Aynı sebeple **CRM de terracottayı bırakıp kendi rengini aldı**: referans modül
 olarak terracottayı korumak, ilk uygulamada tam olarak bu çakışmayı üretirdi.
 
+> **Kuralın ilk gerçek örneği müşteri özetidir** ([ADR-0032](../adr/0032-company-summary.md),
+> 2026-08-09). Kural yazıldığında AI yalnızca Panel'de konuşuyordu ve Panel bir
+> modül değil — yani "AI'ın sesi modülün içinde de terracotta kalır" cümlesinin
+> somut bir örneği **yoktu**. `/app/crm/[id]` sayfasının en üstündeki serif
+> blok o örnektir: sayfanın geri kalanı çivit mavisi, o blok terracotta.
+> `components/crm/company-summary.tsx` `bg-ai-accent` / `text-ai-ink` kullanır
+> ve `bg-accent` **kullanmaz** — bir test bunu doğruluyor.
+
 #### Palet — on iki modül
 
 Sıra [`ROADMAP.md` §3.5](../ROADMAP.md)'tir.

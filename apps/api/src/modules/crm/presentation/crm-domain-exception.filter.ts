@@ -8,6 +8,7 @@ import {
 import { type Response } from 'express';
 
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
+import { CompletionFailedError } from '../../../shared/llm.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { CrmDomainError } from '../domain/crm.error';
 
@@ -27,6 +28,14 @@ import { CrmDomainError } from '../domain/crm.error';
  *
  * Bu ders projede UCUNCU kez ogreniliyor (Slice 2 ve 3'te ayni sey oldu) ve
  * bu kez BIR TEST yakaladi: "gorusme payi asilinca 429" testi 500 gordu.
+ *
+ * ⚠️ DORDUNCU KEZ — `CompletionFailedError` (Katman 2, ADR-0032). CRM o gune
+ * kadar `LLMPort` KULLANMIYORDU (`crm.module.ts` bunu "LLM_PORT YOK — CRM
+ * completion cagirmaz" diye yaziyordu bile); musteri ozeti bu varsayimi
+ * degistirdi. Liste kod incelemesinde guncellendi: saglayici cokmesi
+ * islenmemis 500 yerine 502 doner. Bu satirin ogrettigi kural artik
+ * genellenebilir: BIR MODUL YENI BIR PORT KULLANMAYA BASLADIGINDA, O PORTUN
+ * HATA TIPI FILTREYE EKLENMELIDIR.
  * ============================================================================
  */
 const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
@@ -39,6 +48,9 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   INTERACTION_BODY_BLANK: HttpStatus.UNPROCESSABLE_ENTITY,
   INTERACTION_EMBEDDING_DIMENSIONS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
+  // Istek GECERLI, ama ozetlenecek malzeme yok. 404 degil: sirket VAR.
+  COMPANY_SUMMARY_NO_INTERACTIONS: HttpStatus.UNPROCESSABLE_ENTITY,
+
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).
   COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
   CONTACT_NOT_FOUND: HttpStatus.NOT_FOUND,
@@ -47,6 +59,9 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   OPPORTUNITY_COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
   OPPORTUNITY_CONTACT_NOT_FOUND: HttpStatus.NOT_FOUND,
   INTERACTION_COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
+
+  // Cakisma: kaynak MESGUL. Yeniden denenebilir bir durumdur, hata degil.
+  COMPANY_SUMMARY_GENERATION_IN_PROGRESS: HttpStatus.CONFLICT,
 };
 
 /**
@@ -58,14 +73,29 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
 const EMBEDDING_FAILED_DETAIL =
   'Gorusme kaydedildi ancak arama icin indekslenemedi; /crm/reindex ile onarilabilir.';
 
-@Catch(CrmDomainError, RateLimitExceededError, EmbeddingFailedError)
+/**
+ * Ozet uretilemedi (ADR-0032).
+ *
+ * `EmbeddingFailedError`den FARKLI bir mesaj: orada bir sey KAYDEDILMISTIR ve
+ * kullanici bunu bilmelidir. Burada kaydedilen bir sey yok — onceki ozet
+ * (varsa) yerinde durur, claim birakilmistir, tekrar denemek guvenlidir.
+ */
+const COMPLETION_FAILED_DETAIL =
+  'Ozet su anda uretilemedi; birazdan tekrar deneyin. Mevcut ozet korundu.';
+
+@Catch(CrmDomainError, RateLimitExceededError, EmbeddingFailedError, CompletionFailedError)
 export class CrmDomainExceptionFilter implements ExceptionFilter {
   catch(
-    exception: CrmDomainError | RateLimitExceededError | EmbeddingFailedError,
+    exception:
+      CrmDomainError | RateLimitExceededError | EmbeddingFailedError | CompletionFailedError,
     host: ArgumentsHost,
   ): void {
     if (exception instanceof EmbeddingFailedError) {
       throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+    }
+
+    if (exception instanceof CompletionFailedError) {
+      throw new HttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof RateLimitExceededError) {

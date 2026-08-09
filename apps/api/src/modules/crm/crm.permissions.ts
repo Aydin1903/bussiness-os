@@ -39,6 +39,22 @@ export const INTERACTION_READ = 'interaction:read';
 export const INTERACTION_CREATE = 'interaction:create';
 
 /**
+ * Musteri ozeti URETMEK (ADR-0032 §6).
+ *
+ * ============================================================================
+ * NEDEN AYRI BIR FIIL — `read`/`write` YETMIYORDU
+ * ============================================================================
+ * Ozeti OKUMAK bedavadir, URETMEK para harcar. Bu ayrim `read`/`write`
+ * ikilisine sigmaz: uretmek bir sirket kaydini DEGISTIRMEZ (yani `write`
+ * degildir) ama okuma da degildir.
+ *
+ * Somut sonucu: `viewer` ozeti OKUR, uretemez. Bir izleyicinin sayfayi
+ * yenileyerek para harcayabilmesi bir butce deligi olurdu; okumasini
+ * engellemek ise ozelligi ondan tamamen almak olurdu.
+ */
+export const COMPANY_SUMMARIZE = 'company:summarize';
+
+/**
  * ============================================================================
  * `delete` NEDEN `write`'TAN AYRI
  * ============================================================================
@@ -79,4 +95,7 @@ export const CRM_PERMISSIONS: readonly PermissionRule[] = [
 
   { permission: INTERACTION_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
   { permission: INTERACTION_CREATE, roles: ['owner', 'admin', 'member'] },
+
+  // Uretmek para harcar: `viewer` HARIC.
+  { permission: COMPANY_SUMMARIZE, roles: ['owner', 'admin', 'member'] },
 ];

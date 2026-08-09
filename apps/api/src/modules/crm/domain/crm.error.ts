@@ -132,3 +132,37 @@ export class InvalidEmbeddingDimensionsError extends CrmDomainError {
     super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
   }
 }
+
+/**
+ * Ozetlenecek gorusme yok (ADR-0032 §4).
+ *
+ * ⚠️ MODEL CAGRILMAZ ve satir bile ACILMAZ. Gerekce ADR-0030'un gunluk rapor
+ * kararindan gelir ve birebir gecerlidir: bos baglamla model cagirmak, sistem
+ * promptunun 1. kuralinin (uydurma) engellemeye calistigi riski DAVET
+ * etmektir — soyleyecek seyi olmayan bir modele "ozet yaz" demek, uydurmasi
+ * icin en uygun kosuldur. Ustelik cevabini zaten bildigimiz bir soru icin
+ * para harcamak olurdu.
+ *
+ * Sirket karti ve firsatlardan ozet URETILMEDI (Product Owner karari):
+ * uretilecek metin ekranda ZATEN gorunen bilgiyi tekrar ederdi.
+ */
+export class NoInteractionsToSummarizeError extends CrmDomainError {
+  readonly code = 'COMPANY_SUMMARY_NO_INTERACTIONS';
+  constructor() {
+    super('Ozet cikarilabilmesi icin once bu musteriyle bir gorusme kaydedilmeli.');
+  }
+}
+
+/**
+ * Bu sirketin ozeti SU AN uretiliyor (ADR-0032 §3).
+ *
+ * Ikinci cagirana bayat ozeti dondurmek REDDEDILDI: kullanici "yeniledim"
+ * sanip eski metni okurdu — sessizce yanlis. Ilk uretimde donecek bir sey de
+ * olmazdi, yani yine ozel bir durum gerekirdi.
+ */
+export class SummaryGenerationInProgressError extends CrmDomainError {
+  readonly code = 'COMPANY_SUMMARY_GENERATION_IN_PROGRESS';
+  constructor() {
+    super('Bu musterinin ozeti su anda hazirlaniyor; birazdan tekrar deneyin.');
+  }
+}

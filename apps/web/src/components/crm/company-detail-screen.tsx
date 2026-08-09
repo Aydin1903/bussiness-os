@@ -14,6 +14,7 @@ import { CompanyForm } from './company-form';
 import { ConfirmDelete } from './confirm-delete';
 import { ContactSection } from './contact-section';
 import { CrmBody, CrmHeader, Pager, RISE, SectionLabel } from './chrome';
+import { CompanySummaryPanel } from './company-summary';
 import { CrmReindexBanner } from './crm-reindex-banner';
 import { CardAction, CardActions } from './record-card';
 import { InteractionComposer } from './interaction-composer';
@@ -157,6 +158,14 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
           )
         }
       />
+
+      {/*
+        AI ÖZETİ — sayfanın ilk ekranı, `CrmBody`'nin DIŞINDA.
+        İçeride olsaydı 720px'lik okuma sütununa ve gövde dolgusuna girerdi;
+        bu blok panelin tam genişliğini kaplamalı ve kaydırılan içerikten önce
+        gelmeli (ADR-0032 §5). Kendi kenar boşluğunu kendisi verir.
+      */}
+      <CompanySummaryPanel companyId={companyId} readOnly={readOnly} />
 
       <CrmBody>
         <BackLink />

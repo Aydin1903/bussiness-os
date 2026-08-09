@@ -229,6 +229,50 @@ export const reindexInteractionsResponseSchema = z.object({
 export type ReindexInteractionsResponse = z.infer<typeof reindexInteractionsResponseSchema>;
 
 /* ========================================================================== */
+/* Müşteri özeti (ADR-0032)                                                   */
+/* ========================================================================== */
+
+/**
+ * `GET /crm/companies/:id/summary` — önbellekten okur, ASLA model çağırmaz.
+ *
+ * Dört bayrak beş ekran durumunu tam olarak belirler ve hiçbiri diğerinden
+ * türetilemez:
+ *
+ *   summary === null && !generating           → YOK      ("özet çıkar")
+ *   summary !== null && !stale                → VAR      (metin + tarih)
+ *   summary !== null && stale                 → BAYAT    ("yenile" vurgulu)
+ *   generating                                → ÜRETİLİYOR
+ *   !summarizable                             → görüşme yok, üretim kapalı
+ *
+ * ⚠️ `stale` ile "summary yok" AYRI şeylerdir: hiç üretilmemiş bir özet bayat
+ * DEĞİLDİR. İkisini birleştirmek, hiç özeti olmayan bir müşteride "özet güncel
+ * değil" demek olurdu.
+ */
+export const companySummarySchema = z.object({
+  summary: z.string().nullable(),
+  generatedAt: z.string().nullable(),
+  /** Üretildiğinden bu yana kaynaklar değişti mi. Özet yoksa `false`. */
+  stale: z.boolean(),
+  /** Şu anda başka bir istek üretiyor mu. */
+  generating: z.boolean(),
+  /** Özetlenecek görüşme var mı — üretme düğmesi buna bakar. */
+  summarizable: z.boolean(),
+});
+export type CompanySummary = z.infer<typeof companySummarySchema>;
+
+/**
+ * `POST /crm/companies/:id/summary` yanıtı.
+ *
+ * `regenerated: false` ise İSRAF FRENİ devreye girdi: kaynakların imzası
+ * değişmemişti ve model hiç çağrılmadı. Arayüz bunu kullanıcıya söylemek
+ * ZORUNDA — yoksa "yenile"ye basıp metnin aynı kalması bir hata gibi görünür.
+ */
+export const generateCompanySummaryResponseSchema = companySummarySchema.extend({
+  regenerated: z.boolean(),
+});
+export type GenerateCompanySummaryResponse = z.infer<typeof generateCompanySummaryResponseSchema>;
+
+/* ========================================================================== */
 /* Fırsatlar                                                                  */
 /* ========================================================================== */
 

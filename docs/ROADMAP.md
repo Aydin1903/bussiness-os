@@ -367,6 +367,8 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 > `messages` silen bir iş, sonsuza kadar biriken **yetim `conversations`**
 > satırları bırakır. Denetim anında ölçüm: 4 konuşma / 12 mesaj.
 
+> **`crm.company_summaries` bu listeye GİRMEZ** ([ADR-0032](adr/0032-company-summary.md)): şirket başına **tek satır** tutar ve şirket silinince cascade ile gider — sınırsız büyüyen bir tablo değildir. `daily_report_runs`'tan yapısal farkı budur (o tenant başına **günde** bir satır ekler ve kalıcıdır). Kayıt buraya, listeyi uzatmamak için değil, **neden uzatmadığı** görülsün diye düşüldü: bir AI çıktısını saklamak otomatik olarak retention borcu doğurmaz; borcu doğuran şey satırın ZAMANLA çoğalmasıdır.
+
 > **Faz 5 bunu SEKİZE çıkaracak** ([ADR-0031](adr/0031-crm-module.md)): `crm.interactions` + `crm.interaction_chunks`. Yukarıdaki `conversations` dersi orada **ilk günden** uygulanıyor — `interaction_chunks → interactions` `ON DELETE CASCADE` taşıdığı için doğru retention kolu `interactions`'dır. Ayrıca iki tablo **taşınıyor** (`rate_limits` ve `conversations`/`messages` → `platform`); bu listeyi kısaltmaz ama çoğalmasını önler: modül başına değil, platformda **tek** kalem.
 
 `rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.

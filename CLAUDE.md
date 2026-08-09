@@ -457,7 +457,7 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 | 4–7 | CRM: şema+şirket/kişi · fırsatlar+takipler · görüşmeler+embedding · iki katkıcı | ✅ |
 | 8 + 9-B | Frontend CRM ekranları (5 rota, 33 bileşen) + düzen/odak çalışması | ✅ |
 | — | **Modül başına imza rengi** — CRM referans modül (FRONTEND §4.8) | ✅ |
-| Katman 2 | Müşteri özeti (ADR-0032) | ⏳ |
+| Katman 2 | **Müşteri özeti** (ADR-0032) — istek-tetiklemeli önbellek, worker değil | ✅ |
 | 9 | Kapanış denetimi | ⏳ |
 
 > ### Slice 9 kapanış denetimi — biriken kontrol listesi
@@ -470,8 +470,9 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 >   ve ne lint ne tip denetimi yakalar. Bugün tek modül rotası CRM'dir
 >   (`/app/crm` ve dört alt rotası); her biri açık **ve** koyu temada gezilir.
 > - [ ] **AI'ın sesi modül içinde terracotta kalıyor mu** — Panel'in noktaları
->   ve kaynak atfı (`bg-ai-accent` / `text-ai-ink`); Katman 2 geldiğinde
->   müşteri özeti de bu listeye girer.
+>   ve kaynak atfı, **ve müşteri özeti** (`/app/crm/[id]` en üstteki serif
+>   blok): CRM çivit mavisiyken o blok terracotta kalmalı. Bu, §4.8 kuralının
+>   tek gerçek örneğidir — yanlışsa kural yazılı ama uygulanmamış demektir.
 > - [ ] Yedi CRM ucu gerçek isteklerle (200/401/403/429), iki tenant'la RLS
 >   izolasyonu, dar rollerin sözleşmesi — Faz 4 denetiminin CRM karşılığı.
 

@@ -648,3 +648,19 @@ onboarding · `businessos_report_worker` ve diger dar roller.
   — bir CRM'de bu, bilgi bankasindakinden daha temel bir beklentidir.
 - **CRM domain event'inin ilk tuketicisi cikinca:** `OpportunityWon` ve
   kardesleri outbox'a yazilir.
+
+---
+
+## Not — Katman 2 geldi (2026-08-09)
+
+[ADR-0032](0032-company-summary.md) bu ADR'nin uzerine **musteri ozetini**
+ekledi. Iki kaydi buraya dusuyor:
+
+1. **"LLM_PORT YOK — CRM completion cagirmaz" artik DOGRU DEGIL.** Bu ADR
+   yazildiginda CRM yalnizca embedding uretiyordu ve `crm.module.ts` bunu
+   acikca yaziyordu. Musteri ozeti varsayimi degistirdi; `crm.module.ts` artik
+   `LLM_PORT` de saglıyor. Metin **silinmedi**, uzerine not eklendi.
+
+2. **Ozet, `POST /ask` katkicilarina KATILMADI** ve bu bilincli: katkicilar
+   ham gorusmeleri veriyor, ozeti de vermek ayni icerigi **ikinci kez**
+   ozetlemek olurdu. Kapsam disi kaydi ADR-0032'dedir.

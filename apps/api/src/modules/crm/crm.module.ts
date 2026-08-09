@@ -1,7 +1,7 @@
 import { Inject, Module } from '@nestjs/common';
 
 import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
-import { createEmbeddingPort } from '../../infrastructure/ai/ai-provider.factory';
+import { createEmbeddingPort, createLlmPort } from '../../infrastructure/ai/ai-provider.factory';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
@@ -16,6 +16,7 @@ import {
 import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
+import { LLM_PORT, type LLMPort } from '../../shared/llm.port';
 import {
   RATE_LIMIT_REPOSITORY,
   type RateLimitRepository,
@@ -25,6 +26,11 @@ import {
   TRANSACTION_MANAGER,
   type TransactionManager,
 } from '../../shared/transaction-manager.port';
+import {
+  COMPANY_SUMMARY_REPOSITORY,
+  type CompanySummaryRepository,
+} from './application/company-summary.repository.port';
+import { CompanySummaryUseCases } from './application/company-summary.use-cases';
 import { COMPANY_REPOSITORY, type CompanyRepository } from './application/company.repository.port';
 import { CompanyUseCases } from './application/company.use-cases';
 import { CONTACT_REPOSITORY, type ContactRepository } from './application/contact.repository.port';
@@ -40,12 +46,14 @@ import {
 import { InteractionUseCases } from './application/interaction.use-cases';
 import { OpportunityUseCases } from './application/opportunity.use-cases';
 import { CRM_PERMISSIONS } from './crm.permissions';
+import { DrizzleCompanySummaryRepository } from './infrastructure/drizzle-company-summary.repository';
 import { DrizzleCompanyRepository } from './infrastructure/drizzle-company.repository';
 import { DrizzleContactRepository } from './infrastructure/drizzle-contact.repository';
 import { CrmInteractionsContributor } from './infrastructure/crm-interactions.contributor';
 import { CrmPipelineContributor } from './infrastructure/crm-pipeline.contributor';
 import { DrizzleInteractionRepository } from './infrastructure/drizzle-interaction.repository';
 import { DrizzleOpportunityRepository } from './infrastructure/drizzle-opportunity.repository';
+import { CompanySummaryController } from './presentation/company-summary.controller';
 import { CompanyController } from './presentation/company.controller';
 import { ContactController } from './presentation/contact.controller';
 import { FollowUpController } from './presentation/follow-up.controller';
@@ -83,6 +91,11 @@ const CRM_CALLER = 'crm';
     OpportunityController,
     FollowUpController,
     InteractionController,
+    // ⚠️ `CompanyController`DAN SONRA: ikisi de `crm/companies` altinda.
+    // Nest rotalari kayit sirasina gore eslestirir; `:companyId/summary`
+    // sabit bir alt yoldur ve `CompanyController`in `:id` rotalariyla
+    // catismaz, ama sirayi bozmak ileride sessiz bir gölgeleme uretebilir.
+    CompanySummaryController,
   ],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
@@ -90,18 +103,32 @@ const CRM_CALLER = 'crm';
     { provide: TRANSACTION_MANAGER, useClass: DrizzleTransactionManager },
 
     { provide: COMPANY_REPOSITORY, useClass: DrizzleCompanyRepository },
+    { provide: COMPANY_SUMMARY_REPOSITORY, useClass: DrizzleCompanySummaryRepository },
     { provide: CONTACT_REPOSITORY, useClass: DrizzleContactRepository },
     { provide: OPPORTUNITY_REPOSITORY, useClass: DrizzleOpportunityRepository },
     { provide: INTERACTION_REPOSITORY, useClass: DrizzleInteractionRepository },
     { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
 
     // Adapter SINIFLARI paylasilir, ORNEK modul basinadir: `caller` kurulusta
-    // sabitlenir (ADR-0031 Slice 1). LLM_PORT YOK — CRM completion cagirmaz.
+    // sabitlenir (ADR-0031 Slice 1).
+    //
+    // ⚠️ `LLM_PORT` KATMAN 2'DE EKLENDI (ADR-0032). Bu satirin eski hali
+    // "LLM_PORT YOK — CRM completion cagirmaz" diyordu ve o gun dogruydu:
+    // CRM yalnizca embedding uretiyordu. Musteri ozeti bunu degistirdi ve
+    // degisikligin ikinci bir sonucu vardi — `CompletionFailedError`
+    // `CrmDomainExceptionFilter`e eklenmek zorunda kaldi, yoksa saglayici
+    // cokmesi 502 yerine islenmemis 500 donerdi.
     {
       provide: EMBEDDING_PORT,
       inject: [APP_CONFIG, AI_USAGE_RECORDER],
       useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort =>
         createEmbeddingPort(config, recorder, CRM_CALLER),
+    },
+    {
+      provide: LLM_PORT,
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): LLMPort =>
+        createLlmPort(config, recorder, CRM_CALLER),
     },
 
     {
@@ -198,6 +225,38 @@ const CRM_CALLER = 'crm';
           clock,
           rateLimit: config.crm.interactionsRateLimit,
           reindexBatchSize: config.crm.reindexBatchSize,
+        }),
+    },
+    {
+      provide: CompanySummaryUseCases,
+      inject: [
+        COMPANY_SUMMARY_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
+        LLM_PORT,
+        TRANSACTION_MANAGER,
+        CLOCK,
+        APP_CONFIG,
+      ],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
+      // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        repository: CompanySummaryRepository,
+        rateLimitRepository: RateLimitRepository,
+        llmPort: LLMPort,
+        transactionManager: TransactionManager,
+        clock: Clock,
+        config: AppConfig,
+      ): CompanySummaryUseCases =>
+        new CompanySummaryUseCases({
+          repository,
+          rateLimitRepository,
+          llmPort,
+          transactionManager,
+          clock,
+          rateLimit: config.crm.summaryRateLimit,
+          contextInteractionLimit: config.crm.summaryContextInteractions,
+          contextCharsPerInteraction: config.crm.summaryCharsPerInteraction,
         }),
     },
     // --- Kurumsal hafizaya IKI KATKI (ADR-0031 §5.1, §5.4) -------------------

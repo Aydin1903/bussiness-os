@@ -44,3 +44,5 @@ export { contacts } from './contacts.schema';
 export { opportunities } from './opportunities.schema';
 export { interactions } from './interactions.schema';
 export { interactionChunks } from './interaction-chunks.schema';
+// Katman 2 (ADR-0032) — ONBELLEK, kuyruk degil.
+export { companySummaries } from './company-summaries.schema';

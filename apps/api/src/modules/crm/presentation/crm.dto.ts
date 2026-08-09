@@ -154,6 +154,15 @@ export const listInteractionsQuerySchema = listQuerySchema.extend({
 
 export const idParamSchema = z.object({ id: z.uuid('Gecerli bir UUID olmali') }).strict();
 
+/**
+ * Yol parametresi olarak TEK bir UUID.
+ *
+ * `idParamSchema` bir NESNE dogrular (`@Param()` tumu icin); bu ise
+ * `@Param('companyId')` ile gelen ciplak string icindir. Nesne semasini
+ * kullanmak, pipe'a string verip nesne beklemek olurdu.
+ */
+export const companyIdParamSchema = z.uuid('Gecerli bir UUID olmali');
+
 export type CreateCompanyBody = z.infer<typeof createCompanySchema>;
 export type UpdateCompanyBody = z.infer<typeof updateCompanySchema>;
 export type CreateContactBody = z.infer<typeof createContactSchema>;

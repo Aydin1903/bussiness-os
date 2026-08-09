@@ -82,7 +82,7 @@ describe('CRM uclari (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query(
-      'TRUNCATE crm.interaction_chunks, crm.interactions, crm.opportunities, crm.contacts, crm.companies CASCADE',
+      'TRUNCATE crm.company_summaries, crm.interaction_chunks, crm.interactions, crm.opportunities, crm.contacts, crm.companies CASCADE',
     );
     await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
@@ -964,5 +964,196 @@ describe('CRM uclari (uctan uca)', () => {
     const response = await createInteraction(owner, String(company.body.id));
     expect(response.status).toBe(429);
     expect(response.headers['retry-after']).toBeDefined();
+  });
+
+  // --- Musteri ozeti (ADR-0032) -------------------------------------------
+  //
+  // ⚠️ `LLM_PROVIDER=fake` ortaminda kosar: cevap SAHTEDIR ama AKIS gercektir
+  // (onbellek, israf freni, claim, izinler, cascade). Metnin KALITESI burada
+  // test edilmez ve edilemez — o gercek saglayici testine aittir.
+
+  function getSummary(token: string, companyId: string) {
+    return api()
+      .get(`/api/v1/crm/companies/${companyId}/summary`)
+      .set('Authorization', `Bearer ${token}`);
+  }
+
+  function generateSummary(token: string, companyId: string) {
+    return api()
+      .post(`/api/v1/crm/companies/${companyId}/summary`)
+      .set('Authorization', `Bearer ${token}`);
+  }
+
+  it('ozet hic uretilmemisse GET bos doner — 404 DEGIL', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    const response = await getSummary(owner, String(company.body.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.summary).toBeNull();
+    // Hic gorusme yok: arayuz uretme dugmesini KAPATIR.
+    expect(response.body.summarizable).toBe(false);
+    // "Yok" ile "bayat" AYRI durumlar.
+    expect(response.body.stale).toBe(false);
+  });
+
+  it('gorusme YOKSA uretim 422 — model cagrilmaz, satir bile ACILMAZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    const response = await generateSummary(owner, String(company.body.id));
+
+    expect(response.status).toBe(422);
+
+    const rows = await database.ownerPool.query(
+      'SELECT count(*)::int AS n FROM crm.company_summaries',
+    );
+    expect(rows.rows[0]?.n).toBe(0);
+  });
+
+  it('gorusme varsa ozet URETILIR ve GET onu onbellekten doner', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    const created = await generateSummary(owner, String(company.body.id));
+    expect(created.status).toBe(200);
+    expect(created.body.regenerated).toBe(true);
+    expect(created.body.summary).toBeTruthy();
+    expect(created.body.stale).toBe(false);
+
+    const cached = await getSummary(owner, String(company.body.id));
+    expect(cached.body.summary).toBe(created.body.summary);
+    expect(cached.body.generatedAt).toBeTruthy();
+  });
+
+  it('ISRAF FRENI: kaynaklar degismediyse ikinci POST yeniden URETMEZ', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    const first = await generateSummary(owner, String(company.body.id));
+    const second = await generateSummary(owner, String(company.body.id));
+
+    expect(second.status).toBe(200);
+    expect(second.body.regenerated).toBe(false);
+    expect(second.body.summary).toBe(first.body.summary);
+  });
+
+  it('yeni gorusme ozeti BAYAT yapar ve yeniden uretim tetikler', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+    await generateSummary(owner, String(company.body.id));
+
+    await createInteraction(owner, String(company.body.id));
+
+    const stale = await getSummary(owner, String(company.body.id));
+    expect(stale.body.stale).toBe(true);
+
+    const regenerated = await generateSummary(owner, String(company.body.id));
+    expect(regenerated.body.regenerated).toBe(true);
+    expect(regenerated.body.stale).toBe(false);
+  });
+
+  it('claim TAZE iken ikinci istek 409 alir — model iki kez cagrilmaz', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    // Suren bir uretimi taklit et. `generated_at` NULL kalir, yani israf
+    // freni devreye GIRMEZ ve istek gercekten claim'e kadar gelir.
+    await database.ownerPool.query(
+      `INSERT INTO crm.company_summaries (company_id, tenant_id, generating_at)
+       VALUES ($1, $2, now())`,
+      [String(company.body.id), TENANT_A],
+    );
+
+    const response = await generateSummary(owner, String(company.body.id));
+
+    expect(response.status).toBe(409);
+  });
+
+  it('BAYAT claim uretimi ENGELLEMEZ — coken istek satiri kilitli birakmaz', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    // Iki dakikadan eski bir claim OLU sayilir; elle mudahale gerekmez.
+    await database.ownerPool.query(
+      `INSERT INTO crm.company_summaries (company_id, tenant_id, generating_at)
+       VALUES ($1, $2, now() - interval '10 minutes')`,
+      [String(company.body.id), TENANT_A],
+    );
+
+    const response = await generateSummary(owner, String(company.body.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.regenerated).toBe(true);
+  });
+
+  it('viewer ozeti OKUR ama URETEMEZ (company:summarize yok)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+    await generateSummary(owner, String(company.body.id));
+
+    const viewer = await tokenFor('viewer');
+
+    // Okumak BEDAVA: viewer gorusmeleri zaten okuyabiliyor.
+    const read = await getSummary(viewer, String(company.body.id));
+    expect(read.status).toBe(200);
+    expect(read.body.summary).toBeTruthy();
+
+    // Uretmek PARA harcar.
+    const write = await generateSummary(viewer, String(company.body.id));
+    expect(write.status).toBe(403);
+  });
+
+  it('kimliksiz istek 401', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+
+    const response = await api().get(`/api/v1/crm/companies/${String(company.body.id)}/summary`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('ozet payi ASILINCA 429 — AYRI kova (`generate_company_summary`)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+
+    // `create_interaction` kovasi DOKUNULMADAN doldurulur: ayri kova olduklari
+    // ancak boyle kanitlanir.
+    await database.ownerPool.query(
+      `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+       SELECT $1, u.id, 'generate_company_summary', date_trunc('hour', now()), 100000
+       FROM platform.users u LIMIT 1`,
+      [TENANT_A],
+    );
+
+    const response = await generateSummary(owner, String(company.body.id));
+    expect(response.status).toBe(429);
+    expect(response.headers['retry-after']).toBeDefined();
+  });
+
+  it('sirket silinince ozeti de gider (cascade)', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createInteraction(owner, String(company.body.id));
+    await generateSummary(owner, String(company.body.id));
+
+    await api()
+      .delete(`/api/v1/crm/companies/${String(company.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .expect(204);
+
+    const rows = await database.ownerPool.query(
+      'SELECT count(*)::int AS n FROM crm.company_summaries',
+    );
+    // Silinen musteri AI'in hafizasinda YASAMAYA DEVAM ETMEZ (ADR-0031 §1).
+    expect(rows.rows[0]?.n).toBe(0);
   });
 });

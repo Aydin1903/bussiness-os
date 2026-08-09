@@ -126,6 +126,8 @@ export {
   OPPORTUNITY_STAGE_ORDER,
   OPPORTUNITY_STAGE_LABELS,
   CLOSED_OPPORTUNITY_STAGES,
+  companySummarySchema,
+  generateCompanySummaryResponseSchema,
 } from './crm/crm.contract';
 export type {
   Company,
@@ -152,4 +154,6 @@ export type {
   UpdateOpportunityRequest,
   FollowUp,
   FollowUpListResponse,
+  CompanySummary,
+  GenerateCompanySummaryResponse,
 } from './crm/crm.contract';

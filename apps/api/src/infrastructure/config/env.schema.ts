@@ -258,6 +258,39 @@ const baseEnvSchema = z.object({
    */
   CRM_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
+  /**
+   * Saatlik musteri ozeti URETME payi (ADR-0032 §2).
+   *
+   * `CRM_INTERACTIONS_RATE_LIMIT`ten AYRI kova: bu `LLMPort.complete`tir
+   * (completion), digeri `EmbeddingPort.embed`. Farkli fiyat, farkli is akisi.
+   *
+   * Varsayilan gorusme payindan (60) belirgin DUSUK: ozet, gun icinde onlarca
+   * kez yapilan bir KAYIT eylemi degil, musteriyi aramadan once yapilan bir
+   * HAZIRLIK eylemidir. Ustelik israf freni sayesinde tekrarlanan cagrilarin
+   * cogu modele hic ulasmaz — bu pay yalnizca GERCEKTEN degisen kaynaklar icin
+   * harcanir.
+   */
+  CRM_SUMMARY_RATE_LIMIT: z.coerce.number().int().min(1).max(1_000).default(20),
+
+  /**
+   * Ozete girecek EN FAZLA gorusme — token tavaninin BIRINCI freni.
+   *
+   * Yuz gorusmesi olan bir musteri icin hepsini gondermek tek cagriyi
+   * onlarca kat pahalilastirirdi. Yirmi gorusme, "nerede kaldik" sorusunu
+   * cevaplamaya fazlasiyla yeter; daha eskisi zaten ozetin kendisinde degil
+   * gorusme akisinda okunur.
+   */
+  CRM_SUMMARY_CONTEXT_INTERACTIONS: z.coerce.number().int().min(1).max(200).default(20),
+
+  /**
+   * Tek bir gorusmeden alinacak EN FAZLA karakter — IKINCI fren.
+   *
+   * Sayi sinirinin tek basina yetmedigi durum: yirmi gorusmeden biri on bin
+   * karakterlik bir toplanti dokumu olabilir. Iki fren birlikte, en kotu
+   * durumda bile baglami ONGORULEBILIR bir buyuklukte tutar.
+   */
+  CRM_SUMMARY_CHARS_PER_INTERACTION: z.coerce.number().int().min(200).max(20_000).default(1_500),
+
   // --- Gunluk rapor worker'i (ADR-0030 §2) --------------------------------
 
   /**

@@ -99,6 +99,9 @@ export interface AppConfig {
   readonly crm: {
     readonly interactionsRateLimit: number;
     readonly reindexBatchSize: number;
+    readonly summaryRateLimit: number;
+    readonly summaryContextInteractions: number;
+    readonly summaryCharsPerInteraction: number;
   };
 
   /** Gunluk rapor worker'i (ADR-0030 §2). */
@@ -152,6 +155,9 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     crm: {
       interactionsRateLimit: env.CRM_INTERACTIONS_RATE_LIMIT,
       reindexBatchSize: env.CRM_REINDEX_BATCH_SIZE,
+      summaryRateLimit: env.CRM_SUMMARY_RATE_LIMIT,
+      summaryContextInteractions: env.CRM_SUMMARY_CONTEXT_INTERACTIONS,
+      summaryCharsPerInteraction: env.CRM_SUMMARY_CHARS_PER_INTERACTION,
     },
     ...toAiConfig(env),
   };
