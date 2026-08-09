@@ -7,6 +7,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
 import { CrmModule } from './modules/crm/crm.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { AuthzModule } from './platform/authz/authz.module';
 import { HealthModule } from './platform/health/health.module';
@@ -39,6 +40,9 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // Faz 5'in ilk is modulu (ADR-0031). Bu slice'ta AI YOK: sema + RLS + RBAC
     // zinciri once AI karmasikligi olmadan kanitlanir.
     CrmModule,
+    // Faz 5'in IKINCI is modulu (ADR-0033). CRM ile ayni sira: bu slice'ta AI
+    // YOK, once sema + RLS + RBAC zinciri kurulur.
+    ProjectsModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

@@ -46,3 +46,9 @@ export { interactions } from './interactions.schema';
 export { interactionChunks } from './interaction-chunks.schema';
 // Katman 2 (ADR-0032) — ONBELLEK, kuyruk degil.
 export { companySummaries } from './company-summaries.schema';
+
+// --- Projeler (ADR-0033 §1) ---
+// `projectsSchema` ayri bir dosyada: sema ve tablo AYNI adi tasiyor, cakismayi
+// sema dosyasi ustlendi (gerekce `projects-schema.schema.ts`'te).
+export { projectsSchema } from './projects-schema.schema';
+export { projects } from './projects.schema';

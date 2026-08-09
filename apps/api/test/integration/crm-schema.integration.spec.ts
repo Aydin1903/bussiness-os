@@ -118,13 +118,19 @@ describe('crm semasi (gercek PostgreSQL)', () => {
   }
 
   describe('sema ve kisitlar', () => {
-    it('bes tablo crm semasinda olusturuldu', async () => {
+    it('alti tablo crm semasinda olusturuldu', async () => {
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'crm' ORDER BY table_name",
       );
 
+      // ⚠️ `company_summaries` GECIKMELI eklendi: migration `0019` (ADR-0032,
+      // commit `f564ecd`) tabloyu getirdi ama bu iddia "bes tablo" demeye devam
+      // etti ve test o gunden beri kirmiziydi. Yeni bir tablo eklerken bu satir
+      // da guncellenir — testin isi tam olarak semanin BEKLENEN sekilde
+      // kalmasini zorlamaktir.
       expect(rows.rows.map((row) => row.table_name)).toEqual([
         'companies',
+        'company_summaries',
         'contacts',
         'interaction_chunks',
         'interactions',

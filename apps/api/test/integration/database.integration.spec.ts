@@ -113,6 +113,20 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0020, `projects` semasi ve tek tablosu. `crm`'den BAGIMSIZDIR (cross-
+      // schema FK yok — ADR-0033 §2) ama konvansiyon geregi en yeni once.
+      '0020_projects_schema.down.sql',
+      // 0019, `crm.company_summaries`. 0016'dan ONCE: `crm.companies`'e FK
+      // tasir.
+      //
+      // ⚠️ BU SATIR GECIKMELI EKLENDI. Migration `0019` (ADR-0032, commit
+      // `f564ecd`) yazildiginda bu listeye GIRMEDI ve test o gunden beri
+      // kirmiziydi: geri alma `0016`'da "cannot drop table crm.companies
+      // because other objects depend on it" ile patliyordu. Testin var olma
+      // gerekcesi ("down dosyasi yazilmis olabilir ama calismiyor olabilir")
+      // burada kendini KANITLADI — eksik olan down dosyasi degil, onu
+      // CALISTIRAN satirdi.
+      '0019_crm_company_summaries.down.sql',
       // 0018, gorusmeler + parcalar. 0017/0016'dan ONCE: `crm.companies` ve
       // `crm.opportunities`'e FK tasir.
       '0018_crm_interactions.down.sql',
