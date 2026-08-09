@@ -497,6 +497,41 @@ platform kodunu dışarı taşıyor. Üç ana karar:
 > olan desenlerin (login transaction sırası, reset-password `outcome` deseni)
 > uygulanmasıdır.
 
+### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
+
+Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir**:
+
+- **Servis ayakta:** `bussiness-os-production.up.railway.app` · proje
+  `attractive-tenderness` · PostgreSQL + volume.
+- **GitHub otomatik dağıtımı AÇIK.** `feature/tenant-multi-tenancy-core`'a
+  yapılan **her `git push` prod'a dağıtım tetikler** ve
+  `railway.api.json`'un `preDeployCommand`'i `db:preflight && db:migrate`
+  çalıştırır — yani **push migration uygular**. Denetim bunu ancak dağıtım
+  gerçekleştikten sonra fark etti; "servis durduruldu" bilgisi güncel değildi.
+  Product Owner kararı: **açık kalsın**, ama migration içeren bir push'tan
+  önce açıkça haber verilir.
+- **Prod veritabanı doğrulandı (yalnızca okuma):** beş rol mevcut,
+  `businessos_owner` **NOSUPERUSER**, `businessos_app` bypassrls **değil**,
+  20/20 migration uygulanmış, altı CRM tablosu `RLS + FORCE`, `vector` 0.8.6.
+  **Fail-closed kanıtlandı:** tenant context'siz sorgu sessizce boş dönmüyor,
+  `unrecognized configuration parameter "app.current_tenant_id"` ile
+  **hata veriyor**. `FORCE RLS` tablo sahibini de bağlıyor.
+- Prod'da iş verisi **yok** (1 kullanıcı, 1 tenant, 0 CRM kaydı).
+
+> #### 🔴 `NODE_ENV` prod'da hâlâ `development` — ve tek başına çevrilemez
+>
+> Zincir `env.schema.ts`'te ve bilinçlidir:
+> `NODE_ENV=production` → `EMAIL_PROVIDER=console` **yasak** (P1: konsol
+> adapter'ı doğrulama kodlarını loglar) → `EMAIL_PROVIDER=resend` →
+> `RESEND_API_KEY` **ve** `EMAIL_FROM` zorunlu.
+>
+> Railway'de üçü de tanımlı değil. `NODE_ENV=production` yazmak API'yi
+> **açılışta düşürür**. Önce Resend kimlik bilgileri Railway'e girilmeli;
+> bu bir **sır aktarımıdır ve Product Owner'ın kendi yapacağı iştir**.
+>
+> `SWAGGER_ENABLED` denetimde `false` yapıldı — `/api/docs` artık 404
+> (öncesinde uç sözleşmesi internete açıktı).
+
 > **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
 > (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —
 > NestJS'te FARKLI modüllerin middleware'leri arasındaki sıra güvenilir değildir
