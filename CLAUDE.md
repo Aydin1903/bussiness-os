@@ -518,19 +518,35 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
   **hata veriyor**. `FORCE RLS` tablo sahibini de bağlıyor.
 - Prod'da iş verisi **yok** (1 kullanıcı, 1 tenant, 0 CRM kaydı).
 
-> #### 🔴 `NODE_ENV` prod'da hâlâ `development` — ve tek başına çevrilemez
+> #### ✅ Prod artık `NODE_ENV=production` (2026-08-09, denetimin son adımı)
 >
-> Zincir `env.schema.ts`'te ve bilinçlidir:
+> Bir süre `development`'taydı ve **tek başına çevrilemiyordu**; zincir
+> `env.schema.ts`'te ve bilinçlidir:
 > `NODE_ENV=production` → `EMAIL_PROVIDER=console` **yasak** (P1: konsol
 > adapter'ı doğrulama kodlarını loglar) → `EMAIL_PROVIDER=resend` →
 > `RESEND_API_KEY` **ve** `EMAIL_FROM` zorunlu.
 >
-> Railway'de üçü de tanımlı değil. `NODE_ENV=production` yazmak API'yi
-> **açılışta düşürür**. Önce Resend kimlik bilgileri Railway'e girilmeli;
-> bu bir **sır aktarımıdır ve Product Owner'ın kendi yapacağı iştir**.
+> Üçü de Railway'e aktarıldı (Product Owner talimatı; değerler `apps/api/.env`
+> içindeydi, stdin ile geçirildi). Sıra önemliydi: sırlar önce ve
+> `--skip-deploys` ile, `NODE_ENV` **en son** — uygulama hiçbir an
+> "production + console e-posta" hâlinde açılmasın diye.
 >
-> `SWAGGER_ENABLED` denetimde `false` yapıldı — `/api/docs` artık 404
-> (öncesinde uç sözleşmesi internete açıktı).
+> **E-posta gönderimi prod'da KANITLANDI**, ve kanıt ayırt edicidir:
+> `delivered@resend.dev` → outbox `YAYINLANDI` (0 deneme);
+> `@example.com` → **ölü mektup**, `Resend gonderimi reddetti (HTTP 422):
+> Invalid to field`. İkincisi olmasaydı "gönderiliyor" iddiası bir no-op'tan
+> ayırt edilemezdi.
+>
+> `SWAGGER_ENABLED=false` — `/api/docs` artık 404 (öncesinde uç sözleşmesi
+> internete açıktı).
+>
+> ⚠️ `EMAIL_FROM` Resend'in **paylaşımlı test göndericisidir** (`resend.dev`).
+> Bu modda Resend yalnızca hesap sahibinin adresine ve `*.resend.dev` test
+> adreslerine gönderir; gerçek kullanıcıya e-posta gitmesi için **kendi alan
+> adının Resend'de doğrulanması** gerekir. Faz 6'nın (gerçek müşteri) önkoşulu.
+>
+> ⚠️ Prod'da iki denetim artığı kullanıcı kaldı (`delivered@resend.dev`,
+> `ayirt-edici-test@example.com`) — temizlenmesi Product Owner onayına bağlı.
 
 > **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
 > (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —
