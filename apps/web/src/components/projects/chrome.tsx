@@ -18,15 +18,11 @@ import { usePathname } from 'next/navigation';
  * sidebar'da "hangi modüldeyim", başlıkta "modülün neresindeyim".
  *
  * ============================================================================
- * ⚠️ "YAPILACAKLAR" SEKMESİ HENÜZ ÇİZİLMEDİ — VAAT ETMEMEK İÇİN
+ * ŞERİT SLICE 5b'DE DEVREYE GİRDİ
  * ============================================================================
- * `/app/projects/tasks` rotası bu slice'ta yazılmadı. Sekmeyi şimdi koymak,
- * olmayan bir sayfaya tıklanabilir görüntü vermek olurdu — `CrmTabs`'ın 8a'da
- * verdiği kararın aynısı ve `sidebar.tsx`'in "yakında" satırı için yazılmış
- * kuralın aynısı.
- *
- * Tek sekmeli bir şerit anlamsız olduğu için şerit BUGÜN HİÇ çizilmiyor;
- * `ProjectTabs` ikinci rota geldiğinde devreye girer.
+ * 5a'da HİÇ çizilmemişti: `/app/projects/tasks` henüz yoktu ve sekmeyi o gün
+ * koymak, olmayan bir sayfaya tıklanabilir görüntü vermek olurdu (`CrmTabs`'ın
+ * 8a'da verdiği kararın aynısı). İkinci rota yazıldı, şerit açıldı.
  */
 const TABS: readonly { href: string; label: string }[] = [
   { href: '/app/projects', label: 'Projeler' },

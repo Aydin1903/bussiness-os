@@ -550,8 +550,8 @@ Gerçekten yeni **dört** karar:
 | 2 | Görevler — projesiz dahil, tek atama (`0021`) | ✅ |
 | 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | ✅ |
 | 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ✅ |
-| 5a | Frontend: **iki rota** (liste + detay), `module-kit`, `data-module="projects"`, sidebar `SOON` → `LIVE` | ✅ |
-| 5b | `/app/projects/tasks` ("Yapılacaklar") + sekme şeridi | ⏳ |
+| 5a | Frontend: liste + detay, `module-kit`, `data-module="projects"`, sidebar `SOON` → `LIVE` | ✅ |
+| 5b | `/app/projects/tasks` ("Yapılacaklar": projesiz + gecikmiş) + sekme şeridi | ✅ |
 | 6 | Kapanış denetimi | ⏳ |
 
 > **Renk:** Projeler'in imza rengi **zeytin**'dir ve `module-colors.css`'te

@@ -26,6 +26,7 @@ import {
 } from '@/components/module-kit/record-card';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
+import { ProjectTabs } from './chrome';
 import { DueMark, StatusPill } from './marks';
 import { ProjectForm } from './project-form';
 
@@ -157,10 +158,11 @@ export function ProjectsScreen() {
         title="Projeler"
         subtitle={<ProjectCount loading={loading} failed={error !== null} total={state.total} />}
         right={
-          // ⚠️ Sekme şeridi HENÜZ ÇİZİLMİYOR: ikinci rota (`/app/projects/tasks`)
-          // bu slice'ta yazılmadı ve tek sekmeli bir şerit anlamsız olurdu.
-          // Gerekçe `chrome.tsx`'te (`CrmTabs`'ın 8a kararının aynısı).
+          // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
+          // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
+          // ekranda `flex-wrap` ile alt alta düşerler (`CompaniesScreen` deseni).
           <div className="flex flex-wrap items-center gap-2.5">
+            <ProjectTabs />
             {readOnly || form.kind !== 'none' ? null : (
               <PrimaryButton
                 onClick={() => {
