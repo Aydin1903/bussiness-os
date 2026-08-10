@@ -16,9 +16,9 @@ import { type PermissionRule } from '../../platform/authz/authz.public';
  * ============================================================================
  * KATALOG UCLA BIRLIKTE BUYUR
  * ============================================================================
- * `progress_note:*` (Slice 3) HENUZ BURADA YOK. Var olmayan bir fiili deklare
- * etmek yanlis olurdu — `interaction:create`in `write` yerine secilmesindeki
- * ayni gerekce. `task:*` bu slice'ta uclariyla BIRLIKTE geldi.
+ * Uc kaynak, uc slice: `project:*` (Slice 1), `task:*` (Slice 2),
+ * `progress_note:*` (Slice 3). Hicbiri ucundan ONCE deklare edilmedi — var
+ * olmayan bir fiili deklare etmek yanlis olurdu.
  * ============================================================================
  */
 
@@ -37,6 +37,22 @@ export const PROJECT_DELETE = 'project:delete';
 export const TASK_READ = 'task:read';
 export const TASK_WRITE = 'task:write';
 export const TASK_DELETE = 'task:delete';
+
+/**
+ * Ilerleme notu izinleri (ADR-0033 §7).
+ *
+ * ⚠️ `create`, `write` DEGIL — ve `delete` YOK. Notlar EKLEME-YALNIZ bir
+ * gunluktur (`note:create` / `interaction:create` ile ayni adlandirma ve ayni
+ * gerekce): guncelleme ve silme v1'de yoktur, dolayisiyla var olmayan bir
+ * fiili deklare etmek yanlis olurdu. Silme yalnizca proje cascade'i uzerinden
+ * gerceklesir.
+ *
+ * ⚠️ `create` PARA HARCAR (her not bir ya da daha fazla embedding cagrisi) ve
+ * bu yuzden `viewer`da YOKTUR — `company:summarize` ile ayni ayrim: okumak
+ * bedava, uretmek degil.
+ */
+export const PROGRESS_NOTE_READ = 'progress_note:read';
+export const PROGRESS_NOTE_CREATE = 'progress_note:create';
 
 /**
  * ============================================================================
@@ -68,4 +84,8 @@ export const PROJECTS_PERMISSIONS: readonly PermissionRule[] = [
   { permission: TASK_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
   { permission: TASK_WRITE, roles: ['owner', 'admin', 'member'] },
   { permission: TASK_DELETE, roles: ['owner', 'admin'] },
+
+  { permission: PROGRESS_NOTE_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
+  // Uretmek para harcar: `viewer` HARIC.
+  { permission: PROGRESS_NOTE_CREATE, roles: ['owner', 'admin', 'member'] },
 ];

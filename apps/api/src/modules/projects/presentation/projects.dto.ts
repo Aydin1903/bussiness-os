@@ -140,3 +140,39 @@ export const listTasksQuerySchema = z
 export type CreateTaskBody = z.infer<typeof createTaskSchema>;
 export type UpdateTaskBody = z.infer<typeof updateTaskSchema>;
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+
+// --- Ilerleme notlari (ADR-0033 §1, §6) -----------------------------------
+
+const MAX_BODY = 20_000;
+
+export const createProgressNoteSchema = z
+  .object({
+    /**
+     * ZORUNLU — `tasks.projectId`den FARKLI.
+     *
+     * Her ilerleme notu bir projeye aittir (dogal hiyerarsi). Bunun bilincli
+     * bedeli: PROJESIZ gorevler not tasiyamaz (ADR-0033 §3).
+     */
+    projectId: z.uuid('projectId gecerli bir UUID olmali'),
+    /** OPSIYONEL daraltma; verilirse gorev AYNI projede olmak zorunda. */
+    taskId: z.uuid('taskId gecerli bir UUID olmali').nullish(),
+    body: z.string().trim().min(1, 'Ilerleme notu bos olamaz').max(MAX_BODY),
+  })
+  .strict();
+
+/**
+ * ⚠️ `updateProgressNoteSchema` YOK ve olmayacak: notlar EKLEME-YALNIZDIR
+ * (ADR-0033 §11, `crm.interactions` ile ayni sinir). Izin katalogu da bunu
+ * yansitir — `progress_note:create`, `write` DEGIL.
+ */
+export const listProgressNotesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
+    offset: z.coerce.number().int().min(0).default(0),
+    projectId: z.uuid().optional(),
+    taskId: z.uuid().optional(),
+  })
+  .strict();
+
+export type CreateProgressNoteBody = z.infer<typeof createProgressNoteSchema>;
+export type ListProgressNotesQuery = z.infer<typeof listProgressNotesQuerySchema>;

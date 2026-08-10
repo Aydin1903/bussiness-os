@@ -418,8 +418,8 @@ Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engi
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
 on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler 🟢)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: SEKİZ tablo**
-(ROADMAP §8.5; Projeler Slice 3 onu **ONA** çıkaracak) · **not detay ucu**
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ON tablo**
+(ROADMAP §8.5; Projeler Slice 3 sekizden ona çıkardı) · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·
@@ -547,8 +547,8 @@ Gerçekten yeni **dört** karar:
 | Slice | Ne | Durum |
 |---|---|---|
 | 1 | `projects` şeması + proje yaşam döngüsü (`0020`) | ✅ |
-| 2 | Görevler — projesiz dahil, tek atama (`0021`) | 🟢 |
-| 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | ⏳ |
+| 2 | Görevler — projesiz dahil, tek atama (`0021`) | ✅ |
+| 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | 🟢 |
 | 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ⏳ |
 | 5 | Frontend: üç rota, `data-module="projects"`, sidebar `SOON` → `LIVE` | ⏳ |
 | 6 | Kapanış denetimi | ⏳ |

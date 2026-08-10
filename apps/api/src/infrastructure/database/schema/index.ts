@@ -53,3 +53,5 @@ export { companySummaries } from './company-summaries.schema';
 export { projectsSchema } from './projects-schema.schema';
 export { projects } from './projects.schema';
 export { tasks } from './tasks.schema';
+export { progressNotes } from './progress-notes.schema';
+export { progressNoteChunks } from './progress-note-chunks.schema';

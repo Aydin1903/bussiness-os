@@ -2,8 +2,8 @@
 
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
-> **Durum:** Faz 5 sürüyor — 1. modül (CRM) bitti, 2. modül (Projeler) başladı ([ADR-0033](adr/0033-projects-module.md))
-> **Sürüm:** 1.9
+> **Durum:** Faz 5 sürüyor — 1. modül (CRM) bitti, 2. modül (Projeler) sürüyor ([ADR-0033](adr/0033-projects-module.md))
+> **Sürüm:** 2.0
 > **Son güncelleme:** 2026-08-10
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -296,15 +296,15 @@ E-posta şablonlarının HTML/marka hâline getirilmesi de buraya bağlıdır ([
 
 Bunlar bir faza ait değildir; ya süreklidir ya da belirtilen faza kadar netleşmesi gerekir.
 
-| Kalem                                                                                                               | Durum                                                                                                 | Ne zaman                                     |
-| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **Gözlemlenebilirlik** — merkezî log toplama, hata izleme, **AI çağrısı maliyet/token takibi**                      | 🟡 **AI maliyet takibi ✅ kapandı** (Faz 5 Slice 0.5); merkezî log toplama ve hata izleme ❌ hâlâ yok | AI kalemi kapandı — kalanı hosting kararıyla |
-| **Yedekleme / felaket kurtarma**                                                                                    | ❌ Yok                                                                                                | **Hosting kararıyla birlikte** (Faz 4 §2.4)  |
-| **KVKK / GDPR uyumluluğu**                                                                                          | ❌ Ele alınmadı                                                                                       | **Faz 6 öncesi zorunlu kontrol noktası**     |
-| **Playwright e2e**                                                                                                  | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)                                                | Belirsiz; bilinçli borç                      |
-| **Tablo retention politikası** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages` | ❌ Yok — **büyüyen borç**, dört tablo da sınırsız büyüyor                                             | Faz 4                                        |
-| **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                                 | ❌ Yapılmadı                                                                                          | Faz 4                                        |
-| **Doküman sürüm numarası denetimi**                                                                                 | 🟡 Bilinen tutarsızlık                                                                                | Faz 4                                        |
+| Kalem                                                                                                   | Durum                                                                                                 | Ne zaman                                     |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Gözlemlenebilirlik** — merkezî log toplama, hata izleme, **AI çağrısı maliyet/token takibi**          | 🟡 **AI maliyet takibi ✅ kapandı** (Faz 5 Slice 0.5); merkezî log toplama ve hata izleme ❌ hâlâ yok | AI kalemi kapandı — kalanı hosting kararıyla |
+| **Yedekleme / felaket kurtarma**                                                                        | ❌ Yok                                                                                                | **Hosting kararıyla birlikte** (Faz 4 §2.4)  |
+| **KVKK / GDPR uyumluluğu**                                                                              | ❌ Ele alınmadı                                                                                       | **Faz 6 öncesi zorunlu kontrol noktası**     |
+| **Playwright e2e**                                                                                      | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)                                                | Belirsiz; bilinçli borç                      |
+| **Tablo retention politikası** — ayrıntı ve tam liste [§8.5](#85-retention-borcu-on-tablo-tek-karar)'te | ❌ Yok — **büyüyen borç**, artık **on tablo**                                                         | Faz 4                                        |
+| **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                     | ❌ Yapılmadı                                                                                          | Faz 4                                        |
+| **Doküman sürüm numarası denetimi**                                                                     | 🟡 Bilinen tutarsızlık                                                                                | Faz 4                                        |
 
 ### 8.1 Gözlemlenebilirlik neden Faz 4'e kadar
 
@@ -328,7 +328,7 @@ AI çağrısı **maliyet ve token takibi**, diğer iki kalemden farklı bir acil
 
 ### 8.2 KVKK/GDPR neden Faz 6 öncesi
 
-Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.5](#85-retention-borcu-sekiz-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
+Gerçek müşteri ve ödeme verisi Faz 6'da girer. Veri saklama süreleri, silme hakkı ve işleme envanteri **veri girmeden önce** tasarlanırsa bir tasarım kararıdır; sonra tasarlanırsa bir göç projesidir. Faz 3'te açılıp Faz 4'te büyüyen retention borcu ([§8.5](#85-retention-borcu-on-tablo-tek-karar)) bu kontrol noktasının ilk girdisidir.
 
 ### 8.3 Cevabın akarak yazılması (streaming) — ayrı slice + ADR
 
@@ -362,20 +362,22 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: sekiz tablo, tek karar
+### 8.5 Retention borcu: on tablo, tek karar
 
-Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, **Faz 5 kapanış denetiminde (2026-08-09) sekize** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, **Projeler Slice 3 ile (2026-08-10) ona** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
-| Tablo                        | Neyi biriktiriyor                                                              | Kaynak                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `login_attempts`             | Her başarısız parola denemesi — giriş **ve** change-password akışları besliyor | Faz 3                                                                            |
-| `verification_code_requests` | Her doğrulama/sıfırlama kodu isteği                                            | Faz 3                                                                            |
-| `daily_report_runs`          | Tenant başına günde bir satır, kalıcı olarak                                   | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) |
-| `messages`                   | Her soru-cevap iki satır — **en hızlı büyüyen**                                | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
-| `knowledge.conversations`    | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ    | Faz 4 (kapanış denetimi, 2026-08-05)                                             |
-| `knowledge.rate_limits`      | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**               | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)          |
-| `crm.interactions`           | Her görüşme kaydı — CRM'in AI'a bağlam üreten tek yüzeyi                       | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
-| `crm.interaction_chunks`     | Görüşme başına N parça + vektör — **satır başına en PAHALI** (`vector(1536)`)  | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
+| Tablo                           | Neyi biriktiriyor                                                              | Kaynak                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `login_attempts`                | Her başarısız parola denemesi — giriş **ve** change-password akışları besliyor | Faz 3                                                                            |
+| `verification_code_requests`    | Her doğrulama/sıfırlama kodu isteği                                            | Faz 3                                                                            |
+| `daily_report_runs`             | Tenant başına günde bir satır, kalıcı olarak                                   | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1) |
+| `messages`                      | Her soru-cevap iki satır — **en hızlı büyüyen**                                | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1) |
+| `knowledge.conversations`       | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ    | Faz 4 (kapanış denetimi, 2026-08-05)                                             |
+| `knowledge.rate_limits`         | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**               | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)          |
+| `crm.interactions`              | Her görüşme kaydı — CRM'in AI'a bağlam üreten tek yüzeyi                       | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
+| `crm.interaction_chunks`        | Görüşme başına N parça + vektör — **satır başına en PAHALI** (`vector(1536)`)  | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                |
+| `projects.progress_notes`       | Her ilerleme notu — Projeler'in AI'a bağlam üreten tek yüzeyi                  | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                |
+| `projects.progress_note_chunks` | Not başına N parça + vektör — `interaction_chunks` ile **aynı pahalı sınıf**   | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
@@ -392,6 +394,24 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 > **Faz 5 bunu SEKİZE ÇIKARDI** ([ADR-0031](adr/0031-crm-module.md)) — cümle Faz 5 kapanış denetiminde (2026-08-09) gelecek zamandan geçmiş zamana alındı; iki satır o güne kadar tabloya **hiç girmemişti**. Yukarıdaki `conversations` dersi burada **ilk günden** uygulandı: `interaction_chunks → interactions` `ON DELETE CASCADE` taşıdığı için doğru retention kolu `interactions`'dır. Ayrıca iki tablo **taşındı** (`rate_limits` ve `conversations`/`messages` → `platform`); bu listeyi kısaltmaz ama çoğalmasını önler — modül başına değil, platformda **tek** kalem.
 >
 > ⚠️ `crm.interaction_chunks` bu listenin **satır başına en pahalı** kalemidir: her satır 1536 boyutlu bir vektör taşır (~6 KB). Diğer yedisi metin ve sayaçtır. Retention kararı verilirken "kaç satır" kadar "satır ne kadar yer kaplıyor" da sorulmalı.
+
+> ### Projeler Slice 3 borcu ONA çıkardı (2026-08-10)
+>
+> [ADR-0033](adr/0033-projects-module.md) §1'in `progress_notes` /
+> `progress_note_chunks` tabloları. `conversations` denetiminde öğrenilen ders
+> burada da **ilk günden** uygulandı: `progress_note_chunks → progress_notes`
+> `ON DELETE CASCADE` taşıdığı için **doğru retention kolu `progress_notes`**'tur;
+> yalnızca parça silen bir iş yetim satırlar bırakırdı.
+>
+> ⚠️ **Vektör taşıyan tablo sayısı ikiye çıktı** ve bu, kararın şeklini
+> değiştiriyor: liste artık "sekiz metin + iki vektör" değil, **yedi metin/sayaç
+>
+> - üç vektör** (`knowledge.note_chunks` zaten vardı ama bu listede hiç
+>   sayılmamıştı — çünkü `notes` cascade'i onu zaten kapsıyor; aynı gerekçe
+>   diğer iki chunk tablosu için de geçerli). Depolama tarafındaki asıl yük bu üç
+>   tablodadır ve on ikinci modüle kadar her anlatısal modül bir tane daha
+>   ekleyecek. Retention kararı, tablo tablo bir süre listesinden çok **"chunk
+>   tabloları ebeveynleriyle birlikte gider"** kuralına dayanmalı.
 
 `rate_limits` beşincisi ama **en kolayı**: içinde denetim değeri de kullanıcı verisi de yok, ve içinde bulunulan pencereden eski her satır tanımı gereği ölüdür. Geçmiş pencereleri silmek hiçbir şey kaybettirmez — tabloya sayaç satırı deseninin (istek logu yerine) seçilmiş olması bu borcu en küçük halinde tutuyor.
 
@@ -448,5 +468,6 @@ Fark iki yönlü: §3.5 sekiz modül **ekliyor** (Finans, Randevu, Stok, Tedarik
 | 1.6   | 2026-08-05 | **Faz 5 başladı** ([ADR-0031](adr/0031-crm-module.md)): [§3](#3-faz-5--modül-genişlemesi) ADR'ye bağlandı ve genişletildi — ilk modül CRM, tekrarın ürettiği soyutlama (port'lar `shared/`'a, oran sınırı ve konuşma tabloları `platform`'a), ve fazın en önemli kararı **tek kurumsal hafıza** (`POST /ask` + `RetrievalContributor`, izin bazlı eleme). **[§8.1](#81-gözlemlenebilirlik-neden-faz-4e-kadar)'in AI maliyet takibi kalemi KAPANDI** (Slice 0.5) — Faz 4'e yetişmemişti, Faz 5'in ilk işi olarak kapatıldı; merkezî log toplama ve hata izleme açık kaldı. **[§2.4](#24-zorunlu-alt-adım-cicd--hosting)'ün prod koşulunun karşılanmadığı kayda geçirildi** — Faz 4 o koşul sağlanmadan kapatıldı, metin yumuşatılmadı, karar Product Owner'a bırakıldı. Faz 4 [§1](#1-tamamlanan-fazlar) tablosuna ✅ olarak eklendi; §8.4 retention borcunun Faz 5'te sekize çıkacağı not edildi.                                                                                                                                                                                                                                                                                                                      |
 | 1.7   | 2026-08-08 | **[§8.4](#84-fırsatlar-ekranı-kapanmış-anlaşmaları-özet-şeridine-alma--💡-fikir) eklendi — fikir kaydı, uygulanmadı.** Slice 9-B düzen çalışmasında ortaya çıktı: `/app/crm/pipeline` beş aşamayı da eşit sütun çiziyor ama `won`/`lost` hat değildir ve kod bu ayrımı zaten üç yerde yapıyor (`listFollowUps`, `listOpenPipeline`, `openOpportunityCount`). Kapanmışları özet şeridine alıp üç açık aşamayı genişletmek kart yoğunluğu sorununu yatayda çözerdi. Product Owner **şimdi uygulanmayacağına** karar verdi (beş sütunun da görünmesi bilinçli bir istekti); fikir yeniden keşfedilmesin diye kayda geçti. Retention borcu §8.4 → **§8.5**'e kaydı; yaşayan çapraz referans güncellendi, tarihsel kayıtlara dokunulmadı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 1.8   | 2026-08-08 | **Faz 5'in kapsamı sayıldı, Faz 6'nın kapısı sertleşti** (Product Owner kararı). Yeni [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı): Faz 5 **on iki modül** — CRM · Projeler · Finans · Randevu/Rezervasyon · Belge/Sözleşme · Stok/Envanter · Tedarikçi · Teklif/Fatura · İK(temel) · Anket · Kampanya · Sadakat. Üç bağımlılık kayda geçti (Teklif/Fatura → Finans · Tedarikçi → CRM deseni · Belge/Sözleşme → **object storage kararını tetikler**, §2.3'ün ertelenmiş kalemi artık bir tarihe bağlı). **İK'nın kapsamı bir sınır olarak yazıldı:** maaş ve sağlık verisi kapsam dışı — sağlık verisi KVKK'da özel niteliklidir, genişletme ayrı ADR ister. **[§4](#4-faz-6--faturalama)'ün kapı koşulu "1–2 modül"den on iki modülün TAMAMINA çıkarıldı** — eski koşul bugün karşılanmış sayılabilirdi, metin silinmedi ki koşulun sıkılaştığı görülsün; kararın bedeli (gelirin en sona itilmesi) ve bunun §2.4 hosting ile §8.2 KVKK üzerindeki baskısı açıkça yazıldı. **[§9.3](#93-architecturemd-62-modül-haritası--açık) açıldı:** `ARCHITECTURE.md` §6.2 bu listeyle çelişiyor (Workflow ve Reporting yok) — düştü mü ertelendi mi sorusu Product Owner'a bırakıldı, §6.2'ye dokunulmadı. |
+| 2.0   | 2026-08-10 | **[§8.5](#85-retention-borcu-on-tablo-tek-karar) sekizden ONA çıktı** (Projeler Slice 3, [ADR-0033](adr/0033-projects-module.md) §1): `projects.progress_notes` + `projects.progress_note_chunks`. `conversations` dersi burada da **ilk günden** uygulandı — doğru retention kolu `progress_notes`'tur, çünkü parçalar cascade ile gider. Kayda geçen asıl gözlem sayı değil **şekil** değişikliği: vektör taşıyan tablo sayısı ikiye (listede sayılmayan `knowledge.note_chunks` ile üçe) çıktı ve on ikinci modüle kadar her anlatısal modül bir tane daha ekleyecek — yani karar tablo tablo bir süre listesinden çok "chunk tabloları ebeveynleriyle birlikte gider" kuralına dayanmalı. §8 tablosundaki dört tablo sayan satır §8.5'e referansla değiştirildi (liste iki yerde ayrı ayrı sayılıyordu ve biri güncel kalmıyordu).                                                                                                                                                                                                                                                                                                                                                                                 |
 | 1.9   | 2026-08-10 | **2. modül başladı** ([ADR-0033](adr/0033-projects-module.md) kabul edildi): [§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı) tablosunda CRM ✅, Projeler 🟢 oldu; yeni [§3.6](#36-2-modül-projeler--yeni-olan-tek-şey-cross-modül-referans) eklendi. Sıralama açısından kayda değen tek yenilik: Projeler, **başka bir modülün kaydına işaret etmek isteyen ilk modül** (proje → CRM şirketi). Cross-schema FK yasak olduğu için üç parçalı bir desen kuruldu (FK yok · ad public interface'ten okunur · okuma hedefin iznine bağlı) ve **bu desen kalan on modülü bağlar**. Bağımlılık yönünün tek yönlü olduğu (Projeler → CRM) ve tersinin modül döngüsü kuracağı kayda geçti — Tenant ↔ Identity tuzağının aynısı, çözümü aynı: üçüncü bir modül. ROADMAP §3.5'in "zaman" kelimesi **son tarih/takvim** olarak okundu; **zaman takibi (timesheet) kapsam dışıdır** (Product Owner onayı, 2026-08-10).                                                                                                                                                                                                                                                                                              |
 | 1.5   | 2026-08-02 | **Retention borcu güncellendi** ([§8](#8-yatay--sürekli-kalemler), yeni [§8.4](#84-retention-borcu-beş-tablo-tek-karar)): iki tablo yerine **dört** — `login_attempts` · `verification_code_requests` · `daily_report_runs` · `messages`. Tek madde altında tutuldu (çözüm tek karar: süre + temizlik mekanizması) ama ilk ikisinin güvenlik/denetim, son ikisinin kullanıcı verisi olduğu ve dolayısıyla "hepsine tek süre" cevabının yanlış olacağı not edildi. §8.2'deki KVKK kontrol noktasına bağlandı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |

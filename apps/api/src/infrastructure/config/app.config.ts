@@ -104,6 +104,12 @@ export interface AppConfig {
     readonly summaryCharsPerInteraction: number;
   };
 
+  /** Projeler modulu (ADR-0033 §9). */
+  readonly projects: {
+    readonly notesRateLimit: number;
+    readonly reindexBatchSize: number;
+  };
+
   /** Gunluk rapor worker'i (ADR-0030 §2). */
   readonly dailyReport: {
     readonly enabled: boolean;
@@ -158,6 +164,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       summaryRateLimit: env.CRM_SUMMARY_RATE_LIMIT,
       summaryContextInteractions: env.CRM_SUMMARY_CONTEXT_INTERACTIONS,
       summaryCharsPerInteraction: env.CRM_SUMMARY_CHARS_PER_INTERACTION,
+    },
+    projects: {
+      notesRateLimit: env.PROJECTS_NOTES_RATE_LIMIT,
+      reindexBatchSize: env.PROJECTS_REINDEX_BATCH_SIZE,
     },
     ...toAiConfig(env),
   };

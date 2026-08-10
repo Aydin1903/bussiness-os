@@ -110,3 +110,51 @@ export class TaskAssigneeNotMemberError extends ProjectsDomainError {
     super('Gorev yalnizca bu sirketin aktif bir uyesine atanabilir.');
   }
 }
+
+export class BlankProgressNoteBodyError extends ProjectsDomainError {
+  readonly code = 'PROGRESS_NOTE_BODY_BLANK';
+  constructor() {
+    super('Ilerleme notu bos olamaz.');
+  }
+}
+
+/** Not, var olmayan (ya da gorunmeyen) bir projeye baglanamaz. */
+export class ProgressNoteProjectNotFoundError extends ProjectsDomainError {
+  readonly code = 'PROGRESS_NOTE_PROJECT_NOT_FOUND';
+  constructor() {
+    super('Notun baglanacagi proje bulunamadi.');
+  }
+}
+
+/**
+ * Gorev bulunamadi YA DA baska bir projeye ait.
+ *
+ * ============================================================================
+ * IKI DURUM AYIRT EDILMEZ — bilincli
+ * ============================================================================
+ * "Gorev yok" ile "gorev baska projede" ayri mesajlar dondurseydi, bir gorev
+ * id'sinin tenant icinde VAR OLDUGU sizardi. Cagiran icin sonuc zaten aynidir:
+ * bu notu o goreve baglayamaz.
+ *
+ * Kontrolun kendisi gerekli: olmasaydi A projesine ait bir not, B projesindeki
+ * bir goreve baglanabilirdi ve iki proje birbirinin gecmisine sizardi.
+ */
+export class ProgressNoteTaskNotFoundError extends ProjectsDomainError {
+  readonly code = 'PROGRESS_NOTE_TASK_NOT_FOUND';
+  constructor() {
+    super('Notun baglanacagi gorev bu projede bulunamadi.');
+  }
+}
+
+/**
+ * Embedding boyutu beklenenden farkli.
+ *
+ * `vector(1536)` kolonuyla birebir baglidir; saglayici/model degisirse bu hata
+ * ONCE burada gorunur (`NoteChunk`/`InteractionChunk` ile ayni disiplin).
+ */
+export class InvalidEmbeddingDimensionsError extends ProjectsDomainError {
+  readonly code = 'PROGRESS_NOTE_EMBEDDING_DIMENSIONS_INVALID';
+  constructor(expected: number, actual: number) {
+    super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
+  }
+}

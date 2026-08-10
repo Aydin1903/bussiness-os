@@ -5,7 +5,10 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { type Response } from 'express';
 
+import { EmbeddingFailedError } from '../../../shared/embedding.port';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { ProjectsDomainError } from '../domain/projects.error';
 
 /**
@@ -15,18 +18,24 @@ import { ProjectsDomainError } from '../domain/projects.error';
  * dagitik `try/catch` YOK.
  *
  * ============================================================================
- * ⚠️ BU LISTE MODUL YENI BIR PORT KULLANMAYA BASLADIGINDA BUYUR
+ * ⚠️ `RateLimitExceededError` ve `EmbeddingFailedError` BASTAN EKLENDI
  * ============================================================================
- * CRM'de ayni ders DORT KEZ ogrenildi: `RateLimitExceededError`,
- * `EmbeddingFailedError` ve `CompletionFailedError` `CrmDomainError`'dan
- * TUREMEZ — `@Catch(...)`e yazilmadiklari icin filtre onlari GORMEDI ve 429/502
- * yerine islenmemis 500 dondu.
+ * Ikisi de `ProjectsDomainError`'dan TUREMEZ — biri platformun ortak oran
+ * siniri mekanizmasina (`shared/rate-limit.policy`), digeri paylasilan
+ * embedding portuna aittir. `@Catch(...)`e yazilmasalardi filtre onlari GORMEZ,
+ * 429 ve 502 yerine ISLENMEMIS 500 donerdi.
  *
- * Kural artik genellenmis durumda: BIR MODUL YENI BIR PORT KULLANMAYA
- * BASLADIGINDA, O PORTUN HATA TIPI BURAYA EKLENMELIDIR. Bugun Projeler hicbir
- * paylasilan port kullanmiyor (AI yok, oran siniri yok) ve liste bu yuzden tek
- * kalem. Slice 3 embedding ve oran sinirini getirdiginde `RateLimitExceededError`
- * ve `EmbeddingFailedError` BURAYA EKLENECEK.
+ * CRM'de bu ders DORT KEZ ogrenildi (Slice 2, Slice 3, Slice 6 ve Katman 2) ve
+ * her seferinde bir testin kirmizi yanmasiyla bulundu. Genellenmis kural:
+ * BIR MODUL YENI BIR PORT KULLANMAYA BASLADIGINDA, O PORTUN HATA TIPI BURAYA
+ * EKLENMELIDIR. Slice 3 bu modulun ilk AI slice'i; kural bu kez ONCEDEN
+ * uygulandi.
+ *
+ * `CompletionFailedError` BURADA YOK ve bu DOGRU: Projeler `LLMPort`
+ * KULLANMAZ (ADR-0033 §10 — modul ici AI yuzeyi v1'de yok). Var olmayan bir
+ * bagimliligin hatasini yakalamak, yuzeyi gereksizce genisletirdi.
+ * ⚠️ Bir "proje ozeti" (ADR-0032'nin musteri ozetinin karsiligi) eklendigi gun
+ * bu satir da eklenmelidir.
  * ============================================================================
  */
 const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
@@ -36,6 +45,8 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   PROJECTS_TIMESTAMP_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   TASK_TITLE_BLANK: HttpStatus.UNPROCESSABLE_ENTITY,
   TASK_STATUS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  PROGRESS_NOTE_BODY_BLANK: HttpStatus.UNPROCESSABLE_ENTITY,
+  PROGRESS_NOTE_EMBEDDING_DIMENSIONS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
   // 422, 404 DEGIL: istekteki KAYNAK yok degil — govdedeki bir ALAN gecersiz.
   // Ayrimin gerekcesi `TaskAssigneeNotMemberError`de.
@@ -45,11 +56,39 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
   TASK_NOT_FOUND: HttpStatus.NOT_FOUND,
   TASK_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  PROGRESS_NOTE_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  PROGRESS_NOTE_TASK_NOT_FOUND: HttpStatus.NOT_FOUND,
 };
 
-@Catch(ProjectsDomainError)
+/**
+ * Not KAYDEDILDI ama indekslenemedi (ADR-0029 §4'un bilinen siniri).
+ *
+ * Genel bir hata donmek kullaniciyi metni yeniden yazmaya ve MUKERRER kayda
+ * iterdi. Mesaj acikca durumu soyler ve onarim yolunu gosterir.
+ */
+const EMBEDDING_FAILED_DETAIL =
+  'Ilerleme notu kaydedildi ancak arama icin indekslenemedi; /projects/reindex ile onarilabilir.';
+
+@Catch(ProjectsDomainError, RateLimitExceededError, EmbeddingFailedError)
 export class ProjectsDomainExceptionFilter implements ExceptionFilter {
-  catch(exception: ProjectsDomainError, _host: ArgumentsHost): void {
+  catch(
+    exception: ProjectsDomainError | RateLimitExceededError | EmbeddingFailedError,
+    host: ArgumentsHost,
+  ): void {
+    if (exception instanceof EmbeddingFailedError) {
+      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+    }
+
+    if (exception instanceof RateLimitExceededError) {
+      // `Retry-After` 429'un standart tamamlayicisidir. Govde degil BASLIK
+      // oldugu icin RFC 7807 bicimlendirmesine dokunmaz.
+      host
+        .switchToHttp()
+        .getResponse<Response>()
+        .setHeader('Retry-After', String(exception.retryAfterSeconds));
+      throw new HttpException(exception.message, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {

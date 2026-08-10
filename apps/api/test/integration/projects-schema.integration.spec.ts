@@ -55,7 +55,9 @@ describe('projects semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE projects.tasks, projects.projects CASCADE');
+    await ownerPool.query(
+      'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
+    );
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -125,15 +127,20 @@ describe('projects semasi (gercek PostgreSQL)', () => {
   }
 
   describe('sema ve kisitlar', () => {
-    it('iki tablo projects semasinda olusturuldu', async () => {
+    it('dort tablo projects semasinda olusturuldu', async () => {
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'projects' ORDER BY table_name",
       );
 
-      // Slice 3 `progress_notes` + `progress_note_chunks` ekleyecek. Bu satir
-      // her yeni tabloda guncellenir — `crm-schema`nin "bes tablo" iddiasinin
-      // `0019`dan sonra guncellenmemis olmasi testi aylarca kirmizi birakmisti.
-      expect(rows.rows.map((row) => row.table_name)).toEqual(['projects', 'tasks']);
+      // Bu satir her yeni tabloda guncellenir — `crm-schema`nin "bes tablo"
+      // iddiasinin `0019`dan sonra guncellenmemis olmasi testi aylarca kirmizi
+      // birakmisti.
+      expect(rows.rows.map((row) => row.table_name)).toEqual([
+        'progress_note_chunks',
+        'progress_notes',
+        'projects',
+        'tasks',
+      ]);
     });
 
     it('proje adi TEKIL DEGILDIR (ADR-0033 §1 karari)', async () => {
@@ -252,6 +259,168 @@ describe('projects semasi (gercek PostgreSQL)', () => {
     it('VAR OLMAYAN bir kullanici id si YAZILABILIR — dogrulama uygulamada', async () => {
       await expect(insertTask(TENANT_A, { assignee: randomUUID() })).resolves.toBeDefined();
     });
+  });
+
+  describe('ilerleme notlari (ADR-0033 §1, §6)', () => {
+    async function insertNote(
+      tenantId: string,
+      projectId: string,
+      overrides: { taskId?: string | null; body?: string } = {},
+    ): Promise<string> {
+      const id = randomUUID();
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO projects.progress_notes (id, tenant_id, project_id, task_id, author_user_id, body)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            id,
+            tenantId,
+            projectId,
+            overrides.taskId ?? null,
+            USER_A,
+            overrides.body ?? 'Tasarim onaylandi',
+          ],
+        ),
+      );
+      return id;
+    }
+
+    async function insertChunk(tenantId: string, noteId: string, index = 0): Promise<void> {
+      const vector = `[${Array.from({ length: 1536 }, () => '0.1').join(',')}]`;
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO projects.progress_note_chunks
+             (id, tenant_id, progress_note_id, chunk_index, content, embedding)
+           VALUES ($1, $2, $3, $4, $5, $6::vector)`,
+          [randomUUID(), tenantId, noteId, index, '[Proje · 2026-08-10] metin', vector],
+        ),
+      );
+    }
+
+    it('BOS not govdesi reddedilir (veritabani seviyesinde)', async () => {
+      const projectId = await insertProject(TENANT_A);
+      await expect(insertNote(TENANT_A, projectId, { body: '   ' })).rejects.toThrow(
+        /progress_notes_body_not_blank/,
+      );
+    });
+
+    it('gorev silinince not OLMEZ, baglantisi kopar (SET NULL)', async () => {
+      // Not bir KAYITTIR: gorevi silmek gecmisi silmemelidir
+      // (`crm.interactions.contact_id` ile ayni gerekce).
+      const projectId = await insertProject(TENANT_A);
+      const taskId = await insertTask(TENANT_A, { projectId });
+      const noteId = await insertNote(TENANT_A, projectId, { taskId });
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM projects.tasks WHERE id = $1', [taskId]);
+        const result = await client.query<{ task_id: string | null }>(
+          'SELECT task_id FROM projects.progress_notes WHERE id = $1',
+          [noteId],
+        );
+        return result.rows[0];
+      });
+
+      expect(remaining?.task_id).toBeNull();
+    });
+
+    it('proje silinince not VE parcalari CASCADE ile gider', async () => {
+      // ⚠️ Bu, `projects` semasinin var olma gerekcesinin somut kaniti:
+      // silinen bir proje AI'in hafizasindan DA silinir. Notlar
+      // `knowledge.notes`a yazilsaydi cross-schema FK yasak oldugu icin bu
+      // cascade YAZILAMAZDI.
+      const projectId = await insertProject(TENANT_A);
+      const noteId = await insertNote(TENANT_A, projectId);
+      await insertChunk(TENANT_A, noteId);
+
+      const counts = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM projects.projects WHERE id = $1', [projectId]);
+        const notes = await client.query<{ n: number }>(
+          'SELECT count(*)::int AS n FROM projects.progress_notes',
+        );
+        const chunks = await client.query<{ n: number }>(
+          'SELECT count(*)::int AS n FROM projects.progress_note_chunks',
+        );
+        return { notes: notes.rows[0]?.n, chunks: chunks.rows[0]?.n };
+      });
+
+      expect(counts).toEqual({ notes: 0, chunks: 0 });
+    });
+
+    it('AYNI (not, index) ikilisi IKI KEZ yazilamaz — yeniden uretim idempotent', async () => {
+      // `0011`in dersi, bu kez ilk gunden: es zamanli iki onarimda ikincisi
+      // kisitla reddedilir ve o not `failed` sayilir. Veri BOZULMAZ.
+      const projectId = await insertProject(TENANT_A);
+      const noteId = await insertNote(TENANT_A, projectId);
+      await insertChunk(TENANT_A, noteId, 0);
+
+      await expect(insertChunk(TENANT_A, noteId, 0)).rejects.toThrow(
+        /progress_note_chunks_unique_index/,
+      );
+    });
+
+    it('NEGATIF chunk index reddedilir', async () => {
+      const projectId = await insertProject(TENANT_A);
+      const noteId = await insertNote(TENANT_A, projectId);
+      await expect(insertChunk(TENANT_A, noteId, -1)).rejects.toThrow(
+        /progress_note_chunks_index_positive/,
+      );
+    });
+
+    it('HNSW index i vector_cosine_ops ile kurulmus', async () => {
+      // ⚠️ Operator sorgudaki `<=>` ile eslesmezse index DEVRE DISI kalir ve
+      // sorgu tam tarama yapar — sessiz bir performans coku.
+      const rows = await ownerPool.query<{ indexdef: string }>(
+        `SELECT indexdef FROM pg_indexes
+         WHERE schemaname = 'projects' AND indexname = 'progress_note_chunks_embedding_idx'`,
+      );
+
+      expect(rows.rows[0]?.indexdef).toMatch(/USING hnsw .*vector_cosine_ops/);
+    });
+
+    it('progress_notes: tenant A, B nin notunu GOREMEZ', async () => {
+      const projectB = await insertProject(TENANT_B);
+      await insertNote(TENANT_B, projectB, { body: 'B nin notu' });
+      const projectA = await insertProject(TENANT_A);
+      await insertNote(TENANT_A, projectA, { body: 'A nin notu' });
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ body: string }>(
+          'SELECT body FROM projects.progress_notes',
+        );
+        return result.rows;
+      });
+
+      expect(rows.map((row) => row.body)).toEqual(['A nin notu']);
+    });
+
+    it('progress_note_chunks: tenant A, B nin parcasini GOREMEZ', async () => {
+      const projectB = await insertProject(TENANT_B);
+      const noteB = await insertNote(TENANT_B, projectB);
+      await insertChunk(TENANT_B, noteB);
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ id: string }>(
+          'SELECT id FROM projects.progress_note_chunks',
+        );
+        return result.rows;
+      });
+
+      expect(rows).toHaveLength(0);
+    });
+
+    it.each(['progress_notes', 'progress_note_chunks'])(
+      '%s: tenant context i OLMADAN sorgu HATA verir',
+      async (table) => {
+        const client = await appPool.connect();
+        try {
+          await expect(client.query(`SELECT 1 FROM projects.${table}`)).rejects.toThrow(
+            /unrecognized configuration parameter|invalid input syntax/i,
+          );
+        } finally {
+          client.release();
+        }
+      },
+    );
   });
 
   describe('cross-modul yumusak referans (ADR-0033 §2)', () => {

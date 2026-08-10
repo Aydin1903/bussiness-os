@@ -113,6 +113,9 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0022, ilerleme notlari + parcalar. 0021/0020'den ONCE:
+      // `projects.tasks` ve `projects.projects`'e FK tasir.
+      '0022_projects_progress_notes.down.sql',
       // 0021, `projects.tasks`. 0020'den ONCE: `projects.projects`'e FK tasir
       // ve 0020 semayi dusurmeden once bu gitmeli.
       '0021_projects_tasks.down.sql',

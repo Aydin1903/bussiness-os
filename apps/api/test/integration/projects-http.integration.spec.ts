@@ -66,6 +66,12 @@ describe('Projeler uclari (uctan uca)', () => {
     process.env.DATABASE_URL = `postgresql://${APP_ROLE}:${APP_PASSWORD}@${c.getHost()}:${String(c.getPort())}/${c.getDatabase()}`;
     await setIdentityTestEnv();
 
+    // ⚠️ ACIKCA `fake`: varsayilan zaten budur ama gelistiricinin `.env`'inde
+    // `EMBEDDING_PROVIDER=openai` yaziyorsa testler GERCEK API'ye gider ve para
+    // harcar. Testler hermetik olmak ZORUNDADIR — `identity-env`in
+    // `EMAIL_PROVIDER` icin verdigi ayni karar.
+    process.env.EMBEDDING_PROVIDER = 'fake';
+
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.use(correlationIdMiddleware);
@@ -82,7 +88,10 @@ describe('Projeler uclari (uctan uca)', () => {
   });
 
   beforeEach(async () => {
-    await database.ownerPool.query('TRUNCATE projects.tasks, projects.projects CASCADE');
+    await database.ownerPool.query(
+      'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
+    );
+    await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
   });
@@ -368,6 +377,146 @@ describe('Projeler uclari (uctan uca)', () => {
     expect(updated.body.status).toBe('in_progress');
     // `PUT` olsaydi bu alan sessizce null'lanirdi.
     expect(updated.body.dueOn).toBe('2026-12-01');
+  });
+
+  // --- Ilerleme notlari + embedding (ADR-0033 §6) -------------------------
+  //
+  // Bu blok Projeler'in AI'a ILK KEZ dokundugu yolu kanitlar. Entegrasyon
+  // ortaminda `EMBEDDING_PROVIDER=fake`'tir: vektorler sahtedir ama AKIS
+  // gercektir (chunking, baglam basligi, iki transaction, parca yazimi).
+
+  function createNote(token: string, projectId: string, body: Record<string, unknown> = {}) {
+    return api()
+      .post('/api/v1/projects/notes')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ projectId, body: 'Tasarim onaylandi, kodlamaya gecildi.', ...body });
+  }
+
+  it('GET /projects/notes de GOLGELENMIYOR', async () => {
+    // `GET /projects/tasks` ile ayni tuzak; `ProgressNoteController` da
+    // `ProjectController`dan ONCE kayitli olmak zorunda.
+    const owner = await tokenFor('owner');
+
+    const response = await api()
+      .get('/api/v1/projects/notes')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([]);
+  });
+
+  it('ilerleme notu kaydedilir ve PARCALANIR', async () => {
+    const owner = await tokenFor('owner');
+    const project = await createProject(owner);
+
+    const response = await createNote(owner, String(project.body.id));
+
+    expect(response.status).toBe(201);
+    expect(response.body.chunkCount).toBeGreaterThan(0);
+  });
+
+  it('PARCA METNI BAGLAM BASLIGI TASIR — bu slice in kritik iddiasi', async () => {
+    const owner = await tokenFor('owner');
+    const project = await createProject(owner, 'Web sitesi yenileme');
+
+    // Govde proje adini HIC gecirmez.
+    const body = 'Tasarim onaylandi, kodlamaya gecildi.';
+    expect(body).not.toContain('Web sitesi');
+
+    await createNote(owner, String(project.body.id), { body });
+
+    const rows = await database.ownerPool.query<{ content: string }>(
+      'SELECT content FROM projects.progress_note_chunks',
+    );
+
+    // Baslik olmasaydi "Web sitesi projesinde ne oldu?" sorusu HICBIR parcayla
+    // eslesmezdi: notun kimligi FK kolonundadir, metinde degil.
+    expect(rows.rows[0]?.content).toContain('[Web sitesi yenileme · ');
+    expect(rows.rows[0]?.content).toContain(body);
+  });
+
+  it('viewer notu OKUR ama YAZAMAZ — uretmek para harcar', async () => {
+    const owner = await tokenFor('owner');
+    const project = await createProject(owner);
+    await createNote(owner, String(project.body.id));
+
+    const viewer = await tokenFor('viewer');
+
+    const read = await api().get('/api/v1/projects/notes').set('Authorization', `Bearer ${viewer}`);
+    expect(read.status).toBe(200);
+    expect(read.body.items).toHaveLength(1);
+
+    // `progress_note:create` viewer'da YOK: bir izleyicinin sayfa yenileyerek
+    // para harcayabilmesi bir butce deligi olurdu (`company:summarize` ile
+    // ayni ayrim).
+    const write = await createNote(viewer, String(project.body.id));
+    expect(write.status).toBe(403);
+  });
+
+  it('VAR OLMAYAN projeye not baglanamaz -> 404', async () => {
+    const owner = await tokenFor('owner');
+    const response = await createNote(owner, '018f3a2b-7c4d-7e1f-8a2b-0000000000ee');
+    expect(response.status).toBe(404);
+  });
+
+  it('BASKA PROJENIN gorevine baglanan not REDDEDILIR -> 404', async () => {
+    const owner = await tokenFor('owner');
+    const projectA = await createProject(owner, 'A projesi');
+    const projectB = await createProject(owner, 'B projesi');
+
+    const taskInB = await createTask(owner, {
+      title: 'B nin gorevi',
+      projectId: String(projectB.body.id),
+    });
+
+    // Kontrol olmasaydi iki proje birbirinin gecmisine sizardi.
+    const response = await createNote(owner, String(projectA.body.id), {
+      taskId: String(taskInB.body.id),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('PARCASIZ not sayilir ve `reindex` ONARIR', async () => {
+    const owner = await tokenFor('owner');
+    const project = await createProject(owner);
+    await createNote(owner, String(project.body.id));
+
+    // "Parcasiz not" durumunu elle uret: T2'nin cokmus hali (ADR-0029 §4).
+    await database.ownerPool.query('DELETE FROM projects.progress_note_chunks');
+
+    const before = await api()
+      .get('/api/v1/projects/notes/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(before.body.count).toBe(1);
+
+    const repair = await api()
+      .post('/api/v1/projects/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(repair.status).toBe(200);
+    expect(repair.body).toEqual({ repaired: 1, failed: 0 });
+
+    const after = await api()
+      .get('/api/v1/projects/notes/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    // Is listesi TURETILMISTIR: parcanin YOKLUGU is listesinin KENDISIDIR.
+    expect(after.body.count).toBe(0);
+  });
+
+  it('notlar projeye gore filtrelenir', async () => {
+    const owner = await tokenFor('owner');
+    const projectA = await createProject(owner, 'A projesi');
+    const projectB = await createProject(owner, 'B projesi');
+
+    await createNote(owner, String(projectA.body.id), { body: 'A notu' });
+    await createNote(owner, String(projectB.body.id), { body: 'B notu' });
+
+    const response = await api()
+      .get(`/api/v1/projects/notes?projectId=${String(projectA.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`);
+
+    const bodies = (response.body.items as readonly { body: string }[]).map((row) => row.body);
+    expect(bodies).toEqual(['A notu']);
   });
 
   it('baska tenant in gorevi 404 alir — 403 DEGIL', async () => {

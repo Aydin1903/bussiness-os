@@ -259,6 +259,26 @@ const baseEnvSchema = z.object({
   CRM_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * Saatte ilerleme notu sayisi / kullanici (ADR-0033 §9).
+   *
+   * `CRM_INTERACTIONS_RATE_LIMIT` ile AYNI deger ve AYNI tur: SIGORTA, butce
+   * degil. AYRI KOVA — gunun musteri gorusmelerini girmis bir kullanicinin
+   * proje ilerlemesini yazamamasi anlamsiz olurdu (ADR-0029 §5'in "iki eylem
+   * AYRI KOVADIR" karari, ucuncu kez).
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR.
+   */
+  PROJECTS_NOTES_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /projects/reindex` cagrisinda onarilacak EN FAZLA not.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil; 10 notluk bir onarim onlarca embedding cagrisi olabilir.
+   */
+  PROJECTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+
+  /**
    * Saatlik musteri ozeti URETME payi (ADR-0032 §2).
    *
    * `CRM_INTERACTIONS_RATE_LIMIT`ten AYRI kova: bu `LLMPort.complete`tir
