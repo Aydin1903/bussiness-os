@@ -12,8 +12,21 @@
  * yalnızca ayar (`lib/api/config.ts` ile aynı desen).
  *
  * ⚠️ Bunlar UYARI eşikleridir, iş kuralı DEĞİL: hiçbir şeyi engellemez,
- * yalnızca kullanıcıya "buraya bak" der. Bu yüzden sunucuda karşılıkları
- * yoktur ve olmamalıdır.
+ * yalnızca kullanıcıya "buraya bak" der.
+ *
+ * ============================================================================
+ * ⚠️ DÜZELTME (ADR-0033 Slice 6): AŞAMA EŞİĞİNİN SUNUCUDA KARŞILIĞI VAR
+ * ============================================================================
+ * Bu blok eskiden "bu yüzden sunucuda karşılıkları yoktur ve olmamalıdır"
+ * diyordu. O cümle, yapısal katkıcının skoru riske göre vermeye başlamasıyla
+ * YANLIŞ hale geldi: `CRM_STALE_STAGE_DAYS` artık AI'ın gördüğü sıralamayı
+ * etkiliyor, yani eşik bir gösterim tercihi olmaktan çıktı.
+ *
+ * İki değişken AYRI yaşar (`NEXT_PUBLIC_...` tarayıcıda, `CRM_...` sunucuda)
+ * ve varsayılanları AYNIDIR (21). Biri değiştirilip diğeri unutulursa ekran
+ * "34 gündür bekliyor" diye uyarırken AI o fırsatı sakin görür — ayrışma
+ * SESSİZDİR. `QUIET_COMPANY_DAYS` için hâlâ sunucu karşılığı yoktur ve
+ * gerekmez: onu okuyan bir katkıcı yok.
  */
 
 /** Aşamada beklemenin "uzun" sayıldığı gün sayısı. */

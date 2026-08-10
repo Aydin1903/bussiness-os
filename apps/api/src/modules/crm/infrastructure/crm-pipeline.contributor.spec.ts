@@ -74,12 +74,16 @@ function row(overrides: Partial<PipelineRow> = {}): PipelineRow {
   };
 }
 
+/** Web tarafiyla ayni varsayilan (21) — bkz. `CRM_STALE_STAGE_DAYS`. */
+const STALE_STAGE_DAYS = 21;
+
 function harness() {
   const repository = new FakeOpportunityRepository();
   const contributor = new CrmPipelineContributor(
     repository,
     new PassThroughTransactionManager(),
     new FakeClock(),
+    STALE_STAGE_DAYS,
   );
   return { repository, contributor };
 }
@@ -165,5 +169,77 @@ describe('CrmPipelineContributor — metin bicimi (bu slice in karari)', () => {
 
     expect(fragment?.content).toContain('Acme Tekstil');
     expect(fragment?.content).not.toContain('null');
+  });
+});
+
+describe('CrmPipelineContributor — skor RISKE gore (ADR-0033 Slice 6)', () => {
+  /**
+   * ⚠️ BU BLOK DUZ 0.95'IN YERINI ALDI.
+   *
+   * Skor bastan beri sabitti ve TEK yapisal katkiciyken dogruydu. Projeler
+   * ikinci yapisal katkiciyi getirince aritmetik degisti: global top-K 8'dir ve
+   * iki katkici sabit skorla sekiz yuvanin tamamini kaplayabilirdi. Cozum kota
+   * DEGIL (ADR-0031 §5.1 reddetti), skoru ANLAMLI kilmakti.
+   */
+  it('GECIKMIS takibi olan firsat EN YUKSEK skoru alir', async () => {
+    const { repository, contributor } = harness();
+    // Bugun 2026-08-20; takip 8 gun gecikmis.
+    repository.rows = [row({ nextFollowUpOn: '2026-08-12' })];
+
+    const [fragment] = await contributor.contribute();
+
+    expect(fragment?.score).toBe(0.95);
+  });
+
+  it('asamada UZUN suredir bekleyen firsat ORTA skoru alir', async () => {
+    const { repository, contributor } = harness();
+    // 40 gundur ayni asamada (varsayilan `row`), takip YOK.
+    repository.rows = [row({ nextFollowUpOn: null })];
+
+    const [fragment] = await contributor.contribute();
+
+    expect(fragment?.score).toBe(0.9);
+  });
+
+  it('SAGLIKLI acik firsat DUSUK skor alir — anlamsal icerige yenilir', async () => {
+    const { repository, contributor } = harness();
+    repository.rows = [
+      row({
+        // 5 gun once asama degismis: esigin (21) altinda.
+        stageChangedAt: new Date('2026-08-15T09:00:00.000Z'),
+        nextFollowUpOn: null,
+      }),
+    ];
+
+    const [fragment] = await contributor.contribute();
+
+    // Asil kazanc bu satirda: saglikli bir hatta yapisal metin, anlamsal
+    // katkicilarin en iyi parcasina (1.0) ve ikincisine (0.89) YENILIR.
+    expect(fragment?.score).toBe(0.75);
+  });
+
+  it('GELECEK tarihli takip firsati ALARM yapmaz', async () => {
+    const { repository, contributor } = harness();
+    repository.rows = [
+      row({
+        stageChangedAt: new Date('2026-08-15T09:00:00.000Z'),
+        nextFollowUpOn: '2026-12-01',
+      }),
+    ];
+
+    const [fragment] = await contributor.contribute();
+
+    // Plani olan bir firsat sorun degildir; 0.95 vermek alarmi degersizlestirirdi.
+    expect(fragment?.score).toBe(0.75);
+  });
+
+  it('GECIKME, durgunluktan ONCE gelir', async () => {
+    const { repository, contributor } = harness();
+    // Hem 40 gundur ayni asamada HEM takibi gecikmis.
+    repository.rows = [row({ nextFollowUpOn: '2026-08-12' })];
+
+    const [fragment] = await contributor.contribute();
+
+    expect(fragment?.score).toBe(0.95);
   });
 });

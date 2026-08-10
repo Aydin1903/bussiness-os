@@ -581,16 +581,32 @@ degildir. Boylece CRM'e dokunulan tek slice ayrik kalir (Mutlak Kural 1-2).
 
 Faz 5/CRM denetimi gibi **gercek isteklerle ve gercek tarayicida** yapilir.
 
-- [ ] **`/app/projects` ve alt rotalari ZEYTIN gosteriyor mu** — acik **ve**
+> **YAPILDI — 2026-08-10.** Isaretler denetimin sonucudur; iki maddede metin
+> duzeltildi (asagida ⚠️ ile).
+
+- [x] **`/app/projects` ve alt rotalari ZEYTIN gosteriyor mu** — acik **ve**
       koyu temada. `data-module` unutulursa hata sessizdir.
-- [ ] **AI'in sesi terracotta mi** — Panel'den sorulan bir projeler sorusunun
+      → Acik `--accent: #717325`, koyu `#a8ac5f`; kabugun rozeti iki temada da
+      `#b25628` terracotta kaldi.
+- [x] **AI'in sesi terracotta mi** — Panel'den sorulan bir projeler sorusunun
       cevabi ve kaynak atfi.
-- [ ] On iki uc gercek isteklerle (200/401/403/429), **iki tenant'la RLS
+      → Modul alt agacinda `--ai-accent` iki temada da terracotta
+      (`#b25628` / `#e8935a`); Panel cevabi ve takip sorulari yapisal katkiyi
+      kullandi.
+- [x] On iki uc gercek isteklerle (200/401/403/429), **iki tenant'la RLS
       izolasyonu**, dar rollerin sozlesmesi.
-- [ ] **Sarkan `company_id` senaryosu elle uretilir**: sirket silinir, proje
-      detayi acilir — 500 degil, "sirket kaydi silinmis" gorunmelidir.
-- [ ] **`company:read`'siz kullanici** proje detayinda sirket adini **gormemeli**.
-- [ ] **Fan-out gecikmesi olculur** (N=5) — zaman asimi butcesi karari icin veri.
+      → Tenant B, A'nin her kaydinda **404**; uc dar rolun `projects` semasina
+      `USAGE` yetkisi `false`, tablo grant sayisi `0`.
+- [x] **Sarkan `company_id` senaryosu elle uretilir**: sirket silinir, proje
+      detayi acilir. > ⚠️ **Bu maddenin metni YANLISTI ve denetimde duzeltildi.** Ilk yazim > _"'sirket kaydi silinmis' gorunmelidir"_ diyordu; bu §2c ile **celisir**. > Uygulama `companyName: null` gelince **hicbir sey yazmaz**, cunku null'in > uc sebebi (ic proje · silinmis sirket · `company:read` yoklugu) AYIRT > EDILMEZ — "silinmis" yazmak, o kullanici icin bir sirketin var oldugunu > **sizdirirdi**. Kod dogru, liste maddesi yanlisti. > → Gercek sonuc: `DELETE /crm/companies/:id` → 204; proje **ayakta** > (HTTP 200), `companyId` sarkta, `companyName: null`, hem detayda hem > listede.
+- [ ] **`company:read`'siz kullanici** proje detayinda sirket adini **gormemeli**. > ⚠️ **BUGUN URETILEMEZ** — dort rolun (owner · admin · member · viewer) > **dordu de** `company:read` tasiyor. Kapi `CompanyDirectoryQuery` icinde > vardir ve birim testi onu dogrular, ama **hicbir mevcut rol tetiklemez**. > Madde kapanmadi; tenant-configurable roller (ROADMAP §1.1) geldiginde > gercek istekle sinanabilir hale gelir.
+- [x] **Fan-out gecikmesi olculur** (N=5) — zaman asimi butcesi karari icin veri.
+      → Bes katkici, bes kaynak dolu, `degradedSources: []`. Toplam 2.8–6.0 s;
+      `ai.call` satirlarindan cikarilinca **fan-out'un kendi payi ~70–95 ms**
+      (toplam surenin %2–3'u). Darbogaz retrieval degil `LLMPort.complete`
+      (2.4–5.0 s). **Zaman asimi butcesi bugun gerekmiyor**; tetikleyici bir
+      katkicinin kendi basina saniyeler surmesi olur, N'in buyumesi degil
+      (`Promise.all` paraleldir, maliyet en yavas katkicidir).
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

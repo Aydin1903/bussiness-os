@@ -102,6 +102,8 @@ export interface AppConfig {
     readonly summaryRateLimit: number;
     readonly summaryContextInteractions: number;
     readonly summaryCharsPerInteraction: number;
+    /** Yapisal katkicinin "durgun asama" esigi (ADR-0033 Slice 6). */
+    readonly staleStageDays: number;
   };
 
   /** Projeler modulu (ADR-0033 §9). */
@@ -165,6 +167,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       summaryRateLimit: env.CRM_SUMMARY_RATE_LIMIT,
       summaryContextInteractions: env.CRM_SUMMARY_CONTEXT_INTERACTIONS,
       summaryCharsPerInteraction: env.CRM_SUMMARY_CHARS_PER_INTERACTION,
+      staleStageDays: env.CRM_STALE_STAGE_DAYS,
     },
     projects: {
       notesRateLimit: env.PROJECTS_NOTES_RATE_LIMIT,

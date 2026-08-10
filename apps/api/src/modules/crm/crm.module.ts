@@ -293,13 +293,19 @@ const CRM_CALLER = 'crm';
     },
     {
       provide: CrmPipelineContributor,
-      inject: [OPPORTUNITY_REPOSITORY, TRANSACTION_MANAGER, CLOCK],
+      inject: [OPPORTUNITY_REPOSITORY, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
       useFactory: (
         repository: OpportunityRepository,
         transactionManager: TransactionManager,
         clock: Clock,
+        config: AppConfig,
       ): CrmPipelineContributor =>
-        new CrmPipelineContributor(repository, transactionManager, clock),
+        new CrmPipelineContributor(
+          repository,
+          transactionManager,
+          clock,
+          config.crm.staleStageDays,
+        ),
     },
   ],
   // ⚠️ TEK KALEM ve oyle kalmali: `crm.public.ts` disinda hicbir sey disa

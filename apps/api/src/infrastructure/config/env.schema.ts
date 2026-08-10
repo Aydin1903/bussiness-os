@@ -259,6 +259,25 @@ const baseEnvSchema = z.object({
   CRM_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * Bir firsat asamada kac gun bekleyince DURGUN sayilir (ADR-0033 Slice 6).
+   *
+   * ============================================================================
+   * SUNUCUDA BIR KARSILIGI ARTIK VAR — ve bu bir DEGISIKLIK
+   * ============================================================================
+   * `apps/web/src/lib/config/crm.ts` bu esikleri "yalnizca UYARI esikleri, is
+   * kurali DEGIL; bu yuzden sunucuda karsiliklari yoktur ve OLMAMALIDIR" diye
+   * yaziyordu. O cumle yapisal katkici skoru riske gore verilmeye baslayinca
+   * YANLIS hale geldi: esik artik AI'in gordugu siralamayi etkiliyor, yani bir
+   * gosterim tercihi olmaktan cikti.
+   *
+   * ⚠️ VARSAYILAN, WEB TARAFIYLA AYNIDIR (21) — boylece kutudan ciktigi gibi
+   * iki taraf ayni seyi "durgun" sayar. Biri degistirilip digeri
+   * degistirilmezse ekran "34 gundur bekliyor" diye uyarirken AI o firsati
+   * sakin gorebilir; ayrisma SESSIZDIR.
+   */
+  CRM_STALE_STAGE_DAYS: z.coerce.number().int().min(1).max(365).default(21),
+
+  /**
    * Saatte ilerleme notu sayisi / kullanici (ADR-0033 §9).
    *
    * `CRM_INTERACTIONS_RATE_LIMIT` ile AYNI deger ve AYNI tur: SIGORTA, butce

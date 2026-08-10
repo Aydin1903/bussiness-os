@@ -275,8 +275,9 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
 **1. modül CRM ✅ bitti** ve **prod'da canlı** (ADR-0031 + ADR-0032; kapanış
 denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
-**2. modül Projeler 🟢 başladı** (ADR-0033 kabul edildi, 2026-08-10); Slice 1
-yazıldı ve prod'a çıktı. İkisi de aşağıda.
+**2. modül Projeler ✅ bitti** (ADR-0033; altı slice, kapanış denetimi
+2026-08-10). Cross-modül referans deseni ilk kez çalıştı ve `POST /ask` artık
+**dört kaynağı** birleştiriyor. İkisi de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -416,7 +417,10 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler 🟢)
+on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅ — sıradaki 3. Finans)
+· **koyu tema UI anahtarı** (bugün yalnızca OS tercihi) · **`company:read`'siz
+kullanıcı senaryosu** (dört rolün dördü de bu izni taşıyor — kapı var, tetikçi
+yok)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
 çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ON tablo**
 (ROADMAP §8.5; Projeler Slice 3 sekizden ona çıkardı) · **not detay ucu**
@@ -552,7 +556,7 @@ Gerçekten yeni **dört** karar:
 | 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ✅ |
 | 5a | Frontend: liste + detay, `module-kit`, `data-module="projects"`, sidebar `SOON` → `LIVE` | ✅ |
 | 5b | `/app/projects/tasks` ("Yapılacaklar": projesiz + gecikmiş) + sekme şeridi | ✅ |
-| 6 | Kapanış denetimi | ⏳ |
+| 6 | Kapanış denetimi + CRM skor politikasının hizalanması | ✅ |
 
 > **Renk:** Projeler'in imza rengi **zeytin**'dir ve `module-colors.css`'te
 > zaten ayrılmıştır. ⚠️ Anahtar **`projects`**, `projeler` DEĞİL — on iki
@@ -610,13 +614,32 @@ Gerçekten yeni **dört** karar:
 > `crm-interactions` · `project-notes` · `project-status`) — CLAUDE.md'nin CEO
 > örneği üçte ikisi tamam.
 
-> ⚠️ **Yapısal katkıda skor politikası CRM'den AYRIŞTI ve bu Slice 6'ya
-> madde.** `CrmPipelineContributor` düz 0.95 verir; `ProjectStatusContributor`
-> riske göre 0.95/0.90/0.75 verir. Sebebi aritmetik: global top-K **8**'dir ve
-> iki yapısal katkıcı sabit skorla sekiz yuvanın tamamını kaplayıp anlatısal
-> içeriği dışarı atardı. Kota **eklenmedi** (ADR-0031 §5.1 reddetmişti); skor
-> anlamlı kılındı. Bugün iki katkıcı iki farklı politika izliyor — tutarsızlık
-> bilinçli ve kapanış denetiminde ele alınacak.
+> ### ✅ Yapısal katkıda skor politikası HİZALANDI (Slice 6, PO onayı)
+>
+> Slice 4'te bilinçli bir tutarsızlık bırakılmıştı: `CrmPipelineContributor`
+> düz 0.95, `ProjectStatusContributor` riske göre 0.95/0.90/0.75 veriyordu.
+> Sebebi aritmetikti — global top-K **8**'dir ve iki yapısal katkıcı sabit
+> skorla sekiz yuvanın tamamını kaplayıp anlatısal içeriği dışarı atardı.
+> Slice 6'da CRM aynı politikaya çekildi (takip gecikmiş → 0.95, aşamada
+> `CRM_STALE_STAGE_DAYS` gündür → 0.90, sağlıklı → 0.75). Kota yine
+> **eklenmedi** (ADR-0031 §5.1 reddetmişti); port zaten "0..1, yüksek = daha
+> alakalı" dediği için skoru anlamlı kılmak **sözleşmeye uygundur**.
+>
+> **Denetimde canlı ölçüldü:** beş kaynak da doluyken tek bir soru dört
+> kaynaktan beslendi (`crm-pipeline` 2 · `knowledge` 1 · `project-notes` 3 ·
+> `project-status` 2). Üç fırsattan yalnızca **ikisi** girdi — sağlıklı olan
+> 0.75 ile anlatısal içeriğe yenildi. Düz 0.95'te üçü de girer ve Knowledge
+> notu dışarı düşerdi.
+>
+> ⚠️ Bu, **Mutlak Kural 1'e bilinçli bir istisnadır** (Projeler işinde CRM'e
+> dokunmak): Product Owner tarafından denetimin parçası olarak açıkça
+> onaylandı, sessiz bir yan iş değildir.
+>
+> ⚠️ `CRM_STALE_STAGE_DAYS` (21) ile web'deki `STALE_STAGE_DAYS` **ayrı
+> tanımlardır ve senkron kalmalıdır**; ayrışırlarsa hata sessizdir — ekran
+> "durgun" der, katkıcı 0.75 verir. `apps/web/src/lib/config/crm.ts`'in
+> "sunucuda karşılıkları yoktur ve olmamalıdır" cümlesi bu değişiklikle
+> yanlışlaştığı için düzeltildi.
 
 > **Kalıcı ders (Slice 1'de yakalandı):** yeni bir migration eklerken
 > `database.integration.spec`'in **geri alma listesine de** eklenmeli.
