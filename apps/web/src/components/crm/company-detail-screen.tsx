@@ -11,12 +11,18 @@ import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { CompanyForm } from './company-form';
-import { ConfirmDelete } from './confirm-delete';
+import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { ContactSection } from './contact-section';
-import { CrmBody, CrmHeader, Pager, RISE, SectionLabel } from './chrome';
+import {
+  ModuleBody,
+  ModuleHeader,
+  Pager,
+  RISE,
+  SectionLabel,
+} from '@/components/module-kit/chrome';
 import { CompanySummaryPanel } from './company-summary';
 import { CrmReindexBanner } from './crm-reindex-banner';
-import { CardAction, CardActions } from './record-card';
+import { CardAction, CardActions } from '@/components/module-kit/record-card';
 import { InteractionComposer } from './interaction-composer';
 import { InteractionStream } from './interaction-stream';
 import { OpportunitySection } from './opportunity-section';
@@ -132,7 +138,7 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CrmHeader
+      <ModuleHeader
         title={company?.name ?? 'Müşteri'}
         subtitle={<Subtitle company={company} loading={loading} />}
         right={
@@ -160,14 +166,14 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
       />
 
       {/*
-        AI ÖZETİ — sayfanın ilk ekranı, `CrmBody`'nin DIŞINDA.
+        AI ÖZETİ — sayfanın ilk ekranı, `ModuleBody`'nin DIŞINDA.
         İçeride olsaydı 720px'lik okuma sütununa ve gövde dolgusuna girerdi;
         bu blok panelin tam genişliğini kaplamalı ve kaydırılan içerikten önce
         gelmeli (ADR-0032 §5). Kendi kenar boşluğunu kendisi verir.
       */}
       <CompanySummaryPanel companyId={companyId} readOnly={readOnly} />
 
-      <CrmBody>
+      <ModuleBody>
         <BackLink />
 
         <FormError message={actionError} />
@@ -261,7 +267,7 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
             />
           </section>
         </Rise>
-      </CrmBody>
+      </ModuleBody>
     </div>
   );
 }
@@ -362,13 +368,13 @@ function EmptyInteractions({
 function FatalState({ message }: { message: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CrmHeader title="Müşteri" subtitle="Kayıt açılamadı" />
-      <CrmBody>
+      <ModuleHeader title="Müşteri" subtitle="Kayıt açılamadı" />
+      <ModuleBody>
         <FormError message={message} />
         <div className="mt-4">
           <BackLink />
         </div>
-      </CrmBody>
+      </ModuleBody>
     </div>
   );
 }

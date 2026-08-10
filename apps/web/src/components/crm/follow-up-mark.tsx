@@ -1,5 +1,5 @@
 import { calendarDayDelta, formatCalendarDay } from '@/lib/format/datetime';
-import { Mark } from './signals';
+import { Mark } from '@/components/module-kit/marks';
 
 /**
  * Takip tarihi ve GECİKME işareti.

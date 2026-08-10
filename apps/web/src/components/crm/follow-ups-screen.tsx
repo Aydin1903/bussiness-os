@@ -8,7 +8,15 @@ import { listFollowUps } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
-import { CrmBody, CrmHeader, CrmTabs, EmptyState, Pager, RISE, SectionLabel } from './chrome';
+import {
+  EmptyState,
+  ModuleBody,
+  ModuleHeader,
+  Pager,
+  RISE,
+  SectionLabel,
+} from '@/components/module-kit/chrome';
+import { CrmTabs } from './chrome';
 import { FollowUpMark, isOverdue } from './follow-up-mark';
 import { StagePill } from './stage-pill';
 
@@ -93,7 +101,7 @@ export function FollowUpsScreen() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CrmHeader
+      <ModuleHeader
         title="Takipler"
         subtitle={
           <Subtitle
@@ -106,7 +114,7 @@ export function FollowUpsScreen() {
         right={<CrmTabs />}
       />
 
-      <CrmBody>
+      <ModuleBody>
         <FormError message={error} />
 
         <Rise delay={RISE.body}>
@@ -140,7 +148,7 @@ export function FollowUpsScreen() {
             setOffset((previous) => previous + PAGE_SIZE);
           }}
         />
-      </CrmBody>
+      </ModuleBody>
     </div>
   );
 }

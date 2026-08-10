@@ -47,18 +47,32 @@ describe('Sidebar — gezinme', () => {
 
   it('henüz gelmemiş modüller link DEĞİL', () => {
     // Olmayan bir şeye tıklanabilir görünüm vermek, vaat etmektir.
+    //
+    // ⚠️ Slice 5'te bu listeden PROJELER ÇIKTI: üç uç ve iki rota çalışıyor,
+    // dolayısıyla artık gerçek bir bağlantı. Modül çalışır hâldeyken "yakında"
+    // rozetini taşımaya devam etmek, Faz 4'te bir kez yaşanan ve modülü
+    // kullanıcı için erişilemez bırakan hatanın aynısı olurdu.
     renderAt('/app');
 
-    for (const label of ['Finans', 'Projeler']) {
+    for (const label of ['Finans']) {
       expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
 
+  it('Projeler ARTIK gerçek bir bağlantı', () => {
+    renderAt('/app');
+
+    expect(screen.getByRole('link', { name: 'Projeler' })).toHaveAttribute('href', '/app/projects');
+  });
+
   it('yalnızca placeholder modüller "yakında" rozeti taşır', () => {
     renderAt('/app');
 
-    expect(screen.getAllByText('yakında')).toHaveLength(2);
+    // Projeler LIVE'a taşındıktan sonra geriye TEK placeholder kaldı (Finans).
+    // Dördüncü modül (Randevu) eklenmedi: `icons.tsx`'te ikonu yok ve yeni
+    // ikon çizmek bir tasarım kararıdır — bu slice'ın kapsamı değil.
+    expect(screen.getAllByText('yakında')).toHaveLength(1);
   });
 
   it('ayrı bir "Bilgi Bankası" satırı YOK — çalışma yüzeyi Panel', () => {
@@ -97,20 +111,41 @@ describe('Sidebar — modül renk kapsamı', () => {
     expect(screen.getByRole('link', { name: 'Panel' })).not.toHaveAttribute('data-module');
   });
 
-  it('"yakında" satırları da kendi kimliğini taşır', () => {
+  it('Projeler satırı kendi kapsamını deklare eder — ZEYTİN', () => {
+    // ⚠️ Bu iddia Slice 5'te DEĞİŞTİ: Projeler eskiden bir "yakında" satırıydı,
+    // artık canlı bir bağlantı. Test o geçişi kilitler — modül çalışır hâldeyken
+    // "yakında" rozetiyle kalmak, Faz 4'te bir kez yaşanan ve modülü kullanıcı
+    // için erişilemez bırakan hatanın aynısı olurdu.
+    //
+    // Anahtar `projects`, `projeler` DEĞİL: on iki modülün hepsi İngilizce
+    // anahtar taşır ve yanlış yazım SESSİZCE terracottada bırakır.
     renderAt('/app');
 
-    const rows: readonly (readonly [label: string, module: string])[] = [
-      ['Projeler', 'projects'],
-      ['Finans', 'finance'],
-    ];
+    expect(screen.getByRole('link', { name: 'Projeler' })).toHaveAttribute(
+      'data-module',
+      'projects',
+    );
+  });
 
-    for (const [label, module] of rows) {
-      expect(screen.getByText(label).closest('[data-module]')).toHaveAttribute(
-        'data-module',
-        module,
-      );
-    }
+  it('"yakında" satırı da kendi kimliğini taşır', () => {
+    renderAt('/app');
+
+    expect(screen.getByText('Finans').closest('[data-module]')).toHaveAttribute(
+      'data-module',
+      'finance',
+    );
+  });
+
+  it('KABUK kapsam TAŞIMAZ — marka, modül değil', () => {
+    // ⚠️ Modül başına imza rengi kuralının İKİNCİ MODÜLDEKİ asıl sınavı budur.
+    // `data-module` modülün kendi layout'undadır, kabukta değil; dolayısıyla
+    // sidebar'ın kendisi hiçbir modülün rengini almaz ve terracotta kalır.
+    // Kabuğa konsaydı burada bir `data-module` bulunurdu.
+    const { container } = renderAt('/app');
+
+    const nav = container.querySelector('nav');
+    expect(nav).not.toBeNull();
+    expect(nav).not.toHaveAttribute('data-module');
   });
 });
 

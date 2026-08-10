@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { errorMessage } from '@/lib/api/error-message';
 import { countUnindexedInteractions, reindexInteractions } from '@/lib/api/crm';
 import { FormError } from '@/components/ui/form-error';
-import { PillButton } from './chrome';
+import { PillButton } from '@/components/module-kit/chrome';
 
 /**
  * "N görüşmeniz aranabilir değil" uyarısı + onarım.

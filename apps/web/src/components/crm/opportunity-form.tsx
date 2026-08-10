@@ -11,8 +11,13 @@ import {
 import { useState } from 'react';
 
 import { FormError } from '@/components/ui/form-error';
-import { PrimaryButton } from './chrome';
-import { emptyToNull, fieldErrors, NO_FIELD_ERRORS, type FieldErrors } from './field-errors';
+import { PrimaryButton } from '@/components/module-kit/chrome';
+import {
+  emptyToNull,
+  fieldErrors,
+  NO_FIELD_ERRORS,
+  type FieldErrors,
+} from '@/components/module-kit/field-errors';
 import {
   FieldGrid,
   FormActions,
@@ -20,7 +25,7 @@ import {
   InlinePanel,
   SelectField,
   TextField,
-} from './form-kit';
+} from '@/components/module-kit/form-kit';
 
 const NO_CONTACT = '';
 

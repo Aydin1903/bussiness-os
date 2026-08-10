@@ -12,7 +12,15 @@ import { listOpportunities } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
-import { CrmBody, CrmHeader, CrmTabs, EmptyState, Pager, RISE, SectionLabel } from './chrome';
+import {
+  EmptyState,
+  ModuleBody,
+  ModuleHeader,
+  Pager,
+  RISE,
+  SectionLabel,
+} from '@/components/module-kit/chrome';
+import { CrmTabs } from './chrome';
 import { FollowUpMark } from './follow-up-mark';
 import { StageAgeMark } from './signals';
 import { formatMoney } from './stage-pill';
@@ -113,13 +121,13 @@ export function StageListScreen({ stage }: { stage: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CrmHeader
+      <ModuleHeader
         title={label}
         subtitle={<Subtitle loading={loading} failed={error !== null} total={state.total} />}
         right={<CrmTabs />}
       />
 
-      <CrmBody>
+      <ModuleBody>
         <BackLink />
 
         <FormError message={error} />
@@ -155,7 +163,7 @@ export function StageListScreen({ stage }: { stage: string }) {
             setOffset((previous) => previous + PAGE_SIZE);
           }}
         />
-      </CrmBody>
+      </ModuleBody>
     </div>
   );
 }
@@ -291,12 +299,12 @@ function UnknownStage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Alt satır ile boş durum başlığı AYNI cümleyi tekrar etmez. */}
-      <CrmHeader
+      <ModuleHeader
         title="Fırsatlar"
         subtitle="Adres satırındaki aşama tanınmadı"
         right={<CrmTabs />}
       />
-      <CrmBody>
+      <ModuleBody>
         <EmptyState
           title="Böyle bir aşama yok"
           hint="Adres satırındaki aşama adı beş aşamadan biri değil. Panodan doğru aşamaya girebilirsiniz."
@@ -309,7 +317,7 @@ function UnknownStage() {
             </Link>
           }
         />
-      </CrmBody>
+      </ModuleBody>
     </div>
   );
 }

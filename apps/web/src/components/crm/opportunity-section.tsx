@@ -12,11 +12,16 @@ import { useState } from 'react';
 import { createOpportunity, deleteOpportunity, updateOpportunity } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
-import { PillButton, SectionLabel } from './chrome';
-import { ConfirmDelete } from './confirm-delete';
+import { PillButton, SectionLabel } from '@/components/module-kit/chrome';
+import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { FollowUpMark } from './follow-up-mark';
 import { OpportunityForm } from './opportunity-form';
-import { CardAction, CardActions, CardTitle, RecordCard } from './record-card';
+import {
+  CardAction,
+  CardActions,
+  CardTitle,
+  RecordCard,
+} from '@/components/module-kit/record-card';
 import { formatMoney, StagePill } from './stage-pill';
 import { StageAgeMark } from './signals';
 

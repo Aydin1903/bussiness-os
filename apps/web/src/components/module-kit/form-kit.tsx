@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { Rise } from '@/components/panel/stream';
-import { SectionLabel } from './chrome';
+import { SectionLabel } from '@/components/module-kit/chrome';
 
 /**
  * CRM form ilkelleri.

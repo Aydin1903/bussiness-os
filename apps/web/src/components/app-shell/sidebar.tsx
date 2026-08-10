@@ -45,6 +45,11 @@ interface NavItem {
 const LIVE: readonly NavItem[] = [
   { label: 'Panel', icon: OverviewIcon, href: '/app' },
   { label: 'Müşteriler', icon: CustomersIcon, href: '/app/crm', module: 'crm' },
+  // Projeler SOON'dan buraya taşındı (ADR-0033 Slice 5): üç rota çalışıyor.
+  // Taşımamak, Faz 4'te bir kez yaşanan hatanın tekrarı olurdu — modül çalışır
+  // hâldeyken sidebar "yakında" rozetini taşımaya devam etmiş ve modül
+  // kullanıcı için ERİŞİLEMEZ kalmıştı.
+  { label: 'Projeler', icon: ProjectsIcon, href: '/app/projects', module: 'projects' },
 ];
 
 /**
@@ -56,12 +61,14 @@ const LIVE: readonly NavItem[] = [
  * haritasına çevirir; kullanıcı her gün ulaşamayacağı on kalem görür. Sıradaki
  * ikisi gösterilir, modül canlandığı gün LIVE'a taşınır.
  *
- * Sıra ROADMAP §3.5'e hizalandı: 2) Projeler, 3) Finans.
+ * Sıra ROADMAP §3.5'e hizalandı. Projeler LIVE'a taşındı, geriye Finans kaldı.
+ *
+ * ⚠️ Dördüncü modül (Randevu) BURAYA EKLENMEDİ: `icons.tsx`'te karşılığı yok ve
+ * yeni bir ikon çizmek bir TASARIM kararıdır — bu slice'ın kapsamı değil.
+ * Tek satır kalması "sıradaki ikisi" niyetinden bir sapmadır ve bilinçlidir;
+ * uydurma bir ikonla ikinci satır açmaktan iyidir.
  */
-const SOON: readonly NavItem[] = [
-  { label: 'Projeler', icon: ProjectsIcon, module: 'projects' },
-  { label: 'Finans', icon: FinanceIcon, module: 'finance' },
-];
+const SOON: readonly NavItem[] = [{ label: 'Finans', icon: FinanceIcon, module: 'finance' }];
 
 /**
  * Aktif satır — EN UZUN eşleşen önek kazanır.

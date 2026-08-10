@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-
+import { Mark } from '@/components/module-kit/marks';
 import { calendarDayDelta, formatCalendarDay, localDay } from '@/lib/format/datetime';
 import { quietCompanyDays, staleStageDays } from '@/lib/config/crm';
 
@@ -32,22 +31,6 @@ import { quietCompanyDays, staleStageDays } from '@/lib/config/crm';
  * `--ink`), yalnızca o token'ın değeri artık modülündür — CRM'de çivit mavisi.
  * Terracotta bundan sonra yalnızca AI'ın sesidir (`--ai-ink`).
  */
-export function Mark({ children, quiet = false }: { children: ReactNode; quiet?: boolean }) {
-  return (
-    <span
-      className={[
-        'inline-flex items-center gap-1.5 font-mono text-[9.5px] font-medium tracking-[0.09em] uppercase tabular',
-        quiet ? 'text-fg-3' : 'text-ink',
-      ].join(' ')}
-    >
-      {quiet ? null : (
-        <span aria-hidden className="h-[3px] w-[3px] shrink-0 rounded-full bg-accent" />
-      )}
-      {children}
-    </span>
-  );
-}
-
 /**
  * "Son temas: 3 gün önce" · "47 gündür temas yok" · "Henüz görüşülmedi".
  *
@@ -79,32 +62,6 @@ export function LastContactMark({ day }: { day: string | null }) {
   }
 
   return <Mark quiet>Son temas: {daysAgo} gün önce</Mark>;
-}
-
-/**
- * "2 YETKİLİ" · "1 AÇIK FIRSAT" — kartın envanter satırı.
- *
- * ============================================================================
- * SIFIR DA YAZILIR — ve bu bilinçli
- * ============================================================================
- * Sıfır sayacı gizlemek kartı "temiz" tutardı ama bilgi kaybettirirdi:
- * "0 açık fırsat" tam olarak bakılması gereken durumdur (müşteri var, iş yok).
- * Gizlenseydi o müşteri, sayaçları olan müşterilerden görsel olarak ayırt
- * edilemezdi.
- *
- * SESSİZ kalır (`quiet`): bir envanter sayısı uyarı değildir. Uyarı rengini
- * (terracotta) yalnızca eylem gerektiren sinyaller taşır — aksi halde kartta
- * üç terracotta satır olur ve hiçbiri dikkat çekmez.
- *
- * Türkçe çoğul eki YOK: "2 yetkili" doğru, "2 yetkililer" yanlış. Sayı zaten
- * çokluğu taşıyor.
- */
-export function CountMark({ count, singular }: { count: number; singular: string }) {
-  return (
-    <Mark quiet>
-      {count} {singular}
-    </Mark>
-  );
 }
 
 /**

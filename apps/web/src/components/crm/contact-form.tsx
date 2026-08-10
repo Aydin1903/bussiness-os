@@ -8,9 +8,20 @@ import {
 import { useState } from 'react';
 
 import { FormError } from '@/components/ui/form-error';
-import { PrimaryButton } from './chrome';
-import { emptyToNull, fieldErrors, NO_FIELD_ERRORS, type FieldErrors } from './field-errors';
-import { FieldGrid, FormActions, GhostButton, InlinePanel, TextField } from './form-kit';
+import { PrimaryButton } from '@/components/module-kit/chrome';
+import {
+  emptyToNull,
+  fieldErrors,
+  NO_FIELD_ERRORS,
+  type FieldErrors,
+} from '@/components/module-kit/field-errors';
+import {
+  FieldGrid,
+  FormActions,
+  GhostButton,
+  InlinePanel,
+  TextField,
+} from '@/components/module-kit/form-kit';
 
 interface FormState {
   fullName: string;

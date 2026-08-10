@@ -1,15 +1,13 @@
 'use client';
 
-import type { CompanyListRow, CreateCompanyRequest } from '@business-os/contracts';
+import type { CreateProjectRequest, ProjectListRow } from '@business-os/contracts';
 import { useCallback, useEffect, useState } from 'react';
 
-import { createCompany, deleteCompany, listCompanies, updateCompany } from '@/lib/api/crm';
+import { createProject, deleteProject, listProjects, updateProject } from '@/lib/api/projects';
 import { errorMessage } from '@/lib/api/error-message';
 import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
-import { FormError } from '@/components/ui/form-error';
-import { Rise } from '@/components/panel/stream';
-import { CompanyForm } from './company-form';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
+import { CountMark } from '@/components/module-kit/marks';
 import {
   EmptyState,
   ModuleBody,
@@ -19,7 +17,6 @@ import {
   PrimaryButton,
   RISE,
 } from '@/components/module-kit/chrome';
-import { CrmTabs } from './chrome';
 import {
   CardAction,
   CardActions,
@@ -27,28 +24,24 @@ import {
   CardTitleLink,
   RecordCard,
 } from '@/components/module-kit/record-card';
-import { CountMark } from '@/components/module-kit/marks';
-import { LastContactMark } from './signals';
+import { FormError } from '@/components/ui/form-error';
+import { Rise } from '@/components/panel/stream';
+import { DueMark, StatusPill } from './marks';
+import { ProjectForm } from './project-form';
 
 export const PAGE_SIZE = 20;
 
-/**
- * `403` için ORTAK metin.
- *
- * Backend'in RFC 7807 gövdesi güvenlik-uniform ve teknik konuşur
- * ("company:write yetkisi yok"). Kullanıcının bilmesi gereken şey izin adı
- * değil, NE YAPAMAYACAĞI ve kime söyleyeceğidir.
- */
+/** `403` için ORTAK metin — izin adı değil, NE YAPILAMAYACAĞI söylenir. */
 const FORBIDDEN =
-  'Bu işlem için yetkiniz yok. Müşteri kayıtlarını yalnızca sahip, yönetici veya üye değiştirebilir.';
+  'Bu işlem için yetkiniz yok. Projeleri yalnızca sahip, yönetici veya üye değiştirebilir.';
 
 interface ListState {
-  readonly items: readonly CompanyListRow[];
+  readonly items: readonly ProjectListRow[];
   readonly total: number;
 }
 
-/** Liste çekme — görünümden ayrı (`knowledge-screen.tsx › useNoteList` deseni). */
-function useCompanyList(offset: number) {
+/** Liste çekme — görünümden ayrı (`useCompanyList` deseni). */
+function useProjectList(offset: number) {
   const [state, setState] = useState<ListState>({ items: [], total: 0 });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +51,7 @@ function useCompanyList(offset: number) {
     let active = true;
     setLoading(true);
 
-    listCompanies({ limit: PAGE_SIZE, offset })
+    listProjects({ limit: PAGE_SIZE, offset })
       .then((page) => {
         if (!active) {
           return;
@@ -68,9 +61,8 @@ function useCompanyList(offset: number) {
       })
       .catch((caught: unknown) => {
         if (active) {
-          // Hata GÖRÜNÜR olur ve liste TEMİZLENMEZ: "0 şirket" bir ölçüm
-          // değil, ölçememenin sonucudur (Panel'in `PartialLoadNotice`
-          // gerekçesiyle aynı).
+          // Hata GÖRÜNÜR olur ve liste TEMİZLENMEZ: "0 proje" bir ölçüm değil,
+          // ölçememenin sonucudur.
           setError(errorMessage(caught));
         }
       })
@@ -92,20 +84,19 @@ function useCompanyList(offset: number) {
   return { state, error, loading, reload };
 }
 
-/** Açık olan form: yok · yeni · düzenlenen şirket. */
-type FormTarget = { kind: 'none' } | { kind: 'new' } | { kind: 'edit'; company: CompanyListRow };
+type FormTarget = { kind: 'none' } | { kind: 'new' } | { kind: 'edit'; project: ProjectListRow };
 
 /**
- * `/app/crm` — şirketler.
+ * `/app/projects` — projeler.
  *
- * CRM'in giriş kapısı ve projenin ilk TAM yaşam döngülü ekranı: oluştur, oku,
- * düzenle, sil. Panel'le aynı iskelet (başlık şeridi → kaydırılan gövde) ve
- * aynı hareket kademeleri kullanılır.
+ * `CompaniesScreen` ile birebir aynı iskelet ve aynı hareket kademeleri. Yeni
+ * tasarım YOKTUR; bu ekranın varlığı, modül kitinin gerçekten genel olduğunun
+ * kanıtıdır.
  */
-export function CompaniesScreen() {
+export function ProjectsScreen() {
   const readOnly = isReadOnly(useCurrentRole());
   const [offset, setOffset] = useState(0);
-  const { state, error, loading, reload } = useCompanyList(offset);
+  const { state, error, loading, reload } = useProjectList(offset);
 
   const [form, setForm] = useState<FormTarget>({ kind: 'none' });
   const [saving, setSaving] = useState(false);
@@ -118,14 +109,14 @@ export function CompaniesScreen() {
     setFormError(null);
   }
 
-  async function save(body: CreateCompanyRequest): Promise<void> {
+  async function save(body: CreateProjectRequest): Promise<void> {
     setSaving(true);
     setFormError(null);
     try {
       if (form.kind === 'edit') {
-        await updateCompany(form.company.id, body);
+        await updateProject(form.project.id, body);
       } else {
-        await createCompany(body);
+        await createProject(body);
       }
       closeForm();
       reload();
@@ -140,10 +131,10 @@ export function CompaniesScreen() {
     setDeletingId(id);
     setActionError(null);
     try {
-      await deleteCompany(id);
+      await deleteProject(id);
 
       // Sayfanın son kaydı silindiyse bir sayfa geri gidilir; aksi halde
-      // kullanıcı BOŞ bir sayfada kalır ve listesi silinmiş sanır.
+      // kullanıcı BOŞ bir sayfada kalır ve listesi silinmiş sanar.
       if (state.items.length === 1 && offset > 0) {
         setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
       } else {
@@ -152,7 +143,7 @@ export function CompaniesScreen() {
     } catch (caught) {
       setActionError(
         errorMessage(caught, undefined, {
-          403: 'Silme yetkiniz yok. Müşteri silmeyi yalnızca sahip veya yönetici yapabilir.',
+          403: 'Silme yetkiniz yok. Proje silmeyi yalnızca sahip veya yönetici yapabilir.',
         }),
       );
     } finally {
@@ -163,21 +154,20 @@ export function CompaniesScreen() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ModuleHeader
-        title="Müşteriler"
-        subtitle={<CompanyCount loading={loading} failed={error !== null} total={state.total} />}
+        title="Projeler"
+        subtitle={<ProjectCount loading={loading} failed={error !== null} total={state.total} />}
         right={
-          // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
-          // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
-          // ekranda `flex-wrap` ile alt alta düşerler.
+          // ⚠️ Sekme şeridi HENÜZ ÇİZİLMİYOR: ikinci rota (`/app/projects/tasks`)
+          // bu slice'ta yazılmadı ve tek sekmeli bir şerit anlamsız olurdu.
+          // Gerekçe `chrome.tsx`'te (`CrmTabs`'ın 8a kararının aynısı).
           <div className="flex flex-wrap items-center gap-2.5">
-            <CrmTabs />
             {readOnly || form.kind !== 'none' ? null : (
               <PrimaryButton
                 onClick={() => {
                   setForm({ kind: 'new' });
                 }}
               >
-                Yeni müşteri
+                Yeni proje
               </PrimaryButton>
             )}
           </div>
@@ -186,8 +176,8 @@ export function CompaniesScreen() {
 
       <ModuleBody>
         {form.kind === 'none' ? null : (
-          <CompanyForm
-            {...(form.kind === 'edit' ? { initial: form.company } : {})}
+          <ProjectForm
+            {...(form.kind === 'edit' ? { initial: form.project } : {})}
             pending={saving}
             error={formError}
             onSubmit={(body) => {
@@ -214,17 +204,17 @@ export function CompaniesScreen() {
             />
           ) : (
             <ul className="flex flex-col gap-2.5">
-              {state.items.map((company) => (
-                <li key={company.id}>
-                  <CompanyCard
-                    company={company}
+              {state.items.map((project) => (
+                <li key={project.id}>
+                  <ProjectCard
+                    project={project}
                     readOnly={readOnly}
-                    deleting={deletingId === company.id}
+                    deleting={deletingId === project.id}
                     onEdit={() => {
-                      setForm({ kind: 'edit', company });
+                      setForm({ kind: 'edit', project });
                     }}
                     onDelete={() => {
-                      void remove(company.id);
+                      void remove(project.id);
                     }}
                   />
                 </li>
@@ -250,14 +240,8 @@ export function CompaniesScreen() {
   );
 }
 
-/**
- * Başlık altındaki sayaç.
- *
- * Liste ÇEKİLEMEDİYSE sayı çizilmez — Panel'in kuralı: "0 şirket" bir ölçüm
- * değil, ölçememenin sonucudur ve kullanıcıya var olan verisini kaybetmiş
- * gibi hissettirir.
- */
-function CompanyCount({
+/** Liste ÇEKİLEMEDİYSE sayı çizilmez — "0 proje" bir ölçüm değildir. */
+function ProjectCount({
   loading,
   failed,
   total,
@@ -267,27 +251,20 @@ function CompanyCount({
   total: number;
 }) {
   if (failed) {
-    return <>Müşteri listeniz şu an açılamıyor</>;
+    return <>Proje listeniz şu an açılamıyor</>;
   }
   if (loading) {
-    return <>Müşterileriniz</>;
+    return <>Projeleriniz</>;
   }
 
   return (
     <>
-      <b className="font-semibold text-fg tabular">{total}</b> müşteri · görüşmeleriniz burada
-      birikir
+      <b className="font-semibold text-fg tabular">{total}</b> proje · işin nerede olduğu burada
+      görünür
     </>
   );
 }
 
-/**
- * Boş durum — YÖNLENDİRİCİ, sadece "kayıt yok" demiyor.
- *
- * Eylem düğmesi boş durumun İÇİNDE de duruyor (başlıkta zaten var): boş bir
- * ekranda kullanıcının gözü ortadadır, sağ üst köşede değil. `viewer` için
- * düğme çizilmez — yapamayacağı bir işi önermek olurdu.
- */
 function EmptyContent({
   loading,
   failed,
@@ -303,34 +280,31 @@ function EmptyContent({
     return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
   }
   if (failed) {
-    // Hata zaten yukarıda `FormError` ile yazıldı; burada İKİNCİ bir iddia
-    // ("henüz müşteri yok") ortaya atılmaz.
+    // Hata zaten yukarıda yazıldı; burada İKİNCİ bir iddia ortaya atılmaz.
     return null;
   }
 
   return (
     <EmptyState
-      title="Henüz müşteri yok"
+      title="Henüz proje yok"
       hint={
         readOnly
-          ? 'Ekibinizden biri müşteri eklediğinde burada görünecek.'
-          : 'İlk müşterinizi ekleyin. Yetkililerini ve görüşmelerinizi ona bağlarsınız; kaydettiğiniz her görüşmeyi yapay zekâ okur ve sorularınızda kullanır.'
+          ? 'Ekibinizden biri proje açtığında burada görünecek.'
+          : 'İlk projenizi açın. Görevlerinizi ve ilerleme notlarınızı ona bağlarsınız; yazdığınız her notu yapay zekâ okur ve sorularınızda kullanır.'
       }
-      {...(readOnly
-        ? {}
-        : { action: <PillButton onClick={onCreate}>İlk müşteriyi ekle</PillButton> })}
+      {...(readOnly ? {} : { action: <PillButton onClick={onCreate}>İlk projeyi aç</PillButton> })}
     />
   );
 }
 
-function CompanyCard({
-  company,
+function ProjectCard({
+  project,
   readOnly,
   deleting,
   onEdit,
   onDelete,
 }: {
-  company: CompanyListRow;
+  project: ProjectListRow;
   readOnly: boolean;
   deleting: boolean;
   onEdit: () => void;
@@ -339,36 +313,44 @@ function CompanyCard({
   return (
     <RecordCard>
       <div className="flex items-start justify-between gap-3">
-        <CardTitleLink href={`/app/crm/${company.id}`}>{company.name}</CardTitleLink>
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <CardTitleLink href={`/app/projects/${project.id}`}>{project.name}</CardTitleLink>
+          <StatusPill status={project.status} />
+        </div>
 
         {readOnly ? null : (
           <CardActions>
-            <CardAction onClick={onEdit} ariaLabel={`${company.name} müşterisini düzenle`}>
+            <CardAction onClick={onEdit} ariaLabel={`${project.name} projesini düzenle`}>
               Düzenle
             </CardAction>
             <ConfirmDelete
               pending={deleting}
-              ariaLabel={`${company.name} müşterisini sil`}
-              question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekânın hafızasından da çıkar.`}
+              ariaLabel={`${project.name} projesini sil`}
+              question={`"${project.name}" ve ona bağlı tüm görevler ile ilerleme notları kalıcı olarak silinecek. Notlar yapay zekânın hafızasından da çıkar.`}
               onConfirm={onDelete}
             />
           </CardActions>
         )}
       </div>
 
-      <CardMeta items={[company.industry, company.email, company.phone, company.website]} />
-
       {/*
-        KARTIN GENİŞLİĞİNİ HAK EDEN SATIR.
-        Üçü de bedava sinyal — hiçbiri AI çağırmaz, hepsi var olan veriden
-        türer. Tek satırda toplanmaları bilinçli: alt alta üç ayrı satır kartı
-        uzatır ama okumayı zorlaştırırdı; bunlar aynı sorunun ("bu müşteriyle
-        aram nasıl") üç parçası.
+        Müşteri adı `companyName`den gelir ve `null` ÜÇ anlama gelebilir: iç
+        proje, silinmiş şirket, ya da `company:read` yokluğu. Üçü de aynı
+        şekilde çizilir (hiç çizilmez) ve bu KASITLIDIR — ayırmak bir şirketin
+        var olduğunu sızdırırdı (ADR-0033 §2).
       */}
+      <CardMeta items={[project.companyName, project.description]} />
+
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <CountMark count={company.contactCount} singular="yetkili" />
-        <CountMark count={company.openOpportunityCount} singular="açık fırsat" />
-        <LastContactMark day={company.lastInteractionOn} />
+        <CountMark count={project.openTaskCount} singular="açık görev" />
+        {project.overdueTaskCount > 0 ? (
+          // Sayaç UYANIK: gecikmiş iş, bakılması gereken tek şeydir.
+          <span className="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-medium tracking-[0.09em] text-ink uppercase tabular">
+            <span aria-hidden className="h-[3px] w-[3px] shrink-0 rounded-full bg-accent" />
+            {project.overdueTaskCount} gecikmiş
+          </span>
+        ) : null}
+        <DueMark day={project.dueOn} done={project.status === 'completed'} />
       </div>
     </RecordCard>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { CardAction } from './record-card';
+import { CardAction } from '@/components/module-kit/record-card';
 
 /**
  * İki adımlı silme onayı — SATIR İÇİ.

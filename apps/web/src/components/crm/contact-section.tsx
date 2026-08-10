@@ -6,10 +6,16 @@ import { useState } from 'react';
 import { createContact, deleteContact, updateContact } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
-import { PillButton, SectionLabel } from './chrome';
-import { ConfirmDelete } from './confirm-delete';
+import { PillButton, SectionLabel } from '@/components/module-kit/chrome';
+import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { ContactForm } from './contact-form';
-import { CardAction, CardActions, CardMeta, CardTitle, RecordCard } from './record-card';
+import {
+  CardAction,
+  CardActions,
+  CardMeta,
+  CardTitle,
+  RecordCard,
+} from '@/components/module-kit/record-card';
 
 const FORBIDDEN =
   'Bu işlem için yetkiniz yok. Yetkili kayıtlarını yalnızca sahip, yönetici veya üye değiştirebilir.';

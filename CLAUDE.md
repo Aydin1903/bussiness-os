@@ -550,12 +550,49 @@ Gerçekten yeni **dört** karar:
 | 2 | Görevler — projesiz dahil, tek atama (`0021`) | ✅ |
 | 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | ✅ |
 | 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ✅ |
-| 5 | Frontend: üç rota, `data-module="projects"`, sidebar `SOON` → `LIVE` | ⏳ |
+| 5a | Frontend: **iki rota** (liste + detay), `module-kit`, `data-module="projects"`, sidebar `SOON` → `LIVE` | ✅ |
+| 5b | `/app/projects/tasks` ("Yapılacaklar") + sekme şeridi | ⏳ |
 | 6 | Kapanış denetimi | ⏳ |
 
 > **Renk:** Projeler'in imza rengi **zeytin**'dir ve `module-colors.css`'te
 > zaten ayrılmıştır. ⚠️ Anahtar **`projects`**, `projeler` DEĞİL — on iki
 > modülün hepsi İngilizce anahtar taşır, Türkçe olan yalnızca **etikettir**.
+
+> ### ✅ Modül başına imza rengi kuralı İKİNCİ MODÜLDE SINANDI (Slice 5a)
+>
+> CRM tek örnekti; mekanizmanın genelleşip genelleşmediği ancak burada
+> görülebilirdi. Gerçek tarayıcıda, açık **ve** koyu temada ölçüldü:
+>
+> | Token | Açık | Koyu |
+> |---|---|---|
+> | Modül `--accent` / `--ink` | `#717325` / `#60620c` | `#a8ac5f` / `#b9bd70` |
+> | **Kabuk** `--accent` | `#b25628` | `#e8935a` |
+> | **`--ai-accent`** | `#b25628` | `#e8935a` |
+>
+> Yani `/app/projects` altındaki her şey zeytin, **kabuk (BO rozeti, şirket
+> seçici) ve AI'ın sesi terracotta kaldı** — `data-module` modülün kendi
+> layout'unda olduğu için, kabukta değil. Mekanizma iki satırla çalıştı
+> (palet bloğu zaten vardı + layout'ta bir attribute); `app-shell.tsx`'e
+> **dokunulmadı**. Kural artık sınanmıştır.
+>
+> ⚠️ **AI'ın sesi bu modülde GÖRÜNMÜYOR** ve bu doğrudur: Projeler'de v1'de
+> modül içi AI yüzeyi yok (ADR-0033 §10). Sınav bu yüzden "terracotta doğru
+> yerde mi" değil **"kabuk boyanmıyor mu"** olarak yapıldı. Bir "proje özeti"
+> eklendiği gün madde yeniden bağlayıcı olur.
+>
+> ⚠️ **Koyu temanın UI anahtarı YOK.** `data-theme` hiçbir yerde yazılmıyor;
+> koyu tema bugün yalnızca işletim sistemi tercihinden geliyor. Denetimde
+> `:root[data-theme='dark']` yolu elle tetiklenerek doğrulandı. Bir tema
+> anahtarı eklemek ayrı bir iştir.
+
+> **Slice 5a notu — `components/module-kit/` çıkarıldı.** `chrome`,
+> `record-card`, `marks`, `form-kit`, `field-errors`, `confirm-delete`: hiçbiri
+> CRM'e özgü değildi, CRM klasöründe doğmuşlardı. İkinci modül bir şeyin genel
+> olup olmadığını öğrendiğimiz yerdir; kopyalamak üçüncü modülde üçüncü kopya
+> demekti. **Kabul ölçütü sertti ve tuttu:** CRM'in test paketi içerik olarak
+> HİÇ değişmedi — `confirm-delete.spec.tsx` saf `rename` olarak taşındı
+> (göreli import'u korundu), `chrome.spec.tsx` ve `signals.spec.tsx` ise
+> yalnızca CRM'e özgü parçaları test ettiği için hiç dokunulmadı.
 
 > **Slice 1 notu — `company_id` kolonu var ama API kabul etmiyor.** Kolon
 > `0020`'de açıldı (ADR üç migration öngörüyor, dördüncü bir `ALTER`'a gerek

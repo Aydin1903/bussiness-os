@@ -8,7 +8,8 @@ import {
 import Link from 'next/link';
 
 import { Rise } from '@/components/panel/stream';
-import { CrmHeader, CrmTabs, EmptyState, RISE, SectionLabel } from './chrome';
+import { EmptyState, ModuleHeader, RISE, SectionLabel } from '@/components/module-kit/chrome';
+import { CrmTabs } from './chrome';
 import { FollowUpMark } from './follow-up-mark';
 import { formatMoney } from './stage-pill';
 import { StageAgeMark } from './signals';
@@ -57,7 +58,7 @@ export function PipelineScreen() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CrmHeader
+      <ModuleHeader
         title="Fırsatlar"
         subtitle={<Subtitle loading={loading} failed={anyFailed} total={total} />}
         right={<CrmTabs />}

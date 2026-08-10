@@ -9,9 +9,19 @@ import { useState } from 'react';
 
 import { FormError } from '@/components/ui/form-error';
 import { todayCalendarDay } from '@/lib/format/datetime';
-import { PrimaryButton } from './chrome';
-import { fieldErrors, NO_FIELD_ERRORS, type FieldErrors } from './field-errors';
-import { FieldGrid, FormActions, SelectField, TextAreaField, TextField } from './form-kit';
+import { PrimaryButton } from '@/components/module-kit/chrome';
+import {
+  fieldErrors,
+  NO_FIELD_ERRORS,
+  type FieldErrors,
+} from '@/components/module-kit/field-errors';
+import {
+  FieldGrid,
+  FormActions,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from '@/components/module-kit/form-kit';
 
 /** Kişi seçilmedi. Boş dizge, `null`'a çevrilecek olan sentinel'dir. */
 const NO_CONTACT = '';
