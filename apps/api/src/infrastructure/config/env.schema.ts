@@ -279,6 +279,22 @@ const baseEnvSchema = z.object({
   PROJECTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * Bir proje kac gun hareketsiz kalinca DURGUN sayilir (ADR-0033 §6.1).
+   *
+   * ============================================================================
+   * NEDEN CONFIG — CRM'in sabitlerinden FARKLI
+   * ============================================================================
+   * `CrmPipelineContributor` limit ve skorunu sabit tutar; onlar TASARIM
+   * kararidir. Durgunluk esigi ise ISIN TEMPOSUNA baglidir: iki haftalik sprint
+   * yapan bir ajansta 14 gun alarmdir, uzun soluklu bir insaat projesinde
+   * normaldir. Tenant bazli olmasi ideal olurdu; bugun kurulum bazli.
+   *
+   * ⚠️ Hareket TURETILIR (proje damgalari + son gorev + son not); bu deger
+   * yalnizca esigi belirler, saklanan bir alani degil.
+   */
+  PROJECTS_STALE_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+
+  /**
    * Saatlik musteri ozeti URETME payi (ADR-0032 §2).
    *
    * `CRM_INTERACTIONS_RATE_LIMIT`ten AYRI kova: bu `LLMPort.complete`tir

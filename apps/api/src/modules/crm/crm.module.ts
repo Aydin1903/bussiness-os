@@ -7,7 +7,12 @@ import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.conf
 import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
-import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import {
+  PERMISSION_CHECKER,
+  PERMISSION_REGISTRY,
+  type PermissionChecker,
+  type PermissionRegistry,
+} from '../../platform/authz/authz.public';
 import { ContextModule } from '../../platform/context/context.module';
 import {
   RETRIEVAL_CONTRIBUTOR_REGISTRY,
@@ -32,7 +37,9 @@ import {
 } from './application/company-summary.repository.port';
 import { CompanySummaryUseCases } from './application/company-summary.use-cases';
 import { COMPANY_REPOSITORY, type CompanyRepository } from './application/company.repository.port';
+import { CompanyDirectoryQuery } from './application/company-directory.query';
 import { CompanyUseCases } from './application/company.use-cases';
+import { CRM_COMPANY_DIRECTORY } from './crm.public';
 import { CONTACT_REPOSITORY, type ContactRepository } from './application/contact.repository.port';
 import { ContactUseCases } from './application/contact.use-cases';
 import {
@@ -271,6 +278,19 @@ const CRM_CALLER = 'crm';
       ): CrmInteractionsContributor =>
         new CrmInteractionsContributor(repository, transactionManager),
     },
+    // --- CRM'in DISA ACIK yuzeyi (ADR-0033 §2) -------------------------------
+    // Projeler bir projeyi opsiyonel olarak bir sirkete baglar ve adi BURADAN
+    // okur. Yon TEK YONLU: CRM Projeler'i bilmez.
+    {
+      provide: CRM_COMPANY_DIRECTORY,
+      inject: [COMPANY_REPOSITORY, PERMISSION_CHECKER, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: CompanyRepository,
+        permissionChecker: PermissionChecker,
+        transactionManager: TransactionManager,
+      ): CompanyDirectoryQuery =>
+        new CompanyDirectoryQuery({ repository, permissionChecker, transactionManager }),
+    },
     {
       provide: CrmPipelineContributor,
       inject: [OPPORTUNITY_REPOSITORY, TRANSACTION_MANAGER, CLOCK],
@@ -282,6 +302,10 @@ const CRM_CALLER = 'crm';
         new CrmPipelineContributor(repository, transactionManager, clock),
     },
   ],
+  // ⚠️ TEK KALEM ve oyle kalmali: `crm.public.ts` disinda hicbir sey disa
+  // acilmaz. Repository, use case ve entity'ler CRM'in ic isidir ve
+  // `import/no-restricted-paths` bunu derlemede zaten reddeder.
+  exports: [CRM_COMPANY_DIRECTORY],
 })
 export class CrmModule {
   constructor(

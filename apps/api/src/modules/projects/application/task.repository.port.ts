@@ -68,4 +68,31 @@ export interface TaskRepository {
     projectIds: readonly string[];
     today: string;
   }): Promise<Map<string, { open: number; overdue: number }>>;
+
+  /**
+   * EN COK GECIKMIS gorevler — yapisal katkinin ucuncu sorgusu (ADR-0033 §6.1).
+   *
+   * En eski `due_on` once: "en cok geciken" ilk gorunur.
+   */
+  findMostOverdue(input: { limit: number; today: string }): Promise<OverdueTaskRow[]>;
+}
+
+/**
+ * Yapisal katkinin gorev satiri.
+ *
+ * ⚠️ `projectName` NULLABLE cunku gorev PROJESIZ olabilir ("Yapilacaklar"
+ * kutusu, ADR-0033 §3). Sorgu bu yuzden `LEFT JOIN` kullanmak ZORUNDADIR —
+ * `INNER` olsaydi projesiz gecikmis gorevler AI'in gozunden sessizce
+ * kaybolurdu.
+ *
+ * ⚠️ `assigneeUserId` var ama ADI YOK (ADR-0033 §6 bilinen siniri): ad
+ * cozmek Identity/uyelik dizini ister ve o yuzey henuz yok. Katkici bu yuzden
+ * yalnizca "atanmis" / "ATANMAMIS" der — asil aksiyon sinyali zaten budur.
+ */
+export interface OverdueTaskRow {
+  readonly taskId: string;
+  readonly title: string;
+  readonly dueOn: string;
+  readonly assigneeUserId: string | null;
+  readonly projectName: string | null;
 }

@@ -86,4 +86,15 @@ export interface CompanyRepository {
   list(input: { limit: number; offset: number }): Promise<ListPage<CompanyListRow>>;
   /** Silinen satir sayisi; `0` = kayit yok (ya da baska tenant'in). */
   deleteById(id: string): Promise<number>;
+
+  /**
+   * `id -> ad` haritasi — `CompanyDirectory`nin (ADR-0033 §2) tek sorgusu.
+   *
+   * GORUNMEYEN id HARITAYA GIRMEZ: silinmis olabilir ya da baska tenant'in
+   * (RLS). Cagiran ikisini ayirt etmez ve etmemelidir.
+   *
+   * IZIN KONTROLU BURADA DEGIL: repository veri dondurur, YETKI karari vermez
+   * (`RateLimitRepository` ile ayni disiplin — karar `CompanyDirectoryQuery`de).
+   */
+  findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }

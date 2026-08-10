@@ -548,8 +548,8 @@ Gerçekten yeni **dört** karar:
 |---|---|---|
 | 1 | `projects` şeması + proje yaşam döngüsü (`0020`) | ✅ |
 | 2 | Görevler — projesiz dahil, tek atama (`0021`) | ✅ |
-| 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | 🟢 |
-| 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ⏳ |
+| 3 | İlerleme notları + embedding + `reindex` + oran sınırı (`0022`) | ✅ |
+| 4 | İki katkıcı (`project-notes` · `project-status`) + `crm.public.ts` | ✅ |
 | 5 | Frontend: üç rota, `data-module="projects"`, sidebar `SOON` → `LIVE` | ⏳ |
 | 6 | Kapanış denetimi | ⏳ |
 
@@ -562,6 +562,24 @@ Gerçekten yeni **dört** karar:
 > yok) ama yazma yolu **Slice 4'e** bırakıldı: doğrulaması ve adın çözülmesi
 > için gereken `crm.public.ts` orada yazılıyor. Doğrulanamayan bir işaretçiyi
 > bugünden kabul etmek, **ilk günden sarkan satır üretmek** olurdu.
+
+> **Slice 4 notu — cross-modül referans artık ÇALIŞIYOR.** `crm.public.ts`
+> yazıldı (tek kalem: `CompanyDirectory.findNames`, toplu, `company:read`
+> **arayüzün içinde** kapılı). Projeler, projede bir **iş modülünün başka bir
+> iş modülünü import ettiği ilk yer** oldu — yön tek: CRM Projeler'i bilmez.
+> Şirket adı kolonda saklanmıyor, her okumada çözülüyor; entegrasyon testi
+> şirketi yeniden adlandırıp adın **anında** yansıdığını kanıtlıyor.
+> `POST /ask` artık dört kaynağı birleştiriyor (`knowledge` ·
+> `crm-interactions` · `project-notes` · `project-status`) — CLAUDE.md'nin CEO
+> örneği üçte ikisi tamam.
+
+> ⚠️ **Yapısal katkıda skor politikası CRM'den AYRIŞTI ve bu Slice 6'ya
+> madde.** `CrmPipelineContributor` düz 0.95 verir; `ProjectStatusContributor`
+> riske göre 0.95/0.90/0.75 verir. Sebebi aritmetik: global top-K **8**'dir ve
+> iki yapısal katkıcı sabit skorla sekiz yuvanın tamamını kaplayıp anlatısal
+> içeriği dışarı atardı. Kota **eklenmedi** (ADR-0031 §5.1 reddetmişti); skor
+> anlamlı kılındı. Bugün iki katkıcı iki farklı politika izliyor — tutarsızlık
+> bilinçli ve kapanış denetiminde ele alınacak.
 
 > **Kalıcı ders (Slice 1'de yakalandı):** yeni bir migration eklerken
 > `database.integration.spec`'in **geri alma listesine de** eklenmeli.

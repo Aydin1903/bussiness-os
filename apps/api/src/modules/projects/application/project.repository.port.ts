@@ -22,7 +22,7 @@ export interface ListPage<T> {
  * KENDILIGINDEN duzelir. Kopyalanmis bir kolonda bunu elle guncellemek gerekir
  * ve biri unutuldugunda kart yalan soylerdi.
  */
-export interface ProjectListRow extends ProjectState {
+export interface ProjectCountsRow extends ProjectState {
   /**
    * ACIK gorev sayisi — kapanmislar (`done`) HARIC.
    *
@@ -39,6 +39,34 @@ export interface ProjectListRow extends ProjectState {
    * ALT KUMESIDIR; ikisi toplanmaz.
    */
   readonly overdueTaskCount: number;
+}
+
+/**
+ * Kullaniciya donen satir — sayaclar + SIRKET ADI.
+ *
+ * ============================================================================
+ * NEDEN IKI TIP: repository `companyName` URETEMEZ
+ * ============================================================================
+ * Ad `crm.companies`tadir ve `projects` semasindan okunamaz (Mutlak Kural 5).
+ * Repository kendi semasinin bildigi kadarini dondurur (`ProjectCountsRow`);
+ * adi use case, `CompanyDirectory` uzerinden EKLER.
+ *
+ * Tek tip olsaydi repository imzasi dolduramayacagi bir alan vaat ederdi —
+ * tip sistemi bu sinirin nerede oldugunu artik kendisi soyluyor.
+ */
+export interface ProjectListRow extends ProjectCountsRow {
+  /**
+   * Sirket ADI — `companyId` ile BIRLIKTE tasinir, onun yerine degil.
+   *
+   * `null` UC anlama gelir ve UCU AYIRT EDILMEZ: proje ic projedir
+   * (`companyId === null`), sirket silinmistir (ADR-0033 §2d), ya da cagiran
+   * `company:read` tasimiyordur (§2c). Arayuz ucunde de ayni seyi gosterir ve
+   * bu KASITLIDIR — ayirmak, bir sirketin VAR OLDUGUNU sizdirirdi.
+   *
+   * ⚠️ Kolonda SAKLANMAZ: her okumada cozulur. Kopyalansaydi sirket yeniden
+   * adlandirildiginda bayatlardi.
+   */
+  readonly companyName: string | null;
 }
 
 /**
@@ -87,8 +115,52 @@ export interface ProjectRepository {
     offset: number;
     status: ProjectStatus | null;
     today: string;
-  }): Promise<ListPage<ProjectListRow>>;
+  }): Promise<ListPage<ProjectCountsRow>>;
 
   /** Silinen satir sayisi; `0` = kayit yok (ya da baska tenant'in). */
   deleteById(id: string): Promise<number>;
+
+  /**
+   * YAPISAL katkinin birinci sorgusu (ADR-0033 §6.1).
+   *
+   * ACIK projeler, RISK sirasinda: once gecikmis gorevi cok olan, sonra en
+   * uzun suredir ayni durumda olan. `limit` ile SIKI sinirlidir — katki her
+   * soruda gonderilir.
+   */
+  findRiskyOpenProjects(input: { limit: number; today: string }): Promise<RiskyProjectRow[]>;
+
+  /**
+   * YAPISAL katkinin ikinci sorgusu: verilen projelerin SON NOT hareketi.
+   *
+   * ============================================================================
+   * ⚠️ BIRINCI SORGUYLA BIRLESTIRILEMEZ — kartezyen carpim
+   * ============================================================================
+   * `tasks` ve `progress_notes` IKISI DE bire-coktur. Ayni sorguda ikisini de
+   * JOIN'lemek satirlari carpar ve `count(tasks)` SESSIZCE SISER: 3 gorevi ve
+   * 2 notu olan bir proje 6 gorev sayar. Iki sorgu, tek dogru cevap.
+   */
+  findLastNoteActivity(projectIds: readonly string[]): Promise<ReadonlyMap<string, Date>>;
+}
+
+/**
+ * Yapisal katkinin proje satiri (ADR-0033 §6.1).
+ *
+ * Entity DEGIL, bir PROJEKSIYON — `PipelineRow` ile ayni disiplin: bir liste
+ * bir sorgudur, komut degil.
+ *
+ * ⚠️ `companyName` YOKTUR ve bu bilincli (ADR-0033 §6, bilinen sinir):
+ * `RetrievalContributor` port'u katkici basina TEK `permission` tasir; sirket
+ * adi IKINCI bir kapi (`company:read`) isterdi. Sirket adi proje OKUMA
+ * yolunda cozulur (`CompanyDirectory`), yapisal katkida degil.
+ */
+export interface RiskyProjectRow {
+  readonly projectId: string;
+  readonly name: string;
+  readonly status: ProjectStatus;
+  readonly statusChangedAt: Date;
+  readonly createdAt: Date;
+  readonly openTaskCount: number;
+  readonly overdueTaskCount: number;
+  /** Projenin gorevlerindeki son hareket; hic gorev yoksa `null`. */
+  readonly lastTaskActivityAt: Date | null;
 }

@@ -20,6 +20,13 @@ import {
   TRANSACTION_MANAGER,
   type TransactionManager,
 } from '../../shared/transaction-manager.port';
+import { ContextModule } from '../../platform/context/context.module';
+import {
+  RETRIEVAL_CONTRIBUTOR_REGISTRY,
+  type RetrievalContributorRegistry,
+} from '../../platform/context/context.public';
+import { CrmModule } from '../crm/crm.module';
+import { CRM_COMPANY_DIRECTORY, type CompanyDirectory } from '../crm/crm.public';
 import { TenantModule } from '../tenant/tenant.module';
 import { TENANT_ACCESS_QUERY, type TenantAccessQuery } from '../tenant/tenant.public';
 import {
@@ -34,6 +41,8 @@ import { TaskUseCases } from './application/task.use-cases';
 import { DrizzleProgressNoteRepository } from './infrastructure/drizzle-progress-note.repository';
 import { DrizzleProjectRepository } from './infrastructure/drizzle-project.repository';
 import { DrizzleTaskRepository } from './infrastructure/drizzle-task.repository';
+import { ProjectNotesContributor } from './infrastructure/project-notes.contributor';
+import { ProjectStatusContributor } from './infrastructure/project-status.contributor';
 import { ProgressNoteController } from './presentation/progress-note.controller';
 import { ProjectController } from './presentation/project.controller';
 import { TaskController } from './presentation/task.controller';
@@ -64,9 +73,23 @@ const PROJECTS_CALLER = 'projects';
  * eklendi. CRM'de bu ders DORT KEZ, her seferinde bir testin kirmizi
  * yanmasiyla ogrenildi.
  *
- * `RetrievalContributor` HENUZ KAYDEDILMIYOR — Slice 4. Yani parcalar
- * uretiliyor ama `POST /ask` onlari HENUZ GORMUYOR; bu bilincli bir ara
- * durumdur, sessiz bir hata degil.
+ * ============================================================================
+ * SLICE 4: IKI KATKICI KAYDEDILDI, VE MODUL ILK KEZ BASKA BIR IS MODULUNU
+ * OKUYOR
+ * ============================================================================
+ * `POST /ask` artik Projeler icerigini de gorebiliyor: anlamsal
+ * (`project-notes`) + yapisal (`project-status`). CLAUDE.md'nin CEO ornegi
+ * ("CRM'deki musteri hareketleri, Finans'taki nakit akisi, PROJELER'deki
+ * teslim performansi") ucte ikisi tamamlandi.
+ *
+ * ⚠️ `CrmModule` IMPORT EDILIYOR — projede bir IS MODULUNUN baska bir IS
+ * MODULUNU import ettigi ILK yer (ADR-0033 §2). Yuzey `crm.public.ts`in tek
+ * kalemidir (`CompanyDirectory`); CRM'in `domain/`, `application/`,
+ * `infrastructure/` katmanlari `import/no-restricted-paths` ile ZATEN kapali.
+ *
+ * ⚠️ YON TEK: CRM Projeler'i BILMEZ ve import ETMEZ. Tersi bir modul dongusu
+ * kurardi — projede bir kez yasandi (Tenant <-> Identity) ve cozumu
+ * `forwardRef` degil UCUNCU BIR MODUL oldu.
  *
  * ============================================================================
  * NEDEN `TenantModule` IMPORT EDILIYOR
@@ -82,7 +105,7 @@ const PROJECTS_CALLER = 'projects';
  * ============================================================================
  */
 @Module({
-  imports: [AiObservabilityModule, TenantModule],
+  imports: [AiObservabilityModule, ContextModule, CrmModule, TenantModule],
   controllers: [
     // ⚠️ SIRA DOGRULUK KOSULUDUR, uslup degil.
     //
@@ -125,14 +148,23 @@ const PROJECTS_CALLER = 'projects';
 
     {
       provide: ProjectUseCases,
-      inject: [PROJECT_REPOSITORY, TRANSACTION_MANAGER, ID_GENERATOR, CLOCK],
+      inject: [PROJECT_REPOSITORY, CRM_COMPANY_DIRECTORY, TRANSACTION_MANAGER, ID_GENERATOR, CLOCK],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda.
+      // eslint-disable-next-line max-params
       useFactory: (
         repository: ProjectRepository,
+        companyDirectory: CompanyDirectory,
         transactionManager: TransactionManager,
         idGenerator: IdGenerator,
         clock: Clock,
       ): ProjectUseCases =>
-        new ProjectUseCases({ repository, transactionManager, idGenerator, clock }),
+        new ProjectUseCases({
+          repository,
+          companyDirectory,
+          transactionManager,
+          idGenerator,
+          clock,
+        }),
     },
     {
       provide: TaskUseCases,
@@ -198,11 +230,54 @@ const PROJECTS_CALLER = 'projects';
           reindexBatchSize: config.projects.reindexBatchSize,
         }),
     },
+    // --- Kurumsal hafizaya IKI KATKI (ADR-0033 §6) ---------------------------
+    // Anlamsal: ilerleme notu parcalari. Yapisal: riskli proje + gecikmis gorev
+    // anlik goruntusu. Ikisi de KENDI semasindan okur; birlestirmeyi platform
+    // yapar.
+    {
+      provide: ProjectNotesContributor,
+      inject: [PROGRESS_NOTE_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: ProgressNoteRepository,
+        transactionManager: TransactionManager,
+      ): ProjectNotesContributor => new ProjectNotesContributor(repository, transactionManager),
+    },
+    {
+      provide: ProjectStatusContributor,
+      inject: [PROJECT_REPOSITORY, TASK_REPOSITORY, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
+      // eslint-disable-next-line max-params
+      useFactory: (
+        projectRepository: ProjectRepository,
+        taskRepository: TaskRepository,
+        transactionManager: TransactionManager,
+        clock: Clock,
+        config: AppConfig,
+      ): ProjectStatusContributor =>
+        new ProjectStatusContributor(
+          projectRepository,
+          taskRepository,
+          transactionManager,
+          clock,
+          config.projects.staleDays,
+        ),
+    },
   ],
 })
 export class ProjectsModule {
-  constructor(@Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry) {
+  constructor(
+    @Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry,
+    @Inject(RETRIEVAL_CONTRIBUTOR_REGISTRY) contributors: RetrievalContributorRegistry,
+    notesContributor: ProjectNotesContributor,
+    statusContributor: ProjectStatusContributor,
+  ) {
     // §10.1: modul kendi permission'larini Authorization'a DEKLARE eder.
     permissions.register(PROJECTS_PERMISSIONS);
+
+    // Ayni desen, ikinci defter: modul kendini kurumsal hafizaya KAYDEDER.
+    // Bu iki satirla `POST /ask` ilk kez Projeler icerigi dondurebilir —
+    // yani CLAUDE.md'nin CEO ornegi ("CRM + Finans + PROJELER birlikte")
+    // ucte ikisi tamamlanmis olur.
+    contributors.register(notesContributor);
+    contributors.register(statusContributor);
   }
 }

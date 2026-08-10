@@ -15,9 +15,11 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
+import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
 import { ProjectUseCases } from '../application/project.use-cases';
+import { type ProjectListRow } from '../application/project.repository.port';
 import { type ProjectState } from '../domain/project.entity';
 import { PROJECT_DELETE, PROJECT_READ, PROJECT_WRITE } from '../projects.permissions';
 import { ProjectsDomainExceptionFilter } from './projects-domain-exception.filter';
@@ -39,7 +41,7 @@ import {
  * olmasinin sebebi de budur (ADR-0033 § Baglam).
  */
 interface ProjectListResponse {
-  readonly items: readonly ProjectState[];
+  readonly items: readonly ProjectListRow[];
   readonly total: number;
   readonly limit: number;
   readonly offset: number;
@@ -60,16 +62,18 @@ export class ProjectController {
   async create(
     @Body(new ZodValidationPipe(createProjectSchema)) body: CreateProjectBody,
   ): Promise<ProjectState> {
-    const tenantId = requireTenantId();
+    const principal = requireTenantPrincipal();
 
     return this.useCases.create({
-      tenantId,
+      tenantId: principal.tenantId,
+      role: principal.role,
       fields: {
         name: body.name,
         status: body.status,
         description: body.description ?? null,
         startedOn: body.startedOn ?? null,
         dueOn: body.dueOn ?? null,
+        companyId: body.companyId ?? null,
       },
     });
   }
@@ -86,6 +90,7 @@ export class ProjectController {
       limit: query.limit,
       offset: query.offset,
       status: query.status ?? null,
+      role: requireTenantPrincipal().role,
     });
 
     return { ...page, limit: query.limit, offset: query.offset };
@@ -97,8 +102,8 @@ export class ProjectController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Proje bulunamadi.' })
   async get(
     @Param(new ZodValidationPipe(idParamSchema)) params: { id: string },
-  ): Promise<ProjectState> {
-    return this.useCases.get(params.id);
+  ): Promise<ProjectState & { companyName: string | null }> {
+    return this.useCases.get({ id: params.id, role: requireTenantPrincipal().role });
   }
 
   /** KISMI guncelleme; gonderilmeyen alana DOKUNULMAZ (`PUT` degil). */
@@ -110,7 +115,11 @@ export class ProjectController {
     @Param(new ZodValidationPipe(idParamSchema)) params: { id: string },
     @Body(new ZodValidationPipe(updateProjectSchema)) body: UpdateProjectBody,
   ): Promise<ProjectState> {
-    return this.useCases.update({ id: params.id, changes: body });
+    return this.useCases.update({
+      id: params.id,
+      role: requireTenantPrincipal().role,
+      changes: body,
+    });
   }
 
   /**
@@ -138,12 +147,16 @@ export class ProjectController {
  * ⚠️ PRATIKTE ULASILMAZ — `PermissionGuard` handler'dan ONCE calisir ve hem
  * kimliksiz istegi hem tenant secilmemis token'i keser. Savunma katmani.
  */
-function requireTenantId(): string {
+function requireTenantPrincipal(): { tenantId: string; role: string } {
   const principal = getPrincipal();
+  // ⚠️ ROL principal'da DEGIL, TENANT CONTEXT'tedir: principal "kimsin"
+  // sorusunu, tenant context "bu sirkette nesin" sorusunu cevaplar.
+  // `AskController` da rolu tam olarak buradan okuyor.
+  const role = getTenantContext()?.role;
 
-  if (principal?.tenantId == null) {
+  if (principal?.tenantId == null || role == null) {
     throw new UnauthorizedException('Bu islem icin tenant secilmis bir oturum gerekiyor.');
   }
 
-  return principal.tenantId;
+  return { tenantId: principal.tenantId, role };
 }

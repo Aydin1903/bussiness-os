@@ -1,15 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
-import { projects } from '../../../infrastructure/database/schema';
+import { progressNotes, projects, tasks } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import {
   type ListPage,
-  type ProjectListRow,
+  type ProjectCountsRow,
   type ProjectRepository,
+  type RiskyProjectRow,
 } from '../application/project.repository.port';
 import { TASK_REPOSITORY, type TaskRepository } from '../application/task.repository.port';
-import { isProjectStatus, Project, type ProjectStatus } from '../domain/project.entity';
+import {
+  CLOSED_PROJECT_STATUSES,
+  isProjectStatus,
+  Project,
+  type ProjectStatus,
+} from '../domain/project.entity';
 import { InvalidProjectStatusError } from '../domain/projects.error';
 
 /**
@@ -39,10 +45,10 @@ export class DrizzleProjectRepository implements ProjectRepository {
 
     // Tek deyimlik UPSERT: `create` ve `update` ayni yolu kullanir.
     //
-    // ⚠️ `companyId` SET LISTESINDE YOK ve bu bilincli: bu slice'ta kolon
-    // yazilmiyor (ADR-0033 §2, Slice 4). Listeye eklemek, bugun her zaman
-    // `null` olan bir degeri mevcut satirin uzerine yazip veriyi SESSIZCE
-    // silme riski dogururdu.
+    // ⚠️ `companyId` SLICE 4'TE SET LISTESINE GIRDI. Slice 1-3 boyunca disarida
+    // durmustu cunku API onu kabul etmiyordu; `crm.public.ts` geldigi icin artik
+    // yaziliyor. `undefined` = dokunma / `null` = temizle ayrimi entity'de
+    // cozulur, buraya gelen deger ZATEN nihai durumdur.
     await db
       .insert(projects)
       .values(state)
@@ -52,6 +58,7 @@ export class DrizzleProjectRepository implements ProjectRepository {
           name: state.name,
           status: state.status,
           description: state.description,
+          companyId: state.companyId,
           startedOn: state.startedOn,
           dueOn: state.dueOn,
           statusChangedAt: state.statusChangedAt,
@@ -72,7 +79,7 @@ export class DrizzleProjectRepository implements ProjectRepository {
     offset: number;
     status: ProjectStatus | null;
     today: string;
-  }): Promise<ListPage<ProjectListRow>> {
+  }): Promise<ListPage<ProjectCountsRow>> {
     const { db } = requireTransaction();
 
     // Siralamada `id` TIE-BREAKER'dir: ayni milisaniyede olusan iki kayitta
@@ -124,6 +131,84 @@ export class DrizzleProjectRepository implements ProjectRepository {
       id: projects.id,
     });
     return deleted.length;
+  }
+
+  /**
+   * ACIK projeler, RISK sirasinda (ADR-0033 §6.1).
+   *
+   * ============================================================================
+   * TEK SORGU, `LEFT JOIN` + `FILTER` — korelasyonlu ALT SORGU YOK
+   * ============================================================================
+   * `DrizzleCompanyRepository.list`in yorumu bunu bir kez ogretti: Drizzle'in
+   * `sql` sablonuna gomulu iliskili alt sorgu entegrasyon testinde `null`
+   * dondurmustu ve nasil render edildigi opak kalmisti. Burada tahmin yerine
+   * okunur ve ongorulebilir bir sekil kullaniliyor.
+   *
+   * ⚠️ `LEFT JOIN` ZORUNLU: `INNER` olsaydi HIC GOREVI OLMAYAN proje listeden
+   * dusserdi — ki "acilmis ama hicbir sey yapilmamis" tam olarak yapisal
+   * katkinin gostermesi gereken durumdur.
+   *
+   * ⚠️ `progress_notes` BU SORGUYA KATILMAZ: iki bire-cok tabloyu ayni sorguda
+   * JOIN'lemek satirlari carpar ve sayaclari sisirir (bkz. port yorumu).
+   */
+  async findRiskyOpenProjects(input: { limit: number; today: string }): Promise<RiskyProjectRow[]> {
+    const { db } = requireTransaction();
+
+    // Yuklemler `CLOSED_TASK_STATUSES` / `CLOSED_PROJECT_STATUSES` tek
+    // tanimindan gelir; iki yerde ayri yazilsalardi biri degistiginde digeri
+    // sessizce ayrisirdi.
+    const openTask = sql`${tasks.id} IS NOT NULL AND ${tasks.status} <> 'done'`;
+    const overdueTask = sql`${openTask} AND ${tasks.dueOn} IS NOT NULL AND ${tasks.dueOn} < ${input.today}`;
+
+    const rows = await db
+      .select({
+        projectId: projects.id,
+        name: projects.name,
+        status: projects.status,
+        statusChangedAt: projects.statusChangedAt,
+        createdAt: projects.createdAt,
+        openTaskCount: sql<number>`count(*) FILTER (WHERE ${openTask})::int`,
+        overdueTaskCount: sql<number>`count(*) FILTER (WHERE ${overdueTask})::int`,
+        lastTaskActivityAt: sql<Date | null>`max(${tasks.updatedAt})`,
+      })
+      .from(projects)
+      .leftJoin(tasks, eq(tasks.projectId, projects.id))
+      .where(notInArray(projects.status, [...CLOSED_PROJECT_STATUSES]))
+      .groupBy(projects.id)
+      // RISK sirasi: once gecikmis gorevi cok olan, sonra en uzun suredir ayni
+      // durumda olan. `id` tie-breaker — kararsiz siralama, ayni soruya iki
+      // farkli cevap demektir.
+      .orderBy(
+        sql`count(*) FILTER (WHERE ${overdueTask}) DESC`,
+        projects.statusChangedAt,
+        projects.id,
+      )
+      .limit(input.limit);
+
+    return rows.map((row) => ({ ...row, status: toStatus(row.status) }));
+  }
+
+  /**
+   * Proje id -> son ilerleme notu zamani.
+   *
+   * AYRI sorgu olmasinin sebebi kartezyen carpimdir (bkz. port yorumu).
+   */
+  async findLastNoteActivity(projectIds: readonly string[]): Promise<ReadonlyMap<string, Date>> {
+    if (projectIds.length === 0) {
+      return new Map();
+    }
+
+    const { db } = requireTransaction();
+    const rows = await db
+      .select({
+        projectId: progressNotes.projectId,
+        lastAt: sql<Date>`max(${progressNotes.createdAt})`,
+      })
+      .from(progressNotes)
+      .where(inArray(progressNotes.projectId, [...projectIds]))
+      .groupBy(progressNotes.projectId);
+
+    return new Map(rows.map((row) => [row.projectId, row.lastAt]));
   }
 }
 

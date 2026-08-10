@@ -10,9 +10,11 @@ import { TASK_STATUSES } from '../domain/task.entity';
  * `tenantId` HICBIR govdede YOKTUR: dogrulanmis token'dan gelir
  * (DEVELOPMENT_RULES 4.5).
  *
- * ⚠️ `companyId` DE HICBIR GOVDEDE YOK — ve bu ayri bir karardir (ADR-0033 §2):
- * kolon `0020`'de aciliyor ama API'nin kabul etmesi Slice 4'e birakildi, cunku
- * dogrulama ve adin cozulmesi icin gereken `crm.public.ts` orada yaziliyor.
+ * ⚠️ `companyId` SLICE 4'TE KABUL EDILMEYE BASLADI (ADR-0033 §2). Kolon
+ * `0020`'de acilmisti ama API'nin kabul etmesi `crm.public.ts` gelene kadar
+ * bilerek ertelenmisti: dogrulanamayan bir cross-modul isaretciyi kabul etmek
+ * ILK GUNDEN sarkan satir uretmek olurdu. Artik yazma aninda GORUNURLUK
+ * dogrulanabiliyor.
  */
 
 const MAX_NAME = 300;
@@ -37,6 +39,14 @@ export const createProjectSchema = z
     description: optionalText(MAX_DESCRIPTION),
     startedOn: calendarDay,
     dueOn: calendarDay,
+    /**
+     * Cross-modul YUMUSAK referans (ADR-0033 §2).
+     *
+     * `null` = IC PROJE (musteriye bagli degil) ve mesru bir durumdur.
+     * Verilen id yazma aninda GORUNURLUK acisindan dogrulanir; goremedigin bir
+     * sirkete proje baglayamazsin.
+     */
+    companyId: z.uuid('companyId gecerli bir UUID olmali').nullish(),
   })
   .strict();
 

@@ -111,6 +111,23 @@ export class TaskAssigneeNotMemberError extends ProjectsDomainError {
   }
 }
 
+/**
+ * Proje, gorulemeyen bir sirkete baglanamaz (ADR-0033 §2).
+ *
+ * ============================================================================
+ * UC DURUM AYIRT EDILMEZ — bilincli
+ * ============================================================================
+ * "Sirket yok", "baska tenant'in" ve "`company:read` tasimiyorsun" AYNI hatayi
+ * verir; `CompanyDirectory` ucunu de haritada YOK olarak dondurur. Ayirmak,
+ * reddin sebebinden o sirketin VAR OLDUGUNU cikarilabilmesi demekti.
+ */
+export class ProjectCompanyNotFoundError extends ProjectsDomainError {
+  readonly code = 'PROJECT_COMPANY_NOT_FOUND';
+  constructor() {
+    super('Projenin baglanacagi sirket bulunamadi.');
+  }
+}
+
 export class BlankProgressNoteBodyError extends ProjectsDomainError {
   readonly code = 'PROGRESS_NOTE_BODY_BLANK';
   constructor() {

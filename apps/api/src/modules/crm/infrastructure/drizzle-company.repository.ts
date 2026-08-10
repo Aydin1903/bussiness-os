@@ -209,4 +209,25 @@ export class DrizzleCompanyRepository implements CompanyRepository {
     });
     return deleted.length;
   }
+
+  /**
+   * `id -> ad` — `CompanyDirectory` icin TEK sorgu (ADR-0033 §2).
+   *
+   * `WHERE tenant_id` YOK: daraltmayi RLS yapar, yani baska tenant'in sirketi
+   * haritaya giremez. Bulunamayan id sessizce DUSER — cagiran icin "silinmis"
+   * ile "gormuyorsun" ayni sonuctur ve ayni sekilde ele alinir.
+   */
+  async findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const { db } = requireTransaction();
+    const rows = await db
+      .select({ id: companies.id, name: companies.name })
+      .from(companies)
+      .where(inArray(companies.id, [...ids]));
+
+    return new Map(rows.map((row) => [row.id, row.name]));
+  }
 }

@@ -1,6 +1,7 @@
 import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
+import { type CompanyDirectory } from '../../crm/crm.public';
 import {
   Project,
   type ProjectFields,
@@ -8,7 +9,7 @@ import {
   type ProjectState,
   type ProjectStatus,
 } from '../domain/project.entity';
-import { ProjectNotFoundError } from '../domain/projects.error';
+import { ProjectCompanyNotFoundError, ProjectNotFoundError } from '../domain/projects.error';
 import {
   type ListPage,
   type ProjectListRow,
@@ -17,22 +18,29 @@ import {
 import { today } from './today';
 
 /**
- * Proje yasam dongusu (ADR-0033 §1).
+ * Proje yasam dongusu (ADR-0033 §1, §2).
  *
  * ============================================================================
  * BES USE CASE TEK DOSYADA — `CompanyUseCases` ile ayni gerekce
  * ============================================================================
  * Besi de AYNI kaynagin CRUD'udur: ayni repository, ayni transaction sinirlari,
- * ayni "bulunamadi -> 404" kurali. Bes dosyaya bolmek, her birinde ayni uc
- * satirlik bagimlilik blogunu tekrarlamak olurdu.
+ * ayni "bulunamadi -> 404" kurali.
  *
- * ⚠️ Bu sapma AI ya da coklu-adim bir akis eklendiginde YENIDEN DEGERLENDIRILIR
- * (Slice 3'te `progress_notes` embedding uretecek ve KENDI dosyasini alacak —
- * CRM'de `interactions`in aldigi gibi).
  * ============================================================================
+ * CROSS-MODUL OKUMA: `CompanyDirectory` (ADR-0033 §2)
+ * ============================================================================
+ * Sirket ADI `projects.projects`e KOPYALANMAZ; her okumada CRM'in public
+ * yuzeyinden cozulur. Kopyalansaydi sirket yeniden adlandirildiginda proje
+ * listesi eski adi gostermeye devam ederdi.
+ *
+ * Izin kapisi (`company:read`) dizinin ICINDEDIR, burada DEGIL — unutan tek
+ * modul bir sizinti kapisi acardi. Buradan bakildiginda tek gorunen sey sudur:
+ * ad gelmediyse `null`, ve sebebi SORULMAZ (silinmis olabilir, gorulemiyor
+ * olabilir; ikisi ayirt edilmez ve edilmemelidir).
  */
 export interface ProjectDependencies {
   readonly repository: ProjectRepository;
+  readonly companyDirectory: CompanyDirectory;
   readonly transactionManager: TransactionManager;
   readonly idGenerator: IdGenerator;
   readonly clock: Clock;
@@ -41,7 +49,13 @@ export interface ProjectDependencies {
 export class ProjectUseCases {
   constructor(private readonly deps: ProjectDependencies) {}
 
-  async create(input: { tenantId: string; fields: ProjectFields }): Promise<ProjectState> {
+  async create(input: {
+    tenantId: string;
+    role: string;
+    fields: ProjectFields;
+  }): Promise<ProjectState> {
+    await this.#assertCompanyVisible(input.fields.companyId, input.role);
+
     const project = Project.create({
       id: this.deps.idGenerator.nextId(),
       tenantId: input.tenantId,
@@ -59,41 +73,54 @@ export class ProjectUseCases {
   /**
    * Sayfali liste — repository PROJEKSIYON doner, entity degil.
    *
-   * `openTaskCount` / `overdueTaskCount` `Project` entity'sinde YOKTUR (ve
-   * olmamalidir): baska bir tablodan turer. `CompanyUseCases.list` ile ayni
-   * karar; gerekce `project.repository.port.ts`te.
+   * Sirket adlari TEK sorguda cozulur (`CompanyDirectory` toplu calisir); satir
+   * basina cagri N+1 olurdu.
    */
   async list(input: {
     limit: number;
     offset: number;
     status: ProjectStatus | null;
+    role: string;
   }): Promise<ListPage<ProjectListRow>> {
-    return this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+    const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
       this.deps.repository.list({ ...input, today: today(this.deps.clock) }),
     );
+
+    return { items: await this.#withCompanyNames(page.items, input.role), total: page.total };
   }
 
-  async get(id: string): Promise<ProjectState> {
+  async get(input: {
+    id: string;
+    role: string;
+  }): Promise<ProjectState & { companyName: string | null }> {
     const project = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
-      this.deps.repository.findById(id),
+      this.deps.repository.findById(input.id),
     );
 
     if (project === null) {
       throw new ProjectNotFoundError();
     }
 
-    return project.toState();
+    const state = project.toState();
+    const [withName] = await this.#withCompanyNames([state], input.role);
+    // Dizi tek elemanla girdi, tek elemanla cikar; `?? ` savunma katmani.
+    return withName ?? { ...state, companyName: null };
   }
 
   /**
    * KISMI guncelleme.
    *
-   * Okuma ve yazma AYNI transaction'dadir: arada baska bir istek satiri
-   * degistirirse en azindan tutarli bir taban uzerinde calisilmis olur.
-   * ⚠️ Bu bir KILIT DEGILDIR — es zamanli iki `PATCH`'te son yazan kazanir
-   * (bilinen sinir, bkz. `Project` sinif yorumu).
+   * Okuma ve yazma AYNI transaction'dadir. ⚠️ Bu bir KILIT DEGILDIR — es
+   * zamanli iki `PATCH`'te son yazan kazanir (bilinen sinir).
    */
-  async update(input: { id: string; changes: ProjectPatch }): Promise<ProjectState> {
+  async update(input: { id: string; role: string; changes: ProjectPatch }): Promise<ProjectState> {
+    // Sirket kontrolu transaction'in DISINDA ve ONCESINDE: `CompanyDirectory`
+    // KENDI transaction'ini acar (`TaskUseCases`in atama kontrolunde verilen
+    // ayni karar — ic ice transaction kismi commit riski uretir).
+    if (input.changes.companyId !== undefined) {
+      await this.#assertCompanyVisible(input.changes.companyId, input.role);
+    }
+
     return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
       const existing = await this.deps.repository.findById(input.id);
       if (existing === null) {
@@ -107,16 +134,9 @@ export class ProjectUseCases {
   }
 
   /**
-   * SERT silme.
-   *
-   * ⚠️ Bu slice'ta cascade edecek bir COCUK YOK: `tasks` Slice 2'de,
-   * `progress_notes` Slice 3'te aciliyor ve ikisi de `ON DELETE CASCADE`
-   * tasiyacak (ADR-0033 §8). Yani bugun tek satir silen bu islem, Slice 3'ten
-   * sonra AI HAFIZASINDAN DA SILEN bir isleme donusecek — `project:delete`in
-   * `project:write`tan ayri tutulmasinin sebebi tam olarak budur.
-   *
-   * Silinen satir sayisi `0` ise kayit yoktur YA DA baska tenant'indir — ikisi
-   * ayirt EDILMEZ (bkz. `ProjectNotFoundError`).
+   * SERT silme; gorevler ve ilerleme notlari `ON DELETE CASCADE` ile birlikte
+   * gider (ADR-0033 §8) — yani AI HAFIZASINDAN DA siler. `project:delete`in
+   * `project:write`tan ayri tutulmasinin sebebi budur.
    */
   async delete(id: string): Promise<void> {
     const deleted = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
@@ -126,5 +146,48 @@ export class ProjectUseCases {
     if (deleted === 0) {
       throw new ProjectNotFoundError();
     }
+  }
+
+  /**
+   * Verilen `companyId` cagiran icin GORUNUR mu (ADR-0033 §2).
+   *
+   * `null` gecerlidir ve kontrol edilmez: ic proje mesrudur.
+   *
+   * ⚠️ "Sirket yok", "baska tenant'in" ve "`company:read` tasimiyorsun" AYNI
+   * hatayi verir — dizin ucunu ayirt etmez (bkz. `crm.public.ts`). Sonucu:
+   * goremedigi bir sirkete proje baglayamaz, ve reddin sebebinden o sirketin
+   * VAR OLDUGUNU cikaramaz.
+   */
+  async #assertCompanyVisible(companyId: string | null, role: string): Promise<void> {
+    if (companyId === null) {
+      return;
+    }
+
+    const names = await this.deps.companyDirectory.findNames({ ids: [companyId], role });
+    if (!names.has(companyId)) {
+      throw new ProjectCompanyNotFoundError();
+    }
+  }
+
+  /**
+   * Satirlara sirket adini ekler — TEK toplu sorgu.
+   *
+   * Ad bulunamayanlar `null` alir ve satir listeden DUSMEZ: sarkan bir
+   * isaretci (silinmis sirket) tolere edilen normal bir durumdur (ADR-0033
+   * §2d), `company:read` yoklugu da oyle.
+   */
+  async #withCompanyNames<T extends { readonly companyId: string | null }>(
+    rows: readonly T[],
+    role: string,
+  ): Promise<(T & { companyName: string | null })[]> {
+    const ids = [
+      ...new Set(rows.flatMap((row) => (row.companyId === null ? [] : [row.companyId]))),
+    ];
+    const names = await this.deps.companyDirectory.findNames({ ids, role });
+
+    return rows.map((row) => ({
+      ...row,
+      companyName: row.companyId === null ? null : (names.get(row.companyId) ?? null),
+    }));
   }
 }

@@ -23,11 +23,14 @@ function create(overrides: Partial<Parameters<typeof Project.create>[0]['fields'
       description: 'Kurumsal site',
       startedOn: null,
       dueOn: null,
+      companyId: null,
       ...overrides,
     },
     now: NOW,
   });
 }
+
+const COMPANY = '018f3a2b-7c4d-7e1f-8a2b-0000000000ff';
 
 describe('Project — olusturma', () => {
   it('adin bosluklarini kirpar', () => {
@@ -48,11 +51,20 @@ describe('Project — olusturma', () => {
     expect(state.statusChangedAt).toEqual(state.createdAt);
   });
 
-  it('companyId olusturmada HER ZAMAN null (Slice 4e kadar yazilmiyor)', () => {
-    // ADR-0033 §2: kolon `0020`de aciliyor ama API kabul etmiyor. Dogrulanamayan
-    // bir cross-modul isaretciyi bugunden kabul etmek, ilk gunden sarkan satir
-    // uretmek olurdu.
+  it('companyId `null` olabilir — IC PROJE mesrudur', () => {
+    // ADR-0033 §2: her proje bir musteriye ait olmak zorunda DEGIL.
     expect(create().toState().companyId).toBeNull();
+  });
+
+  it('companyId SLICE 4 TEN ITIBAREN yazilabiliyor', () => {
+    // ⚠️ Bu test Slice 1'de TERSINI iddia ediyordu ("her zaman null"), cunku o
+    // gun API `companyId` kabul etmiyordu: dogrulamasi icin gereken
+    // `crm.public.ts` henuz yoktu. Iddia bilerek DEGISTIRILDI — kilitlenen sey
+    // artik ertelemenin kendisi degil, referansin tasindigi.
+    //
+    // VARLIK kontrolu burada DEGIL: bir veritabani sorgusu ister ve `domain`
+    // katmani framework'suzdur. Entity isaretciyi yalnizca TASIR.
+    expect(create({ companyId: COMPANY }).toState().companyId).toBe(COMPANY);
   });
 
   it('bitis baslangictan ONCE olamaz', () => {
@@ -142,6 +154,17 @@ describe('Project — kismi guncelleme (PATCH semantigi)', () => {
     const state = create().update({ name: 'Yeni' }, LATER).toState();
     expect(state.updatedAt).toEqual(LATER);
     expect(state.createdAt).toEqual(NOW);
+  });
+
+  it('companyId BAGLANABILIR ve `null` ile KOPARILABILIR', () => {
+    // Bir projeyi ic projeye cevirmek mesru bir islemdir; `undefined` ile
+    // ayrimi PATCH'in butun sebebi.
+    const internal = create();
+    expect(internal.update({ companyId: COMPANY }, LATER).toState().companyId).toBe(COMPANY);
+
+    const linked = create({ companyId: COMPANY });
+    expect(linked.update({ companyId: null }, LATER).toState().companyId).toBeNull();
+    expect(linked.update({ name: 'Yeni' }, LATER).toState().companyId).toBe(COMPANY);
   });
 });
 

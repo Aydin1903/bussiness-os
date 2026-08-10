@@ -48,4 +48,24 @@ export interface ProgressNoteRepository {
    */
   countUnindexed(): Promise<number>;
   findUnindexed(limit: number): Promise<UnindexedProgressNote[]>;
+
+  /**
+   * ANLAMSAL arama (ADR-0033 §6 — `project-notes` katkicisi).
+   *
+   * TENANT FILTRESI YOK ve bu BILINCLI: daraltmayi RLS yapar (migration `0022`)
+   * ve cagiran zaten tenant transaction'i icindedir.
+   * `InteractionRepository.findSimilarChunks` ile birebir ayni gerekce.
+   */
+  findSimilarChunks(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarProgressNoteChunk[]>;
+}
+
+/** Anlamsal aramanin dondurdugu tek parca. */
+export interface SimilarProgressNoteChunk {
+  /** Parca metni — BAGLAM BASLIGI dahil (gomulen sey tam olarak budur). */
+  readonly content: string;
+  /** Hangi nottan geldi — kaynak atfi bundan turer. */
+  readonly progressNoteId: string;
 }

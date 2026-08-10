@@ -108,6 +108,7 @@ export interface AppConfig {
   readonly projects: {
     readonly notesRateLimit: number;
     readonly reindexBatchSize: number;
+    readonly staleDays: number;
   };
 
   /** Gunluk rapor worker'i (ADR-0030 §2). */
@@ -168,6 +169,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     projects: {
       notesRateLimit: env.PROJECTS_NOTES_RATE_LIMIT,
       reindexBatchSize: env.PROJECTS_REINDEX_BATCH_SIZE,
+      staleDays: env.PROJECTS_STALE_DAYS,
     },
     ...toAiConfig(env),
   };

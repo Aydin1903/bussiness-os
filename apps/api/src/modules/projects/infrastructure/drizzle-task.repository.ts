@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   and,
+  asc,
   desc,
   eq,
   inArray,
@@ -12,10 +13,14 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { tasks } from '../../../infrastructure/database/schema';
+import { projects, tasks } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { type ListPage } from '../application/project.repository.port';
-import { type TaskListFilter, type TaskRepository } from '../application/task.repository.port';
+import {
+  type OverdueTaskRow,
+  type TaskListFilter,
+  type TaskRepository,
+} from '../application/task.repository.port';
 import { InvalidTaskStatusError } from '../domain/projects.error';
 import { CLOSED_TASK_STATUSES, isTaskStatus, Task, type TaskStatus } from '../domain/task.entity';
 
@@ -146,6 +151,47 @@ export class DrizzleTaskRepository implements TaskRepository {
     const { db } = requireTransaction();
     const deleted = await db.delete(tasks).where(eq(tasks.id, id)).returning({ id: tasks.id });
     return deleted.length;
+  }
+
+  /**
+   * EN COK GECIKMIS gorevler (ADR-0033 §6.1).
+   *
+   * ⚠️ `LEFT JOIN` ZORUNLU: `project_id` NULLABLE'dir ve `INNER JOIN` olsaydi
+   * PROJESIZ gecikmis gorevler ("Faturayi gonder") AI'in gozunden SESSIZCE
+   * kaybolurdu. Modulun karakteristik karari (§3) tam da burada kendini
+   * gosteriyor: nullable ebeveyn, her okuma yolunda bilincli bir secim ister.
+   *
+   * Yuklem migration `0021`'in KISMI INDEX'iyle birebir eslesir.
+   */
+  async findMostOverdue(input: { limit: number; today: string }): Promise<OverdueTaskRow[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({
+        taskId: tasks.id,
+        title: tasks.title,
+        dueOn: tasks.dueOn,
+        assigneeUserId: tasks.assigneeUserId,
+        projectName: projects.name,
+      })
+      .from(tasks)
+      .leftJoin(projects, eq(projects.id, tasks.projectId))
+      .where(
+        and(
+          isNotNull(tasks.dueOn),
+          notInArray(tasks.status, [...CLOSED_TASK_STATUSES]),
+          lt(tasks.dueOn, input.today),
+        ),
+      )
+      // EN ESKI once: "en cok geciken" ilk gorunur. `id` tie-breaker.
+      .orderBy(asc(tasks.dueOn), asc(tasks.id))
+      .limit(input.limit);
+
+    // `due_on` kolonu NULLABLE ama yuklem (`isNotNull`) onu zaten garantiliyor;
+    // tip sistemi bunu goremez. Zorlama (`as`) KULLANILMAZ (DEVELOPMENT_RULES
+    // 2.3) — acik daraltma yapilir, boylece beklenmeyen bir `null` sessizce
+    // gecmek yerine satiri DUSURUR.
+    return rows.flatMap((row) => (row.dueOn === null ? [] : [{ ...row, dueOn: row.dueOn }]));
   }
 }
 

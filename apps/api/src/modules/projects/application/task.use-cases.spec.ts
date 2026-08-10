@@ -65,6 +65,7 @@ function existingProject(): Project {
       description: null,
       startedOn: null,
       dueOn: null,
+      companyId: null,
     },
     now: NOW,
   });

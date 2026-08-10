@@ -54,6 +54,7 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
 
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).
   PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  PROJECT_COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
   TASK_NOT_FOUND: HttpStatus.NOT_FOUND,
   TASK_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
   PROGRESS_NOTE_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,

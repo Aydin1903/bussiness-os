@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, cosineDistance, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
 import {
   progressNoteChunks,
@@ -10,6 +10,7 @@ import {
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import {
   type ProgressNoteRepository,
+  type SimilarProgressNoteChunk,
   type UnindexedProgressNote,
 } from '../application/progress-note.repository.port';
 import { type ListPage } from '../application/project.repository.port';
@@ -151,6 +152,34 @@ export class DrizzleProgressNoteRepository implements ProgressNoteRepository {
       .where(isNull(progressNoteChunks.id))
       .orderBy(progressNotes.createdAt)
       .limit(limit);
+
+    return rows;
+  }
+
+  /**
+   * ANLAMSAL arama — `project-notes` katkicisinin tek sorgusu.
+   *
+   * ⚠️ `cosineDistance` (`<=>`) kullanilir cunku HNSW index'i
+   * `vector_cosine_ops` ile kuruldu (migration `0022`). Operator ayrisirsa
+   * index DEVRE DISI kalir ve sorgu tam tarama yapar — sessiz bir performans
+   * coku. `DrizzleInteractionRepository` ile birebir ayni satir.
+   *
+   * `WHERE tenant_id` YOK: daraltmayi RLS yapar.
+   */
+  async findSimilarChunks(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarProgressNoteChunk[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({
+        content: progressNoteChunks.content,
+        progressNoteId: progressNoteChunks.progressNoteId,
+      })
+      .from(progressNoteChunks)
+      .orderBy(asc(cosineDistance(progressNoteChunks.embedding, [...input.embedding])))
+      .limit(input.limit);
 
     return rows;
   }

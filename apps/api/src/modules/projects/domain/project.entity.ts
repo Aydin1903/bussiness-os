@@ -53,6 +53,16 @@ export function isProjectStatus(value: string): value is ProjectStatus {
   return PROJECT_STATUSES.some((status) => status === value);
 }
 
+/**
+ * KAPANMIS proje durumlari — yapisal katkici bunlari DISLAR (ADR-0033 §6.1).
+ *
+ * `CLOSED_STAGES` / `CLOSED_TASK_STATUSES` ile ayni is: yuklem iki yerde ayri
+ * yazilsaydi biri degistiginde digeri sessizce ayrisirdi. "Su an neyin
+ * uzerinde calisiyoruz" sorusu tamamlanmis ve iptal edilmis projeleri
+ * ICERMEZ.
+ */
+export const CLOSED_PROJECT_STATUSES: readonly ProjectStatus[] = ['completed', 'cancelled'];
+
 export interface ProjectFields {
   readonly name: string;
   readonly status: ProjectStatus;
@@ -60,6 +70,21 @@ export interface ProjectFields {
   /** `YYYY-MM-DD`. Takvim gunu, an DEGIL. */
   readonly startedOn: string | null;
   readonly dueOn: string | null;
+  /**
+   * Cross-modul YUMUSAK referans: `crm.companies.id` — ama FK DEGIL
+   * (ADR-0033 §2).
+   *
+   * ⚠️ SLICE 4'TE `ProjectFields`E GIRDI. Slice 1'de bilerek disaridaydi:
+   * dogrulamasi ve adin cozulmesi icin gereken `crm.public.ts` o gun yoktu ve
+   * dogrulanamayan bir isaretciyi kabul etmek ILK GUNDEN sarkan satir uretmek
+   * olurdu. Artik `CompanyDirectory` var; yazma aninda GORUNURLUK dogrulanir.
+   *
+   * ⚠️ VARLIK KONTROLU BURADA DEGIL: bir veritabani sorgusu gerektirir ve
+   * `domain` katmani framework'suzdur. Kontrol use case'tedir.
+   *
+   * `null` = ic proje (musteriye bagli degil) ve bu MESRU bir durumdur.
+   */
+  readonly companyId: string | null;
 }
 
 /**
@@ -76,18 +101,6 @@ export type ProjectPatch = {
 export interface ProjectState extends ProjectFields {
   readonly id: string;
   readonly tenantId: string;
-  /**
-   * Cross-modul YUMUSAK referans: `crm.companies.id` — ama FK DEGIL
-   * (ADR-0033 §2).
-   *
-   * ⚠️ `ProjectFields`TE DEGIL, yani bu slice'ta YAZILAMAZ ve GUNCELLENEMEZ.
-   * API'nin `companyId` kabul etmesi Slice 4'e birakildi: dogrulamasi ve adin
-   * cozulmesi icin gereken `crm.public.ts` orada yaziliyor. Dogrulanamayan bir
-   * isaretciyi bugunden kabul etmek, ilk gunden sarkan satir uretmek olurdu.
-   *
-   * Bugun her zaman `null`; kaliciliktan okunan deger oldugu gibi tasinir.
-   */
-  readonly companyId: string | null;
   readonly statusChangedAt: Date;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -115,7 +128,6 @@ export class Project {
       ...input.fields,
       name,
       description: blankToNull(input.fields.description),
-      companyId: null,
       statusChangedAt: input.now,
       createdAt: input.now,
       updatedAt: input.now,
@@ -159,6 +171,9 @@ export class Project {
         changes.description === undefined ? current.description : blankToNull(changes.description),
       startedOn,
       dueOn,
+      // `null` = musteri baglantisini KALDIR; mesru bir islem (ic projeye
+      // donusturmek). `undefined` = dokunma.
+      companyId: changes.companyId === undefined ? current.companyId : changes.companyId,
       // GERCEK degisim yoksa DOKUNULMAZ — bkz. sinif yorumu.
       statusChangedAt: status === current.status ? current.statusChangedAt : now,
       updatedAt: now,
