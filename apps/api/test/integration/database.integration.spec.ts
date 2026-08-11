@@ -113,6 +113,9 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0024, `finance.transactions`. 0023'ten ONCE: `finance.categories`'e
+      // BILESIK bir FK tasir ve 0023 semayi dusurmeden once bu gitmeli.
+      '0024_finance_transactions.down.sql',
       // 0023, `finance` semasi ve `finance.categories`. `projects` ve `crm`'den
       // BAGIMSIZDIR (cross-schema FK yok) ama konvansiyon geregi en yeni once
       // alinir. ⚠️ Bu satir migration ile AYNI COMMIT'te eklendi — `0019`un

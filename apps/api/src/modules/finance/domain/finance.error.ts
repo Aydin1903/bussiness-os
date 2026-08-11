@@ -86,3 +86,94 @@ export class InvalidFinanceTimestampError extends FinanceDomainError {
     super('Guncelleme zamani olusturma zamanindan once olamaz.');
   }
 }
+
+// --- Islemler (ADR-0034 §2, §3c) -------------------------------------------
+
+/**
+ * Tutar gecersiz.
+ *
+ * Mesaj KURALI soyler, yalnizca "gecersiz" demez: istemcinin en sik yaptigi
+ * hata ikiden fazla ondalik gondermektir (`0.1 + 0.2` sonucu gibi) ve bu,
+ * "gecersiz tutar" mesajiyla teshis edilemez.
+ */
+export class InvalidAmountError extends FinanceDomainError {
+  readonly code = 'FINANCE_AMOUNT_INVALID';
+  constructor(value: string) {
+    super(
+      `Gecersiz tutar: ${value}. Tutar SIFIRDAN BUYUK olmali, en fazla 12 tam sayi ve 2 ondalik hane tasimali.`,
+    );
+  }
+}
+
+export class InvalidCurrencyError extends FinanceDomainError {
+  readonly code = 'FINANCE_CURRENCY_INVALID';
+  constructor(value: string) {
+    super(`Gecersiz para birimi: ${value}. Uc harfli ISO 4217 kodu bekleniyor (orn. TRY).`);
+  }
+}
+
+export class InvalidOccurredOnError extends FinanceDomainError {
+  readonly code = 'FINANCE_OCCURRED_ON_INVALID';
+  constructor(value: string) {
+    super(`Gecersiz tarih: ${value}. YYYY-AA-GG bekleniyor.`);
+  }
+}
+
+/** `ProjectNotFoundError` ile ayni "yok mu senin degil mi" disiplini. */
+export class TransactionNotFoundError extends FinanceDomainError {
+  readonly code = 'FINANCE_TRANSACTION_NOT_FOUND';
+  constructor() {
+    super('Islem bulunamadi.');
+  }
+}
+
+/**
+ * Islem, var olmayan (ya da baska tenant'in) bir kategoriye baglanamaz.
+ *
+ * `TaskProjectNotFoundError` ile ayni desen: govdedeki bir ALAN var olmayan bir
+ * KAYNAGA isaret ediyor, dolayisiyla 404.
+ */
+export class TransactionCategoryNotFoundError extends FinanceDomainError {
+  readonly code = 'FINANCE_TRANSACTION_CATEGORY_NOT_FOUND';
+  constructor() {
+    super('Islemin baglanacagi kategori bulunamadi.');
+  }
+}
+
+/**
+ * Kategorinin yonu islemin yonuyle uyusmuyor (ADR-0034 §3c).
+ *
+ * ============================================================================
+ * IKI KATMAN AYNI SEYI SOYLUYOR — VE BU BILINCLI
+ * ============================================================================
+ * Veritabani bunu `transactions_category_direction_fkey` BILESIK FK'si ile
+ * zaten IMKANSIZ kiliyor. Uygulama katmani kontrolu yine de yapiyor cunku
+ * PostgreSQL'in FK hatasi KRIPTIKTIR ("insert or update on table ... violates
+ * foreign key constraint") ve kullaniciya ne yaptigini SOYLEMEZ.
+ *
+ * Yani: dogru hata mesajini uygulama uretir, GARANTIYI veritabani verir.
+ * Ikisinden biri kaldirilirsa ya mesaj anlasilmaz olur ya da uygulamayi atlayan
+ * bir yol sessizce bozuk veri yazar.
+ *
+ * 422, 404 DEGIL: kategori VAR — istekteki iki alan birbiriyle celisiyor.
+ */
+export class CategoryDirectionMismatchError extends FinanceDomainError {
+  readonly code = 'FINANCE_CATEGORY_DIRECTION_MISMATCH';
+  constructor() {
+    super('Kategorinin yonu islemin yonuyle uyusmuyor (gelir kaydina gider kategorisi secilemez).');
+  }
+}
+
+/**
+ * Arsivlenmis kategori YENI kayitlarda secilemez (ADR-0034 §3e).
+ *
+ * Arsivlemenin var olma sebebi tam olarak budur: gecmis kayitlar kategoriyi
+ * korur, yeni kayitlar onu secemez. Engellenmeseydi arsivleme yalnizca bir
+ * GORSEL filtre olurdu ve silmenin gercek alternatifi olamazdi.
+ */
+export class ArchivedCategoryError extends FinanceDomainError {
+  readonly code = 'FINANCE_CATEGORY_ARCHIVED';
+  constructor() {
+    super('Arsivlenmis bir kategori yeni kayitlarda secilemez.');
+  }
+}

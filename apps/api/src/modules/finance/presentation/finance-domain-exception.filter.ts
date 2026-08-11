@@ -40,8 +40,22 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   FINANCE_DIRECTION_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   FINANCE_TIMESTAMP_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
+  // Islem alan dogrulamalari (ADR-0034 §2).
+  FINANCE_AMOUNT_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  FINANCE_CURRENCY_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  FINANCE_OCCURRED_ON_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+
+  // 422, 404 DEGIL: kategori VAR — istekteki iki alan birbiriyle celisiyor
+  // (gerekce `CategoryDirectionMismatchError`de).
+  FINANCE_CATEGORY_DIRECTION_MISMATCH: HttpStatus.UNPROCESSABLE_ENTITY,
+  FINANCE_CATEGORY_ARCHIVED: HttpStatus.UNPROCESSABLE_ENTITY,
+
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).
   FINANCE_CATEGORY_NOT_FOUND: HttpStatus.NOT_FOUND,
+  FINANCE_TRANSACTION_NOT_FOUND: HttpStatus.NOT_FOUND,
+  // Govdedeki bir ALAN var olmayan bir KAYNAGA isaret ediyor
+  // (`TaskProjectNotFoundError` ile ayni desen).
+  FINANCE_TRANSACTION_CATEGORY_NOT_FOUND: HttpStatus.NOT_FOUND,
 
   // 409, 422 DEGIL: govdedeki alan gecerlidir — CAKISAN sey KAYNAGIN MEVCUT
   // DURUMUDUR. Ayni ayrim asagidaki "kullanimda" hatasi icin de gecerli.

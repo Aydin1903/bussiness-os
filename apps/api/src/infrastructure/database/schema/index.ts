@@ -63,3 +63,4 @@ export { progressNoteChunks } from './progress-note-chunks.schema';
 // silinirse hata TIP DENETIMINDE degil, migration calisirken gorunur.
 export { financeSchema } from './finance.schema';
 export { financeCategories } from './finance-categories.schema';
+export { financeTransactions } from './finance-transactions.schema';

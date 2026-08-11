@@ -51,6 +51,24 @@ export const FINANCE_CATEGORY_WRITE = 'finance_category:write';
 export const FINANCE_CATEGORY_DELETE = 'finance_category:delete';
 
 /**
+ * Islem izinleri (ADR-0034 §7).
+ *
+ * ⚠️ `transaction` NITELENMEMIS bir addir ve bu bilinclidir — `category`den
+ * FARKLI. Sebep, aynı sorunun cevabinin farkli cikmasidir: bir baska modulun
+ * "kategori"si olmasi COK MUHTEMELDIR (Stok/Envanter), bir baska modulun
+ * "islem"i olmasi ise degildir. Gereksiz nitelemek de bir maliyettir: her
+ * kullanimda okunan daha uzun bir string ve "neden bu nitelenmis, oteki degil"
+ * sorusu.
+ *
+ * ⚠️ `delete` VAR — `interaction`/`progress_note`ta YOKTU. Onlar ekleme-yalniz
+ * gunluklerdi; islem ise YASAYAN bir veri kalemidir ve yanlis girilmis bir
+ * kayit silinebilmelidir (ADR-0034 §8).
+ */
+export const TRANSACTION_READ = 'transaction:read';
+export const TRANSACTION_WRITE = 'transaction:write';
+export const TRANSACTION_DELETE = 'transaction:delete';
+
+/**
  * ============================================================================
  * ⚠️ UC PERMISSION DA BUGUN AYNI KUMEYI TASIYOR — AYRIMIN BUGUNKU DEGERI SIFIR
  * ============================================================================
@@ -70,4 +88,8 @@ export const FINANCE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: FINANCE_CATEGORY_READ, roles: ['owner', 'admin'] },
   { permission: FINANCE_CATEGORY_WRITE, roles: ['owner', 'admin'] },
   { permission: FINANCE_CATEGORY_DELETE, roles: ['owner', 'admin'] },
+
+  { permission: TRANSACTION_READ, roles: ['owner', 'admin'] },
+  { permission: TRANSACTION_WRITE, roles: ['owner', 'admin'] },
+  { permission: TRANSACTION_DELETE, roles: ['owner', 'admin'] },
 ];

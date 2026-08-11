@@ -67,7 +67,7 @@ describe('finance semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE finance.categories CASCADE');
+    await ownerPool.query('TRUNCATE finance.transactions, finance.categories CASCADE');
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -108,15 +108,15 @@ describe('finance semasi (gercek PostgreSQL)', () => {
   }
 
   describe('sema ve kisitlar', () => {
-    it('TEK tablo finance semasinda olusturuldu', async () => {
+    it('IKI tablo finance semasinda olusturuldu', async () => {
       // ⚠️ Bu satir her yeni tabloda guncellenir. `crm-schema`nin "bes tablo"
       // iddiasinin `0019`dan sonra guncellenmemis olmasi testi aylarca kirmizi
-      // birakmisti; `0024` ve `0025` geldiginde buraya donulecek.
+      // birakmisti; `0025` geldiginde buraya yine donulecek.
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'finance' ORDER BY table_name",
       );
 
-      expect(rows.rows.map((row) => row.table_name)).toEqual(['categories']);
+      expect(rows.rows.map((row) => row.table_name)).toEqual(['categories', 'transactions']);
     });
 
     it('BOS kategori adi reddedilir (veritabani seviyesinde)', async () => {
@@ -200,6 +200,218 @@ describe('finance semasi (gercek PostgreSQL)', () => {
       );
 
       expect(rows.rows.map((row) => row.target)).toEqual(['platform.tenants']);
+    });
+  });
+
+  describe('islemler — bilesik FK ve para kisitlari (ADR-0034 §2, §3c)', () => {
+    async function insertTransaction(
+      tenantId: string,
+      overrides: {
+        direction?: string;
+        amount?: string;
+        currency?: string;
+        occurredOn?: string;
+        categoryId?: string | null;
+        description?: string | null;
+      } = {},
+    ): Promise<string> {
+      const id = randomUUID();
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO finance.transactions
+             (id, tenant_id, direction, amount, currency, occurred_on, category_id, description, created_by_user_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            id,
+            tenantId,
+            overrides.direction ?? 'expense',
+            overrides.amount ?? '1500.00',
+            overrides.currency ?? 'TRY',
+            overrides.occurredOn ?? '2026-08-01',
+            overrides.categoryId ?? null,
+            overrides.description ?? null,
+            USER_A,
+          ],
+        ),
+      );
+      return id;
+    }
+
+    it('KATEGORISIZ islem yazilabilir — MATCH SIMPLE in kaniti', async () => {
+      // ⚠️ BU TEST BILESIK FK'NIN `MATCH SIMPLE` OLDUGUNU KANITLAR.
+      // `MATCH FULL` yazilsaydi ("ya hepsi dolu ya hepsi NULL") `direction`
+      // NOT NULL oldugu icin kategorisiz kayit IMKANSIZ olurdu — ve bu, sahte
+      // kategori tuzagini geri getirirdi.
+      await expect(insertTransaction(TENANT_A, { categoryId: null })).resolves.toBeDefined();
+    });
+
+    it('AYNI yondeki kategori kabul edilir', async () => {
+      const categoryId = await insertCategory(TENANT_A, { direction: 'expense' });
+      await expect(
+        insertTransaction(TENANT_A, { direction: 'expense', categoryId }),
+      ).resolves.toBeDefined();
+    });
+
+    it('⚠️ TERS yondeki kategori VERITABANI SEVIYESINDE reddedilir', async () => {
+      // Bu modulun en onemli kisiti: "gelir kaydina gider kategorisi" imkansiz.
+      // Uygulama katmani da kontrol ediyor ama bu satir, uygulamayi ATLAYAN her
+      // yolu (elle SQL, ileride bir ithalat betigi) baglar.
+      const categoryId = await insertCategory(TENANT_A, { direction: 'expense' });
+
+      await expect(
+        insertTransaction(TENANT_A, { direction: 'income', categoryId }),
+      ).rejects.toThrow(/transactions_category_direction_fkey/);
+    });
+
+    it('VAR OLMAYAN kategori reddedilir', async () => {
+      await expect(insertTransaction(TENANT_A, { categoryId: randomUUID() })).rejects.toThrow(
+        /transactions_category_direction_fkey/,
+      );
+    });
+
+    it('⚠️ KULLANIMDAKI kategori SILINEMEZ (ON DELETE RESTRICT)', async () => {
+      // ADR-0034 §3e. `SET NULL` olsaydi kategori silmek gecmis ozetleri
+      // SESSIZCE degistirirdi — gecen ayin raporu bugun baska bir sey soylerdi.
+      //
+      // ⚠️ Bu yol Slice 1'de URETILEMEZDI (isaret eden tablo yoktu) ve
+      // `CategoryInUseError` o gun "bugun tetiklenemez" notuyla yazilmisti.
+      // Artik tetiklenebiliyor.
+      const categoryId = await insertCategory(TENANT_A, { direction: 'expense' });
+      await insertTransaction(TENANT_A, { categoryId });
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query('DELETE FROM finance.categories WHERE id = $1', [categoryId]),
+        ),
+      ).rejects.toThrow(/transactions_category_direction_fkey|foreign key/i);
+    });
+
+    it('KULLANILMAYAN kategori silinebilir', async () => {
+      const categoryId = await insertCategory(TENANT_A, { direction: 'expense' });
+
+      const deleted = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query('DELETE FROM finance.categories WHERE id = $1', [
+          categoryId,
+        ]);
+        return result.rowCount;
+      });
+
+      expect(deleted).toBe(1);
+    });
+
+    it.each(['0', '-1', '0.00'])('tutar %s reddedilir — daima POZITIF', async (amount) => {
+      await expect(insertTransaction(TENANT_A, { amount })).rejects.toThrow(
+        /transactions_amount_positive/,
+      );
+    });
+
+    it('tutar iki ondalige YUVARLANIR (numeric(14,2))', async () => {
+      // ⚠️ Veritabani burada SESSIZCE yuvarlar; uygulama katmani bu yuzden
+      // ikiden fazla ondaligi REDDEDER (`money.ts`). Ikisi ayni sey degildir:
+      // biri veriyi degistirir, digeri istegi geri cevirir.
+      const id = await insertTransaction(TENANT_A, { amount: '10.005' });
+
+      const rows = await asTenant(TENANT_A, (client) =>
+        client.query<{ amount: string }>('SELECT amount FROM finance.transactions WHERE id = $1', [
+          id,
+        ]),
+      );
+
+      expect(rows.rows[0]?.amount).toBe('10.01');
+    });
+
+    it.each(['try', 'TRYY', 'TR', 'T1R'])('para birimi %s reddedilir', async (currency) => {
+      await expect(insertTransaction(TENANT_A, { currency })).rejects.toThrow(
+        /transactions_currency_shape/,
+      );
+    });
+
+    it('GECERSIZ yon reddedilir', async () => {
+      await expect(insertTransaction(TENANT_A, { direction: 'transfer' })).rejects.toThrow(
+        /transactions_direction_valid/,
+      );
+    });
+
+    it('BOS aciklama reddedilir (null serbest)', async () => {
+      await expect(insertTransaction(TENANT_A, { description: '   ' })).rejects.toThrow(
+        /transactions_description_not_blank/,
+      );
+      await expect(insertTransaction(TENANT_A, { description: null })).resolves.toBeDefined();
+    });
+
+    it('cross-modul kolonlari FK TASIMAZ', async () => {
+      // ⚠️ Yine bir seyin YOKLUGUNU kanitliyor. Hedefler `crm.companies` ve
+      // `projects.projects`, yani baska semalar; biri iyi niyetle
+      // `.references()` eklerse migration calisir ama modul ayrilabilirligi
+      // SESSIZCE kaybolur.
+      const rows = await ownerPool.query<{ target: string }>(
+        `SELECT confrelid::regclass::text AS target FROM pg_constraint
+         WHERE conrelid = 'finance.transactions'::regclass AND contype = 'f'
+         ORDER BY 1`,
+      );
+
+      // Iki mesru FK: `tenant_id -> platform.tenants` (MT §12.3 istisnasi) ve
+      // bilesik `(category_id, direction) -> finance.categories` (SEMA ICI).
+      expect(rows.rows.map((row) => row.target)).toEqual([
+        'finance.categories',
+        'platform.tenants',
+      ]);
+    });
+
+    it('VAR OLMAYAN sirket/proje id si YAZILABILIR — sarkan isaretci mesrudur', async () => {
+      // ADR-0034 §4: cascade baska semaya uzanamaz; okuyan yol dayanikli olmak
+      // zorundadir. Veritabani burada bir sey dayatmaz — dayatamaz da.
+      const id = randomUUID();
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO finance.transactions
+               (id, tenant_id, direction, amount, currency, occurred_on, company_id, project_id, created_by_user_id)
+             VALUES ($1, $2, 'expense', '10.00', 'TRY', '2026-08-01', $3, $4, $5)`,
+            [id, TENANT_A, randomUUID(), randomUUID(), USER_A],
+          ),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('transactions: tenant A, B nin islemini GOREMEZ', async () => {
+      await insertTransaction(TENANT_A, { amount: '111.00' });
+      await insertTransaction(TENANT_B, { amount: '222.00' });
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ amount: string }>(
+          'SELECT amount FROM finance.transactions',
+        );
+        return result.rows;
+      });
+
+      expect(rows.map((row) => row.amount)).toEqual(['111.00']);
+    });
+
+    it('transactions: BASKA tenant adina yazmak WITH CHECK ile reddedilir', async () => {
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `INSERT INTO finance.transactions
+               (id, tenant_id, direction, amount, currency, occurred_on, created_by_user_id)
+             VALUES ($1, $2, 'expense', '10.00', 'TRY', '2026-08-01', $3)`,
+            [randomUUID(), TENANT_B, USER_A],
+          ),
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+
+    it('transactions: tenant context i OLMADAN sorgu HATA verir', async () => {
+      // Bedeli burada daha da agir olurdu: sessiz bos sonuc "bu ay hic hareket
+      // yok" gibi gorunur ve kullanici YANLIS BIR FINANSAL TABLO gorurdu.
+      const client = await appPool.connect();
+      try {
+        await expect(client.query('SELECT * FROM finance.transactions')).rejects.toThrow(
+          /unrecognized configuration parameter|invalid input syntax/i,
+        );
+      } finally {
+        client.release();
+      }
     });
   });
 

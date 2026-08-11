@@ -87,7 +87,7 @@ describe('Finans uclari (uctan uca)', () => {
   });
 
   beforeEach(async () => {
-    await database.ownerPool.query('TRUNCATE finance.categories CASCADE');
+    await database.ownerPool.query('TRUNCATE finance.transactions, finance.categories CASCADE');
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
   });
@@ -165,6 +165,19 @@ describe('Finans uclari (uctan uca)', () => {
 
   // --- ⚠️ PROJEDEKI ILK DAR KATALOG (ADR-0034 §7) -------------------------
 
+  function createTransaction(token: string, body: Record<string, unknown>) {
+    return api()
+      .post('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        direction: 'expense',
+        amount: '1500',
+        currency: 'TRY',
+        occurredOn: '2026-08-01',
+        ...body,
+      });
+  }
+
   it.each(['member', 'viewer'])('%s finansi HIC GOREMEZ — okuma da 403', async (role) => {
     // ⚠️ BU, BU MODULUN EN AYIRT EDICI IDDIASIDIR ve `projects-http`in
     // "viewer OKUR ama YAZAMAZ" testinin BILINCLI KARSITIDIR.
@@ -180,6 +193,16 @@ describe('Finans uclari (uctan uca)', () => {
 
     const write = await createCategory(token, { name: 'Kira', direction: 'expense' });
     expect(write.status).toBe(403);
+
+    // ⚠️ ISLEM UCLARI DA kapali — kategori kapali ama islem acik olsaydi, dar
+    // katalogun butun anlami kaybolurdu: nakit akisi zaten islemlerdedir.
+    const readTx = await api()
+      .get('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${token}`);
+    expect(readTx.status).toBe(403);
+
+    const writeTx = await createTransaction(token, {});
+    expect(writeTx.status).toBe(403);
   });
 
   it.each(['owner', 'admin'])('%s okur ve yazar', async (role) => {
@@ -304,6 +327,175 @@ describe('Finans uclari (uctan uca)', () => {
   });
 
   // --- Silme --------------------------------------------------------------
+
+  // --- Islemler (ADR-0034 §2, §3c) ----------------------------------------
+
+  it('tutar ve para birimi KANONIK bicimde donuyor', async () => {
+    const owner = await tokenFor('owner');
+
+    const created = await createTransaction(owner, { amount: '1500.5', currency: 'try' });
+
+    expect(created.status).toBe(201);
+    // ⚠️ Yanit, veritabanindan okunacak degerle AYNI gorunmeli: `"1500.5"`
+    // yazip `"1500.50"` okumak, istemcide sessiz bir tutarsizlik uretirdi.
+    expect(created.body).toMatchObject({ amount: '1500.50', currency: 'TRY' });
+  });
+
+  it('SAYI olarak gonderilen tutar kabul edilir', async () => {
+    // JSON'da ondalik tip yok; sayiyi reddetmek her naif istemciyi kirardi.
+    const owner = await tokenFor('owner');
+
+    const created = await createTransaction(owner, { amount: 250.4 });
+
+    expect(created.status).toBe(201);
+    expect(created.body.amount).toBe('250.40');
+  });
+
+  it.each([
+    ['0', 'sifir'],
+    ['-5', 'negatif'],
+    ['1.234', 'ikiden fazla ondalik'],
+  ])('tutar %s reddedilir (%s)', async (amount) => {
+    const owner = await tokenFor('owner');
+    const response = await createTransaction(owner, { amount });
+    expect(response.status).toBe(422);
+  });
+
+  it('VAR OLMAYAN takvim gunu 422 doner — 500 DEGIL', async () => {
+    // ⚠️ Kalip kontrolu yetmez: `2026-02-31` regex'i gecer ve PostgreSQL'e
+    // ulasirsa 500 uretirdi.
+    const owner = await tokenFor('owner');
+    const response = await createTransaction(owner, { occurredOn: '2026-02-31' });
+    expect(response.status).toBe(422);
+  });
+
+  it('TERS yondeki kategori 422 doner ve mesaj ACIKLAYICI', async () => {
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+
+    const response = await createTransaction(owner, {
+      direction: 'income',
+      categoryId: String(category.body.id),
+    });
+
+    expect(response.status).toBe(422);
+    // Veritabani da bunu reddederdi ama mesaji kriptik olurdu; uygulamanin isi
+    // tam olarak ANLASILIR mesaji uretmek.
+    expect(String(response.body.detail)).toMatch(/yon/i);
+  });
+
+  it('ARSIVLENMIS kategori YENI kayitta secilemez', async () => {
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Eski kalem', direction: 'expense' });
+    await api()
+      .patch(`/api/v1/finance/categories/${String(category.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ isArchived: true });
+
+    const response = await createTransaction(owner, { categoryId: String(category.body.id) });
+
+    expect(response.status).toBe(422);
+  });
+
+  it('YALNIZCA YON degistiren PATCH, mevcut kategoriyi yeniden dogrular', async () => {
+    // ⚠️ Bu, use case testinin uctan uca karsiligi: kullanici kategoriye HIC
+    // dokunmuyor ama degisiklik onu gecersiz kiliyor.
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+    const created = await createTransaction(owner, { categoryId: String(category.body.id) });
+
+    const response = await api()
+      .patch(`/api/v1/finance/transactions/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ direction: 'income' });
+
+    expect(response.status).toBe(422);
+  });
+
+  it('KULLANIMDAKI kategori silinemez — 409 ve ARSIVLEME onerilir', async () => {
+    // ⚠️ Slice 1'de bu yol URETILEMIYORDU (isaret eden tablo yoktu) ve
+    // `CategoryInUseError` "bugun tetiklenemez" notuyla yazilmisti. Artik
+    // gercek bir istekle kanitlaniyor.
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+    await createTransaction(owner, { categoryId: String(category.body.id) });
+
+    const response = await api()
+      .delete(`/api/v1/finance/categories/${String(category.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(response.status).toBe(409);
+    expect(String(response.body.detail)).toMatch(/arsivle/i);
+  });
+
+  it('liste TARIH ARALIGI ile filtrelenir (sinirlar DAHIL)', async () => {
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { amount: '10', occurredOn: '2026-07-31' });
+    await createTransaction(owner, { amount: '20', occurredOn: '2026-08-01' });
+    await createTransaction(owner, { amount: '30', occurredOn: '2026-08-31' });
+    await createTransaction(owner, { amount: '40', occurredOn: '2026-09-01' });
+
+    const response = await api()
+      .get('/api/v1/finance/transactions?from=2026-08-01&to=2026-08-31')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const amounts = (response.body.items as { amount: string }[]).map((row) => row.amount);
+    // Siralama TARIHE gore azalan; sinirlarin ikisi de DAHIL.
+    expect(amounts).toEqual(['30.00', '20.00']);
+    expect(response.body.total).toBe(2);
+  });
+
+  it('liste KATEGORISIZ islemleri DUSURMEZ ve kategori adini cozer', async () => {
+    // ⚠️ `LEFT JOIN` zorunlulugunun kaniti: `INNER` olsaydi kategorisiz kayit
+    // listeden sessizce duserdi.
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+    await createTransaction(owner, {
+      amount: '10',
+      occurredOn: '2026-08-02',
+      categoryId: String(category.body.id),
+    });
+    await createTransaction(owner, { amount: '20', occurredOn: '2026-08-01' });
+
+    const response = await api()
+      .get('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const rows = response.body.items as { amount: string; categoryName: string | null }[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.categoryName).toBe('Kira');
+    expect(rows[1]?.categoryName).toBeNull();
+  });
+
+  it('kategori adi KOLONDA saklanmaz — yeniden adlandirma ANINDA yansir', async () => {
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+    await createTransaction(owner, { categoryId: String(category.body.id) });
+
+    await api()
+      .patch(`/api/v1/finance/categories/${String(category.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ name: 'Ofis kirasi' });
+
+    const response = await api()
+      .get('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const rows = response.body.items as { categoryName: string | null }[];
+    expect(rows[0]?.categoryName).toBe('Ofis kirasi');
+  });
+
+  it('companyId / projectId govdede REDDEDILIR — Slice 3 e kadar', async () => {
+    // ⚠️ Sessizce YOK SAYILMAZ. Yok sayilsaydi istemci bir sirket bagladigini
+    // SANIR ve 201 alirdi — sessiz bir yalan.
+    const owner = await tokenFor('owner');
+
+    const response = await createTransaction(owner, {
+      companyId: '018f3a2b-7c4d-7e1f-8a2b-00000000ffff',
+    });
+
+    expect(response.status).toBe(422);
+  });
 
   it('owner siler, ve olmayan kayit 404 doner', async () => {
     const owner = await tokenFor('owner');

@@ -76,3 +76,100 @@ export const idParamSchema = z.object({ id: z.uuid('Gecersiz id') }).strict();
 export type CreateCategoryBody = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryBody = z.infer<typeof updateCategorySchema>;
 export type ListCategoriesQuery = z.infer<typeof listCategoriesQuerySchema>;
+
+// --- Islemler (ADR-0034 §2) ------------------------------------------------
+
+const MAX_DESCRIPTION = 2000;
+
+/**
+ * ISO takvim gunu (`YYYY-MM-DD`). Saat YOK — tip `date` (ADR-0034 §2e).
+ *
+ * ⚠️ Zod yalnizca KALIBI dogrular. `2026-02-31` bu kalibi GECER ve gercek bir
+ * gun olup olmadigi domain'de (`transaction.entity.ts`) kontrol edilir —
+ * kontrol edilmeseydi PostgreSQL onu reddeder ve kullanici 422 yerine 500
+ * alirdi.
+ */
+const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG biciminde olmali');
+
+/**
+ * Tutar: DIZE ya da SAYI.
+ *
+ * ============================================================================
+ * NEDEN IKISI DE KABUL EDILIYOR
+ * ============================================================================
+ * JSON'da ondalik tip yoktur; istemciler tutari cogu zaman sayi olarak
+ * gonderir ve sayiyi tumuyle reddetmek her naif istemciyi kirardi. Guvenli
+ * olmasinin sebebi ARALIKTIR: `numeric(14,2)`in tavani ~1e12, IEEE754'un tam
+ * temsil sinirinin (~9e15) cok altinda (gerekce `money.ts`).
+ *
+ * ⚠️ Zod BURADA yalnizca TIPI daraltir; kural (pozitif, en fazla 2 ondalik,
+ * 12 tam sayi hanesi) `money.ts`'te TEK yerde yasar. Iki yerde yazilsaydi biri
+ * degistiginde digeri sessizce ayrisirdi — ve ayrisan sey bir PARA KURALI
+ * olurdu.
+ */
+const amountSchema = z.union([z.string().trim().min(1), z.number()]);
+
+export const createTransactionSchema = z
+  .object({
+    direction: directionSchema,
+    amount: amountSchema,
+    /** Uc harfli ISO 4217 kodu; buyuk harfe cevirme `money.ts`'te. */
+    currency: z.string().trim().min(1),
+    occurredOn: calendarDay,
+    description: z.string().trim().max(MAX_DESCRIPTION).nullish(),
+    /**
+     * `null` = KATEGORISIZ ve mesru bir durumdur ("hizli gir, sonra
+     * siniflandir"). Verilen kategori var olmali, ARSIVLENMEMIS olmali ve YONU
+     * islemin yonuyle UYUSMALIDIR (ADR-0034 §3c).
+     */
+    categoryId: z.uuid('categoryId gecerli bir UUID olmali').nullish(),
+    /**
+     * ⚠️ `companyId` ve `projectId` BURADA YOK ve bu bilincli. Kolonlar
+     * `0024`'te acildi ama yazma yolu SLICE 3'e birakildi: dogrulamasi ve adin
+     * cozulmesi icin gereken `projects.public.ts` o slice'ta yaziliyor.
+     * Dogrulanamayan bir cross-modul isaretciyi bugunden kabul etmek ILK
+     * GUNDEN sarkan satir uretmek olurdu (ADR-0033 Slice 1'in ayni karari).
+     *
+     * `.strict()` sayesinde bugun gonderilirlerse SESSIZCE YOK SAYILMAZ, 422
+     * ile reddedilirler.
+     */
+  })
+  .strict();
+
+/**
+ * KISMI guncelleme.
+ *
+ * ⚠️ `direction` BURADA VAR — `updateCategorySchema`dan SAPMA ve gerekcesi
+ * yazilmadan gecilemez: kategorinin yonu kalici bir SINIFLANDIRMADIR ve gecmis
+ * kayitlarin anlamini geriye donuk degistirir; islemin yonu ise bir VERI
+ * ALANIDIR ve yanlis girilebilir (gelir olarak girilmis bir gider).
+ *
+ * Degisince kategori eslesmesi YENIDEN dogrulanir — kontrol use case'tedir.
+ */
+export const updateTransactionSchema = createTransactionSchema
+  .partial()
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'En az bir alan gonderilmelidir',
+  });
+
+export const listTransactionsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
+    offset: z.coerce.number().int().min(0).default(0),
+    direction: directionSchema.optional(),
+    categoryId: z.uuid().optional(),
+    /** DAHIL sinirlar (`>=` / `<=`). */
+    from: calendarDay.optional(),
+    to: calendarDay.optional(),
+  })
+  .strict()
+  .refine((query) => query.from === undefined || query.to === undefined || query.from <= query.to, {
+    // `YYYY-MM-DD` biciminde sozluk sirasi takvim sirasiyla AYNIDIR; `Date`e
+    // cevirmek tam olarak kacinilan saat dilimi sorusunu geri getirirdi.
+    message: 'from, to dan sonra olamaz',
+  });
+
+export type CreateTransactionBody = z.infer<typeof createTransactionSchema>;
+export type UpdateTransactionBody = z.infer<typeof updateTransactionSchema>;
+export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;

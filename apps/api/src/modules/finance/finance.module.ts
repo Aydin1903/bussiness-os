@@ -15,8 +15,15 @@ import {
   type CategoryRepository,
 } from './application/category.repository.port';
 import { CategoryUseCases } from './application/category.use-cases';
+import {
+  TRANSACTION_REPOSITORY,
+  type TransactionRepository,
+} from './application/transaction.repository.port';
+import { TransactionUseCases } from './application/transaction.use-cases';
 import { DrizzleCategoryRepository } from './infrastructure/drizzle-category.repository';
+import { DrizzleTransactionRepository } from './infrastructure/drizzle-transaction.repository';
 import { CategoryController } from './presentation/category.controller';
+import { TransactionController } from './presentation/transaction.controller';
 import { FINANCE_PERMISSIONS } from './finance.permissions';
 
 /**
@@ -47,13 +54,21 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
  * ============================================================================
  */
 @Module({
-  controllers: [CategoryController],
+  // ⚠️ SIRA BURADA DOGRULUK KOSULU DEGIL — ve bu, `projects.module.ts`ten
+  // FARKLI oldugu icin acikca yaziliyor. Orada `ProjectController`in `GET :id`
+  // rotasi kardeslerini golgeliyordu; burada iki controller da SABIT onek
+  // tasiyor (`finance/categories`, `finance/transactions`) ve hicbiri
+  // `finance/:id` gibi bir yakalayici tanimlamiyor.
+  //
+  // ⚠️ Bir gun `finance/:id` eklenirse o controller listenin SONUNA yazilmali.
+  controllers: [CategoryController, TransactionController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
     { provide: TRANSACTION_MANAGER, useClass: DrizzleTransactionManager },
 
     { provide: CATEGORY_REPOSITORY, useClass: DrizzleCategoryRepository },
+    { provide: TRANSACTION_REPOSITORY, useClass: DrizzleTransactionRepository },
 
     {
       provide: CategoryUseCases,
@@ -68,6 +83,37 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
         clock: Clock,
       ): CategoryUseCases =>
         new CategoryUseCases({ repository, transactionManager, idGenerator, clock }),
+    },
+    {
+      provide: TransactionUseCases,
+      // ⚠️ `CATEGORY_REPOSITORY`ye BAGIMLI — ters degil. Bir islem bir
+      // kategoriye baglanirken kategorinin VARLIGI, ARSIV durumu ve YONU
+      // dogrulanir (ADR-0034 §3c). Yon tek ve dongusuzdur: kategori tarafi
+      // islemleri hic bilmez.
+      inject: [
+        TRANSACTION_REPOSITORY,
+        CATEGORY_REPOSITORY,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+      ],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
+      // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        repository: TransactionRepository,
+        categoryRepository: CategoryRepository,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+      ): TransactionUseCases =>
+        new TransactionUseCases({
+          repository,
+          categoryRepository,
+          transactionManager,
+          idGenerator,
+          clock,
+        }),
     },
   ],
 })
