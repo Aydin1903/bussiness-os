@@ -278,8 +278,9 @@ denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **2. modül Projeler ✅ bitti** (ADR-0033; altı slice, kapanış denetimi
 2026-08-10). Cross-modül referans deseni ilk kez çalıştı ve `POST /ask` artık
 **dört kaynağı** birleştiriyor.
-**3. modül Finans 🟡 sürüyor** (ADR-0034; yedi slice, **Slice 1 bitti**).
-Üçü de aşağıda.
+**3. modül Finans ✅ bitti** (ADR-0034; yedi slice, HAFİF kapanış denetimi
+2026-08-12). `POST /ask` izin filtresi ilk kez **gerçekten sınandı** ve
+CLAUDE.md'nin CEO örneği **dört modülle tam karşılandı**. Üçü de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -419,15 +420,18 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans 🟡 sürüyor —
+dokuz modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅ —
 sıradaki 4. Randevu/Rezervasyon) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
-izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu
-`transaction:read` için bu boşluğu kapatıyor ama `company:read` satırı
-değişmedi)
+izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
+filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
+satırı değişmedi) · **finans denetim izi** (`platform/audit` ARCHITECTURE §6.2'de
+yazılı ama **kod olarak yok**; bir tutarın kim tarafından değiştirildiği
+sorulamaz — tetikleyici 8. modül)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ON tablo**
-(ROADMAP §8.5; Projeler Slice 3 sekizden ona çıkardı) · **not detay ucu**
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONİKİ tablo**
+(ROADMAP §8.5; Finans Slice 5 ondan onikiye çıkardı, vektör taşıyan tablo
+sayısı DÖRDE çıktı) · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·
@@ -690,25 +694,50 @@ izin modeli hazır geliyor — ama beş gerçekten yeni karar var:
 | Slice | Ne | Durum |
 |---|---|---|
 | 1 | `finance` şeması + kategoriler (`0023`) | ✅ |
-| 2 | İşlemler — tutar/para birimi/tarih, bileşik FK (`0024`) | ⏳ |
-| 3 | Nakit akışı özeti (para birimi bazında) | ⏳ |
-| 4 | Cross-modül referans + `projects.public.ts` | ⏳ |
-| 5 | Yorumlar + embedding + `reindex` + oran sınırı (`0025`) | ⏳ |
-| 6 | İki katkıcı (`finance-commentaries` · `finance-cashflow`) | ⏳ |
-| 7 | Frontend (yeşil) + **HAFİF** kapanış denetimi | ⏳ |
+| 2 | İşlemler — tutar/para birimi/tarih, bileşik FK (`0024`) | ✅ |
+| 3 | Nakit akışı özeti (para birimi bazında) | ✅ |
+| 4 | Cross-modül referans + `projects.public.ts` | ✅ |
+| 5 | Yorumlar + embedding + `reindex` + oran sınırı (`0025`) | ✅ |
+| 6 | İki katkıcı (`finance-commentaries` · `finance-cashflow`) | ✅ |
+| 7 | Frontend (yeşil) + **HAFİF** kapanış denetimi | ✅ |
 
 > **Renk:** Finans'ın imza rengi **yeşil**dir (`#307d54` / koyu `#6cb78b`) ve
 > `module-colors.css`'te zaten ayrılmıştır. ⚠️ Anahtar **`finance`**, `finans`
 > DEĞİL.
 >
-> ⚠️ **Slice 7'de `sidebar.tsx`'in `SOON` dizisi BOŞALIYOR** — bugün tek elemanı
-> Finans'tır. Bölüm koşullu render edilmezse boş bir "Yakında" başlığı kalır ve
-> hata **sessizdir**: ekran çalışır, anlamsız bir boşluk görünür.
+> ⚠️ **`sidebar.tsx`'in `SOON` dizisi Slice 7'de BOŞALDI** ve bölüm koşullu
+> render'a alındı (`SOON.length === 0`). Bölüm koşulsuz kalsaydı ekranda içi boş
+> bir "MODÜLLER" başlığı kalırdı ve hata **sessiz** olurdu: ekran çalışır, lint
+> yakalamaz, hiçbir test kırmızı yanmaz. Bir test artık bunu kilitliyor.
+> Dördüncü modül geldiğinde tek satır eklemek yeterli — bölüm kendiliğinden
+> geri gelir.
 
-> **Kapanış denetimi HAFİF olacak** (yeni süreç kuralı): git + verify, yeni
-> uçların hızlı turu, dar rollerin yeni şemaya görünmediği kontrolü, bilinen
-> sınırlar listesi. **Sıfırdan kurulum YOK, fan-out ölçümü YOK** — yani N=7'nin
-> ölçülmemiş kalacağı şimdiden kayıtlıdır (ADR-0033'ün N=5 ölçümü dayanak).
+> ### ✅ HAFİF kapanış denetimi — **yapıldı, 2026-08-12**
+>
+> Yeni süreç kuralının **ilk uygulaması**. Yapılanlar: `git status` temiz ·
+> `pnpm verify` çıkış kodu **0** (api 1504 + web 297 birim, 35 dosya / 678
+> entegrasyon) · prod'da dört ucun hızlı turu (**401**, olmayan yol **404** —
+> ayırt edici) · üç dar rolün `finance` şemasına **kör** olduğu (`usage=false`,
+> tablo grant sayısı **0**) · renk turu açık **ve** koyu temada · bilinen
+> sınırlar listesi (aşağıda).
+>
+> **Bilinçli yapılmayanlar:** sıfırdan kurulum ❌ · fan-out ölçümü ❌ — yani
+> **N=7 ÖLÇÜLMEDEN kaldı** ve bu kayıtlıdır (ADR-0033'ün N=5 ölçümü tek
+> dayanak: fan-out payı toplam sürenin %2–3'ü, darboğaz `LLMPort.complete`).
+>
+> ⚠️ Denetimin en değerli çıktısı bir **kapının ilk kez sınanması** oldu:
+> `POST /ask`in izin filtresi (ADR-0031 §5.3) CRM ve Projeler kapanışlarında
+> "kapı var, tetikçi yok" diye iki kez kayda geçmişti. Finans'ın dar kataloğu
+> tetikçiyi üretti — `member` rolü `context:ask` taşır ama `cashflow:read`
+> taşımaz. Entegrasyon testi dördünü birden kanıtlıyor: owner aynı soruda
+> `finance-cashflow`'u **görüyor**, member'ın isteği **200** (403 değil), iki
+> Finans kaynağı cevaba **girmiyor**, ve `degradedSources`ta da **görünmüyor**
+> (bozulan katkıcı görünür, **elenen** görünmez — aksi halde görülemeyen bir
+> kaynağın varlığı sızardı).
+>
+> ⚠️ İkinci çıktı: **CLAUDE.md'nin CEO örneği ilk kez TAM karşılandı.** Bir
+> entegrasyon testi tek bir `POST /ask` çağrısında dört modülün (Knowledge ·
+> CRM · Projeler · Finans) içeriğini birleştiriyor, `degradedSources: []`.
 
 > **Slice 1 notu — bugün tetiklenemeyen bir yol bilerek yazıldı.**
 > `CategoryInUseError` + FK ihlali çevirisi `0024` gelmeden **tetiklenemez**
@@ -721,6 +750,29 @@ izin modeli hazır geliyor — ama beş gerçekten yeni karar var:
 > birincil anahtar) ama `0024`'ün bileşik FK'sinin **ön koşuludur**; silinirse
 > migration _"there is no unique constraint matching given keys"_ ile patlar.
 > Bir entegrasyon testi onun **varlığını** koruyor.
+
+> ### Finans kapanırken bilinen sınırlar (ADR-0034)
+>
+> - **Değişiklik denetim izi YOK.** İşlemler güncellenebilir ve silinebilir
+>   (yanlış tutar düzeltilebilmeli — engellemek kullanıcıyı telafi kayıtları
+>   yazmaya iterdi), ama bir tutarın **kim tarafından ne zaman değiştirildiği
+>   sorulamaz**. `createdByUserId` yalnızca oluşturanı tutar. `platform/audit`
+>   ARCHITECTURE §6.2'de yazılı, **kod olarak yok**. ⚠️ Bu borç Finans'la
+>   **gerçek** oldu; tetikleyici 8. modül (Teklif/Fatura).
+> - **Kur çevrimi yok** — özet para birimi bazında ayrışır, tek konsolide rakam
+>   yoktur ve `cashflowSummarySchema` bunu **tip seviyesinde** korur.
+> - **Para birimi kod listesi doğrulanmaz**, yalnızca şekil (`^[A-Z]{3}$`) —
+>   "XYZ" geçerli sayılır.
+> - **Binlik ayracı yok**: sunucunun kanonik dizesi olduğu gibi yazılır;
+>   biçimlendirmek `Number`a çevirmek demekti ve para bu projede hiçbir noktada
+>   `number` olmuyor.
+> - **İyimser eşzamanlılık yok** — son yazan kazanır (üç modülde de aynı sınır).
+> - **Fan-out N=7 ÖLÇÜLMEDİ** (hafif denetim kuralı) · **skorlar kaynaklar arası
+>   kalibre değil** ve anlamsal kaynak sayısı **dörde** çıktı.
+> - **`finance.transactions` retention listesine GİRMEZ** ve sebebi terstir:
+>   sınırsız büyür ama mali kayıt saklamak yasal yükümlülüktür (TTK) — cevabı
+>   "sil" değil **"silinmez"**. ⚠️ Bu ayrım kaydedilmezse tablo, "büyüyor" diye
+>   bakan birinin gözünde temizlenecekler listesine yanlışlıkla girer.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
