@@ -8,6 +8,11 @@ import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { ContextModule } from '../../platform/context/context.module';
+import {
+  RETRIEVAL_CONTRIBUTOR_REGISTRY,
+  type RetrievalContributorRegistry,
+} from '../../platform/context/context.public';
 import { CrmModule } from '../crm/crm.module';
 import { CRM_COMPANY_DIRECTORY, type CompanyDirectory } from '../crm/crm.public';
 import { ProjectsModule } from '../projects/projects.module';
@@ -42,6 +47,8 @@ import {
 import { TransactionUseCases } from './application/transaction.use-cases';
 import { DrizzleCategoryRepository } from './infrastructure/drizzle-category.repository';
 import { DrizzleCommentaryRepository } from './infrastructure/drizzle-commentary.repository';
+import { FinanceCashflowContributor } from './infrastructure/finance-cashflow.contributor';
+import { FinanceCommentariesContributor } from './infrastructure/finance-commentaries.contributor';
 import { DrizzleTransactionRepository } from './infrastructure/drizzle-transaction.repository';
 import { CashflowController } from './presentation/cashflow.controller';
 import { CommentaryController } from './presentation/commentary.controller';
@@ -78,8 +85,23 @@ const FINANCE_CALLER = 'finance';
  * 2'de YANLISLANDI, o yuzden tetikleyici acikca yaziliyor: bir "donem ozeti"
  * eklendigi gun hem `LLM_PORT` hem `CompletionFailedError` (filtreye) gerekir.
  *
- * ⚠️ `ContextModule` HALA import EDILMIYOR — katkicilar Slice 6'da kaydedilir.
- * Yani yorumlar bugun GOMULUYOR ama `POST /ask` onlari HENUZ GORMUYOR.
+ * ============================================================================
+ * SLICE 6: IKI KATKICI KAYDEDILDI — VE IZIN FILTRESI TETIKCISINI BULDU
+ * ============================================================================
+ * `POST /ask` artik Finans icerigini de gorebiliyor: anlamsal
+ * (`finance-commentaries`) + yapisal (`finance-cashflow`). CLAUDE.md'nin CEO
+ * ornegi ("CRM'deki musteri hareketleri, FINANS'TAKI NAKIT AKISI, Projeler'deki
+ * teslim performansi") ile TAMAMLANDI.
+ *
+ * ⚠️ YAPISAL KATKICI RISKE GORE SKOR VERIR (0.95/0.90/0.75). Artik UC yapisal
+ * katkici ayni sekiz yuvali havuzu paylasiyor (3+5+3 = 11 > 8); sabit yuksek
+ * skor, DORT anlamsal kaynagin hicbirini iceri birakmazdi.
+ *
+ * ⚠️ VE BU SLICE, ADR-0031 §5.3'un izin filtresinin ILK GERCEK TETIKCISIDIR:
+ * `member` rolu `context:ask` TASIR ama `cashflow:read` / `commentary:read`
+ * TASIMAZ. Bugune kadar boyle bir rol YOKTU — `context-contributors`
+ * entegrasyon testi bunu acikca kaydediyordu ("KATKICI SEVIYESINDEKI eleme
+ * HTTP'den sinanamaz"). Artik sinanabiliyor.
  *
  * ============================================================================
  * SLICE 4: MODUL ILK KEZ BASKA IS MODULLERINI OKUYOR — VE IKI TANE
@@ -109,7 +131,7 @@ const FINANCE_CALLER = 'finance';
  * ============================================================================
  */
 @Module({
-  imports: [AiObservabilityModule, CrmModule, ProjectsModule],
+  imports: [AiObservabilityModule, ContextModule, CrmModule, ProjectsModule],
   // ⚠️ SIRA BURADA DOGRULUK KOSULU DEGIL — ve bu, `projects.module.ts`ten
   // FARKLI oldugu icin acikca yaziliyor. Orada `ProjectController`in `GET :id`
   // rotasi kardeslerini golgeliyordu; burada iki controller da SABIT onek
@@ -240,12 +262,54 @@ const FINANCE_CALLER = 'finance';
           reindexBatchSize: config.finance.reindexBatchSize,
         }),
     },
+    // --- Kurumsal hafizaya IKI KATKI (ADR-0034 §6) ---------------------------
+    // Anlamsal: finansal yorum parcalari. Yapisal: para birimi basina nakit
+    // akisi anlik goruntusu. Ikisi de KENDI semasindan okur; birlestirmeyi
+    // platform yapar.
+    {
+      provide: FinanceCommentariesContributor,
+      inject: [COMMENTARY_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: CommentaryRepository,
+        transactionManager: TransactionManager,
+      ): FinanceCommentariesContributor =>
+        new FinanceCommentariesContributor(repository, transactionManager),
+    },
+    {
+      // ⚠️ Repository DEGIL, USE CASE aliyor: ozetin nasil hesaplandigi TEK
+      // yerde yasamali. Iki yerde hesaplansaydi `GET /finance/summary`in
+      // gosterdigi rakam ile AI'in soyledigi rakam SESSIZCE ayrisabilirdi.
+      provide: FinanceCashflowContributor,
+      inject: [CashflowUseCases, CLOCK],
+      useFactory: (cashflow: CashflowUseCases, clock: Clock): FinanceCashflowContributor =>
+        new FinanceCashflowContributor(cashflow, clock),
+    },
   ],
 })
 export class FinanceModule {
-  constructor(@Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry) {
+  constructor(
+    @Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry,
+    @Inject(RETRIEVAL_CONTRIBUTOR_REGISTRY) contributors: RetrievalContributorRegistry,
+    commentariesContributor: FinanceCommentariesContributor,
+    cashflowContributor: FinanceCashflowContributor,
+  ) {
     // ADR-0025 §10.1: modul kendi permission'larini Authorization'a DEKLARE
     // eder; platform icerigi YORUMLAMAZ.
     permissions.register(FINANCE_PERMISSIONS);
+
+    // Ayni desen, ikinci defter: modul kendini kurumsal hafizaya KAYDEDER.
+    //
+    // ⚠️ Bu iki satirla CLAUDE.md'nin CEO ornegi TAMAMLANIYOR: "CRM'deki
+    // musteri hareketleri, FINANS'TAKI NAKIT AKISI, Projeler'deki teslim
+    // performansi" — uc kaynagin ucu de yerinde. `POST /ask` artik ALTI
+    // katkiciyi birlestiriyor.
+    //
+    // ⚠️ Ve ayni iki satir, `POST /ask` izin filtresinin ILK GERCEK
+    // TETIKCISIDIR: `member` rolu `context:ask` TASIR ama `cashflow:read` /
+    // `commentary:read` TASIMAZ, dolayisiyla bu iki katkici onun sorusunda HIC
+    // CAGRILMAZ. Bugune kadar boyle bir rol YOKTU (ADR-0031 §5.3'un kapisi
+    // "tetikcisiz" duruyordu).
+    contributors.register(commentariesContributor);
+    contributors.register(cashflowContributor);
   }
 }

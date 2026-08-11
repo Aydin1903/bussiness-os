@@ -52,3 +52,22 @@ export function assertCalendarDay(value: string): string {
 export function toCalendarDay(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
+
+/**
+ * Bir takvim gununu GUN cinsinden kaydirir (`shiftDays('2026-08-11', -30)`).
+ *
+ * ⚠️ `Date` UTC'de kurulur ve UTC'de okunur. Yerel saat kullanilsaydi sonuc
+ * calistirilan makinenin dilimine gore DEGISIRDI — yani ayni sorgu Istanbul'da
+ * ve Londra'da farkli pencereler uretirdi. Bu, `occurred_on`un `date` secilme
+ * gerekcesinin (saat dilimi sorusunu v1'de tumuyle ortadan kaldirmak) dogal
+ * devamidir.
+ *
+ * Yapisal katkicinin "son 30 gun" / "onceki 30 gun" pencerelerini uretir.
+ */
+export function shiftDays(day: string, delta: number): string {
+  const base = assertCalendarDay(day);
+  const [year = '', month = '', date = ''] = base.split('-');
+
+  const shifted = new Date(Date.UTC(Number(year), Number(month) - 1, Number(date) + delta));
+  return toCalendarDay(shifted);
+}

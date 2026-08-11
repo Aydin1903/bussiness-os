@@ -28,12 +28,26 @@ import {
  * Projeler'e BIRLIKTE bakmayi gerektirir. Slice 3 mekanizmayi kurdu ama TEK
  * katkici vardi — yani "birlesik baglam" iddiasi o gun SINANAMAZDI.
  *
- * Bugun uc katkici var (knowledge · crm-interactions · crm-pipeline) ve uc
- * iddia gercekten olculebiliyor:
+ * Bugun ALTI katkici var (knowledge · crm-interactions · crm-pipeline ·
+ * project-notes · project-status · finance-commentaries · finance-cashflow) ve
+ * iddialar gercekten olculebiliyor:
  *   1. Cross-modul: bir Knowledge notu ILE bir CRM gorusmesi AYNI cevaba
  *      kaynak olur — tek `/ask` cagrisi.
  *   2. Izni olmayan katkici HIC CAGRILMAZ ve icerigi cevaba GIRMEZ.
  *   3. Bozulan katkici `degradedSources`ta gorunur; ELENEN katkici GORUNMEZ.
+ *
+ * ============================================================================
+ * ⚠️ 2. IDDIA ARTIK HTTP'DEN SINANABILIYOR — Finans Slice 6 ile
+ * ============================================================================
+ * Bu dosya uzun sure sunu kaydediyordu: "KATKICI SEVIYESINDEKI eleme HTTP'den
+ * sinanamaz", cunku `context:ask` tasiyip bir katkicinin iznini TASIMAYAN bir
+ * rol YOKTU (owner/admin/member ucu de her seyi tasiyordu, `viewer` ise
+ * `context:ask` bile tasimiyordu).
+ *
+ * Finans'in DAR permission katalogu (ADR-0034 §7) o boslugu kapatti:
+ * `member` -> `context:ask` VAR, `cashflow:read` / `commentary:read` YOK.
+ * Asagidaki "member Finans icerigini GOREMEZ" testi, ADR-0031 §5.3'un
+ * tasarimin en kritik detayi dedigi filtrenin ILK GERCEK sinavidir.
  * ============================================================================
  */
 type NodeHttpServer = Server;
@@ -94,6 +108,12 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
     );
     await database.ownerPool.query(
       'TRUNCATE knowledge.note_chunks, knowledge.notes, platform.messages, platform.conversations CASCADE',
+    );
+    await database.ownerPool.query(
+      'TRUNCATE finance.commentary_chunks, finance.commentaries, finance.transactions, finance.categories CASCADE',
+    );
+    await database.ownerPool.query(
+      'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
     );
     await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
@@ -172,6 +192,40 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
     return api().post('/api/v1/ask').set('Authorization', `Bearer ${token}`).send({ question });
   }
 
+  /** Projeler tarafina bir proje + bir ilerleme notu yazar. */
+  async function seedProjects(token: string): Promise<void> {
+    const project = await api()
+      .post('/api/v1/projects')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Web sitesi yenileme', status: 'in_progress' });
+
+    await api()
+      .post('/api/v1/projects/notes')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ projectId: String(project.body.id), body: 'Tasarim onaylandi, kodlamaya gecildi.' });
+  }
+
+  /** Finans tarafina bir islem + bir yorum yazar (iki katkici da beslensin). */
+  async function seedFinance(token: string): Promise<void> {
+    await api()
+      .post('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        direction: 'expense',
+        amount: '8500.50',
+        currency: 'TRY',
+        // Yapisal katkici SON 30 GUNE bakar; sabit bir tarih testi zamanla
+        // kirardi (`today.ts`in ayni tuzagi).
+        occurredOn: new Date().toISOString().slice(0, 10),
+        description: 'Ofis kirasi',
+      });
+
+    await api()
+      .post('/api/v1/finance/commentaries')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ body: 'Bu ay nakit sikisti, X musterisi odemeyi geciktirdi.' });
+  }
+
   // --- 1. Cross-modul: TEK cagri, IKI modulden birlesik baglam ------------
 
   it('bir Knowledge notu ILE bir CRM gorusmesi AYNI cevaba kaynak olur', async () => {
@@ -186,6 +240,44 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
     // Faz 5'in urun vaadi: modul basina `/ask` ucuyla bu MUMKUN OLMAZDI.
     expect(labels).toContain('knowledge');
     expect(labels).toContain('crm-interactions');
+  });
+
+  /**
+   * ⚠️ CLAUDE.md'NIN KURUCU ORNEGININ TAM KARSILIGI.
+   *
+   * _"Bir CEO 'son 6 ayimizi analiz et' der ve sistem CRM'deki musteri
+   * hareketlerine, FINANS'TAKI NAKIT AKISINA, Projeler'deki teslim
+   * performansina BIRLIKTE bakar."_
+   *
+   * Bu cumle Faz 4'te yazildi ve o gun mimari olarak IMKANSIZDI (tek modul).
+   * Faz 5/CRM ucte birini, Projeler ucte ikisini karsiladi. Bu test ucunu de —
+   * arti Knowledge'i — TEK bir `/ask` cagrisinda kanitlar.
+   *
+   * Modul basina `/ask` ucuyla bu YAPISAL OLARAK mumkun olmazdi (ADR-0031 §5).
+   */
+  it('⚠️ DORT MODULUN icerigi AYNI cevapta bulusuyor — tek /ask cagrisi', async () => {
+    const owner = await tokenFor('owner');
+    await seedBothModules(owner);
+    await seedProjects(owner);
+    await seedFinance(owner);
+
+    const response = await ask(owner, 'Son donemde sirkette neler oldu?');
+
+    expect(response.status).toBe(200);
+
+    const labels = new Set(sourceLabels(response.body));
+    // Havuz sekiz yuvali ve ALTI katkici besliyor; hepsinin ayni anda girmesi
+    // garanti DEGIL. Iddia bu yuzden "her modulden EN AZ BIR kaynak" seklinde
+    // kuruluyor — modul BASINA, katkici basina degil.
+    const modules = {
+      knowledge: labels.has('knowledge'),
+      crm: labels.has('crm-interactions') || labels.has('crm-pipeline'),
+      projects: labels.has('project-notes') || labels.has('project-status'),
+      finance: labels.has('finance-commentaries') || labels.has('finance-cashflow'),
+    };
+
+    expect(modules).toEqual({ knowledge: true, crm: true, projects: true, finance: true });
+    expect(degraded(response.body)).toEqual([]);
   });
 
   it('yapisal katkici acik firsati baglama sokar', async () => {
@@ -212,16 +304,58 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
   it('viewer `/ask` cagiramaz — guard katkici elemesinden ONCE keser', async () => {
     const viewer = await tokenFor('viewer');
 
-    // ⚠️ ROL MATRISI GEREGI, "context:ask VAR ama interaction:read YOK" bir
-    // kullanici BUGUN URETILEMEZ: owner/admin/member ucu de her ikisini
-    // tasir, `viewer` ise ikisini de tasimaz (ADR-0031 §6).
-    //
-    // Yani KATKICI SEVIYESINDEKI eleme HTTP'den sinanamaz. O sozlesme
-    // `AskUseCase` birim testlerinde IKI KATKICI ile sinaniyor
-    // ("IZNI OLMAYAN katkici HIC CAGRILMAZ").
-    //
-    // Burada dogrulanan sey guard'in katkicilara HIC SIRA GELMEDEN kestigidir.
+    // `viewer` `context:ask` TASIMAZ (ADR-0031 §6), yani istek katkicilara HIC
+    // SIRA GELMEDEN guard'da kesilir. Bu, asagidaki `member` testinden FARKLI
+    // bir mekanizmadir ve ikisi karistirilmamalidir.
     expect((await ask(viewer)).status).toBe(403);
+  });
+
+  /**
+   * ⚠️ ADR-0031 §5.3'UN ILK GERCEK SINAVI.
+   *
+   * `member`: `context:ask` VAR (istek MESRU, 200 doner) ama `cashflow:read` /
+   * `commentary:read` YOK. Yani istek CALISIR, Finans katkicilari ELENIR.
+   *
+   * Bu senaryo Faz 5/CRM ve Projeler kapanis denetimlerinde URETILEMEDI ve her
+   * ikisinde de "kapi var, tetikci yok" diye kayda gecti. Finans'in dar
+   * katalogu tetikciyi uretti.
+   */
+  it('⚠️ member `/ask` cagirabilir ama FINANS ICERIGINI GOREMEZ', async () => {
+    const owner = await tokenFor('owner');
+    await seedFinance(owner);
+    // Ayni tenant'ta Finans DISI bir kaynak da olsun ki cevabin bos kalmadigi,
+    // yalnizca Finans'in ELENDIGI gorulebilsin.
+    await api()
+      .post('/api/v1/knowledge/notes')
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ body: 'Faturalar ayin son is gunu kesilir.' });
+
+    // Once OWNER sorar: Finans katkicilari GERCEKTEN calisiyor mu?
+    const asOwner = await ask(owner, 'Nakit akisimiz nasil gidiyor?');
+    expect(asOwner.status).toBe(200);
+    expect(sourceLabels(asOwner.body)).toContain('finance-cashflow');
+
+    // Sonra MEMBER ayni soruyu sorar.
+    const member = await tokenFor('member');
+    const asMember = await ask(member, 'Nakit akisimiz nasil gidiyor?');
+
+    // 1. Istek MESRU — 403 DEGIL. `context:ask` var.
+    expect(asMember.status).toBe(200);
+
+    // 2. Finans kaynaklarinin HICBIRI cevaba girmedi.
+    const labels = sourceLabels(asMember.body);
+    expect(labels).not.toContain('finance-cashflow');
+    expect(labels).not.toContain('finance-commentaries');
+
+    // 3. ⚠️ VE `degradedSources`TA DA GORUNMUYOR. Bu ayrim ADR-0031 §5.5'in
+    //    kendisidir: BOZULAN katkici gorunur (kullanici eksikligi bilmeli),
+    //    ELENEN katkici GORUNMEZ (aksi halde kullanicinin goremedigi bir
+    //    kaynagin VARLIGI sizardi).
+    expect(degraded(asMember.body)).not.toContain('finance-cashflow');
+    expect(degraded(asMember.body)).not.toContain('finance-commentaries');
+
+    // 4. Cevap yine de calisti: gorebildigi kaynak iceride.
+    expect(labels).toContain('knowledge');
   });
 
   it('CRM verisi YOKKEN cevap yalnizca Knowledge kaynagi tasir', async () => {
