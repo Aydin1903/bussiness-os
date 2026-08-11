@@ -4,6 +4,10 @@ import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { CrmModule } from '../crm/crm.module';
+import { CRM_COMPANY_DIRECTORY, type CompanyDirectory } from '../crm/crm.public';
+import { ProjectsModule } from '../projects/projects.module';
+import { PROJECTS_PROJECT_DIRECTORY, type ProjectDirectory } from '../projects/projects.public';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
 import {
@@ -45,17 +49,37 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
  *     ayni satiri Katman 2'de YANLISLANDI, o yuzden tetikleyici acikca
  *     yaziliyor: bir "donem ozeti" eklendigi gun hem `LLM_PORT` hem
  *     `CompletionFailedError` (filtreye) gerekir.
- *   - `ContextModule` — katkicilar Slice 5'te kaydedilir.
- *   - `CrmModule` / `ProjectsModule` — cross-modul referans Slice 3'te
- *     (`companyId` / `projectId` yazma yolu + `projects.public.ts`).
+ *   - `ContextModule` — katkicilar Slice 6'da kaydedilir.
  *
- * ⚠️ BAGIMLILIK GRAFIGI SLICE 3'TE ILK KEZ DALLANACAK: Projeler -> CRM zaten
- * var, Finans -> CRM ve Finans -> Projeler eklenecek. Uc kenar, dongu yok — bir
- * DAG. Yeni bir kenar eklenmeden ONCE dongu kontrol edilir; ters yon
- * isteniyorsa cozum `forwardRef` DEGIL ucuncu bir moduldur (ADR-0034 §4.2).
+ * ============================================================================
+ * SLICE 4: MODUL ILK KEZ BASKA IS MODULLERINI OKUYOR — VE IKI TANE
+ * ============================================================================
+ * `CrmModule` ve `ProjectsModule` IMPORT EDILIYOR. Yuzeyler iki public
+ * interface'in birer kalemidir (`CompanyDirectory`, `ProjectDirectory`); her
+ * iki modulun `domain/`, `application/`, `infrastructure/` katmanlari
+ * `import/no-restricted-paths` ile ZATEN kapali.
+ *
+ * ⚠️ BAGIMLILIK GRAFIGI ILK KEZ DALLANDI ve bir DAG olarak kaldi:
+ *
+ *     Projeler ──► CRM
+ *     Finans   ──► CRM
+ *     Finans   ──► Projeler
+ *
+ * Uc kenar, dongu YOK. CRM hicbirini bilmez; Projeler Finans'i bilmez.
+ *
+ * ⚠️ KALAN DOKUZ MODULU BAGLAYAN KURAL: yeni bir kenar eklenmeden ONCE dongu
+ * kontrol edilir. Ters yon isteniyorsa (proje detayinda o projenin
+ * masraflarini gostermek) cozum `forwardRef` DEGIL UCUNCU BIR MODULDUR —
+ * projede bir kez yasandi (Tenant <-> Identity) ve cozumu `platform/session`
+ * oldu.
+ *
+ * ⚠️ GENELLESTIRME REDDEDILDI (ADR-0034 §4.1): iki dizin birbirinin
+ * kopyasidir ve OYLE KALIYOR. Ortak bir yardimci, izin kapisini kaynagin
+ * sahibinden alirdi — gerekce `projects.public.ts`in bas yorumunda.
  * ============================================================================
  */
 @Module({
+  imports: [CrmModule, ProjectsModule],
   // ⚠️ SIRA BURADA DOGRULUK KOSULU DEGIL — ve bu, `projects.module.ts`ten
   // FARKLI oldugu icin acikca yaziliyor. Orada `ProjectController`in `GET :id`
   // rotasi kardeslerini golgeliyordu; burada iki controller da SABIT onek
@@ -95,6 +119,8 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
       inject: [
         TRANSACTION_REPOSITORY,
         CATEGORY_REPOSITORY,
+        CRM_COMPANY_DIRECTORY,
+        PROJECTS_PROJECT_DIRECTORY,
         TRANSACTION_MANAGER,
         ID_GENERATOR,
         CLOCK,
@@ -105,6 +131,8 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
       useFactory: (
         repository: TransactionRepository,
         categoryRepository: CategoryRepository,
+        companyDirectory: CompanyDirectory,
+        projectDirectory: ProjectDirectory,
         transactionManager: TransactionManager,
         idGenerator: IdGenerator,
         clock: Clock,
@@ -112,6 +140,8 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
         new TransactionUseCases({
           repository,
           categoryRepository,
+          companyDirectory,
+          projectDirectory,
           transactionManager,
           idGenerator,
           clock,

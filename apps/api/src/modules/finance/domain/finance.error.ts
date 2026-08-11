@@ -177,3 +177,31 @@ export class ArchivedCategoryError extends FinanceDomainError {
     super('Arsivlenmis bir kategori yeni kayitlarda secilemez.');
   }
 }
+
+/**
+ * Islem, gorulemeyen bir SIRKETE baglanamaz (ADR-0034 §4).
+ *
+ * ============================================================================
+ * UC DURUM AYIRT EDILMEZ — bilincli
+ * ============================================================================
+ * "Sirket yok", "baska tenant'in" ve "`company:read` tasimiyorsun" AYNI hatayi
+ * verir; `CompanyDirectory` ucunu de haritada YOK olarak dondurur. Ayirmak,
+ * reddin sebebinden o sirketin VAR OLDUGUNU cikarilabilmesi demekti.
+ *
+ * `ProjectCompanyNotFoundError` ile birebir ayni — ve bu tekrar, desenin
+ * ikinci kez uygulanmasinin dogal sonucudur.
+ */
+export class TransactionCompanyNotFoundError extends FinanceDomainError {
+  readonly code = 'FINANCE_TRANSACTION_COMPANY_NOT_FOUND';
+  constructor() {
+    super('Islemin baglanacagi sirket bulunamadi.');
+  }
+}
+
+/** Islem, gorulemeyen bir PROJEYE baglanamaz — yukaridakiyle ayni disiplin. */
+export class TransactionProjectNotFoundError extends FinanceDomainError {
+  readonly code = 'FINANCE_TRANSACTION_PROJECT_NOT_FOUND';
+  constructor() {
+    super('Islemin baglanacagi proje bulunamadi.');
+  }
+}

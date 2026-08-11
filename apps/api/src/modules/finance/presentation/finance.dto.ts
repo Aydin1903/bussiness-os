@@ -124,15 +124,18 @@ export const createTransactionSchema = z
      */
     categoryId: z.uuid('categoryId gecerli bir UUID olmali').nullish(),
     /**
-     * ⚠️ `companyId` ve `projectId` BURADA YOK ve bu bilincli. Kolonlar
-     * `0024`'te acildi ama yazma yolu SLICE 3'e birakildi: dogrulamasi ve adin
-     * cozulmesi icin gereken `projects.public.ts` o slice'ta yaziliyor.
-     * Dogrulanamayan bir cross-modul isaretciyi bugunden kabul etmek ILK
-     * GUNDEN sarkan satir uretmek olurdu (ADR-0033 Slice 1'in ayni karari).
+     * CROSS-MODUL YUMUSAK REFERANSLAR (ADR-0034 §4) — SLICE 4'te acildi.
      *
-     * `.strict()` sayesinde bugun gonderilirlerse SESSIZCE YOK SAYILMAZ, 422
-     * ile reddedilirler.
+     * `null` ikisi icin de MESRUDUR: bir masraf ne bir musteriye ne bir ise
+     * ait olmak ZORUNDADIR (kira, vergi, genel gider).
+     *
+     * Verilen id'ler yazma aninda GORUNURLUK acisindan dogrulanir:
+     * goremedigin bir sirkete ya da projeye kayit baglayamazsin. Kontrol
+     * ilgili modulun public interface'i uzerinden yapilir ve izin kapisi
+     * (`company:read` / `project:read`) O ARAYUZUN ICINDEDIR.
      */
+    companyId: z.uuid('companyId gecerli bir UUID olmali').nullish(),
+    projectId: z.uuid('projectId gecerli bir UUID olmali').nullish(),
   })
   .strict();
 

@@ -7,7 +7,12 @@ import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.conf
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
 import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
-import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import {
+  PERMISSION_CHECKER,
+  PERMISSION_REGISTRY,
+  type PermissionChecker,
+  type PermissionRegistry,
+} from '../../platform/authz/authz.public';
 import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
@@ -34,8 +39,10 @@ import {
   type ProgressNoteRepository,
 } from './application/progress-note.repository.port';
 import { ProgressNoteUseCases } from './application/progress-note.use-cases';
+import { ProjectDirectoryQuery } from './application/project-directory.query';
 import { PROJECT_REPOSITORY, type ProjectRepository } from './application/project.repository.port';
 import { ProjectUseCases } from './application/project.use-cases';
+import { PROJECTS_PROJECT_DIRECTORY } from './projects.public';
 import { TASK_REPOSITORY, type TaskRepository } from './application/task.repository.port';
 import { TaskUseCases } from './application/task.use-cases';
 import { DrizzleProgressNoteRepository } from './infrastructure/drizzle-progress-note.repository';
@@ -230,6 +237,23 @@ const PROJECTS_CALLER = 'projects';
           reindexBatchSize: config.projects.reindexBatchSize,
         }),
     },
+    // --- Projeler'in DISA ACIK yuzeyi (ADR-0034 §4) --------------------------
+    // Finans bir gelir/gider kaydini opsiyonel olarak bir projeye baglar ve adi
+    // BURADAN okur. Yon TEK YONLU: Projeler Finans'i BILMEZ.
+    //
+    // ⚠️ Bu modul artik hem TUKETICI (CRM'in `CompanyDirectory`si) hem
+    // SAGLAYICI (kendi `ProjectDirectory`si). Grafik dallandi ama DAG kaldi:
+    // `Projeler -> CRM`, `Finans -> CRM`, `Finans -> Projeler`.
+    {
+      provide: PROJECTS_PROJECT_DIRECTORY,
+      inject: [PROJECT_REPOSITORY, PERMISSION_CHECKER, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: ProjectRepository,
+        permissionChecker: PermissionChecker,
+        transactionManager: TransactionManager,
+      ): ProjectDirectoryQuery =>
+        new ProjectDirectoryQuery({ repository, permissionChecker, transactionManager }),
+    },
     // --- Kurumsal hafizaya IKI KATKI (ADR-0033 §6) ---------------------------
     // Anlamsal: ilerleme notu parcalari. Yapisal: riskli proje + gecikmis gorev
     // anlik goruntusu. Ikisi de KENDI semasindan okur; birlestirmeyi platform
@@ -262,6 +286,7 @@ const PROJECTS_CALLER = 'projects';
         ),
     },
   ],
+  exports: [PROJECTS_PROJECT_DIRECTORY],
 })
 export class ProjectsModule {
   constructor(

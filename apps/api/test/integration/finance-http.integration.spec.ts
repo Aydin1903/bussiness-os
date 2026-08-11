@@ -88,6 +88,13 @@ describe('Finans uclari (uctan uca)', () => {
 
   beforeEach(async () => {
     await database.ownerPool.query('TRUNCATE finance.transactions, finance.categories CASCADE');
+    // Cross-modul testleri gercek CRM/Projeler kayitlari uretiyor (ADR-0034 §4).
+    await database.ownerPool.query(
+      'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
+    );
+    await database.ownerPool.query(
+      'TRUNCATE crm.interaction_chunks, crm.interactions, crm.opportunities, crm.contacts, crm.companies CASCADE',
+    );
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
   });
@@ -493,16 +500,119 @@ describe('Finans uclari (uctan uca)', () => {
     expect(rows[0]?.categoryName).toBe('Ofis kirasi');
   });
 
-  it('companyId / projectId govdede REDDEDILIR — Slice 3 e kadar', async () => {
-    // ⚠️ Sessizce YOK SAYILMAZ. Yok sayilsaydi istemci bir sirket bagladigini
-    // SANIR ve 201 alirdi — sessiz bir yalan.
+  // --- Cross-modul referanslar (ADR-0034 §4) ------------------------------
+
+  function createCompany(token: string, name = 'Acme A.S.') {
+    return api()
+      .post('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name });
+  }
+
+  function createProject(token: string, name = 'Web sitesi yenileme') {
+    return api()
+      .post('/api/v1/projects')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name, status: 'in_progress' });
+  }
+
+  it('sirket ve proje adlari COZULUR — kolonda saklanmaz', async () => {
+    // ⚠️ Adlar `crm.companies` ve `projects.projects`tadir; `finance`
+    // semasindan okunamaz (Mutlak Kural 5). Her okumada iki PUBLIC INTERFACE
+    // uzerinden cozuluyorlar.
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const project = await createProject(owner);
+
+    await createTransaction(owner, {
+      companyId: String(company.body.id),
+      projectId: String(project.body.id),
+    });
+
+    const rows = (
+      await api().get('/api/v1/finance/transactions').set('Authorization', `Bearer ${owner}`)
+    ).body.items as { companyName: string | null; projectName: string | null }[];
+
+    expect(rows[0]?.companyName).toBe('Acme A.S.');
+    expect(rows[0]?.projectName).toBe('Web sitesi yenileme');
+  });
+
+  it('sirket YENIDEN ADLANDIRILINCA ad ANINDA yansir', async () => {
+    // Kopyalanmis olsaydi bayatlardi — projede alti kez reddedilen ayni karar.
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner, 'Eski Unvan');
+    await createTransaction(owner, { companyId: String(company.body.id) });
+
+    await api()
+      .patch(`/api/v1/crm/companies/${String(company.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ name: 'Yeni Unvan' });
+
+    const rows = (
+      await api().get('/api/v1/finance/transactions').set('Authorization', `Bearer ${owner}`)
+    ).body.items as { companyName: string | null }[];
+
+    expect(rows[0]?.companyName).toBe('Yeni Unvan');
+  });
+
+  it('SILINEN sirketin isaretcisi SARKTA KALIR ve kayit AYAKTA durur', async () => {
+    // ⚠️ ADR-0034 §4.2: cascade baska semaya uzanamaz. Bu VERI BOZULMASI
+    // DEGILDIR (UUID yeniden kullanilmaz) — okuyan yol dayanikli olmak
+    // zorundadir ve `companyName` sessizce `null` olur.
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    await createTransaction(owner, { companyId: String(company.body.id) });
+
+    const deleted = await api()
+      .delete(`/api/v1/crm/companies/${String(company.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`);
+    expect(deleted.status).toBe(204);
+
+    const list = await api()
+      .get('/api/v1/finance/transactions')
+      .set('Authorization', `Bearer ${owner}`);
+
+    // Kayit 500 vermiyor, listeden DUSMUYOR; yalnizca ad cozulemiyor.
+    expect(list.status).toBe(200);
+    const rows = list.body.items as { companyId: string | null; companyName: string | null }[];
+    expect(rows[0]?.companyId).toBe(String(company.body.id));
+    expect(rows[0]?.companyName).toBeNull();
+  });
+
+  it('GORULEMEYEN sirkete kayit baglanamaz — 404', async () => {
+    // ⚠️ "Yok", "baska tenant'in" ve "izin yok" AYIRT EDILMEZ; reddin
+    // sebebinden o sirketin VAR OLDUGU cikarilamaz.
     const owner = await tokenFor('owner');
 
     const response = await createTransaction(owner, {
       companyId: '018f3a2b-7c4d-7e1f-8a2b-00000000ffff',
     });
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(404);
+  });
+
+  it('BASKA TENANT in projesine kayit baglanamaz', async () => {
+    const ownerA = await tokenFor('owner', TENANT_A);
+    const project = await createProject(ownerA);
+
+    const ownerB = await tokenFor('owner', TENANT_B);
+    const response = await createTransaction(ownerB, { projectId: String(project.body.id) });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('null gondermek BAGLANTIYI KALDIRIR', async () => {
+    const owner = await tokenFor('owner');
+    const company = await createCompany(owner);
+    const created = await createTransaction(owner, { companyId: String(company.body.id) });
+
+    const response = await api()
+      .patch(`/api/v1/finance/transactions/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ companyId: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body.companyId).toBeNull();
   });
 
   // --- Nakit akisi ozeti (ADR-0034 §5) ------------------------------------

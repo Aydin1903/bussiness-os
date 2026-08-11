@@ -15,9 +15,10 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
+import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
-import { type TransactionListRow } from '../application/transaction.repository.port';
+import { type TransactionEnrichedRow } from '../application/transaction.repository.port';
 import { TransactionUseCases } from '../application/transaction.use-cases';
 import { type TransactionState } from '../domain/transaction.entity';
 import { TRANSACTION_DELETE, TRANSACTION_READ, TRANSACTION_WRITE } from '../finance.permissions';
@@ -43,7 +44,7 @@ import {
  * yazilmali (gerekce `projects.module.ts`'te).
  */
 interface TransactionListResponse {
-  readonly items: readonly TransactionListRow[];
+  readonly items: readonly TransactionEnrichedRow[];
   readonly total: number;
   readonly limit: number;
   readonly offset: number;
@@ -76,6 +77,9 @@ export class TransactionController {
     return this.useCases.create({
       tenantId: principal.tenantId,
       userId: principal.userId,
+      // ROL cross-modul dizinlere gecirilir: izin kapisi ONLARIN icinde
+      // (ADR-0034 §4). Controller hangi izne bakildigini BILMEZ.
+      role: principal.role,
       fields: {
         direction: body.direction,
         // Tutar `string | number` gelir; kural ve normallestirme domain'de
@@ -85,6 +89,8 @@ export class TransactionController {
         occurredOn: body.occurredOn,
         description: body.description ?? null,
         categoryId: body.categoryId ?? null,
+        companyId: body.companyId ?? null,
+        projectId: body.projectId ?? null,
       },
     });
   }
@@ -104,6 +110,7 @@ export class TransactionController {
       categoryId: query.categoryId ?? null,
       from: query.from ?? null,
       to: query.to ?? null,
+      role: requireTenantPrincipal().role,
     });
 
     return { ...page, limit: query.limit, offset: query.offset };
@@ -115,8 +122,8 @@ export class TransactionController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Islem bulunamadi.' })
   async get(
     @Param(new ZodValidationPipe(idParamSchema)) params: { id: string },
-  ): Promise<TransactionState> {
-    return this.useCases.get(params.id);
+  ): Promise<TransactionEnrichedRow> {
+    return this.useCases.get({ id: params.id, role: requireTenantPrincipal().role });
   }
 
   /**
@@ -147,6 +154,7 @@ export class TransactionController {
 
     return this.useCases.update({
       id: params.id,
+      role: requireTenantPrincipal().role,
       changes: amount === undefined ? rest : { ...rest, amount: String(amount) },
     });
   }
@@ -177,16 +185,20 @@ export class TransactionController {
  * boyle bir alan yok ve olmayan bir baglami okumak onu bir bagimlilik gibi
  * gosterirdi.
  */
-function requireTenantPrincipal(): { tenantId: string; userId: string } {
+function requireTenantPrincipal(): { tenantId: string; userId: string; role: string } {
   const principal = getPrincipal();
+  // ⚠️ ROL principal'da DEGIL, TENANT CONTEXT'tedir: principal "kimsin"
+  // sorusunu, tenant context "bu sirkette nesin" sorusunu cevaplar
+  // (`ProjectController`in ayni yardimcisi).
+  const role = getTenantContext()?.role;
 
   // ⚠️ YALNIZCA `tenantId` kontrol ediliyor: `userId` principal tipinde ZATEN
   // zorunludur (bir principal varsa kimligi de vardir). Onu da kontrol etmek
   // lint tarafindan "types have no overlap" ile reddedilir — ve hakli:
   // olmayan bir durumu savunmak, okuyana o durumun MUMKUN oldugunu soyler.
-  if (principal?.tenantId == null) {
+  if (principal?.tenantId == null || role == null) {
     throw new UnauthorizedException('Bu islem icin tenant secilmis bir oturum gerekiyor.');
   }
 
-  return { tenantId: principal.tenantId, userId: principal.userId };
+  return { tenantId: principal.tenantId, userId: principal.userId, role };
 }

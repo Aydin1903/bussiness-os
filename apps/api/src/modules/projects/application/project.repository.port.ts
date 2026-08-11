@@ -121,6 +121,17 @@ export interface ProjectRepository {
   deleteById(id: string): Promise<number>;
 
   /**
+   * `id -> ad` haritasi — `projects.public.ts`in TEK veri ihtiyaci.
+   *
+   * ⚠️ BULUNAMAYAN id HARITAYA GIRMEZ (hata degil): silinmis proje ya da baska
+   * tenant'in projesi. `CompanyRepository.findNamesByIds` ile birebir ayni
+   * sozlesme.
+   *
+   * Bos dizide sorgu ACILMAZ.
+   */
+  findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+
+  /**
    * YAPISAL katkinin birinci sorgusu (ADR-0033 §6.1).
    *
    * ACIK projeler, RISK sirasinda: once gecikmis gorevi cok olan, sonra en

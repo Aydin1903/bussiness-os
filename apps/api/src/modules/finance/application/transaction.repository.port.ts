@@ -27,6 +27,28 @@ export interface TransactionListRow extends TransactionState {
 }
 
 /**
+ * Kullaniciya donen satir — kategori adi + CROSS-MODUL adlar.
+ *
+ * ============================================================================
+ * NEDEN IKI TIP: repository `companyName`/`projectName` URETEMEZ
+ * ============================================================================
+ * Adlar `crm.companies` ve `projects.projects`tadir; `finance` semasindan
+ * okunamaz (Mutlak Kural 5). Repository kendi semasinin bildigi kadarini
+ * dondurur (`TransactionListRow`); adlari use case, iki dizin uzerinden EKLER.
+ *
+ * Tek tip olsaydi repository imzasi dolduramayacagi alanlar vaat ederdi —
+ * `ProjectCountsRow`/`ProjectListRow` ayriminin birebir aynisi.
+ *
+ * ⚠️ `null` UC anlama gelir ve UCU AYIRT EDILMEZ: kayit bagli degil, hedef
+ * silinmis (sarkan isaretci), ya da cagiran ilgili izni tasimiyor. Arayuz
+ * ucunde de ayni seyi gosterir ve bu KASITLIDIR.
+ */
+export interface TransactionEnrichedRow extends TransactionListRow {
+  readonly companyName: string | null;
+  readonly projectName: string | null;
+}
+
+/**
  * `finance.transactions` kaliciligi.
  *
  * HICBIR METOT `tenantId` ALMAZ — daraltmayi RLS yapar (migration `0024`).

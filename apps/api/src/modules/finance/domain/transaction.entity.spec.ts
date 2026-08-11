@@ -17,6 +17,8 @@ function fields(overrides: Partial<TransactionFields> = {}): TransactionFields {
     occurredOn: '2026-08-01',
     description: '  Ofis kirasi  ',
     categoryId: null,
+    companyId: null,
+    projectId: null,
     ...overrides,
   };
 }
@@ -48,13 +50,20 @@ describe('FinanceTransaction — olusturma', () => {
     expect(() => create({ direction: 'transfer' as 'income' })).toThrow(InvalidDirectionError);
   });
 
-  it('cross-modul isaretcileri SLICE 3 e kadar DAIMA null', () => {
-    // ⚠️ Kolonlar `0024`te acildi ama yazma yolu Slice 3'te. Entity onlari
-    // ALANLARINDA hic tasimiyor; bu test o sinirin kayda gecmis halidir.
-    const state = create().toState();
+  it('cross-modul isaretcileri TASINIR (Slice 4)', () => {
+    const state = create({ companyId: 'comp-1', projectId: 'proj-1' }).toState();
 
-    expect(state.companyId).toBeNull();
-    expect(state.projectId).toBeNull();
+    expect(state.companyId).toBe('comp-1');
+    expect(state.projectId).toBe('proj-1');
+  });
+
+  it('cross-modul isaretcileri DOMAIN de DOGRULANMAZ', () => {
+    // ⚠️ Gorunurluk kontrolu bir VERITABANI SORGUSU gerektirir ve `domain`
+    // katmani framework'suzdur (ARCHITECTURE 4). Entity herhangi bir dizeyi
+    // kabul eder; kapi use case'tedir. Bu test o sinirin kayda gecmis halidir —
+    // biri buraya bir UUID kontrolu eklerse, dogrulamanin nerede yasadigi
+    // sorusu IKI cevapli hale gelir.
+    expect(() => create({ companyId: 'hic-de-uuid-degil', projectId: '' })).not.toThrow();
   });
 
   it('kaydi KIM girdigini tutar', () => {

@@ -134,6 +134,26 @@ export class DrizzleProjectRepository implements ProjectRepository {
   }
 
   /**
+   * `id -> ad` — `ProjectDirectoryQuery`nin (ADR-0034 §4) tek veri ihtiyaci.
+   *
+   * `DrizzleCompanyRepository.findNamesByIds` ile birebir ayni: TEK sorgu,
+   * `WHERE tenant_id` YOK (RLS daraltir), bulunamayan id haritaya girmez.
+   */
+  async findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const { db } = requireTransaction();
+    const rows = await db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(inArray(projects.id, [...ids]));
+
+    return new Map(rows.map((row) => [row.id, row.name]));
+  }
+
+  /**
    * ACIK projeler, RISK sirasinda (ADR-0033 §6.1).
    *
    * ============================================================================

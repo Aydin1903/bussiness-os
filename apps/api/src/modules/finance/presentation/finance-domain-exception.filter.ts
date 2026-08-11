@@ -56,6 +56,11 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   // Govdedeki bir ALAN var olmayan bir KAYNAGA isaret ediyor
   // (`TaskProjectNotFoundError` ile ayni desen).
   FINANCE_TRANSACTION_CATEGORY_NOT_FOUND: HttpStatus.NOT_FOUND,
+  // Cross-modul yumusak referanslar (ADR-0034 §4): "yok", "baska tenant'in" ve
+  // "izin yok" AYIRT EDILMEZ — ucu de 404. `PROJECT_COMPANY_NOT_FOUND` ile
+  // ayni desen.
+  FINANCE_TRANSACTION_COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
+  FINANCE_TRANSACTION_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
 
   // 409, 422 DEGIL: govdedeki alan gecerlidir — CAKISAN sey KAYNAGIN MEVCUT
   // DURUMUDUR. Ayni ayrim asagidaki "kullanimda" hatasi icin de gecerli.

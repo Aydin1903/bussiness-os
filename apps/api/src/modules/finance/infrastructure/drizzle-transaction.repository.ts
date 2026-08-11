@@ -38,9 +38,11 @@ export class DrizzleTransactionRepository implements TransactionRepository {
     try {
       // Tek deyimlik UPSERT: `create` ve `update` ayni yolu kullanir.
       //
-      // ⚠️ `companyId` / `projectId` SET listesinde YOK ve `values`ta DAIMA
-      // `null`: kolonlar `0024`'te acildi ama API onlari Slice 3'e kadar kabul
-      // etmiyor (gerekce migration'da). Slice 3 bu iki satiri ekleyecek.
+      // ⚠️ `companyId` / `projectId` SLICE 4'TE SET LISTESINE GIRDI. Slice 2-3
+      // boyunca disarida durmuslardi cunku API onlari kabul etmiyordu;
+      // `projects.public.ts` geldigi icin artik yaziliyorlar.
+      // `undefined` = dokunma / `null` = temizle ayrimi entity'de cozulur,
+      // buraya gelen deger ZATEN nihai durumdur.
       await db
         .insert(financeTransactions)
         .values(state)
@@ -53,6 +55,8 @@ export class DrizzleTransactionRepository implements TransactionRepository {
             occurredOn: state.occurredOn,
             description: state.description,
             categoryId: state.categoryId,
+            companyId: state.companyId,
+            projectId: state.projectId,
             updatedAt: state.updatedAt,
           },
         });

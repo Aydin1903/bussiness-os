@@ -52,16 +52,33 @@ export interface TransactionFields {
   readonly description: string | null;
   /** `null` = kategorisiz; mesru bir durumdur ("hizli gir, sonra siniflandir"). */
   readonly categoryId: string | null;
+
+  /**
+   * Cross-modul YUMUSAK referanslar: `crm.companies.id` ve
+   * `projects.projects.id` — ama FK DEGIL (ADR-0034 §4).
+   *
+   * ⚠️ SLICE 4'TE `TransactionFields`E GIRDILER. Slice 2'de bilerek
+   * disaridaydilar: dogrulamalari ve adlarinin cozulmesi icin gereken
+   * `crm.public.ts` / `projects.public.ts` o gun (Projeler'inki) yoktu ve
+   * dogrulanamayan bir isaretciyi kabul etmek ILK GUNDEN sarkan satir uretmek
+   * olurdu.
+   *
+   * ⚠️ VARLIK KONTROLU BURADA DEGIL: bir veritabani sorgusu gerektirir ve
+   * `domain` katmani framework'suzdur. Kontrol use case'tedir.
+   *
+   * `null` ikisi icin de MESRUDUR: bir masraf ne bir musteriye ne bir ise ait
+   * olmak ZORUNDADIR (kira, vergi, genel gider).
+   */
+  readonly companyId: string | null;
+  readonly projectId: string | null;
 }
 
 /**
  * KISMI guncelleme govdesi.
  *
- * ⚠️ `companyId` / `projectId` BURADA YOK ve bu bilincli: kolonlar `0024`'te
- * acildi ama API onlari SLICE 3'e kadar kabul etmiyor. Dogrulamasi ve adin
- * cozulmesi icin gereken `projects.public.ts` o slice'ta yaziliyor;
- * dogrulanamayan bir cross-modul isaretciyi bugunden kabul etmek ILK GUNDEN
- * sarkan satir uretmek olurdu (ADR-0033 Slice 1'in birebir ayni karari).
+ * ⚠️ `companyId` / `projectId` SLICE 4'TE BURAYA GIRDI. `null` gondermek
+ * BAGLANTIYI KALDIRIR (mesru: bir masrafi genel gidere donusturmek),
+ * `undefined` DOKUNMAZ.
  *
  * `Partial<...>` YETMEZ: `exactOptionalPropertyTypes` altinda o tip "alan YOK"
  * der, "alan var ama `undefined`" DEMEZ. Zod'un `.partial()` ciktisi ikincisidir.
@@ -74,9 +91,6 @@ export interface TransactionState extends TransactionFields {
   readonly id: string;
   readonly tenantId: string;
   readonly createdByUserId: string;
-  /** Cross-modul yumusak referanslar — Slice 3'e kadar DAIMA `null`. */
-  readonly companyId: string | null;
-  readonly projectId: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -98,8 +112,6 @@ export class FinanceTransaction {
       tenantId: input.tenantId,
       createdByUserId: input.createdByUserId,
       ...normalized,
-      companyId: null,
-      projectId: null,
       createdAt: input.now,
       updatedAt: input.now,
     });
@@ -135,6 +147,9 @@ export class FinanceTransaction {
       occurredOn: changes.occurredOn ?? current.occurredOn,
       description: changes.description === undefined ? current.description : changes.description,
       categoryId: changes.categoryId === undefined ? current.categoryId : changes.categoryId,
+      // `null` = BAGLANTIYI KALDIR (mesru: genel gidere donusturmek).
+      companyId: changes.companyId === undefined ? current.companyId : changes.companyId,
+      projectId: changes.projectId === undefined ? current.projectId : changes.projectId,
     };
 
     return new FinanceTransaction({ ...current, ...normalize(merged), updatedAt: now });
@@ -158,6 +173,11 @@ function normalize(fields: TransactionFields): TransactionFields {
     occurredOn: assertCalendarDay(fields.occurredOn),
     description: blankToNull(fields.description),
     categoryId: fields.categoryId,
+    // ⚠️ Cross-modul isaretciler BURADA DOGRULANMAZ: gorunurluk kontrolu bir
+    // veritabani sorgusu gerektirir ve `domain` katmani framework'suzdur.
+    // Kontrol use case'tedir (`#assertVisible`).
+    companyId: fields.companyId,
+    projectId: fields.projectId,
   };
 }
 
