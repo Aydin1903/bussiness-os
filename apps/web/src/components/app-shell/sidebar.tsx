@@ -50,25 +50,39 @@ const LIVE: readonly NavItem[] = [
   // hâldeyken sidebar "yakında" rozetini taşımaya devam etmiş ve modül
   // kullanıcı için ERİŞİLEMEZ kalmıştı.
   { label: 'Projeler', icon: ProjectsIcon, href: '/app/projects', module: 'projects' },
+  // Finans SOON'dan buraya taşındı (ADR-0034 Slice 7): üç rota çalışıyor.
+  // Taşımamak, Faz 4'te bir kez yaşanan hatanın tekrarı olurdu — modül çalışır
+  // hâldeyken sidebar "yakında" rozetini taşımaya devam etmiş ve modül
+  // kullanıcı için ERİŞİLEMEZ kalmıştı.
+  //
+  // ⚠️ Bu satır `member`/`viewer` için de GÖRÜNÜR ve bu bilinçli: sidebar
+  // ürünün neye sahip olduğunu gösterir, kullanıcının neyi görebildiğini değil.
+  // Tıklayan bir üye ekranda açık bir 403 mesajı görür ("Finans kayıtlarını
+  // yalnızca şirket sahibi veya yönetici görebilir") — satırı gizlemek,
+  // modülün VARLIĞINI gizlemek olurdu ve kullanıcı neden erişemediğini
+  // anlayamazdı. İzne göre menü çizmek ayrı bir karardır ve verilmedi.
+  { label: 'Finans', icon: FinanceIcon, href: '/app/finance', module: 'finance' },
 ];
 
 /**
  * Henüz gelmemiş modüller. Tıklanabilir görüntü VERİLMEZ: vaat olurdu.
  *
- * ⚠️ BURAYA ON İKİ SATIR KONMADI — bilinçli (Product Owner kararı, 2026-08-08).
- * ROADMAP §3.5 on iki modül sayıyor ve hepsinin rengi `module-colors.css`'te
- * hazır. Hepsini listelemek sidebar'ı bir gezinme aracı olmaktan çıkarıp yol
- * haritasına çevirir; kullanıcı her gün ulaşamayacağı on kalem görür. Sıradaki
- * ikisi gösterilir, modül canlandığı gün LIVE'a taşınır.
- *
- * Sıra ROADMAP §3.5'e hizalandı. Projeler LIVE'a taşındı, geriye Finans kaldı.
- *
- * ⚠️ Dördüncü modül (Randevu) BURAYA EKLENMEDİ: `icons.tsx`'te karşılığı yok ve
+ * ⚠️ BU DİZİ ŞU AN BOŞ — ve bu bir eksiklik değil, bir DURUM.
+ * ============================================================================
+ * Finans Slice 7'de LIVE'a taşındı ve geriye hiçbir "yakında" satırı kalmadı.
+ * Dördüncü modül (Randevu) BURAYA EKLENMEDİ: `icons.tsx`'te karşılığı yok ve
  * yeni bir ikon çizmek bir TASARIM kararıdır — bu slice'ın kapsamı değil.
- * Tek satır kalması "sıradaki ikisi" niyetinden bir sapmadır ve bilinçlidir;
- * uydurma bir ikonla ikinci satır açmaktan iyidir.
+ *
+ * ⚠️ BOŞ DİZİ SESSİZ BİR ARAYÜZ HATASI ÜRETİRDİ. Bölüm koşulsuz çizilseydi
+ * ekranda içi boş bir "MODÜLLER" başlığı kalırdı: ekran çalışır, hiçbir test
+ * kırmızı yanmaz, lint yakalamaz — yalnızca anlamsız bir boşluk görünürdü.
+ * ADR-0034 §10 bu tuzağı adıyla kaydetti; aşağıdaki `SOON.length > 0` kontrolü
+ * onun karşılığıdır.
+ *
+ * Bir sonraki modül geldiğinde buraya tek satır eklemek yeterlidir; bölüm
+ * kendiliğinden geri gelir.
  */
-const SOON: readonly NavItem[] = [{ label: 'Finans', icon: FinanceIcon, module: 'finance' }];
+const SOON: readonly NavItem[] = [];
 
 /**
  * Aktif satır — EN UZUN eşleşen önek kazanır.
@@ -169,12 +183,19 @@ export function Sidebar({
           ))}
         </div>
 
-        <div className="flex flex-col gap-0.5">
-          {collapsed ? null : <GroupLabel>Modüller</GroupLabel>}
-          {SOON.map((item) => (
-            <SoonRow key={item.label} item={item} collapsed={collapsed} />
-          ))}
-        </div>
+        {/*
+          ⚠️ KOŞULLU: `SOON` boşken bölüm HİÇ ÇİZİLMEZ. Aksi halde içi boş bir
+          "MODÜLLER" başlığı kalırdı — çalışan ama anlamsız bir boşluk
+          (gerekçe `SOON` tanımında).
+        */}
+        {SOON.length === 0 ? null : (
+          <div className="flex flex-col gap-0.5">
+            {collapsed ? null : <GroupLabel>Modüller</GroupLabel>}
+            {SOON.map((item) => (
+              <SoonRow key={item.label} item={item} collapsed={collapsed} />
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="flex-1" />

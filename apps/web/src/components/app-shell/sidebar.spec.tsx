@@ -45,34 +45,33 @@ describe('Sidebar — gezinme', () => {
     expect(screen.getByRole('link', { name: 'Müşteriler' })).toHaveAttribute('href', '/app/crm');
   });
 
-  it('henüz gelmemiş modüller link DEĞİL', () => {
-    // Olmayan bir şeye tıklanabilir görünüm vermek, vaat etmektir.
-    //
-    // ⚠️ Slice 5'te bu listeden PROJELER ÇIKTI: üç uç ve iki rota çalışıyor,
-    // dolayısıyla artık gerçek bir bağlantı. Modül çalışır hâldeyken "yakında"
-    // rozetini taşımaya devam etmek, Faz 4'te bir kez yaşanan ve modülü
-    // kullanıcı için erişilemez bırakan hatanın aynısı olurdu.
-    renderAt('/app');
-
-    for (const label of ['Finans']) {
-      expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
-      expect(screen.getByText(label)).toBeInTheDocument();
-    }
-  });
-
   it('Projeler ARTIK gerçek bir bağlantı', () => {
     renderAt('/app');
 
     expect(screen.getByRole('link', { name: 'Projeler' })).toHaveAttribute('href', '/app/projects');
   });
 
-  it('yalnızca placeholder modüller "yakında" rozeti taşır', () => {
+  it('Finans ARTIK gerçek bir bağlantı', () => {
+    // ⚠️ Slice 7'de SOON'dan LIVE'a taşındı: üç rota çalışıyor. Modül çalışır
+    // hâldeyken "yakında" rozetini taşımaya devam etmek, Faz 4'te bir kez
+    // yaşanan ve modülü kullanıcı için erişilemez bırakan hatanın aynısı olurdu.
     renderAt('/app');
 
-    // Projeler LIVE'a taşındıktan sonra geriye TEK placeholder kaldı (Finans).
-    // Dördüncü modül (Randevu) eklenmedi: `icons.tsx`'te ikonu yok ve yeni
-    // ikon çizmek bir tasarım kararıdır — bu slice'ın kapsamı değil.
-    expect(screen.getAllByText('yakında')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Finans' })).toHaveAttribute('href', '/app/finance');
+  });
+
+  it('⚠️ "YAKINDA" BÖLÜMÜ HİÇ ÇİZİLMEZ — dizi boş', () => {
+    // ============================================================================
+    // BU TESTİN İŞİ BİR ŞEYİN OLMADIĞINI KANITLAMAKTIR
+    // ============================================================================
+    // Finans LIVE'a taşınınca `SOON` boşaldı. Bölüm koşulsuz çizilseydi ekranda
+    // İÇİ BOŞ bir "MODÜLLER" başlığı kalırdı: ekran çalışır, lint yakalamaz,
+    // hiçbir test kırmızı yanmaz — yalnızca anlamsız bir boşluk görünür.
+    // ADR-0034 §10 bu tuzağı adıyla kaydetti.
+    renderAt('/app');
+
+    expect(screen.queryByText('yakında')).not.toBeInTheDocument();
+    expect(screen.queryByText('Modüller')).not.toBeInTheDocument();
   });
 
   it('ayrı bir "Bilgi Bankası" satırı YOK — çalışma yüzeyi Panel', () => {
@@ -127,13 +126,17 @@ describe('Sidebar — modül renk kapsamı', () => {
     );
   });
 
-  it('"yakında" satırı da kendi kimliğini taşır', () => {
+  it('Finans satırı kendi kapsamını deklare eder — YEŞİL', () => {
+    // ⚠️ Bu iddia Slice 7'de DEĞİŞTİ: Finans eskiden bir "yakında" satırıydı,
+    // artık canlı bir bağlantı. Anahtar `finance`, `finans` DEĞİL — yanlış
+    // yazım SESSİZCE terracottada bırakır.
+    //
+    // Renk DEĞERİ (#307d54 / #6cb78b) burada test EDİLMEZ ve edilemez: değer
+    // `module-colors.css`'te yaşar, jsdom stylesheet'i çözmez. Gerçek renk
+    // tarayıcıda, açık VE koyu temada gezilerek doğrulanır.
     renderAt('/app');
 
-    expect(screen.getByText('Finans').closest('[data-module]')).toHaveAttribute(
-      'data-module',
-      'finance',
-    );
+    expect(screen.getByRole('link', { name: 'Finans' })).toHaveAttribute('data-module', 'finance');
   });
 
   it('KABUK kapsam TAŞIMAZ — marka, modül değil', () => {
@@ -205,7 +208,6 @@ describe('Sidebar — daraltılmış', () => {
 
     // Görsel etiket yok ama `title` erişilebilir adı sağlıyor.
     expect(screen.getByRole('link', { name: 'Panel' })).toBeInTheDocument();
-    expect(screen.queryByText('yakında')).not.toBeInTheDocument();
   });
 
   it('daraltılınca şirket/kullanıcı satırları çizilmez', () => {
