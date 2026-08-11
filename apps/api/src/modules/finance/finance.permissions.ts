@@ -69,6 +69,26 @@ export const TRANSACTION_WRITE = 'transaction:write';
 export const TRANSACTION_DELETE = 'transaction:delete';
 
 /**
+ * Nakit akisi ozeti izni (ADR-0034 §7).
+ *
+ * ============================================================================
+ * NEDEN `transaction:read`TEN AYRI
+ * ============================================================================
+ * "Ozeti gorur ama tek tek islemleri gormez" GERCEK ve klasik bir taleptir:
+ * yoneticiye toplam, muhasebeciye detay. `opportunity:read`in `company:read`ten
+ * ayri tutulmasiyla ayni gerekce.
+ *
+ * ⚠️ Ozet, islemlerden TURETILMIS bir bilgidir — yani `cashflow:read` tasiyip
+ * `transaction:read` tasimayan biri, gormedigi kayitlarin TOPLAMINI gorur. Bu
+ * bir sizinti DEGIL, bilincli bir KABALASTIRMADIR: talebin kendisi tam olarak
+ * budur. Ayrimin tersi (detayi gorup toplami gormemek) anlamsiz olurdu.
+ *
+ * Ayrica Slice 6'nin YAPISAL katkicisinin kapisi budur: `POST /ask`te finans
+ * ozetini goren kullanici, bu izni tasiyandir.
+ */
+export const CASHFLOW_READ = 'cashflow:read';
+
+/**
  * ============================================================================
  * ⚠️ UC PERMISSION DA BUGUN AYNI KUMEYI TASIYOR — AYRIMIN BUGUNKU DEGERI SIFIR
  * ============================================================================
@@ -92,4 +112,6 @@ export const FINANCE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: TRANSACTION_READ, roles: ['owner', 'admin'] },
   { permission: TRANSACTION_WRITE, roles: ['owner', 'admin'] },
   { permission: TRANSACTION_DELETE, roles: ['owner', 'admin'] },
+
+  { permission: CASHFLOW_READ, roles: ['owner', 'admin'] },
 ];

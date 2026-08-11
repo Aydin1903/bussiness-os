@@ -6,6 +6,8 @@ import { financeCategories, financeTransactions } from '../../../infrastructure/
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { type ListPage } from '../application/category.repository.port';
 import {
+  type CategoryTotalsRow,
+  type CurrencyTotalsRow,
   type TransactionListRow,
   type TransactionRepository,
 } from '../application/transaction.repository.port';
@@ -152,6 +154,113 @@ export class DrizzleTransactionRepository implements TransactionRepository {
 
     return deleted.length;
   }
+
+  async summarizeByCurrency(input: {
+    from: string | null;
+    to: string | null;
+  }): Promise<CurrencyTotalsRow[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select({
+        currency: financeTransactions.currency,
+        income: money(sql`SUM(${financeTransactions.amount}) FILTER (WHERE ${INCOME})`),
+        expense: money(sql`SUM(${financeTransactions.amount}) FILTER (WHERE ${EXPENSE})`),
+        // ⚠️ `income - expense` DEGIL, TEK bir toplam: iki dizeyi JS'te
+        // cikarmak icin once `number`a cevirmek gerekirdi ve bu, `money.ts`'in
+        // bastan sona kacindigi hatayi bir PARA TOPLAMINDA geri getirirdi.
+        net: money(
+          sql`SUM(CASE WHEN ${INCOME} THEN ${financeTransactions.amount} ELSE -${financeTransactions.amount} END)`,
+        ),
+      })
+      .from(financeTransactions)
+      .where(dateRange(input))
+      .groupBy(financeTransactions.currency)
+      .orderBy(asc(financeTransactions.currency));
+
+    return rows;
+  }
+
+  async summarizeByCategory(input: {
+    from: string | null;
+    to: string | null;
+  }): Promise<CategoryTotalsRow[]> {
+    const { db } = requireTransaction();
+
+    // ⚠️ `LEFT JOIN` ZORUNLU: `INNER` olsaydi KATEGORISIZ kayitlar kirilimdan
+    // duserdi ve kategori toplamlari para birimi toplamini TUTMAZDI — fark
+    // sessiz olurdu (ADR-0034 §3d).
+    //
+    // ⚠️ Gruplamada `transactions.direction` kullaniliyor, KATEGORININ yonu
+    // degil: kategorisiz satirlarin kategorisi yoktur ama yonu vardir.
+    // Kategorili satirlarda ikisi ZATEN esittir — bilesik FK bunu garanti
+    // ediyor (`0024`).
+    const rows = await db
+      .select({
+        currency: financeTransactions.currency,
+        categoryId: financeTransactions.categoryId,
+        categoryName: financeCategories.name,
+        direction: financeTransactions.direction,
+        total: money(sql`SUM(${financeTransactions.amount})`),
+      })
+      .from(financeTransactions)
+      .leftJoin(financeCategories, eq(financeCategories.id, financeTransactions.categoryId))
+      .where(dateRange(input))
+      .groupBy(
+        financeTransactions.currency,
+        financeTransactions.categoryId,
+        financeCategories.name,
+        financeTransactions.direction,
+      )
+      // Buyukten kucuge: "en cok nereye harciyoruz" sorusunun cevabi ustte
+      // olsun. `categoryId` TIE-BREAKER — kararsiz siralama, ayni soruya iki
+      // farkli cevap demektir.
+      .orderBy(
+        asc(financeTransactions.currency),
+        asc(financeTransactions.direction),
+        desc(sql`SUM(${financeTransactions.amount})`),
+        asc(financeTransactions.categoryId),
+      );
+
+    return rows.map((row) => ({ ...row, direction: toDirection(row.direction) }));
+  }
+}
+
+/** `direction = 'income'` yuklemi — tek tanim, uc yerde kullaniliyor. */
+const INCOME = sql`${financeTransactions.direction} = 'income'`;
+const EXPENSE = sql`${financeTransactions.direction} = 'expense'`;
+
+/**
+ * Bir toplami KANONIK para dizesine cevirir.
+ *
+ * ============================================================================
+ * ⚠️ `COALESCE` VE `numeric(20,2)` BIRLIKTE GEREKLI
+ * ============================================================================
+ * - `COALESCE(..., 0)`: `FILTER` hicbir satiri tutmazsa `SUM` `NULL` doner.
+ *   Ornegin yalnizca gideri olan bir para biriminde `income` NULL olurdu ve
+ *   istemci `null` ile `"0.00"`i ayirt etmek zorunda kalirdi.
+ * - `::numeric(20,2)`: olceksiz bir `0`, `"0"` olarak render edilirdi —
+ *   digerleri `"1500.50"` iken. Olcek verilmesi TUM degerleri ayni kanonik
+ *   bicime sokar. 20 hane secildi cunku TOPLAM, tek bir kaydin `numeric(14,2)`
+ *   sinirini asabilir; `numeric(14,2)`ye cast etmek buyuk tenant'larda
+ *   TASMA HATASI verirdi.
+ * - `::text`: surucunun `numeric`i zaten dize dondurmesine guvenilmez;
+ *   acikca istenmesi niyeti belgeler.
+ */
+function money(expression: SQL): SQL<string> {
+  return sql<string>`COALESCE(${expression}, 0)::numeric(20,2)::text`;
+}
+
+/** `from`/`to` DAHIL sinirlar; ikisi de yoksa filtre YOK (tum gecmis). */
+function dateRange(input: { from: string | null; to: string | null }): SQL | undefined {
+  const conditions: SQL[] = [];
+  if (input.from !== null) {
+    conditions.push(gte(financeTransactions.occurredOn, input.from));
+  }
+  if (input.to !== null) {
+    conditions.push(lte(financeTransactions.occurredOn, input.to));
+  }
+  return conditions.length === 0 ? undefined : and(...conditions);
 }
 
 /** Satiri entity'ye cevirir; `direction` daraltmasi tek yerde yapilir. */

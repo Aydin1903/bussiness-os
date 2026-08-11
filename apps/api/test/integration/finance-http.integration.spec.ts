@@ -203,6 +203,14 @@ describe('Finans uclari (uctan uca)', () => {
 
     const writeTx = await createTransaction(token, {});
     expect(writeTx.status).toBe(403);
+
+    // ⚠️ OZET DE kapali. Ozet, islemlerden TURETILMIS bir bilgidir; acik
+    // birakilsaydi `transaction:read` tasimayan biri sirketin nakit akisini
+    // TOPLAM uzerinden okurdu — dar katalogun butun anlami kaybolurdu.
+    const summary = await api()
+      .get('/api/v1/finance/summary')
+      .set('Authorization', `Bearer ${token}`);
+    expect(summary.status).toBe(403);
   });
 
   it.each(['owner', 'admin'])('%s okur ve yazar', async (role) => {
@@ -495,6 +503,121 @@ describe('Finans uclari (uctan uca)', () => {
     });
 
     expect(response.status).toBe(422);
+  });
+
+  // --- Nakit akisi ozeti (ADR-0034 §5) ------------------------------------
+
+  function summary(token: string, query = '') {
+    return api().get(`/api/v1/finance/summary${query}`).set('Authorization', `Bearer ${token}`);
+  }
+
+  it('⚠️ FARKLI PARA BIRIMLERI TOPLANMAZ — her biri KENDI satirini alir', async () => {
+    // ADR-0034 §5.1'in uctan uca kaniti. Tek bir "net" rakami dondurmek,
+    // 2000 TRY + 2000 USD = 4000 gibi kullanicinin GOREMEYECEGI bir yanlis
+    // uretirdi.
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { direction: 'income', amount: '12000', currency: 'TRY' });
+    await createTransaction(owner, { direction: 'expense', amount: '8500.50', currency: 'TRY' });
+    await createTransaction(owner, { direction: 'expense', amount: '1200', currency: 'USD' });
+
+    const response = await summary(owner);
+
+    expect(response.status).toBe(200);
+    const rows = response.body.currencies as {
+      currency: string;
+      income: string;
+      expense: string;
+      net: string;
+    }[];
+
+    expect(rows).toEqual([
+      { currency: 'TRY', income: '12000.00', expense: '8500.50', net: '3499.50', categories: null },
+      { currency: 'USD', income: '0.00', expense: '1200.00', net: '-1200.00', categories: null },
+    ]);
+  });
+
+  it('gelirsiz bir para biriminde income "0.00" doner — null DEGIL', async () => {
+    // ⚠️ `COALESCE` + `numeric(20,2)` ikilisinin kaniti. `FILTER` hicbir satiri
+    // tutmayinca `SUM` NULL doner ve istemci `null` ile `"0.00"`i ayirt etmek
+    // zorunda kalirdi; olcek verilmeseydi de `"0"` gelirdi.
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { direction: 'expense', amount: '10', currency: 'USD' });
+
+    const rows = (await summary(owner)).body.currencies as { income: string }[];
+    expect(rows[0]?.income).toBe('0.00');
+  });
+
+  it('TARIH ARALIGI uygulanir (sinirlar DAHIL)', async () => {
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { amount: '10', occurredOn: '2026-07-31' });
+    await createTransaction(owner, { amount: '20', occurredOn: '2026-08-01' });
+    await createTransaction(owner, { amount: '30', occurredOn: '2026-08-31' });
+    await createTransaction(owner, { amount: '40', occurredOn: '2026-09-01' });
+
+    const rows = (await summary(owner, '?from=2026-08-01&to=2026-08-31')).body.currencies as {
+      expense: string;
+    }[];
+
+    expect(rows[0]?.expense).toBe('50.00');
+  });
+
+  it('BOS aralik BOS DIZI doner — uydurulmus sifir satiri YOK', async () => {
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { amount: '10', occurredOn: '2026-08-01' });
+
+    const response = await summary(owner, '?from=2027-01-01&to=2027-01-31');
+
+    expect(response.body.currencies).toEqual([]);
+  });
+
+  it('kirilim VARSAYILAN OLARAK gelmez (categories: null)', async () => {
+    const owner = await tokenFor('owner');
+    await createTransaction(owner, { amount: '10' });
+
+    const rows = (await summary(owner)).body.currencies as { categories: unknown }[];
+    expect(rows[0]?.categories).toBeNull();
+  });
+
+  it('kirilim istendiginde KATEGORISIZ satir da GORUNUR', async () => {
+    // ⚠️ Elenseydi kategori toplamlari para birimi toplamini TUTMAZ ve fark
+    // SESSIZ olurdu (ADR-0034 §3d).
+    const owner = await tokenFor('owner');
+    const category = await createCategory(owner, { name: 'Kira', direction: 'expense' });
+    await createTransaction(owner, { amount: '5000', categoryId: String(category.body.id) });
+    await createTransaction(owner, { amount: '3500.50' });
+
+    const rows = (await summary(owner, '?includeCategories=true')).body.currencies as {
+      expense: string;
+      categories: { categoryId: string | null; categoryName: string | null; total: string }[];
+    }[];
+
+    // Kirilim toplami, para birimi toplamini TUTAR.
+    expect(rows[0]?.expense).toBe('8500.50');
+    expect(rows[0]?.categories).toEqual([
+      {
+        categoryId: String(category.body.id),
+        categoryName: 'Kira',
+        direction: 'expense',
+        total: '5000.00',
+      },
+      { categoryId: null, categoryName: null, direction: 'expense', total: '3500.50' },
+    ]);
+  });
+
+  it('gecersiz aralik (from > to) 422 doner', async () => {
+    const owner = await tokenFor('owner');
+    const response = await summary(owner, '?from=2026-09-01&to=2026-08-01');
+    expect(response.status).toBe(422);
+  });
+
+  it('ozet BASKA TENANT in verisini gormez', async () => {
+    const ownerA = await tokenFor('owner', TENANT_A);
+    await createTransaction(ownerA, { amount: '999' });
+
+    const ownerB = await tokenFor('owner', TENANT_B);
+    const response = await summary(ownerB);
+
+    expect(response.body.currencies).toEqual([]);
   });
 
   it('owner siler, ve olmayan kayit 404 doner', async () => {

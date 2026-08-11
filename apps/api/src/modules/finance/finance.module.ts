@@ -15,6 +15,7 @@ import {
   type CategoryRepository,
 } from './application/category.repository.port';
 import { CategoryUseCases } from './application/category.use-cases';
+import { CashflowUseCases } from './application/cashflow.use-cases';
 import {
   TRANSACTION_REPOSITORY,
   type TransactionRepository,
@@ -22,6 +23,7 @@ import {
 import { TransactionUseCases } from './application/transaction.use-cases';
 import { DrizzleCategoryRepository } from './infrastructure/drizzle-category.repository';
 import { DrizzleTransactionRepository } from './infrastructure/drizzle-transaction.repository';
+import { CashflowController } from './presentation/cashflow.controller';
 import { CategoryController } from './presentation/category.controller';
 import { TransactionController } from './presentation/transaction.controller';
 import { FINANCE_PERMISSIONS } from './finance.permissions';
@@ -61,7 +63,7 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
   // `finance/:id` gibi bir yakalayici tanimlamiyor.
   //
   // ⚠️ Bir gun `finance/:id` eklenirse o controller listenin SONUNA yazilmali.
-  controllers: [CategoryController, TransactionController],
+  controllers: [CategoryController, TransactionController, CashflowController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -114,6 +116,18 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
           idGenerator,
           clock,
         }),
+    },
+    {
+      provide: CashflowUseCases,
+      // ⚠️ Ozetin KENDI repository'si YOK: veri `finance.transactions`tadir ve
+      // ayni tabloya ikinci bir kapi acmak, ayni RLS/filtre kurallarinin iki
+      // yerde yasamasi demekti. `DrizzleProjectRepository`nin yapisal katki
+      // sorgularini kendi icinde tutmasiyla ayni karar.
+      inject: [TRANSACTION_REPOSITORY, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: TransactionRepository,
+        transactionManager: TransactionManager,
+      ): CashflowUseCases => new CashflowUseCases({ repository, transactionManager }),
     },
   ],
 })

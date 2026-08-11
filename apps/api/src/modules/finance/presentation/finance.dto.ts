@@ -173,3 +173,29 @@ export const listTransactionsQuerySchema = z
 export type CreateTransactionBody = z.infer<typeof createTransactionSchema>;
 export type UpdateTransactionBody = z.infer<typeof updateTransactionSchema>;
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;
+
+// --- Nakit akisi ozeti (ADR-0034 §5) ---------------------------------------
+
+/**
+ * ⚠️ `limit`/`offset` YOK ve bu bilincli: ozet bir LISTE degil bir
+ * TOPLAMADIR. Satir sayisi tenant'in kullandigi PARA BIRIMI sayisi kadardir
+ * (pratikte bir ya da iki) ve sayfalanacak bir sey yoktur. Sayfalama eklemek,
+ * "ikinci sayfadaki para birimleri" gibi anlamsiz bir kavram uretirdi.
+ */
+export const summaryQuerySchema = z
+  .object({
+    /** DAHIL sinirlar. Verilmezse TUM GECMIS toplanir. */
+    from: calendarDay.optional(),
+    to: calendarDay.optional(),
+    /**
+     * Varsayilan `false`: kirilim IKINCI bir sorgu demektir ve ozet seridinin
+     * ihtiyaci yoktur. Kategori ekrani `true` gonderir.
+     */
+    includeCategories: z.stringbool().default(false),
+  })
+  .strict()
+  .refine((query) => query.from === undefined || query.to === undefined || query.from <= query.to, {
+    message: 'from, to dan sonra olamaz',
+  });
+
+export type SummaryQuery = z.infer<typeof summaryQuerySchema>;

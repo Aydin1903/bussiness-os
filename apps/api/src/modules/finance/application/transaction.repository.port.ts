@@ -67,4 +67,68 @@ export interface TransactionRepository {
 
   /** Silinen satir sayisi; `0` = kayit yok (ya da baska tenant'in). */
   deleteById(id: string): Promise<number>;
+
+  /**
+   * NAKIT AKISI OZETI — PARA BIRIMI BASINA bir satir (ADR-0034 §5).
+   *
+   * ============================================================================
+   * ⚠️ TOPLAMA SQL'DE YAPILIR, JS'TE DEGIL
+   * ============================================================================
+   * Donen degerler DIZEDIR ve oyle kalir. Toplamayi JS'e tasimak, `numeric`
+   * degerleri `number`a cevirmek demektir — yani `money.ts`'in bastan sona
+   * kacindigi yuvarlama hatasini, tam da EN COK ONEM TASIDIGI yerde (bir para
+   * toplaminda) geri getirmek.
+   *
+   * `net` de SQL'de hesaplanir (`income` - `expense` degil, tek bir
+   * `SUM(CASE ...)`): iki dizeyi JS'te cikarmak icin once sayiya cevirmek
+   * gerekirdi.
+   *
+   * ============================================================================
+   * BOS ARALIK BOS DIZI DONER — UYDURULMUS SIFIR SATIRI YOK
+   * ============================================================================
+   * Aralikta hic hareket yoksa dizi bostur. `{ currency: 'TRY', net: '0.00' }`
+   * gibi bir satir UYDURULMAZ: hangi para biriminde sifir oldugunu bilmiyoruz
+   * ve tenant'in hic TRY kullanmamis olmasi tumuyle mumkun.
+   */
+  summarizeByCurrency(input: {
+    from: string | null;
+    to: string | null;
+  }): Promise<CurrencyTotalsRow[]>;
+
+  /**
+   * Kategori kirilimi — para birimi + kategori + yon basina bir satir.
+   *
+   * ⚠️ AYRI BIR SORGU, `summarizeByCurrency` ile BIRLESTIRILMEZ: ikisi farkli
+   * GRUPLAMA GRANULARITESINDE calisir. Tek sorguda birlestirmek, para birimi
+   * toplamlarini kategori sayisi kadar TEKRARLARDI ve okuyanin onlari
+   * ayiklamasi gerekirdi (`findRiskyOpenProjects` / `findLastNoteActivity`
+   * ayriminin ayni gerekcesi).
+   *
+   * ⚠️ KATEGORISIZ kayitlar `categoryId: null` olarak GORUNUR, elenmez —
+   * ADR-0034 §3d: ozet bunu ACIKCA gosterir, gizlemez. Elenselerdi kategori
+   * toplamlari para birimi toplamini tutmaz ve fark SESSIZ olurdu.
+   */
+  summarizeByCategory(input: {
+    from: string | null;
+    to: string | null;
+  }): Promise<CategoryTotalsRow[]>;
+}
+
+/** Para birimi basina toplamlar; tum tutarlar KANONIK dize (`"1500.50"`). */
+export interface CurrencyTotalsRow {
+  readonly currency: string;
+  readonly income: string;
+  readonly expense: string;
+  /** `income - expense`; NEGATIF olabilir ve bu normaldir. */
+  readonly net: string;
+}
+
+/** Kategori kirilimi satiri. */
+export interface CategoryTotalsRow {
+  readonly currency: string;
+  /** `null` = KATEGORISIZ (gizlenmez, ADR-0034 §3d). */
+  readonly categoryId: string | null;
+  readonly categoryName: string | null;
+  readonly direction: FinanceDirection;
+  readonly total: string;
 }
