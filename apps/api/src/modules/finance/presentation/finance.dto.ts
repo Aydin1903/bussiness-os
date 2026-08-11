@@ -202,3 +202,42 @@ export const summaryQuerySchema = z
   });
 
 export type SummaryQuery = z.infer<typeof summaryQuerySchema>;
+
+// --- Finansal yorumlar (ADR-0034 §6.1) -------------------------------------
+
+const MAX_BODY = 20_000;
+
+export const createCommentarySchema = z
+  .object({
+    /**
+     * Yorumun ILGILI OLDUGU gun. Verilmezse BUGUNE duser (`Clock`).
+     *
+     * Zorunlu kilmak, "bugun icin yaziyorum" gibi en yaygin durumu her seferinde
+     * bir tarih secmeye zorlardi. Ayri bir alan olmasinin sebebi ise tersidir:
+     * Nisan'da Mart hakkinda yazmak olagandir ve `created_at` bunu SOYLEYEMEZ.
+     */
+    occurredOn: calendarDay.nullish(),
+    body: z.string().trim().min(1, 'Finansal yorum bos olamaz').max(MAX_BODY),
+  })
+  .strict();
+
+/**
+ * ⚠️ `updateCommentarySchema` YOK ve olmayacak: yorumlar EKLEME-YALNIZDIR
+ * (ADR-0034 §11, `crm.interactions` / `projects.progress_notes` ile ayni
+ * sinir). Izin katalogu da bunu yansitir — `commentary:create`, `write` DEGIL.
+ */
+export const listCommentariesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
+    offset: z.coerce.number().int().min(0).default(0),
+    /** Filtre `occurred_on` uzerinde — yorum bir DONEM hakkindadir. */
+    from: calendarDay.optional(),
+    to: calendarDay.optional(),
+  })
+  .strict()
+  .refine((query) => query.from === undefined || query.to === undefined || query.from <= query.to, {
+    message: 'from, to dan sonra olamaz',
+  });
+
+export type CreateCommentaryBody = z.infer<typeof createCommentarySchema>;
+export type ListCommentariesQuery = z.infer<typeof listCommentariesQuerySchema>;

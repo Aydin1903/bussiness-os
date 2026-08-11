@@ -113,6 +113,12 @@ export interface AppConfig {
     readonly staleDays: number;
   };
 
+  /** Finans modulu (ADR-0034 §9). */
+  readonly finance: {
+    readonly commentariesRateLimit: number;
+    readonly reindexBatchSize: number;
+  };
+
   /** Gunluk rapor worker'i (ADR-0030 §2). */
   readonly dailyReport: {
     readonly enabled: boolean;
@@ -173,6 +179,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       notesRateLimit: env.PROJECTS_NOTES_RATE_LIMIT,
       reindexBatchSize: env.PROJECTS_REINDEX_BATCH_SIZE,
       staleDays: env.PROJECTS_STALE_DAYS,
+    },
+    finance: {
+      commentariesRateLimit: env.FINANCE_COMMENTARIES_RATE_LIMIT,
+      reindexBatchSize: env.FINANCE_REINDEX_BATCH_SIZE,
     },
     ...toAiConfig(env),
   };

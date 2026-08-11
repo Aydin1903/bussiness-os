@@ -87,7 +87,10 @@ describe('Finans uclari (uctan uca)', () => {
   });
 
   beforeEach(async () => {
-    await database.ownerPool.query('TRUNCATE finance.transactions, finance.categories CASCADE');
+    await database.ownerPool.query(
+      'TRUNCATE finance.commentary_chunks, finance.commentaries, finance.transactions, finance.categories CASCADE',
+    );
+    await database.ownerPool.query('TRUNCATE platform.rate_limits');
     // Cross-modul testleri gercek CRM/Projeler kayitlari uretiyor (ADR-0034 §4).
     await database.ownerPool.query(
       'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
@@ -218,6 +221,12 @@ describe('Finans uclari (uctan uca)', () => {
       .get('/api/v1/finance/summary')
       .set('Authorization', `Bearer ${token}`);
     expect(summary.status).toBe(403);
+
+    // Yorumlar da kapali — modulun AI'a bakan yuzeyi de dar katalogun icinde.
+    const commentaries = await api()
+      .get('/api/v1/finance/commentaries')
+      .set('Authorization', `Bearer ${token}`);
+    expect(commentaries.status).toBe(403);
   });
 
   it.each(['owner', 'admin'])('%s okur ve yazar', async (role) => {
@@ -728,6 +737,124 @@ describe('Finans uclari (uctan uca)', () => {
     const response = await summary(ownerB);
 
     expect(response.body.currencies).toEqual([]);
+  });
+
+  // --- Finansal yorumlar (ADR-0034 §6.1) -----------------------------------
+
+  function createCommentary(token: string, body: Record<string, unknown> = {}) {
+    return api()
+      .post('/api/v1/finance/commentaries')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ body: 'Mart ta nakit sikisti, tahsilat gecikti.', ...body });
+  }
+
+  it('yorum kaydedilir ve INDEKSLENIR', async () => {
+    const owner = await tokenFor('owner');
+
+    const response = await createCommentary(owner, { occurredOn: '2026-03-31' });
+
+    expect(response.status).toBe(201);
+    // `chunkCount: 0` olsaydi yorum ARANABILIR DEGIL demekti.
+    expect(response.body.chunkCount).toBeGreaterThan(0);
+  });
+
+  it('occurredOn verilmezse BUGUNE duser', async () => {
+    const owner = await tokenFor('owner');
+    await createCommentary(owner);
+
+    const list = await api()
+      .get('/api/v1/finance/commentaries')
+      .set('Authorization', `Bearer ${owner}`);
+
+    const today = new Date().toISOString().slice(0, 10);
+    expect((list.body.items as { occurredOn: string }[])[0]?.occurredOn).toBe(today);
+  });
+
+  it('DONEM araligi ile filtrelenir (occurred_on uzerinde)', async () => {
+    // ⚠️ Filtre `created_at` degil `occurred_on`: yorum bir DONEM hakkindadir
+    // ve Nisan'da Mart icin yazilir.
+    const owner = await tokenFor('owner');
+    await createCommentary(owner, { occurredOn: '2026-02-28', body: 'Subat' });
+    await createCommentary(owner, { occurredOn: '2026-03-31', body: 'Mart' });
+    await createCommentary(owner, { occurredOn: '2026-04-30', body: 'Nisan' });
+
+    const list = await api()
+      .get('/api/v1/finance/commentaries?from=2026-03-01&to=2026-03-31')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect((list.body.items as { body: string }[]).map((row) => row.body)).toEqual(['Mart']);
+  });
+
+  it('BOS yorum 422 doner', async () => {
+    const owner = await tokenFor('owner');
+    expect((await createCommentary(owner, { body: '   ' })).status).toBe(422);
+  });
+
+  it('VAR OLMAYAN takvim gunu 422 doner', async () => {
+    const owner = await tokenFor('owner');
+    expect((await createCommentary(owner, { occurredOn: '2026-02-31' })).status).toBe(422);
+  });
+
+  it('indekslenmis yorum icin ONARIM LISTESI BOS — is listesi TURETILMISTIR', async () => {
+    const owner = await tokenFor('owner');
+    await createCommentary(owner);
+
+    const unindexed = await api()
+      .get('/api/v1/finance/commentaries/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(unindexed.body.count).toBe(0);
+
+    const reindex = await api()
+      .post('/api/v1/finance/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(reindex.status).toBe(200);
+    expect(reindex.body).toEqual({ repaired: 0, failed: 0 });
+  });
+
+  it('PARCASIZ yorum tespit edilir ve ONARILIR', async () => {
+    // ⚠️ "Parcasiz yorum" gercek bir durumdur (ADR-0029 §4'un iki
+    // transaction'li akisi). Burada parcalar ELLE silinerek o durum uretiliyor.
+    const owner = await tokenFor('owner');
+    const created = await createCommentary(owner);
+
+    await database.ownerPool.query(
+      'DELETE FROM finance.commentary_chunks WHERE commentary_id = $1',
+      [String(created.body.commentaryId)],
+    );
+
+    const before = await api()
+      .get('/api/v1/finance/commentaries/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(before.body.count).toBe(1);
+
+    const reindex = await api()
+      .post('/api/v1/finance/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(reindex.body).toEqual({ repaired: 1, failed: 0 });
+
+    const after = await api()
+      .get('/api/v1/finance/commentaries/unindexed')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(after.body.count).toBe(0);
+  });
+
+  it('ORAN SINIRI asilinca 429 ve Retry-After doner', async () => {
+    // ⚠️ Sayac DOGRUDAN dolduruluyor, 30 kez istek atilmiyor: varsayilan sinir
+    // 30'dur ve dongu 30 embedding cagrisi demekti. Sinanan sey sayacin nasil
+    // dolduguu degil, DOLUNCA NE OLDUGUDUR.
+    const owner = await tokenFor('owner');
+    await createCommentary(owner);
+
+    await database.ownerPool.query(
+      `UPDATE platform.rate_limits SET request_count = 999 WHERE action = 'create_commentary'`,
+    );
+
+    const response = await createCommentary(owner);
+
+    expect(response.status).toBe(429);
+    // `Retry-After` 429'un standart tamamlayicisidir; olmadan istemci ne kadar
+    // bekleyecegini bilemez ve genellikle HEMEN yeniden dener.
+    expect(response.headers['retry-after']).toBeDefined();
   });
 
   it('owner siler, ve olmayan kayit 404 doner', async () => {

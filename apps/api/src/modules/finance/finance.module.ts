@@ -1,15 +1,25 @@
 import { Inject, Module } from '@nestjs/common';
 
+import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
+import { createEmbeddingPort } from '../../infrastructure/ai/ai-provider.factory';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
+import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
+import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
 import { CrmModule } from '../crm/crm.module';
 import { CRM_COMPANY_DIRECTORY, type CompanyDirectory } from '../crm/crm.public';
 import { ProjectsModule } from '../projects/projects.module';
 import { PROJECTS_PROJECT_DIRECTORY, type ProjectDirectory } from '../projects/projects.public';
+import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
 import { CLOCK, type Clock } from '../../shared/clock.port';
+import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
 import { ID_GENERATOR, type IdGenerator } from '../../shared/id-generator.port';
+import {
+  RATE_LIMIT_REPOSITORY,
+  type RateLimitRepository,
+} from '../../shared/rate-limit.repository.port';
 import {
   TRANSACTION_MANAGER,
   type TransactionManager,
@@ -21,35 +31,55 @@ import {
 import { CategoryUseCases } from './application/category.use-cases';
 import { CashflowUseCases } from './application/cashflow.use-cases';
 import {
+  COMMENTARY_REPOSITORY,
+  type CommentaryRepository,
+} from './application/commentary.repository.port';
+import { CommentaryUseCases } from './application/commentary.use-cases';
+import {
   TRANSACTION_REPOSITORY,
   type TransactionRepository,
 } from './application/transaction.repository.port';
 import { TransactionUseCases } from './application/transaction.use-cases';
 import { DrizzleCategoryRepository } from './infrastructure/drizzle-category.repository';
+import { DrizzleCommentaryRepository } from './infrastructure/drizzle-commentary.repository';
 import { DrizzleTransactionRepository } from './infrastructure/drizzle-transaction.repository';
 import { CashflowController } from './presentation/cashflow.controller';
+import { CommentaryController } from './presentation/commentary.controller';
 import { CategoryController } from './presentation/category.controller';
 import { TransactionController } from './presentation/transaction.controller';
 import { FINANCE_PERMISSIONS } from './finance.permissions';
+
+/** AI maliyet kaydinda bu modulun etiketi (ROADMAP §8.1). */
+const FINANCE_CALLER = 'finance';
 
 /**
  * Finans modulu — Faz 5'in UCUNCU is modulu (ADR-0034).
  *
  * ============================================================================
- * SLICE 1: SEMA + KATEGORILER. AI YOK, CROSS-MODUL BAGIMLILIK YOK.
+ * SLICE 5: MODUL ILK KEZ AI'A DOKUNUYOR
  * ============================================================================
- * CRM ve Projeler'le ayni sira: once sema + RLS + RBAC zinciri AI karmasikligi
- * OLMADAN kurulur, sonra uzerine eklenir.
+ * `EMBEDDING_PORT` artik SAGLANIYOR ve `commentaries` yazma yolunda cagriliyor;
+ * her cagri `event: "ai.call"` satiri birakiyor (`AiObservabilityModule`). Oran
+ * siniri `platform.rate_limits` uzerinde tek kalem deklare ediyor — DORDUNCU
+ * modulde de DORDUNCU bir sayac tablosu ACILMIYOR (ADR-0031 §4.2'nin ise
+ * yaradiginin olcusu).
  *
- * Bu modul bugun DORT sey saglamiyor ve dordu de bilincli:
+ * ⚠️ GOMULEN SEY YORUMLARDIR, ISLEM ACIKLAMALARI DEGIL (ADR-0034 §6.1). Bu,
+ * Finans'in degil `POST /ask`in karari: binlerce neredeyse ozdes kisa vektor,
+ * DORT kaynagin paylastigi sekiz yuvali havuzu kirletir ve DIGER UC MODULUN en
+ * iyi parcalarini disari iter.
  *
- *   - `EMBEDDING_PORT` — yorumlar Slice 4'te gelir; bugun para harcayan bir
- *     yazma yolu YOK, dolayisiyla oran siniri da yok.
- *   - `LLM_PORT` — modul ici AI yuzeyi v1'de YOK (ADR-0034 §10). ⚠️ CRM'in
- *     ayni satiri Katman 2'de YANLISLANDI, o yuzden tetikleyici acikca
- *     yaziliyor: bir "donem ozeti" eklendigi gun hem `LLM_PORT` hem
- *     `CompletionFailedError` (filtreye) gerekir.
- *   - `ContextModule` — katkicilar Slice 6'da kaydedilir.
+ * ✅ Filtreye `RateLimitExceededError` + `EmbeddingFailedError` ONCEDEN eklendi
+ * (Product Owner talimati). CRM'de bu ders DORT KEZ, her seferinde bir testin
+ * kirmizi yanmasiyla ogrenilmisti.
+ *
+ * ⚠️ `LLM_PORT` SAGLANMIYOR ve bu bugun DOGRU: Finans completion cagirmaz
+ * (ADR-0034 §10 — modul ici AI yuzeyi v1'de yok). CRM'in ayni satiri Katman
+ * 2'de YANLISLANDI, o yuzden tetikleyici acikca yaziliyor: bir "donem ozeti"
+ * eklendigi gun hem `LLM_PORT` hem `CompletionFailedError` (filtreye) gerekir.
+ *
+ * ⚠️ `ContextModule` HALA import EDILMIYOR — katkicilar Slice 6'da kaydedilir.
+ * Yani yorumlar bugun GOMULUYOR ama `POST /ask` onlari HENUZ GORMUYOR.
  *
  * ============================================================================
  * SLICE 4: MODUL ILK KEZ BASKA IS MODULLERINI OKUYOR — VE IKI TANE
@@ -79,7 +109,7 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
  * ============================================================================
  */
 @Module({
-  imports: [CrmModule, ProjectsModule],
+  imports: [AiObservabilityModule, CrmModule, ProjectsModule],
   // ⚠️ SIRA BURADA DOGRULUK KOSULU DEGIL — ve bu, `projects.module.ts`ten
   // FARKLI oldugu icin acikca yaziliyor. Orada `ProjectController`in `GET :id`
   // rotasi kardeslerini golgeliyordu; burada iki controller da SABIT onek
@@ -87,7 +117,12 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
   // `finance/:id` gibi bir yakalayici tanimlamiyor.
   //
   // ⚠️ Bir gun `finance/:id` eklenirse o controller listenin SONUNA yazilmali.
-  controllers: [CategoryController, TransactionController, CashflowController],
+  controllers: [
+    CategoryController,
+    TransactionController,
+    CashflowController,
+    CommentaryController,
+  ],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
@@ -95,6 +130,18 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
 
     { provide: CATEGORY_REPOSITORY, useClass: DrizzleCategoryRepository },
     { provide: TRANSACTION_REPOSITORY, useClass: DrizzleTransactionRepository },
+    { provide: COMMENTARY_REPOSITORY, useClass: DrizzleCommentaryRepository },
+    { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
+
+    // Adapter SINIFLARI paylasilir, ORNEK modul basinadir: `caller` kurulusta
+    // sabitlenir, boylece `ai.call` satirlari hangi modulun harcadigini
+    // gosterir (ADR-0031 Slice 0.5).
+    {
+      provide: EMBEDDING_PORT,
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort =>
+        createEmbeddingPort(config, recorder, FINANCE_CALLER),
+    },
 
     {
       provide: CategoryUseCases,
@@ -158,6 +205,40 @@ import { FINANCE_PERMISSIONS } from './finance.permissions';
         repository: TransactionRepository,
         transactionManager: TransactionManager,
       ): CashflowUseCases => new CashflowUseCases({ repository, transactionManager }),
+    },
+    {
+      provide: CommentaryUseCases,
+      inject: [
+        COMMENTARY_REPOSITORY,
+        RATE_LIMIT_REPOSITORY,
+        EMBEDDING_PORT,
+        TRANSACTION_MANAGER,
+        ID_GENERATOR,
+        CLOCK,
+        APP_CONFIG,
+      ],
+      // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
+      // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
+      // eslint-disable-next-line max-params
+      useFactory: (
+        repository: CommentaryRepository,
+        rateLimitRepository: RateLimitRepository,
+        embeddingPort: EmbeddingPort,
+        transactionManager: TransactionManager,
+        idGenerator: IdGenerator,
+        clock: Clock,
+        config: AppConfig,
+      ): CommentaryUseCases =>
+        new CommentaryUseCases({
+          repository,
+          rateLimitRepository,
+          embeddingPort,
+          transactionManager,
+          idGenerator,
+          clock,
+          rateLimit: config.finance.commentariesRateLimit,
+          reindexBatchSize: config.finance.reindexBatchSize,
+        }),
     },
   ],
 })

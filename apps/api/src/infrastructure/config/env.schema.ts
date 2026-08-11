@@ -298,6 +298,29 @@ const baseEnvSchema = z.object({
   PROJECTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * Saatlik FINANSAL YORUM payi, kullanici + tenant basina (ADR-0034 §9).
+   *
+   * ⚠️ AYRI BIR KOVA — `PROJECTS_NOTES_RATE_LIMIT`/`CRM_...` ile paylasilmaz.
+   * Bunlar FARKLI IS AKISLARIDIR: gunun proje notlarini girmis bir kullanicinin
+   * ay sonu finans yorumunu yazamamasi anlamsiz olurdu (ADR-0029 §5'in "iki
+   * eylem AYRI KOVADIR" karari, DORDUNCU kez).
+   *
+   * Varsayilan Projeler'inkinden DUSUK: bir donem yorumu gunde onlarca kez
+   * yazilan bir sey degildir; ilerleme notu ise akan bir gunluktur.
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR.
+   */
+  FINANCE_COMMENTARIES_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(30),
+
+  /**
+   * Tek `POST /finance/reindex` cagrisinda onarilacak EN FAZLA yorum.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil; 10 yorumluk bir onarim onlarca embedding cagrisi olabilir.
+   */
+  FINANCE_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+
+  /**
    * Bir proje kac gun hareketsiz kalinca DURGUN sayilir (ADR-0033 §6.1).
    *
    * ============================================================================

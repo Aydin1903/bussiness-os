@@ -89,6 +89,23 @@ export const TRANSACTION_DELETE = 'transaction:delete';
 export const CASHFLOW_READ = 'cashflow:read';
 
 /**
+ * Finansal yorum izinleri (ADR-0034 §7).
+ *
+ * ⚠️ `create`, `write` DEGIL — ve `delete` YOK. Yorumlar EKLEME-YALNIZ bir
+ * gunluktur (`note:create` / `interaction:create` / `progress_note:create` ile
+ * ayni adlandirma ve ayni gerekce): guncelleme ve silme v1'de yoktur,
+ * dolayisiyla var olmayan bir fiili deklare etmek yanlis olurdu.
+ *
+ * ⚠️ `create` PARA HARCAR (her yorum bir ya da daha fazla embedding cagrisi).
+ * Diger modullerde bu, izni `viewer`dan ayirmanin gerekcesiydi; Finans'ta
+ * `viewer` zaten HICBIR SEY gormuyor, yani ayrim burada baska bir is yapiyor:
+ * ileride "muhasebeci islem girer ama yorum yazamaz" tek satirlik bir
+ * degisiklik olacak.
+ */
+export const COMMENTARY_READ = 'commentary:read';
+export const COMMENTARY_CREATE = 'commentary:create';
+
+/**
  * ============================================================================
  * ⚠️ UC PERMISSION DA BUGUN AYNI KUMEYI TASIYOR — AYRIMIN BUGUNKU DEGERI SIFIR
  * ============================================================================
@@ -114,4 +131,7 @@ export const FINANCE_PERMISSIONS: readonly PermissionRule[] = [
   { permission: TRANSACTION_DELETE, roles: ['owner', 'admin'] },
 
   { permission: CASHFLOW_READ, roles: ['owner', 'admin'] },
+
+  { permission: COMMENTARY_READ, roles: ['owner', 'admin'] },
+  { permission: COMMENTARY_CREATE, roles: ['owner', 'admin'] },
 ];

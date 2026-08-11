@@ -5,7 +5,10 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { type Response } from 'express';
 
+import { EmbeddingFailedError } from '../../../shared/embedding.port';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { FinanceDomainError } from '../domain/finance.error';
 
 /**
@@ -15,24 +18,27 @@ import { FinanceDomainError } from '../domain/finance.error';
  * disiplin: karar tek yerde, controller'da dagitik `try/catch` YOK.
  *
  * ============================================================================
- * ⚠️ BU FILTRE BUGUN YALNIZCA `FinanceDomainError` YAKALIYOR — ve bu DOGRU
+ * ⚠️ `RateLimitExceededError` ve `EmbeddingFailedError` — SLICE 5'TE, ILK GUN
  * ============================================================================
- * Projeler'in filtresi `RateLimitExceededError` ve `EmbeddingFailedError`'i de
- * yakaliyor cunku o modul oran siniri ve embedding portu KULLANIYOR. Finans
- * Slice 1'de ikisini de kullanmiyor; var olmayan bir bagimliligin hatasini
- * yakalamak yuzeyi gereksizce genisletirdi.
+ * Ikisi de `FinanceDomainError`dan TUREMEZ — biri platformun ortak oran siniri
+ * mekanizmasina (`shared/rate-limit.policy`), digeri paylasilan embedding
+ * portuna aittir. `@Catch(...)`e yazilmasalardi filtre onlari GORMEZ, 429 ve
+ * 502 yerine ISLENMEMIS 500 donerdi.
  *
- * ⚠️ AMA KURAL HATIRLANMALI, cunku CRM'de DORT KEZ bir testin kirmizi
- * yanmasiyla ogrenildi ve genellendi:
+ * CRM'de bu ders DORT KEZ ogrenildi (Slice 2, Slice 3, Slice 6 ve Katman 2) ve
+ * her seferinde bir testin kirmizi yanmasiyla bulundu. Projeler onu ONCEDEN
+ * uyguladi; Finans da ayni sekilde — Slice 1-4 boyunca bu iki satir BILEREK
+ * yoktu (modul o gunlerde hicbir port kullanmiyordu) ve modulun ilk AI
+ * slice'inda, hicbir test kirmizi yanmadan eklendi.
  *
- *   BIR MODUL YENI BIR PORT KULLANMAYA BASLADIGINDA, O PORTUN HATA TIPI BURAYA
- *   EKLENMELIDIR.
+ * Genellenmis kural: BIR MODUL YENI BIR PORT KULLANMAYA BASLADIGINDA, O PORTUN
+ * HATA TIPI BURAYA EKLENMELIDIR.
  *
- * Finans icin bunun ne zaman gerekecegi BUGUNDEN BELLI:
- *   - Slice 4 (yorumlar + embedding) -> `RateLimitExceededError` +
- *     `EmbeddingFailedError`
- *   - Modul ici bir AI yuzeyi eklenirse -> `CompletionFailedError`
- * Eklenmezlerse filtre onlari GORMEZ ve 429/502 yerine ISLENMEMIS 500 doner.
+ * `CompletionFailedError` BURADA YOK ve bu DOGRU: Finans `LLMPort`
+ * KULLANMAZ (ADR-0034 §10 — modul ici AI yuzeyi v1'de yok). Var olmayan bir
+ * bagimliligin hatasini yakalamak yuzeyi gereksizce genisletirdi.
+ * ⚠️ Bir "donem ozeti" (ADR-0032'nin musteri ozetinin karsiligi) eklendigi gun
+ * bu satir da eklenmelidir — CRM'in ayni satiri Katman 2'de YANLISLANDI.
  * ============================================================================
  */
 const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
@@ -44,6 +50,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   FINANCE_AMOUNT_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   FINANCE_CURRENCY_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   FINANCE_OCCURRED_ON_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+
+  // Yorumlar (ADR-0034 §6.1).
+  FINANCE_COMMENTARY_BODY_BLANK: HttpStatus.UNPROCESSABLE_ENTITY,
+  FINANCE_COMMENTARY_EMBEDDING_DIMENSIONS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
   // 422, 404 DEGIL: kategori VAR — istekteki iki alan birbiriyle celisiyor
   // (gerekce `CategoryDirectionMismatchError`de).
@@ -62,15 +72,39 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   FINANCE_TRANSACTION_COMPANY_NOT_FOUND: HttpStatus.NOT_FOUND,
   FINANCE_TRANSACTION_PROJECT_NOT_FOUND: HttpStatus.NOT_FOUND,
 
-  // 409, 422 DEGIL: govdedeki alan gecerlidir — CAKISAN sey KAYNAGIN MEVCUT
-  // DURUMUDUR. Ayni ayrim asagidaki "kullanimda" hatasi icin de gecerli.
   FINANCE_CATEGORY_DUPLICATE: HttpStatus.CONFLICT,
   FINANCE_CATEGORY_IN_USE: HttpStatus.CONFLICT,
 };
 
-@Catch(FinanceDomainError)
+/**
+ * Yorum KAYDEDILDI ama indekslenemedi (ADR-0029 §4'un bilinen siniri).
+ *
+ * Genel bir hata donmek kullaniciyi metni yeniden yazmaya ve MUKERRER kayda
+ * iterdi. Mesaj acikca durumu soyler ve onarim yolunu gosterir.
+ */
+const EMBEDDING_FAILED_DETAIL =
+  'Finansal yorum kaydedildi ancak arama icin indekslenemedi; /finance/reindex ile onarilabilir.';
+
+@Catch(FinanceDomainError, RateLimitExceededError, EmbeddingFailedError)
 export class FinanceDomainExceptionFilter implements ExceptionFilter {
-  catch(exception: FinanceDomainError, _host: ArgumentsHost): void {
+  catch(
+    exception: FinanceDomainError | RateLimitExceededError | EmbeddingFailedError,
+    host: ArgumentsHost,
+  ): void {
+    if (exception instanceof EmbeddingFailedError) {
+      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+    }
+
+    if (exception instanceof RateLimitExceededError) {
+      // `Retry-After` 429'un standart tamamlayicisidir. Govde degil BASLIK
+      // oldugu icin RFC 7807 bicimlendirmesine dokunmaz.
+      host
+        .switchToHttp()
+        .getResponse<Response>()
+        .setHeader('Retry-After', String(exception.retryAfterSeconds));
+      throw new HttpException(exception.message, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {

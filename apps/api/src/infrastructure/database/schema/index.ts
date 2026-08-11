@@ -64,3 +64,7 @@ export { progressNoteChunks } from './progress-note-chunks.schema';
 export { financeSchema } from './finance.schema';
 export { financeCategories } from './finance-categories.schema';
 export { financeTransactions } from './finance-transactions.schema';
+// ⚠️ Finans'ta EMBED EDILEN TEK yuzey `commentaries`tir; `transactions
+// .description` duz kolondur (ADR-0034 §6.1 — ortak top-K havuzu).
+export { financeCommentaries } from './finance-commentaries.schema';
+export { financeCommentaryChunks } from './finance-commentary-chunks.schema';

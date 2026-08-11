@@ -176,6 +176,13 @@
       "when": 1784880000000,
       "tag": "0024_finance_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784890000000,
+      "tag": "0025_finance_commentaries",
+      "breakpoints": true
     }
   ]
 }

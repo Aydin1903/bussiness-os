@@ -113,6 +113,10 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0025, yorumlar + parcalar. 0023'ten ONCE (sema onlari icerir); `0024`
+      // ile arasinda BAGIMLILIK YOK — yorumun ebeveyni yoktur (ADR-0034 §1.1),
+      // yani `transactions` ya da `categories` ile FK iliskisi tasimaz.
+      '0025_finance_commentaries.down.sql',
       // 0024, `finance.transactions`. 0023'ten ONCE: `finance.categories`'e
       // BILESIK bir FK tasir ve 0023 semayi dusurmeden once bu gitmeli.
       '0024_finance_transactions.down.sql',

@@ -205,3 +205,25 @@ export class TransactionProjectNotFoundError extends FinanceDomainError {
     super('Islemin baglanacagi proje bulunamadi.');
   }
 }
+
+// --- Finansal yorumlar (ADR-0034 §1.1, §6.1) -------------------------------
+
+export class BlankCommentaryBodyError extends FinanceDomainError {
+  readonly code = 'FINANCE_COMMENTARY_BODY_BLANK';
+  constructor() {
+    super('Finansal yorum bos olamaz.');
+  }
+}
+
+/**
+ * Embedding boyutu beklenenden farkli.
+ *
+ * `vector(1536)` kolonuyla birebir baglidir; saglayici/model degisirse bu hata
+ * ONCE burada gorunur (`NoteChunk`/`ProgressNoteChunk` ile ayni disiplin).
+ */
+export class InvalidEmbeddingDimensionsError extends FinanceDomainError {
+  readonly code = 'FINANCE_COMMENTARY_EMBEDDING_DIMENSIONS_INVALID';
+  constructor(expected: number, actual: number) {
+    super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
+  }
+}

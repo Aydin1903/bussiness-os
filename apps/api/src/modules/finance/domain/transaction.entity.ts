@@ -1,9 +1,6 @@
 import { isFinanceDirection, type FinanceDirection } from './category.entity';
-import {
-  InvalidDirectionError,
-  InvalidFinanceTimestampError,
-  InvalidOccurredOnError,
-} from './finance.error';
+import { assertCalendarDay } from './calendar-day';
+import { InvalidDirectionError, InvalidFinanceTimestampError } from './finance.error';
 import { normalizeAmount, normalizeCurrency } from './money';
 
 /**
@@ -179,37 +176,6 @@ function normalize(fields: TransactionFields): TransactionFields {
     companyId: fields.companyId,
     projectId: fields.projectId,
   };
-}
-
-/**
- * `YYYY-MM-DD` bicimi VE gercek bir takvim gunu.
- *
- * ⚠️ Yalnizca kalip kontrolu YETMEZ: `2026-02-31` kalibi gecer ama var olmayan
- * bir gundur ve PostgreSQL onu `date` kolonuna yazarken reddeder — yani
- * kullanici 422 yerine 500 alirdi. `Date.UTC` ile geri cevrim, kalibin
- * anlattigi gunun GERCEKTEN var oldugunu dogrular.
- *
- * `Date`e cevirmek burada saat dilimi sorusunu GERI GETIRMEZ: UTC kullaniliyor
- * ve sonuc saklanmiyor, yalnizca dogrulama icin uretilip atiliyor.
- */
-function assertCalendarDay(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (match === null) {
-    throw new InvalidOccurredOnError(value);
-  }
-
-  const [, year = '', month = '', day = ''] = match;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-
-  if (
-    date.getUTCFullYear() !== Number(year) ||
-    date.getUTCMonth() !== Number(month) - 1 ||
-    date.getUTCDate() !== Number(day)
-  ) {
-    throw new InvalidOccurredOnError(value);
-  }
-
-  return `${year}-${month}-${day}`;
 }
 
 /** Bos dizeler `null`'a cevrilir: "girilmedi" ile "bos girildi" ayni seydir. */

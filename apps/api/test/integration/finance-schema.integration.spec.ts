@@ -67,7 +67,9 @@ describe('finance semasi (gercek PostgreSQL)', () => {
   });
 
   beforeEach(async () => {
-    await ownerPool.query('TRUNCATE finance.transactions, finance.categories CASCADE');
+    await ownerPool.query(
+      'TRUNCATE finance.commentary_chunks, finance.commentaries, finance.transactions, finance.categories CASCADE',
+    );
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -108,15 +110,20 @@ describe('finance semasi (gercek PostgreSQL)', () => {
   }
 
   describe('sema ve kisitlar', () => {
-    it('IKI tablo finance semasinda olusturuldu', async () => {
+    it('DORT tablo finance semasinda olusturuldu', async () => {
       // ⚠️ Bu satir her yeni tabloda guncellenir. `crm-schema`nin "bes tablo"
       // iddiasinin `0019`dan sonra guncellenmemis olmasi testi aylarca kirmizi
-      // birakmisti; `0025` geldiginde buraya yine donulecek.
+      // birakmisti.
       const rows = await ownerPool.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'finance' ORDER BY table_name",
       );
 
-      expect(rows.rows.map((row) => row.table_name)).toEqual(['categories', 'transactions']);
+      expect(rows.rows.map((row) => row.table_name)).toEqual([
+        'categories',
+        'commentaries',
+        'commentary_chunks',
+        'transactions',
+      ]);
     });
 
     it('BOS kategori adi reddedilir (veritabani seviyesinde)', async () => {
@@ -413,6 +420,151 @@ describe('finance semasi (gercek PostgreSQL)', () => {
         client.release();
       }
     });
+  });
+
+  describe('yorumlar ve parcalar (ADR-0034 §6.1)', () => {
+    async function insertCommentary(
+      tenantId: string,
+      overrides: { body?: string; occurredOn?: string } = {},
+    ): Promise<string> {
+      const id = randomUUID();
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO finance.commentaries (id, tenant_id, author_user_id, occurred_on, body)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            id,
+            tenantId,
+            USER_A,
+            overrides.occurredOn ?? '2026-03-31',
+            overrides.body ?? 'Mart ta nakit sikisti',
+          ],
+        ),
+      );
+      return id;
+    }
+
+    async function insertChunk(tenantId: string, commentaryId: string, index = 0): Promise<void> {
+      const vector = `[${Array.from({ length: 1536 }, () => '0.1').join(',')}]`;
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO finance.commentary_chunks
+             (id, tenant_id, commentary_id, chunk_index, content, embedding)
+           VALUES ($1, $2, $3, $4, $5, $6::vector)`,
+          [
+            randomUUID(),
+            tenantId,
+            commentaryId,
+            index,
+            '[Finansal yorum · 2026-03-31] metin',
+            vector,
+          ],
+        ),
+      );
+    }
+
+    it('BOS yorum govdesi reddedilir (veritabani seviyesinde)', async () => {
+      await expect(insertCommentary(TENANT_A, { body: '   ' })).rejects.toThrow(
+        /commentaries_body_not_blank/,
+      );
+    });
+
+    it('yorumun EBEVEYNI YOKTUR — hicbir FK islem/kategoriye isaret etmez', async () => {
+      // ⚠️ BU TESTIN ISI BIR SEYIN OLMADIGINI KANITLAMAKTIR (ADR-0034 §1.1).
+      // Bir `transaction_id` eklemek yorumun tasidigi TOPLU bakisi yok ederdi
+      // ve islem silinince yorum da giderdi — oysa "o ay neden zordu" bilgisi
+      // tek bir kaydin silinmesinden BAGIMSIZ olarak degerlidir.
+      const rows = await ownerPool.query<{ target: string }>(
+        `SELECT confrelid::regclass::text AS target FROM pg_constraint
+         WHERE conrelid = 'finance.commentaries'::regclass AND contype = 'f'`,
+      );
+
+      expect(rows.rows.map((row) => row.target)).toEqual(['platform.tenants']);
+    });
+
+    it('yorum silinince PARCALARI da gider (CASCADE)', async () => {
+      const commentaryId = await insertCommentary(TENANT_A);
+      await insertChunk(TENANT_A, commentaryId);
+
+      const remaining = await asTenant(TENANT_A, async (client) => {
+        await client.query('DELETE FROM finance.commentaries WHERE id = $1', [commentaryId]);
+        const result = await client.query<{ n: number }>(
+          'SELECT count(*)::int AS n FROM finance.commentary_chunks',
+        );
+        return result.rows[0]?.n;
+      });
+
+      expect(remaining).toBe(0);
+    });
+
+    it('AYNI (yorum, index) ikilisi IKI KEZ yazilamaz — onarim idempotent', async () => {
+      const commentaryId = await insertCommentary(TENANT_A);
+      await insertChunk(TENANT_A, commentaryId, 0);
+
+      await expect(insertChunk(TENANT_A, commentaryId, 0)).rejects.toThrow(
+        /commentary_chunks_unique_index/,
+      );
+    });
+
+    it('NEGATIF chunk index reddedilir', async () => {
+      const commentaryId = await insertCommentary(TENANT_A);
+      await expect(insertChunk(TENANT_A, commentaryId, -1)).rejects.toThrow(
+        /commentary_chunks_index_positive/,
+      );
+    });
+
+    it('HNSW index i vector_cosine_ops ile kurulmus', async () => {
+      // ⚠️ Operator sorgudaki `<=>` ile eslesmezse index DEVRE DISI kalir ve
+      // sorgu tam tarama yapar — sessiz bir performans coku.
+      const rows = await ownerPool.query<{ indexdef: string }>(
+        `SELECT indexdef FROM pg_indexes
+         WHERE schemaname = 'finance' AND indexname = 'commentary_chunks_embedding_idx'`,
+      );
+
+      expect(rows.rows[0]?.indexdef).toMatch(/USING hnsw .*vector_cosine_ops/);
+    });
+
+    it('commentaries: tenant A, B nin yorumunu GOREMEZ', async () => {
+      await insertCommentary(TENANT_B, { body: 'B nin yorumu' });
+      await insertCommentary(TENANT_A, { body: 'A nin yorumu' });
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ body: string }>(
+          'SELECT body FROM finance.commentaries',
+        );
+        return result.rows;
+      });
+
+      expect(rows.map((row) => row.body)).toEqual(['A nin yorumu']);
+    });
+
+    it('commentary_chunks: tenant A, B nin parcasini GOREMEZ', async () => {
+      const commentaryB = await insertCommentary(TENANT_B);
+      await insertChunk(TENANT_B, commentaryB);
+
+      const rows = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query<{ id: string }>(
+          'SELECT id FROM finance.commentary_chunks',
+        );
+        return result.rows;
+      });
+
+      expect(rows).toHaveLength(0);
+    });
+
+    it.each(['commentaries', 'commentary_chunks'])(
+      '%s: tenant context i OLMADAN sorgu HATA verir',
+      async (table) => {
+        const client = await appPool.connect();
+        try {
+          await expect(client.query(`SELECT 1 FROM finance.${table}`)).rejects.toThrow(
+            /unrecognized configuration parameter|invalid input syntax/i,
+          );
+        } finally {
+          client.release();
+        }
+      },
+    );
   });
 
   describe('RLS izolasyonu (MT §12.6)', () => {
