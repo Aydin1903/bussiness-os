@@ -55,3 +55,11 @@ export { projects } from './projects.schema';
 export { tasks } from './tasks.schema';
 export { progressNotes } from './progress-notes.schema';
 export { progressNoteChunks } from './progress-note-chunks.schema';
+
+// --- Finans (ADR-0034 §1) ---
+// ⚠️ `finance.categories` uzerindeki `UNIQUE (id, direction)` kisiti burada
+// TEMSIL EDILMEZ (yukaridaki "yalnizca tip guvenligi" uyarisinin somut bir
+// ornegi) ama migration `0024`'un bilesik FK'sinin ON KOSULUDUR. Elle
+// silinirse hata TIP DENETIMINDE degil, migration calisirken gorunur.
+export { financeSchema } from './finance.schema';
+export { financeCategories } from './finance-categories.schema';

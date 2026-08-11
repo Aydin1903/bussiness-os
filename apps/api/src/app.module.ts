@@ -6,6 +6,7 @@ import { AppLoggerModule } from './infrastructure/logging/logger.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
 import { CrmModule } from './modules/crm/crm.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -43,6 +44,13 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // Faz 5'in IKINCI is modulu (ADR-0033). CRM ile ayni sira: bu slice'ta AI
     // YOK, once sema + RLS + RBAC zinciri kurulur.
     ProjectsModule,
+    // Faz 5'in UCUNCU is modulu (ADR-0034). Ayni sira, dorduncu kez: bu
+    // slice'ta AI YOK, once sema + RLS + RBAC zinciri kurulur.
+    //
+    // ⚠️ Permission katalogu projedeki ILK DAR katalogdur: `member` ve `viewer`
+    // finansi HIC gormez (ADR-0034 §7). Slice 5'te bu, `POST /ask`in izin
+    // filtresinin ILK GERCEK tetikcisi olacak.
+    FinanceModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

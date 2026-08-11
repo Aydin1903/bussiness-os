@@ -162,6 +162,13 @@
       "when": 1784860000000,
       "tag": "0022_projects_progress_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784870000000,
+      "tag": "0023_finance_schema",
+      "breakpoints": true
     }
   ]
 }

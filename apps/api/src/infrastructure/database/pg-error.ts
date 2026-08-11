@@ -30,6 +30,16 @@
 export const PG_UNIQUE_VIOLATION = '23505';
 
 /**
+ * SQLSTATE 23503 — foreign_key_violation.
+ *
+ * `ON DELETE RESTRICT` tasiyan bir FK'nin silmeyi reddetmesi de bu kodu verir;
+ * yani "var olmayan bir satira isaret ettin" ile "bu satir hala kullaniliyor"
+ * AYNI koddur. Ayrimi yapan sey KISIT ADIDIR — `isPgError`'in ucuncu
+ * parametresinin neden onerildigi tam olarak budur.
+ */
+export const PG_FOREIGN_KEY_VIOLATION = '23503';
+
+/**
  * Hata ve tum `cause` atalarini sirayla dolasir.
  *
  * Dongusel `cause` zincirlerine karsi korumalidir: kendini referans eden bir
