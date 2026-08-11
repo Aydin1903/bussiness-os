@@ -277,7 +277,9 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **2. modül Projeler ✅ bitti** (ADR-0033; altı slice, kapanış denetimi
 2026-08-10). Cross-modül referans deseni ilk kez çalıştı ve `POST /ask` artık
-**dört kaynağı** birleştiriyor. İkisi de aşağıda.
+**dört kaynağı** birleştiriyor.
+**3. modül Finans 🟡 sürüyor** (ADR-0034; yedi slice, **Slice 1 bitti**).
+Üçü de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -417,10 +419,12 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅ — sıradaki 3. Finans)
-· **koyu tema UI anahtarı** (bugün yalnızca OS tercihi) · **`company:read`'siz
-kullanıcı senaryosu** (dört rolün dördü de bu izni taşıyor — kapı var, tetikçi
-yok)
+on modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans 🟡 sürüyor —
+sıradaki 4. Randevu/Rezervasyon) · **koyu tema UI anahtarı** (bugün yalnızca OS
+tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
+izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu
+`transaction:read` için bu boşluğu kapatıyor ama `company:read` satırı
+değişmedi)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
 çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ON tablo**
 (ROADMAP §8.5; Projeler Slice 3 sekizden ona çıkardı) · **not detay ucu**
@@ -650,6 +654,73 @@ Gerçekten yeni **dört** karar:
 > olabilir"_ — eksik olan down dosyası değil, onu **çalıştıran satırdı**. Aynı
 > commit'te `crm-schema.integration.spec`'in "beş tablo" iddiası da `0019`'dan
 > beri güncellenmemişti. İkisi de kapatıldı.
+
+### Faz 5 / 3. modül — Finans (**sürüyor**)
+
+Karar: **ADR-0034** (kabul edildi, 2026-08-11). ROADMAP §3.5'in üçüncü sırası:
+_"Gelir · gider · nakit akışı — finansal hafıza"_. Dördüncü şema.
+
+**Bu ADR "üçüncü kez aynı şey" DEĞİL.** Port'lar, RLS şablonu, retrieval ucu ve
+izin modeli hazır geliyor — ama beş gerçekten yeni karar var:
+
+1. **Sayısal veri AI'a nasıl bağlam olur.** İşlem açıklamaları **embed
+   EDİLMEZ**; ayrı bir "finansal yorum" günlüğü embed edilir. Gerekçe **ortak
+   havuzdur**: "Ocak kirası / Şubat kirası" gibi binlerce neredeyse özdeş kısa
+   vektör, K=8'lik top-K havuzunu kirletir ve diğer üç kaynağın en iyi
+   parçalarını dışarı iter. Yani bu, Finans'ın değil **`POST /ask`'in
+   kararıdır**.
+2. **Cross-modül referans genelleştirmesi REDDEDİLDİ** — ADR-0033'ün açtığı
+   soru kapandı. Gerekçe mimari, "erken" değil: ortak bir yardımcı izin kapısını
+   ya çağırana ya `shared/`'a devrederdi. Genelleşen şey kod değil **sözleşme
+   şeklidir** (`findNames(ids, role) → Map`).
+3. **İlk DAR permission kataloğu** — `member` ve `viewer` finansı **hiç
+   görmez**. Yan etkisi değerli: `POST /ask` izin filtresi bugüne kadar hiç
+   gerçekten tetiklenmemişti ("kapı var, tetikçi yok"); Finans **ilk gerçek
+   tetikçidir**.
+4. **İlk TENANT-TANIMLI sözlük** (kategoriler) — bugüne kadarki tüm sözlükler
+   kodda enum'du. Yön kategoride tutulur ve **bileşik FK** ile zorlanır: "gelir
+   kaydına gider kategorisi" veritabanı seviyesinde imkânsızdır.
+5. **Para: tek tablo + `direction`, İŞARETLİ TUTAR DEĞİL.** İşaret koymayı
+   unutan tek bir yazma yolu gideri gelir gibi toplar ve hata **sessizdir**.
+   Nakit akışı özeti türetilir ve **para birimi bazında** döner — farklı para
+   birimleri **toplanmaz**.
+
+Üç migration: `0023` şema+kategoriler · `0024` işlemler · `0025` yorumlar.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 1 | `finance` şeması + kategoriler (`0023`) | ✅ |
+| 2 | İşlemler — tutar/para birimi/tarih, bileşik FK (`0024`) | ⏳ |
+| 3 | Nakit akışı özeti (para birimi bazında) | ⏳ |
+| 4 | Cross-modül referans + `projects.public.ts` | ⏳ |
+| 5 | Yorumlar + embedding + `reindex` + oran sınırı (`0025`) | ⏳ |
+| 6 | İki katkıcı (`finance-commentaries` · `finance-cashflow`) | ⏳ |
+| 7 | Frontend (yeşil) + **HAFİF** kapanış denetimi | ⏳ |
+
+> **Renk:** Finans'ın imza rengi **yeşil**dir (`#307d54` / koyu `#6cb78b`) ve
+> `module-colors.css`'te zaten ayrılmıştır. ⚠️ Anahtar **`finance`**, `finans`
+> DEĞİL.
+>
+> ⚠️ **Slice 7'de `sidebar.tsx`'in `SOON` dizisi BOŞALIYOR** — bugün tek elemanı
+> Finans'tır. Bölüm koşullu render edilmezse boş bir "Yakında" başlığı kalır ve
+> hata **sessizdir**: ekran çalışır, anlamsız bir boşluk görünür.
+
+> **Kapanış denetimi HAFİF olacak** (yeni süreç kuralı): git + verify, yeni
+> uçların hızlı turu, dar rollerin yeni şemaya görünmediği kontrolü, bilinen
+> sınırlar listesi. **Sıfırdan kurulum YOK, fan-out ölçümü YOK** — yani N=7'nin
+> ölçülmemiş kalacağı şimdiden kayıtlıdır (ADR-0033'ün N=5 ölçümü dayanak).
+
+> **Slice 1 notu — bugün tetiklenemeyen bir yol bilerek yazıldı.**
+> `CategoryInUseError` + FK ihlali çevirisi `0024` gelmeden **tetiklenemez**
+> (kategoriye işaret eden tablo yok). Yine de şimdi yazıldı: alternatifi Slice
+> 2'de hatırlamaya güvenmekti ve unutulsaydı kullanımdaki bir kategoriyi silme
+> denemesi **ham PostgreSQL hatası olarak 500** dönerdi. Birim testi çeviriyi
+> bugünden kanıtlıyor.
+>
+> ⚠️ `categories_id_direction_unique` kısıtı **gereksiz görünür** (`id` zaten
+> birincil anahtar) ama `0024`'ün bileşik FK'sinin **ön koşuludur**; silinirse
+> migration _"there is no unique constraint matching given keys"_ ile patlar.
+> Bir entegrasyon testi onun **varlığını** koruyor.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
