@@ -124,6 +124,8 @@ export interface AppConfig {
     /** ⚠️ Randevu degil, EMBEDDING sayar (notsuz randevu paydan dusmez). */
     readonly embeddingRateLimit: number;
     readonly reindexBatchSize: number;
+    /** ⚠️ AI siralamasini etkiler; web karsiligi geldiginde senkron kalmali. */
+    readonly noShowAlertRate: number;
   };
 
   /** Gunluk rapor worker'i (ADR-0030 §2). */
@@ -194,6 +196,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     appointments: {
       embeddingRateLimit: env.APPOINTMENTS_EMBEDDING_RATE_LIMIT,
       reindexBatchSize: env.APPOINTMENTS_REINDEX_BATCH_SIZE,
+      noShowAlertRate: env.APPOINTMENTS_NO_SHOW_ALERT_RATE,
     },
     ...toAiConfig(env),
   };

@@ -115,6 +115,7 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
     await database.ownerPool.query(
       'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
     );
+    await database.ownerPool.query('TRUNCATE appointments.appointments CASCADE');
     await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
@@ -226,6 +227,20 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
       .send({ body: 'Bu ay nakit sikisti, X musterisi odemeyi geciktirdi.' });
   }
 
+  /** Randevu: notlu (anlamsal) + yaklasan/gelmeyen (yapisal) kayitlar. */
+  async function seedAppointments(token: string): Promise<void> {
+    // Yarin icin NOTLU bir randevu — hem `appointment-notes` hem
+    // `appointment-schedule` bunu gorur.
+    await api()
+      .post('/api/v1/appointments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        scheduledAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+        durationMinutes: 30,
+        serviceNote: 'Dis temizligi ve implant kontrolu konusuldu.',
+      });
+  }
+
   // --- 1. Cross-modul: TEK cagri, IKI modulden birlesik baglam ------------
 
   it('bir Knowledge notu ILE bir CRM gorusmesi AYNI cevaba kaynak olur', async () => {
@@ -255,29 +270,68 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
    *
    * Modul basina `/ask` ucuyla bu YAPISAL OLARAK mumkun olmazdi (ADR-0031 §5).
    */
-  it('⚠️ DORT MODULUN icerigi AYNI cevapta bulusuyor — tek /ask cagrisi', async () => {
+  it('⚠️ BES MODULUN icerigi AYNI cevapta bulusuyor — tek /ask cagrisi', async () => {
     const owner = await tokenFor('owner');
     await seedBothModules(owner);
     await seedProjects(owner);
     await seedFinance(owner);
+    await seedAppointments(owner);
 
     const response = await ask(owner, 'Son donemde sirkette neler oldu?');
 
     expect(response.status).toBe(200);
 
     const labels = new Set(sourceLabels(response.body));
-    // Havuz sekiz yuvali ve ALTI katkici besliyor; hepsinin ayni anda girmesi
-    // garanti DEGIL. Iddia bu yuzden "her modulden EN AZ BIR kaynak" seklinde
-    // kuruluyor — modul BASINA, katkici basina degil.
+    // Havuz sekiz yuvali ve artik SEKIZ katkici besliyor; hepsinin ayni anda
+    // girmesi garanti DEGIL. Iddia bu yuzden "her modulden EN AZ BIR kaynak"
+    // seklinde kuruluyor — modul BASINA, katkici basina degil.
     const modules = {
       knowledge: labels.has('knowledge'),
       crm: labels.has('crm-interactions') || labels.has('crm-pipeline'),
       projects: labels.has('project-notes') || labels.has('project-status'),
       finance: labels.has('finance-commentaries') || labels.has('finance-cashflow'),
+      appointments: labels.has('appointment-notes') || labels.has('appointment-schedule'),
     };
 
-    expect(modules).toEqual({ knowledge: true, crm: true, projects: true, finance: true });
+    expect(modules).toEqual({
+      knowledge: true,
+      crm: true,
+      projects: true,
+      finance: true,
+      appointments: true,
+    });
     expect(degraded(response.body)).toEqual([]);
+  });
+
+  /**
+   * ⚠️ ZAMAN ILK KEZ GELECEGE DOGRU OKUNUYOR.
+   *
+   * Onceki DORT modulun katkicilari GECMISE bakiyordu: olan gorusme, yazilan
+   * not, gerceklesen odeme, kapanan firsat. "Yarin kim geliyor" sorusunun
+   * cevabi bugune kadar HICBIR modulde yoktu — ve bir gorusme notunda da
+   * YAZMAZ, `scheduled_at` kolonunda yazar.
+   */
+  it('⚠️ yapisal katkici YAKLASAN randevuyu baglama sokar', async () => {
+    const owner = await tokenFor('owner');
+    await seedAppointments(owner);
+
+    const response = await ask(owner, 'Yarin kim geliyor?');
+
+    expect(sourceLabels(response.body)).toContain('appointment-schedule');
+  });
+
+  it('⚠️ anlamsal katkici SERVIS NOTUNU baglama sokar — ve etiketi AYRIDIR', async () => {
+    // Iki katkici AYNI tabloyu okuyor (projede ilk kez); `source` etiketleri
+    // ayri oldugu icin atif ve `degradedSources` dogru calisir.
+    const owner = await tokenFor('owner');
+    await seedAppointments(owner);
+
+    const response = await ask(owner, 'Implant kontrolu hakkinda ne konusuldu?');
+
+    const labels = sourceLabels(response.body);
+    expect(labels).toContain('appointment-notes');
+    // Ayni tablodan gelen IKI AYRI kaynak; birbirine karismiyor.
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   it('yapisal katkici acik firsati baglama sokar', async () => {

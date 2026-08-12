@@ -120,4 +120,64 @@ export interface AppointmentRepository {
 
   /** Silinen satir sayisi; `0` = kayit yok (ya da baska tenant'in). */
   deleteById(id: string): Promise<number>;
+
+  /**
+   * ANLAMSAL arama (ADR-0035 §6 — `appointment-notes` katkicisi).
+   *
+   * ⚠️ `embedding IS NOT NULL` SUZULUR: vektoru olmayan satirlar (notsuz
+   * randevular ve henuz onarilmamis kayitlar) sonuca GIREMEZ. Suzulmeseydi
+   * pgvector `NULL` satirlari mesafe hesabina sokmaz ama `LIMIT` yuvalarini
+   * bosa harcayabilirdi.
+   *
+   * TENANT FILTRESI YOK ve bu BILINCLI: daraltmayi RLS yapar (migration `0026`)
+   * ve cagiran zaten tenant transaction'i icindedir.
+   */
+  findSimilarNotes(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarAppointmentNote[]>;
+
+  /**
+   * Bir donemin DURUM DAGILIMI — yapisal katkicinin risk sinyali (§6.2).
+   *
+   * ⚠️ Toplama SQL'de yapilir, satirlar cekilip JS'te sayilmaz: bir yilin
+   * randevulari binlerce satir olabilir ve katki HER SORUDA uretilir.
+   */
+  summarizePeriod(input: { from: Date; to: Date }): Promise<PeriodSummary>;
+
+  /** YAKLASAN randevular — en yakindan baslayarak en fazla `limit` tane. */
+  findUpcoming(input: { from: Date; to: Date; limit: number }): Promise<UpcomingAppointment[]>;
+}
+
+/**
+ * Anlamsal arama sonucu.
+ *
+ * ⚠️ `content` DEGIL `serviceNote` DONER — ve bu, chunk tablosu tasiyan dort
+ * modulden AYRILDIGI yerdir. Onlarda gomulen metin (`content`, baslik DAHIL)
+ * tabloda SAKLANIR; burada saklanmaz, cunku saklamak `service_note`u ikinci kez
+ * (baslikli haliyle) yazmak demekti.
+ *
+ * Sonucu: baslik OKUMA ANINDA yeniden kurulur. Bunun bir YAN FAYDASI var —
+ * gosterilen tarih DAIMA TAZEDIR, bayat bir kopya degil.
+ */
+export interface SimilarAppointmentNote {
+  readonly id: string;
+  readonly scheduledAt: Date;
+  readonly serviceNote: string;
+}
+
+/** Durum dagilimi; alanlar KESISMEZ (her randevu tek bir durumdadir). */
+export interface PeriodSummary {
+  readonly total: number;
+  readonly completed: number;
+  readonly noShow: number;
+  readonly cancelled: number;
+}
+
+export interface UpcomingAppointment {
+  readonly id: string;
+  readonly scheduledAt: Date;
+  readonly durationMinutes: number;
+  /** Baslik icin degil, LISTE icin: "kiminle" sorusu (`null` = bagli degil). */
+  readonly crmContactId: string | null;
 }

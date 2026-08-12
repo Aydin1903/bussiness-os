@@ -347,6 +347,28 @@ const baseEnvSchema = z.object({
   APPOINTMENTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
 
   /**
+   * "Gelmedi orani" alarm esigi (0..1) — ADR-0035 §6.2.
+   *
+   * Son 30 gunde SONUCLANMIS randevularin (tamamlanan + gelmeyen) bu orandan
+   * fazlasina gelinmemisse yapisal katkici EN YUKSEK skoru (0.95) verir.
+   *
+   * ============================================================================
+   * ⚠️ BU BIR GOSTERIM TERCIHI DEGIL — AI'IN GORDUGU SIRALAMAYI ETKILER
+   * ============================================================================
+   * `CRM_STALE_STAGE_DAYS`in ogrettigi ders BASTAN uygulaniyor. Orada web
+   * tarafindaki esik once "sunucuda karsiligi yoktur ve OLMAMALIDIR" diye
+   * yazilmisti; yapisal katkici skoru riske gore vermeye baslayinca o cumle
+   * YANLIS hale geldi ve duzeltilmek zorunda kalindi.
+   *
+   * ⚠️ BUGUN WEB TARAFINDA KARSILIGI YOKTUR — randevu arayuzu Slice 5'te
+   * yazilacak. O gun bir esik gosterilirse (ornegin "gelmedi orani yuksek"
+   * rozeti) `NEXT_PUBLIC_APPOINTMENTS_NO_SHOW_ALERT_RATE` acilmali ve
+   * VARSAYILANI BUNUNLA AYNI olmalidir. Ayrisirlarsa hata SESSIZDIR: ekran
+   * "yuksek" der, AI takvimi sakin gorur.
+   */
+  APPOINTMENTS_NO_SHOW_ALERT_RATE: z.coerce.number().min(0).max(1).default(0.2),
+
+  /**
    * Bir proje kac gun hareketsiz kalinca DURGUN sayilir (ADR-0033 §6.1).
    *
    * ============================================================================

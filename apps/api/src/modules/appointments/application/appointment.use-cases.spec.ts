@@ -99,6 +99,16 @@ function build(
     .fn<AppointmentRepository['findUnindexed']>()
     .mockResolvedValue(overrides.unindexed ?? []);
 
+  // ⚠️ SLICE 4'te porta giren uc metot. `AppointmentUseCases` bunlari
+  // KULLANMAZ (katkicilarin isidir) ama sahte nesne portu TAM karsilamak
+  // zorunda — eksik birakmak tip hatasi verir ve bu DOGRUDUR: port buyuduyse
+  // sahteler de buyur.
+  const findSimilarNotes = vi.fn<AppointmentRepository['findSimilarNotes']>().mockResolvedValue([]);
+  const summarizePeriod = vi
+    .fn<AppointmentRepository['summarizePeriod']>()
+    .mockResolvedValue({ total: 0, completed: 0, noShow: 0, cancelled: 0 });
+  const findUpcoming = vi.fn<AppointmentRepository['findUpcoming']>().mockResolvedValue([]);
+
   const findNames = vi
     .fn<ContactDirectory['findNames']>()
     .mockResolvedValue(overrides.contactNames ?? new Map());
@@ -115,7 +125,17 @@ function build(
     .mockResolvedValue(overrides.rateLimitCount ?? 1);
 
   const useCases = new AppointmentUseCases({
-    repository: { save, findById, list, deleteById, setEmbedding, findUnindexed },
+    repository: {
+      save,
+      findById,
+      list,
+      deleteById,
+      setEmbedding,
+      findUnindexed,
+      findSimilarNotes,
+      summarizePeriod,
+      findUpcoming,
+    },
     contactDirectory: { findNames },
     rateLimitRepository: { registerRequest },
     embeddingPort: { embed },

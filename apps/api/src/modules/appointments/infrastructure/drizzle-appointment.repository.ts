@@ -1,12 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, gte, isNotNull, isNull, lt, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  cosineDistance,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lt,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import { appointments } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import {
   type AppointmentRepository,
   type ListPage,
+  type PeriodSummary,
+  type SimilarAppointmentNote,
   type UnindexedAppointment,
+  type UpcomingAppointment,
 } from '../application/appointment.repository.port';
 import {
   Appointment,
@@ -128,6 +142,87 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     return rows.flatMap((row) =>
       row.serviceNote === null ? [] : [{ ...row, serviceNote: row.serviceNote }],
     );
+  }
+
+  async findSimilarNotes(input: {
+    embedding: readonly number[];
+    limit: number;
+  }): Promise<SimilarAppointmentNote[]> {
+    const { db } = requireTransaction();
+
+    // ⚠️ `embedding` SECILMEZ (1536 float agdan gecmesin) ama `IS NOT NULL`
+    // SUZULUR: vektoru olmayan satirlar `LIMIT` yuvalarini bosa harcamasin.
+    //
+    // Siralama `cosineDistance` ARTAN — yani en YAKIN once. Operator migration
+    // `0026`'nin `vector_cosine_ops` HNSW index'iyle eslesmek ZORUNDA; aksi
+    // halde index devre disi kalir ve sorgu tam tarama yapar (sessiz bir
+    // performans coku).
+    const rows = await db
+      .select({
+        id: appointments.id,
+        scheduledAt: appointments.scheduledAt,
+        serviceNote: appointments.serviceNote,
+      })
+      .from(appointments)
+      .where(isNotNull(appointments.embedding))
+      .orderBy(asc(cosineDistance(appointments.embedding, [...input.embedding])))
+      .limit(input.limit);
+
+    // `serviceNote` teorik olarak `null` olabilir (vektor var, not silinmis) —
+    // pratikte `setEmbedding(null)` bunu onler ama tip daraltmasi ACIKCA
+    // yapiliyor: savunma katmani, sessiz bir `null` sizmasindan iyidir.
+    return rows.flatMap((row) =>
+      row.serviceNote === null ? [] : [{ ...row, serviceNote: row.serviceNote }],
+    );
+  }
+
+  async summarizePeriod(input: { from: Date; to: Date }): Promise<PeriodSummary> {
+    const { db } = requireTransaction();
+
+    // ⚠️ TOPLAMA SQL'DE: satirlari cekip JS'te saymak, bir yilin randevularini
+    // (binlerce satir) HER SORUDA aga tasirdi.
+    const [row] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        completed: sql<number>`count(*) FILTER (WHERE ${appointments.status} = 'completed')::int`,
+        noShow: sql<number>`count(*) FILTER (WHERE ${appointments.status} = 'no_show')::int`,
+        cancelled: sql<number>`count(*) FILTER (WHERE ${appointments.status} = 'cancelled')::int`,
+      })
+      .from(appointments)
+      .where(
+        and(gte(appointments.scheduledAt, input.from), lt(appointments.scheduledAt, input.to)),
+      );
+
+    return row ?? { total: 0, completed: 0, noShow: 0, cancelled: 0 };
+  }
+
+  async findUpcoming(input: {
+    from: Date;
+    to: Date;
+    limit: number;
+  }): Promise<UpcomingAppointment[]> {
+    const { db } = requireTransaction();
+
+    // YALNIZCA `scheduled`: tamamlanmis, iptal edilmis ya da gelinmemis bir
+    // randevu "yaklasan" DEGILDIR (`CLOSED_APPOINTMENT_STATUSES` ile ayni
+    // yuklem — sozluk orada TEK yerde yasiyor).
+    return db
+      .select({
+        id: appointments.id,
+        scheduledAt: appointments.scheduledAt,
+        durationMinutes: appointments.durationMinutes,
+        crmContactId: appointments.crmContactId,
+      })
+      .from(appointments)
+      .where(
+        and(
+          gte(appointments.scheduledAt, input.from),
+          lt(appointments.scheduledAt, input.to),
+          eq(appointments.status, 'scheduled'),
+        ),
+      )
+      .orderBy(asc(appointments.scheduledAt), asc(appointments.id))
+      .limit(input.limit);
   }
 
   async findById(id: string): Promise<Appointment | null> {
