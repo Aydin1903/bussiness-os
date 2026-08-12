@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { APPOINTMENT_STATUSES } from '../domain/appointment.entity';
+import { APPOINTMENT_STATUSES, MAX_SERVICE_NOTE_CHARS } from '../domain/appointment.entity';
 
 /**
  * Randevu istek govdeleri (DEVELOPMENT_RULES 2.3: her dis veri Zod ile
@@ -65,11 +65,9 @@ const durationSchema = z
   .max(MAX_DURATION_MINUTES, 'Sure 24 saati asamaz');
 
 /**
- * ⚠️ `serviceNote` BU SEMADA HALA YOK — `.strict()` sayesinde gonderilirse 422
- * ile REDDEDILIR, SESSIZCE YOK SAYILMAZ (yazma yolu Slice 3).
+ * ⚠️ SLICE 3: `serviceNote` ACILDI — semadaki son kapali alan da kalkti.
  *
- * `contactId` SLICE 2'DE ACILDI: dogrulamasi ve adin cozulmesi icin gereken
- * `ContactDirectory` artik `crm.public.ts`te var.
+ * `contactId` Slice 2'de acilmisti.
  */
 export const createAppointmentSchema = z
   .object({
@@ -91,6 +89,22 @@ export const createAppointmentSchema = z
      * yapilir ve izin kapisi (`contact:read`) O ARAYUZUN ICINDEDIR.
      */
     contactId: z.uuid('contactId gecerli bir UUID olmali').nullish(),
+    /**
+     * Randevunun ANLAMSAL yuzeyi (ADR-0035 §3).
+     *
+     * ⚠️ UST SINIR DOMAINDEN GELIR (`MAX_SERVICE_NOTE_CHARS`), burada ICAT
+     * EDILMEZ. Kaynagi `shared/chunking.ts`in tek parca hedefidir: bu modulde
+     * chunking YOKTUR, dolayisiyla notun TAMAMI bir parcanin buyuklugunde
+     * kalmak zorundadir.
+     *
+     * ⚠️ SINIR ASILIRSA 422 — SESSIZ KIRPMA YOK. Zod burada da reddeder, domain
+     * de reddeder; ikisi ayni sabiti okur. Cift kontrol bilinclidir: Zod
+     * ISTEMCIYE hizli ve alan adiyla cevap verir, domain ise HTTP'yi ATLAYAN
+     * her yolu baglar.
+     *
+     * `null` = notsuz randevu ve COK YAYGINDIR; hicbir sey harcamaz.
+     */
+    serviceNote: z.string().trim().max(MAX_SERVICE_NOTE_CHARS).nullish(),
     /**
      * Varsayilani `scheduled` — ve bu varsayilan MESRUDUR.
      *
@@ -130,6 +144,12 @@ export const updateAppointmentSchema = z
      * randevuyu ic randevuya cevirmek gercek bir istektir.
      */
     contactId: z.uuid('contactId gecerli bir UUID olmali').nullable(),
+    /**
+     * ⚠️ `null` GONDERMEK NOTU SILER — ve vektoru de siler (ADR-0035 §5).
+     * Aksi halde silinen bir notun vektoru satirda kalir ve anlamsal arama
+     * ARTIK VAR OLMAYAN metni bulmaya devam ederdi.
+     */
+    serviceNote: z.string().trim().max(MAX_SERVICE_NOTE_CHARS).nullable(),
   })
   .partial()
   .strict()

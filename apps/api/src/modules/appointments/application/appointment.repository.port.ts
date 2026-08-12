@@ -49,9 +49,46 @@ export interface AppointmentRow extends AppointmentState {
  * (`shared/README.md` — exception yalnizca BEKLENMEYEN durumlar icin).
  * ============================================================================
  */
+/**
+ * Vektoru eksik, NOTU OLAN randevu — `reindex`in is listesi (ADR-0035 §9).
+ *
+ * ⚠️ IS LISTESI TURETILMISTIR: `WHERE service_note IS NOT NULL AND embedding IS
+ * NULL`. Ayri bir "onarilacaklar" tablosu ve deneme sayaci YOKTUR — projede
+ * besinci kez ayni karar. Bir is tablosu, ikinci bir dogruluk kaynagi ve
+ * senkron kalmasi gereken ikinci bir yazma yolu demekti.
+ */
+export interface UnindexedAppointment {
+  readonly id: string;
+  /** Baglam basligina giren AN (§6.1). */
+  readonly scheduledAt: Date;
+  /** Baslikta ad cozulebilmesi icin gerekir; `null` = kisiye bagli degil. */
+  readonly crmContactId: string | null;
+  readonly serviceNote: string;
+}
+
 export interface AppointmentRepository {
-  /** Ekler ya da gunceller (tek deyimlik UPSERT). */
+  /**
+   * Ekler ya da gunceller (tek deyimlik UPSERT).
+   *
+   * ⚠️ `embedding` KOLONUNA DOKUNMAZ. Vektor ayri bir metotla yazilir
+   * (`setEmbedding`) cunku uretimi bir AG CAGRISI gerektirir ve o cagri
+   * transaction'in DISINDA kalmak zorundadir.
+   */
   save(appointment: Appointment): Promise<void>;
+
+  /**
+   * Vektoru YAZAR ya da TEMIZLER.
+   *
+   * `null` = notu silinmis bir randevunun vektorunu de sil. Aksi halde silinen
+   * bir notun vektoru satirda kalir ve anlamsal arama ARTIK VAR OLMAYAN bir
+   * metni bulmaya devam ederdi — sessiz ve fark edilmesi zor.
+   *
+   * @returns yazilan satir sayisi; `0` = kayit yok (ya da baska tenant'in).
+   */
+  setEmbedding(input: { id: string; embedding: readonly number[] | null }): Promise<number>;
+
+  /** Vektoru eksik NOTLU randevular — en fazla `limit` tane. */
+  findUnindexed(limit: number): Promise<UnindexedAppointment[]>;
 
   findById(id: string): Promise<Appointment | null>;
 

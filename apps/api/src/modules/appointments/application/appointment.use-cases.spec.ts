@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { type Clock } from '../../../shared/clock.port';
+import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
+import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
+import { type RateLimitRepository } from '../../../shared/rate-limit.repository.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { type ContactDirectory } from '../../crm/crm.public';
@@ -9,7 +12,10 @@ import {
   AppointmentContactNotFoundError,
   AppointmentNotFoundError,
 } from '../domain/appointments.error';
-import { type AppointmentRepository } from './appointment.repository.port';
+import {
+  type AppointmentRepository,
+  type UnindexedAppointment,
+} from './appointment.repository.port';
 import { AppointmentUseCases } from './appointment.use-cases';
 
 /**
@@ -32,6 +38,9 @@ const TENANT = '018f3a2b-7c4d-7e1f-9b3c-0000000000a1';
 const ID = '018f3a2b-7c4d-7e1f-8a2b-00000000000d';
 const USER = '018f3a2b-7c4d-7e1f-9b3c-0000000000b1';
 const CONTACT = '018f3a2b-7c4d-7e1f-9c4d-0000000000e1';
+const RATE_LIMIT = 5;
+/** `EMBEDDING_DIMENSIONS` uzunlugunda gecerli bir vektor. */
+const VECTOR = Array.from({ length: 1536 }, () => 0.1);
 
 const clock: Clock = { now: () => NOW };
 const idGenerator: IdGenerator = { nextId: () => ID };
@@ -46,6 +55,7 @@ function fields(overrides: Partial<AppointmentFields> = {}): AppointmentFields {
     durationMinutes: 30,
     status: 'scheduled',
     crmContactId: null,
+    serviceNote: null,
     ...overrides,
   };
 }
@@ -67,6 +77,10 @@ function build(
     /** Dizinin donecegi harita — BOS harita "goremiyorsun" demektir. */
     contactNames?: ReadonlyMap<string, string>;
     listItems?: Appointment[];
+    unindexed?: UnindexedAppointment[];
+    /** Oran siniri sayacinin donecegi deger; limitin ustu 429 uretir. */
+    rateLimitCount?: number;
+    embedFails?: boolean;
   } = {},
 ) {
   const save = vi.fn<AppointmentRepository['save']>().mockResolvedValue(undefined);
@@ -80,19 +94,50 @@ function build(
     .fn<AppointmentRepository['deleteById']>()
     .mockResolvedValue(overrides.deleted ?? 1);
 
+  const setEmbedding = vi.fn<AppointmentRepository['setEmbedding']>().mockResolvedValue(1);
+  const findUnindexed = vi
+    .fn<AppointmentRepository['findUnindexed']>()
+    .mockResolvedValue(overrides.unindexed ?? []);
+
   const findNames = vi
     .fn<ContactDirectory['findNames']>()
     .mockResolvedValue(overrides.contactNames ?? new Map());
 
+  const embed = vi.fn<EmbeddingPort['embed']>();
+  if (overrides.embedFails === true) {
+    embed.mockRejectedValue(new Error('saglayici cokti'));
+  } else {
+    embed.mockResolvedValue(VECTOR);
+  }
+
+  const registerRequest = vi
+    .fn<RateLimitRepository['registerRequest']>()
+    .mockResolvedValue(overrides.rateLimitCount ?? 1);
+
   const useCases = new AppointmentUseCases({
-    repository: { save, findById, list, deleteById },
+    repository: { save, findById, list, deleteById, setEmbedding, findUnindexed },
     contactDirectory: { findNames },
+    rateLimitRepository: { registerRequest },
+    embeddingPort: { embed },
     transactionManager,
     idGenerator,
     clock,
+    rateLimit: RATE_LIMIT,
+    reindexBatchSize: 25,
   });
 
-  return { useCases, save, findById, list, deleteById, findNames };
+  return {
+    useCases,
+    save,
+    findById,
+    list,
+    deleteById,
+    findNames,
+    setEmbedding,
+    findUnindexed,
+    embed,
+    registerRequest,
+  };
 }
 
 describe('AppointmentUseCases — olusturma', () => {
@@ -262,7 +307,13 @@ describe('AppointmentUseCases — cross-modul referans (ADR-0035 §4)', () => {
     // imkansiz kilardi.
     const { useCases, findNames, save } = build({ found: existing({ crmContactId: CONTACT }) });
 
-    await useCases.update({ id: ID, role: 'owner', changes: { status: 'completed' } });
+    await useCases.update({
+      id: ID,
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      changes: { status: 'completed' },
+    });
 
     expect(findNames).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalledOnce();
@@ -271,7 +322,13 @@ describe('AppointmentUseCases — cross-modul referans (ADR-0035 §4)', () => {
   it('guncellemede `null` BAGLANTIYI KALDIRIR ve dogrulama ISTEMEZ', async () => {
     const { useCases, findNames, save } = build({ found: existing({ crmContactId: CONTACT }) });
 
-    const state = await useCases.update({ id: ID, role: 'owner', changes: { crmContactId: null } });
+    const state = await useCases.update({
+      id: ID,
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      changes: { crmContactId: null },
+    });
 
     expect(state.crmContactId).toBeNull();
     expect(findNames).not.toHaveBeenCalled();
@@ -282,7 +339,13 @@ describe('AppointmentUseCases — cross-modul referans (ADR-0035 §4)', () => {
     const { useCases, save } = build({ contactNames: new Map() });
 
     await expect(
-      useCases.update({ id: ID, role: 'viewer', changes: { crmContactId: CONTACT } }),
+      useCases.update({
+        id: ID,
+        tenantId: TENANT,
+        userId: USER,
+        role: 'viewer',
+        changes: { crmContactId: CONTACT },
+      }),
     ).rejects.toThrow(AppointmentContactNotFoundError);
     expect(save).not.toHaveBeenCalled();
   });
@@ -348,6 +411,8 @@ describe('AppointmentUseCases — guncelleme', () => {
 
     const state = await useCases.update({
       id: ID,
+      tenantId: TENANT,
+      userId: USER,
       role: 'owner',
       changes: { status: 'completed' },
     });
@@ -361,7 +426,13 @@ describe('AppointmentUseCases — guncelleme', () => {
     const { useCases, save } = build({ found: null });
 
     await expect(
-      useCases.update({ id: ID, role: 'owner', changes: { status: 'completed' } }),
+      useCases.update({
+        id: ID,
+        tenantId: TENANT,
+        userId: USER,
+        role: 'owner',
+        changes: { status: 'completed' },
+      }),
     ).rejects.toThrow(AppointmentNotFoundError);
     expect(save).not.toHaveBeenCalled();
   });
@@ -382,5 +453,224 @@ describe('AppointmentUseCases — silme', () => {
 
     await expect(useCases.delete(ID)).resolves.toBeUndefined();
     expect(deleteById).toHaveBeenCalledWith(ID);
+  });
+});
+
+describe('AppointmentUseCases — servis notu ve embedding (ADR-0035 §3, §5, §9)', () => {
+  it('NOTLU randevu: vektor uretilir ve YAZILIR', async () => {
+    const { useCases, setEmbedding, embed } = build();
+
+    await useCases.create({
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      fields: fields({ serviceNote: 'Dis temizligi' }),
+    });
+
+    expect(embed).toHaveBeenCalledOnce();
+    expect(setEmbedding).toHaveBeenCalledWith({ id: ID, embedding: VECTOR });
+  });
+
+  it('⚠️ NOTSUZ randevu: ne embedding ne ORAN SINIRI PAYI harcar', async () => {
+    // ⚠️ BU TESTIN ISI SAYACIN ADINI HAKLI CIKARMAKTIR
+    // (`appointment_embedding`, `create_appointment` DEGIL). Notsuz randevu bu
+    // modulde COK YAYGINDIR — takvime yalnizca saat yazmak. Sayac kosulsuz
+    // artsaydi kullanici hic embedding uretmeden kotasini tuketirdi.
+    const { useCases, embed, setEmbedding, registerRequest } = build();
+
+    await useCases.create({ tenantId: TENANT, userId: USER, role: 'owner', fields: fields() });
+
+    expect(embed).not.toHaveBeenCalled();
+    expect(setEmbedding).not.toHaveBeenCalled();
+    expect(registerRequest).not.toHaveBeenCalled();
+  });
+
+  it('BAGLAM BASLIGI uc parca tasir: etiket + tarih + KISI ADI', async () => {
+    const { useCases, embed } = build({ contactNames: new Map([[CONTACT, 'Ahmet Yilmaz']]) });
+
+    await useCases.create({
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      fields: fields({ serviceNote: 'Dis temizligi', crmContactId: CONTACT }),
+    });
+
+    // Gomulen sey NOTUN KENDISI DEGIL, baslikli metindir: randevunun kimligi
+    // kolonlardadir, metinde degil.
+    expect(embed).toHaveBeenCalledWith('[Randevu · 2026-08-20 · Ahmet Yilmaz] Dis temizligi');
+  });
+
+  it('kisi YOKSA baslik ONSUZ kurulur — bos ayirici birakmaz', async () => {
+    const { useCases, embed } = build();
+
+    await useCases.create({
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      fields: fields({ serviceNote: 'Dis temizligi' }),
+    });
+
+    expect(embed).toHaveBeenCalledWith('[Randevu · 2026-08-20] Dis temizligi');
+  });
+
+  it('⚠️ NOT DEGISINCE vektor YENIDEN URETILIR', async () => {
+    // ⚠️ UNUTULURSA HATA SESSIZDIR (ADR-0035 §5): arama ESKI metni bulmaya
+    // devam eder ve hicbir sey patlamaz.
+    const { useCases, embed, setEmbedding } = build({
+      found: existing({ serviceNote: 'Eski not' }),
+    });
+
+    await useCases.update({
+      id: ID,
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      changes: { serviceNote: 'Yeni not' },
+    });
+
+    expect(embed).toHaveBeenCalledWith('[Randevu · 2026-08-20] Yeni not');
+    expect(setEmbedding).toHaveBeenCalledWith({ id: ID, embedding: VECTOR });
+  });
+
+  it('NOT DEGISMEDIYSE vektore DOKUNULMAZ ve pay ODENMEZ', async () => {
+    const { useCases, embed, setEmbedding, registerRequest } = build({
+      found: existing({ serviceNote: 'Ayni not' }),
+    });
+
+    await useCases.update({
+      id: ID,
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      changes: { status: 'completed' },
+    });
+
+    expect(embed).not.toHaveBeenCalled();
+    expect(setEmbedding).not.toHaveBeenCalled();
+    expect(registerRequest).not.toHaveBeenCalled();
+  });
+
+  it('⚠️ NOT SILININCE vektor de SILINIR — ve ag cagrisi YAPILMAZ', async () => {
+    // Aksi halde silinen bir notun vektoru satirda kalir ve anlamsal arama
+    // ARTIK VAR OLMAYAN metni bulmaya devam ederdi.
+    const { useCases, embed, setEmbedding, registerRequest } = build({
+      found: existing({ serviceNote: 'Silinecek not' }),
+    });
+
+    await useCases.update({
+      id: ID,
+      tenantId: TENANT,
+      userId: USER,
+      role: 'owner',
+      changes: { serviceNote: null },
+    });
+
+    expect(setEmbedding).toHaveBeenCalledWith({ id: ID, embedding: null });
+    // Silme bir AG CAGRISI GEREKTIRMEZ, dolayisiyla pay da odenmez.
+    expect(embed).not.toHaveBeenCalled();
+    expect(registerRequest).not.toHaveBeenCalled();
+  });
+
+  it('⚠️ ORAN SINIRI asilinca 429 — ve EMBEDDING HIC CAGRILMAZ', async () => {
+    // Reddedilecek bir istek TEK KURUS harcamamali: sayac pahali istan ONCE.
+    const { useCases, embed, save } = build({ rateLimitCount: RATE_LIMIT + 1 });
+
+    await expect(
+      useCases.create({
+        tenantId: TENANT,
+        userId: USER,
+        role: 'owner',
+        fields: fields({ serviceNote: 'Dis temizligi' }),
+      }),
+    ).rejects.toThrow(RateLimitExceededError);
+
+    expect(embed).not.toHaveBeenCalled();
+    // ⚠️ Randevu da YAZILMAZ: pay T1'den ONCE odenir.
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('⚠️ EMBEDDING COKERSE randevu SILINMEZ — hata yuzeye cikar', async () => {
+    // ADR-0029 §4'un bilinen siniri: "notu olan ama vektoru olmayan" kayit
+    // MUMKUNDUR ve onarilabilir. Kullaniciyi randevuyu yeniden girmeye
+    // zorlamak, takvimde ust uste iki blok demekti.
+    const { useCases, save } = build({ embedFails: true });
+
+    await expect(
+      useCases.create({
+        tenantId: TENANT,
+        userId: USER,
+        role: 'owner',
+        fields: fields({ serviceNote: 'Dis temizligi' }),
+      }),
+    ).rejects.toThrow(EmbeddingFailedError);
+
+    // Randevu T1'de ZATEN commit oldu.
+    expect(save).toHaveBeenCalledOnce();
+  });
+});
+
+describe('AppointmentUseCases — reindex (ADR-0035 §9)', () => {
+  const PENDING: UnindexedAppointment = {
+    id: ID,
+    scheduledAt: new Date('2026-08-20T14:30:00.000Z'),
+    crmContactId: CONTACT,
+    serviceNote: 'Dis temizligi',
+  };
+
+  it('vektoru eksik NOTLU randevulari onarir', async () => {
+    const { useCases, setEmbedding } = build({
+      unindexed: [PENDING],
+      contactNames: new Map([[CONTACT, 'Ahmet Yilmaz']]),
+    });
+
+    const result = await useCases.reindex({ tenantId: TENANT, userId: USER, role: 'owner' });
+
+    expect(result).toEqual({ repaired: 1, failed: 0 });
+    expect(setEmbedding).toHaveBeenCalledWith({ id: ID, embedding: VECTOR });
+  });
+
+  it('⚠️ BAYAT KISI ADINI TAZELER — onarimin IKINCI isi', async () => {
+    // Baslikta ad DENORMALIZE edilir (§6.1); kisi yeniden adlandirildiginda
+    // eski vektor eski adi tasir. Telafi tam olarak budur — ve telafi
+    // olmasaydi ad basliga KONAMAZDI.
+    const { useCases, embed } = build({
+      unindexed: [PENDING],
+      contactNames: new Map([[CONTACT, 'Ahmet Yilmaz Kaya']]),
+    });
+
+    await useCases.reindex({ tenantId: TENANT, userId: USER, role: 'owner' });
+
+    expect(embed).toHaveBeenCalledWith('[Randevu · 2026-08-20 · Ahmet Yilmaz Kaya] Dis temizligi');
+  });
+
+  it('BIRININ cokmesi digerlerini ENGELLEMEZ', async () => {
+    // Toplu bir transaction, tek bir bozuk kayit yuzunden onarilan her seyi
+    // geri alirdi.
+    const { useCases } = build({ unindexed: [PENDING, PENDING], embedFails: true });
+
+    const result = await useCases.reindex({ tenantId: TENANT, userId: USER, role: 'owner' });
+
+    expect(result).toEqual({ repaired: 0, failed: 2 });
+  });
+
+  it('onarim yazma yoluyla AYNI kovayi PAYLASIR', async () => {
+    // Ayri bir kova, onarimi BUTCESIZ BIR YAN KAPIYA cevirirdi.
+    const { useCases, registerRequest } = build({ unindexed: [] });
+
+    await useCases.reindex({ tenantId: TENANT, userId: USER, role: 'owner' });
+
+    expect(registerRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'appointment_embedding' }),
+    );
+  });
+
+  it('oran siniri asilinca onarim BASLAMAZ', async () => {
+    const { useCases, findUnindexed } = build({ rateLimitCount: RATE_LIMIT + 1 });
+
+    await expect(
+      useCases.reindex({ tenantId: TENANT, userId: USER, role: 'owner' }),
+    ).rejects.toThrow(RateLimitExceededError);
+
+    expect(findUnindexed).not.toHaveBeenCalled();
   });
 });

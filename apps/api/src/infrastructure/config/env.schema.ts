@@ -321,6 +321,32 @@ const baseEnvSchema = z.object({
   FINANCE_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * Randevu notu icin SAATLIK embedding payi (ADR-0035 §9).
+   *
+   * ⚠️ SAYAC RANDEVU SAYMAZ, EMBEDDING SAYAR. Notsuz bir randevu bu paydan
+   * HIC dusmez (`appointments.rate-limits.ts`); yalnizca gercekten vektor
+   * uretilen yollar sayilir — not yazma, notu degistirme ve `reindex`.
+   *
+   * Varsayilan Finans'inkinden YUKSEK: randevu notu akan bir gunluktur (gunun
+   * her randevusuna bir satir yazilabilir), donem yorumu ise seyrektir.
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR.
+   */
+  APPOINTMENTS_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /appointments/reindex` cagrisinda onarilacak EN FAZLA randevu.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil.
+   *
+   * Varsayilan Finans'inkinden YUKSEK cunku bu modulde kayit basina EN FAZLA
+   * BIR embedding cagrisi vardir (chunking yok — ADR-0035 §3); Finans'ta bir
+   * yorum onlarca cagri uretebilir.
+   */
+  APPOINTMENTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+
+  /**
    * Bir proje kac gun hareketsiz kalinca DURGUN sayilir (ADR-0033 §6.1).
    *
    * ============================================================================

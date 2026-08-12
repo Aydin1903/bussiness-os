@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, isNull, lt, sql, type SQL } from 'drizzle-orm';
 
 import { appointments } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import {
   type AppointmentRepository,
   type ListPage,
+  type UnindexedAppointment,
 } from '../application/appointment.repository.port';
 import {
   Appointment,
@@ -34,6 +35,11 @@ const COLUMNS = {
   tenantId: appointments.tenantId,
   /** SLICE 2'de eklendi: entity artik bu isaretciyi tasiyor (ADR-0035 §4). */
   crmContactId: appointments.crmContactId,
+  /**
+   * SLICE 3'te eklendi. ⚠️ `embedding` HALA DISARIDA ve oyle kalmali: entity
+   * onu tasimiyor ve hicbir okuma yolu ona ihtiyac duymuyor.
+   */
+  serviceNote: appointments.serviceNote,
   scheduledAt: appointments.scheduledAt,
   durationMinutes: appointments.durationMinutes,
   status: appointments.status,
@@ -62,7 +68,9 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     // geldigi icin artik yaziliyor. `undefined` = dokunma / `null` = temizle
     // ayrimi entity'de cozulur, buraya gelen deger ZATEN nihai durumdur.
     //
-    // ⚠️ `serviceNote` / `embedding` HALA disarida: yazma yollari Slice 3.
+    // ⚠️ `serviceNote` SLICE 3'TE GIRDI. `embedding` HALA DISARIDA ve bu
+    // KASITLIDIR: vektorun uretimi bir AG CAGRISI gerektirir ve o cagri
+    // transaction'in disinda kalir. Vektor `setEmbedding` ile yazilir.
     await db
       .insert(appointments)
       .values(state)
@@ -70,12 +78,56 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
         target: appointments.id,
         set: {
           crmContactId: state.crmContactId,
+          serviceNote: state.serviceNote,
           scheduledAt: state.scheduledAt,
           durationMinutes: state.durationMinutes,
           status: state.status,
           updatedAt: state.updatedAt,
         },
       });
+  }
+
+  async setEmbedding(input: { id: string; embedding: readonly number[] | null }): Promise<number> {
+    const { db } = requireTransaction();
+
+    const updated = await db
+      .update(appointments)
+      // Drizzle `vector` kolonu `number[]` ister; port `readonly` sozu veriyor
+      // (cagiran diziyi degistirmesin diye) ve burada kopyalanarak aciliyor.
+      .set({ embedding: input.embedding === null ? null : [...input.embedding] })
+      .where(eq(appointments.id, input.id))
+      .returning({ id: appointments.id });
+
+    return updated.length;
+  }
+
+  async findUnindexed(limit: number): Promise<UnindexedAppointment[]> {
+    const { db } = requireTransaction();
+
+    // ⚠️ IS LISTESI TURETILMISTIR — ayri bir "onarilacaklar" tablosu YOK.
+    //
+    // ⚠️ `embedding` SECILMEZ, yalnizca `IS NULL` diye SUZULUR: onarilacak
+    // satirlarin vektoru zaten yoktur, ama kolonu projeksiyona koymak bu
+    // sorguyu ileride (kismen indekslenmis bir tabloda) pahalilastirirdi.
+    const rows = await db
+      .select({
+        id: appointments.id,
+        scheduledAt: appointments.scheduledAt,
+        crmContactId: appointments.crmContactId,
+        serviceNote: appointments.serviceNote,
+      })
+      .from(appointments)
+      .where(and(isNotNull(appointments.serviceNote), isNull(appointments.embedding)))
+      // En eski once: onarim kuyrugu FIFO'dur, yoksa buyuk bir birikimde ayni
+      // satirlar tekrar tekrar secilebilirdi.
+      .orderBy(asc(appointments.scheduledAt), asc(appointments.id))
+      .limit(limit);
+
+    // `serviceNote` sorguda `IS NOT NULL` ile suzuldu; tip daraltmasi burada
+    // ACIKCA yapiliyor cunku Drizzle bunu yuklem uzerinden goremez.
+    return rows.flatMap((row) =>
+      row.serviceNote === null ? [] : [{ ...row, serviceNote: row.serviceNote }],
+    );
   }
 
   async findById(id: string): Promise<Appointment | null> {
@@ -158,6 +210,7 @@ function toAppointment(row: {
   id: string;
   tenantId: string;
   crmContactId: string | null;
+  serviceNote: string | null;
   scheduledAt: Date;
   durationMinutes: number;
   status: string;

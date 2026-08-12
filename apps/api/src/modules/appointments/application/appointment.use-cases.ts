@@ -1,8 +1,14 @@
 import { type Clock } from '../../../shared/clock.port';
+import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
+import { enforceRateLimit } from '../../../shared/enforce-rate-limit';
 import { type IdGenerator } from '../../../shared/id-generator.port';
+import { type RateLimitRepository } from '../../../shared/rate-limit.repository.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
+import { APPOINTMENT_EMBEDDING_ACTION } from '../appointments.rate-limits';
 import {
   Appointment,
+  assertEmbeddingDimensions,
+  withAppointmentHeader,
   type AppointmentFields,
   type AppointmentPatch,
   type AppointmentState,
@@ -67,9 +73,15 @@ export interface AppointmentDependencies {
    * sinifta — tek farki hedef kaynagin TURU (sirket degil KISI).
    */
   readonly contactDirectory: ContactDirectory;
+  readonly rateLimitRepository: RateLimitRepository;
+  readonly embeddingPort: EmbeddingPort;
   readonly transactionManager: TransactionManager;
   readonly idGenerator: IdGenerator;
   readonly clock: Clock;
+  /** Saatlik EMBEDDING payi — randevu payi DEGIL. Config'ten gelir. */
+  readonly rateLimit: number;
+  /** Tek onarim cagrisinda islenecek EN FAZLA randevu. */
+  readonly reindexBatchSize: number;
 }
 
 /**
@@ -112,9 +124,22 @@ export class AppointmentUseCases {
     // ic ice transaction kismi commit riski uretir).
     await this.#assertContactVisible(state.crmContactId, input.role);
 
+    // --- T0: oran siniri — YALNIZCA NOT VARSA -------------------------------
+    // ⚠️ NOTSUZ RANDEVU HICBIR SEY HARCAMAZ, dolayisiyla SAYILMAZ. Bu satirin
+    // kosulsuz olmasi, sayaci "randevu sayaci"na cevirirdi ve kullanici hic
+    // embedding uretmeden kotasini tuketirdi (gerekce
+    // `appointments.rate-limits.ts`te).
+    if (state.serviceNote !== null) {
+      await this.#enforceEmbeddingBudget(input.tenantId, input.userId);
+    }
+
+    // --- T1: randevu --------------------------------------------------------
     await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
       this.deps.repository.save(appointment),
     );
+
+    // --- Ag + T2: vektor ----------------------------------------------------
+    await this.#reembed({ ...state, role: input.role });
 
     return state;
   }
@@ -158,6 +183,8 @@ export class AppointmentUseCases {
    */
   async update(input: {
     id: string;
+    tenantId: string;
+    userId: string;
     role: string;
     changes: AppointmentPatch;
   }): Promise<AppointmentState> {
@@ -170,16 +197,96 @@ export class AppointmentUseCases {
       await this.#assertContactVisible(input.changes.crmContactId, input.role);
     }
 
-    return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
-      const existing = await this.deps.repository.findById(input.id);
-      if (existing === null) {
-        throw new AppointmentNotFoundError();
-      }
+    // ⚠️ Oran siniri, NOT GERCEKTEN DEGISECEKSE odenir — ve bunu bilmek icin
+    // mevcut kaydi OKUMAK gerekir. Okuma ucuzdur; embedding degildir.
+    const before = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.findById(input.id),
+    );
 
-      const updated = existing.update(input.changes, this.deps.clock.now());
+    if (before === null) {
+      throw new AppointmentNotFoundError();
+    }
+
+    const updated = before.update(input.changes, this.deps.clock.now());
+    const next = updated.toState();
+
+    // ⚠️ UC AYRI DURUM ve ucu de FARKLI davranir:
+    //   not degismedi          -> vektore DOKUNULMAZ, pay odenmez
+    //   not degisti (dolu)     -> pay odenir, vektor YENIDEN URETILIR
+    //   not silindi (`null`)   -> pay ODENMEZ (ag cagrisi yok), vektor SILINIR
+    //
+    // ⚠️ Ikinci durumu unutmak SESSIZ bir hatadir (ADR-0035 §5): arama ESKI
+    // metni bulmaya devam eder. Birim ve entegrasyon testleri bunu kilitler.
+    const noteChanged = next.serviceNote !== before.toState().serviceNote;
+
+    if (noteChanged && next.serviceNote !== null) {
+      await this.#enforceEmbeddingBudget(input.tenantId, input.userId);
+    }
+
+    await this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
       await this.deps.repository.save(updated);
-      return updated.toState();
+
+      // Not SILINDIYSE vektor AYNI transaction'da temizlenir — ag cagrisi
+      // gerekmedigi icin burada atomiklik BEDAVA. Aksi halde silinen bir notun
+      // vektoru satirda kalir ve arama ARTIK VAR OLMAYAN metni bulur.
+      if (noteChanged && next.serviceNote === null) {
+        await this.deps.repository.setEmbedding({ id: next.id, embedding: null });
+      }
     });
+
+    if (noteChanged && next.serviceNote !== null) {
+      await this.#reembed({ ...next, role: input.role });
+    }
+
+    return next;
+  }
+
+  /**
+   * Vektoru eksik NOTLU randevulari onarir (ADR-0035 §9).
+   *
+   * Is listesi TURETILMISTIR (`service_note IS NOT NULL AND embedding IS
+   * NULL`); ayri bir "onarilacaklar" tablosu ve deneme sayaci YOKTUR.
+   *
+   * Oran siniri yazma yoluyla AYNI kovayi paylasir: ayri bir kova, onarimi
+   * BUTCESIZ BIR YAN KAPIYA cevirirdi (ADR-0029'un gerekcesi, besinci kez).
+   *
+   * ⚠️ BU MODULDE ONARIMIN IKI ISI VAR: eksik vektoru uretmek VE baslikta
+   * denormalize edilmis BAYAT KISI ADINI tazelemek (§6.1). Finans'ta ikincisi
+   * yoktu (baslikta ad yoktu); CRM ve Projeler'de vardi.
+   */
+  async reindex(input: {
+    tenantId: string;
+    userId: string;
+    role: string;
+  }): Promise<{ repaired: number; failed: number }> {
+    await this.#enforceEmbeddingBudget(input.tenantId, input.userId);
+
+    const pending = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.findUnindexed(this.deps.reindexBatchSize),
+    );
+
+    let repaired = 0;
+    let failed = 0;
+
+    for (const item of pending) {
+      try {
+        // Her randevu AYRI ele alinir: birinin cokmesi digerlerini engellemez.
+        // Toplu bir transaction, tek bir bozuk kayit yuzunden onarilan her seyi
+        // geri alirdi.
+        await this.#reembed({
+          id: item.id,
+          scheduledAt: item.scheduledAt,
+          crmContactId: item.crmContactId,
+          serviceNote: item.serviceNote,
+          role: input.role,
+        });
+        repaired += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return { repaired, failed };
   }
 
   /**
@@ -199,6 +306,107 @@ export class AppointmentUseCases {
 
     if (deleted === 0) {
       throw new AppointmentNotFoundError();
+    }
+  }
+
+  /**
+   * T0 — pahali is BASLAMADAN once payi oder, gerekirse reddeder.
+   *
+   * ⚠️ CAGRILDIGI YERLER SECICIDIR: yalnizca GERCEKTEN embedding uretilecek
+   * yollarda. Notsuz randevu, not degistirmeyen bir `PATCH` ve notu SILEN bir
+   * `PATCH` (ag cagrisi yok) paydan DUSMEZ.
+   */
+  async #enforceEmbeddingBudget(tenantId: string, userId: string): Promise<void> {
+    await enforceRateLimit(this.deps, {
+      tenantId,
+      userId,
+      action: APPOINTMENT_EMBEDDING_ACTION,
+      limit: this.deps.rateLimit,
+    });
+  }
+
+  /**
+   * Baglam basligini kurar, gomer ve vektoru YAZAR.
+   *
+   * ============================================================================
+   * ⚠️ AG CAGRISI TRANSACTION'IN DISINDA — ve bu ADR §5'in okunusudur
+   * ============================================================================
+   * ADR-0035 §5 "yeniden uretim ... AYNI TRANSACTION SIRASINDA yapilir" der.
+   * Burada "ayni ISLEM sirasinda" olarak uygulaniyor, "tek bir veritabani
+   * transaction'i icinde" olarak DEGIL. Uc gerekce:
+   *
+   * 1. ⚠️ Projede BES KEZ yazilmis kural: pahali cagrilar transaction DISINDA
+   *    kalir (`enforce-rate-limit.ts`, ADR-0029 §4). Bir OpenAI cagrisi
+   *    boyunca havuzdan baglanti tutmak, yuk altinda havuzu tuketir.
+   * 2. ⚠️ `reindex` ucunun VAR OLMASI zaten iki asamali akisi ONGORUR: is
+   *    listesi "notu olan ama vektoru olmayan" satirlardir. Tek transaction
+   *    olsaydi bu durum HIC OLUSAMAZDI ve onarim ucunun isi kalmazdi.
+   * 3. Randevunun KENDISI (saat, sure) birincil veridir; not ikincildir.
+   *    Embedding cokerse randevu KAYBOLMAMALIDIR — kullaniciyi yeniden
+   *    girmeye zorlamak, Finans'in "kaydedildi ancak indekslenemedi"
+   *    kararinin reddettigi seydir.
+   *
+   * §5'in KORUDUGU SEY yine korunuyor: not degistiginde vektor YENIDEN
+   * URETILIR ve bu unutulamaz — `update` icindeki `noteChanged` dali ve iki
+   * test onu kilitliyor.
+   *
+   * ⚠️ BEDELI ACIKCA: T1 ile T2 arasinda kisa bir pencere vardir; embedding
+   * cokerse ortaya NOTU OLAN ama VEKTORU OLMAYAN bir kayit cikar. Hata YUZEYE
+   * CIKAR (502) ve randevu SILINMEZ; onarim ucu ILK GUNDEN vardir.
+   *
+   * ⚠️ KISI ADI CAGIRANIN ROLUYLE COZULUR (izin kapisi dizinin icinde). Yani
+   * `contact:read` tasimayan biri not yazarsa BASLIKTA AD OLMAZ. Bugun dort
+   * rolun dordu de o izni tasidigi icin bu yol tetiklenmiyor; tenant-
+   * configurable roller geldiginde `reindex` basligi TAZELER.
+   */
+  async #reembed(input: {
+    id: string;
+    scheduledAt: Date;
+    crmContactId: string | null;
+    serviceNote: string | null;
+    role: string;
+  }): Promise<void> {
+    if (input.serviceNote === null) {
+      return;
+    }
+
+    // Ad, HTTP cevabindan BAGIMSIZ olarak ayrica cozulur: cevap `contactName`i
+    // zaten tasiyor ama gomulen metin farkli bir seydir ve `reindex` yolunda
+    // ortada bir HTTP cevabi YOKTUR.
+    const contactName = await this.#resolveContactName(input.crmContactId, input.role);
+
+    const content = withAppointmentHeader({
+      scheduledAt: input.scheduledAt,
+      contactName,
+      serviceNote: input.serviceNote,
+    });
+
+    const embedding = await this.#embed(content);
+    // Boyut SINIRDA dogrulanir: yanlis yapilandirilmis bir model VERI
+    // YAZILMADAN yakalanir.
+    assertEmbeddingDimensions(embedding);
+
+    await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.setEmbedding({ id: input.id, embedding }),
+    );
+  }
+
+  /** Baslik icin tek ad; bulunamazsa `null` ve baslik onsuz kurulur. */
+  async #resolveContactName(crmContactId: string | null, role: string): Promise<string | null> {
+    if (crmContactId === null) {
+      return null;
+    }
+
+    const names = await this.deps.contactDirectory.findNames({ ids: [crmContactId], role });
+    return names.get(crmContactId) ?? null;
+  }
+
+  /** Adapter'in firlattigi her hatayi TEK bir domain hatasina cevirir. */
+  async #embed(text: string): Promise<number[]> {
+    try {
+      return await this.deps.embeddingPort.embed(text);
+    } catch (error) {
+      throw new EmbeddingFailedError(error instanceof Error ? error.message : String(error));
     }
   }
 

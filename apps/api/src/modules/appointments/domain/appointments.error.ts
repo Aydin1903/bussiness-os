@@ -73,6 +73,43 @@ export class AppointmentNotFoundError extends AppointmentsDomainError {
 }
 
 /**
+ * Servis notu SERT karakter sinirini asti (ADR-0035 §3d).
+ *
+ * ============================================================================
+ * ⚠️ SESSIZ KIRPMA YASAK — VE BU HATANIN VAR OLMA SEBEBI BUDUR
+ * ============================================================================
+ * Bu modulde chunk tablosu YOKTUR (§3): not TEK BIR vektore gomulur. Sinir
+ * zorlanmasaydi metin embedding modelinin girdi sinirina kadar buyur ve adapter
+ * onu SESSIZCE KIRPARDI — kullanici notunun yarisinin arandigini HIC
+ * OGRENEMEZDI.
+ *
+ * ⚠️ Mesaj GERCEK ve IZIN VERILEN uzunlugu birlikte soyler: yalnizca "cok uzun"
+ * demek, kullaniciyi kac karakter silecegini tahmin etmeye birakirdi.
+ */
+export class ServiceNoteTooLongError extends AppointmentsDomainError {
+  readonly code = 'APPOINTMENT_SERVICE_NOTE_TOO_LONG';
+  constructor(actual: number, max: number) {
+    super(
+      `Servis notu cok uzun: ${String(actual)} karakter. En fazla ${String(max)} karakter olabilir.`,
+    );
+  }
+}
+
+/**
+ * Embedding boyutu beklenenden farkli.
+ *
+ * `vector(1536)` kolonuyla birebir baglidir; saglayici/model degisirse bu hata
+ * ONCE burada gorunur — veri yazilmadan. `NoteChunk` / `CommentaryChunk`in ayni
+ * disiplini, bu kez CHUNK ENTITY OLMADAN (§3).
+ */
+export class InvalidAppointmentEmbeddingDimensionsError extends AppointmentsDomainError {
+  readonly code = 'APPOINTMENT_EMBEDDING_DIMENSIONS_INVALID';
+  constructor(expected: number, actual: number) {
+    super(`Embedding boyutu ${String(expected)} olmali, ${String(actual)} geldi.`);
+  }
+}
+
+/**
  * Randevu, gorulemeyen bir KISIYE baglanamaz (ADR-0035 §4).
  *
  * ============================================================================

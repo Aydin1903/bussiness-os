@@ -52,6 +52,13 @@ import {
  * olmadigi icin 422 donerdi). O gun ya `ReindexController` bu listede ONCE
  * yazilir, ya da uc buraya eklenir — gerekce `projects.module.ts`'te.
  */
+const REINDEX_DESCRIPTION =
+  'Is listesi TURETILMISTIR (`service_note IS NOT NULL AND embedding IS NULL`); ayri bir ' +
+  '"onarilacaklar" tablosu ve deneme sayaci YOKTUR. Oran siniri yazma yoluyla AYNI kovayi ' +
+  'PAYLASIR — ayri bir kova, onarimi butcesiz bir yan kapiya cevirirdi. ' +
+  '⚠️ Onarim ayrica BAGLAM BASLIGINDAKI BAYAT KISI ADINI tazeler: kisi yeniden ' +
+  'adlandirildiginda eski vektor eski adi tasir ve bu ucun ikinci isi odur.';
+
 interface AppointmentListResponse {
   /** ⚠️ SLICE 2: `AppointmentState` -> `AppointmentRow` (kisi adi eklendi). */
   readonly items: readonly AppointmentRow[];
@@ -101,7 +108,46 @@ export class AppointmentController {
         // `nullish()` -> `null | undefined`; domain "bagli degil"i `null` ile
         // ifade eder.
         crmContactId: body.contactId ?? null,
+        serviceNote: body.serviceNote ?? null,
       },
+    });
+  }
+
+  /**
+   * Vektoru eksik NOTLU randevulari onarir (ADR-0035 §9).
+   *
+   * ============================================================================
+   * ⚠️ ROTA SIRASI: `POST reindex` `POST /` ILE CATISMAZ ama `:id` ILE
+   * CATISABILIRDI
+   * ============================================================================
+   * Bu controller `PATCH :id` ve `DELETE :id` tasiyor — ikisi de FARKLI HTTP
+   * metotlari, dolayisiyla `POST appointments/reindex` bugun hicbir seyi
+   * golgelemiyor. ⚠️ Bir gun `POST :id` (ornegin "randevuyu tekrarla") eklenirse
+   * bu metot ondan ONCE durmak ZORUNDA: aksi halde `reindex` bir UUID olmadigi
+   * icin 422 donerdi. `projects.module.ts`in ogrettigi ayni ders.
+   *
+   * ⚠️ IZIN `appointment:write` — YENI BIR IZIN ISTENMEDI. Yaptigi is var olan
+   * kayitlarin ARAMA INDEKSINI onarmaktir, yeni bir kaynak turu degil.
+   * `member` de calistirabilir ve bu dogrudur: kendi yazdigi notun
+   * indekslenmemis olmasi onun sorunudur.
+   */
+  @Post('reindex')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(APPOINTMENT_WRITE)
+  @ApiOperation({
+    summary: 'Vektoru eksik notlu randevulari onarir',
+    description: REINDEX_DESCRIPTION,
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Onarim tamamlandi.' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Saatlik pay tukendi.' })
+  async reindex(): Promise<{ repaired: number; failed: number }> {
+    const principal = requireTenantPrincipal();
+
+    return this.useCases.reindex({
+      tenantId: principal.tenantId,
+      userId: principal.userId,
+      // ROL baslikta cozulecek KISI ADI icin gerekir (§6.1).
+      role: principal.role,
     });
   }
 
@@ -171,9 +217,15 @@ export class AppointmentController {
       ...(contactId === undefined ? {} : { crmContactId: contactId }),
     };
 
+    const principal = requireTenantPrincipal();
+
     return this.useCases.update({
       id: params.id,
-      role: requireTenantPrincipal().role,
+      // ⚠️ SLICE 3: kimlik de gerekiyor — not degistiginde oran siniri payi
+      // ODENIR ve pay TENANT + KULLANICI basinadir.
+      tenantId: principal.tenantId,
+      userId: principal.userId,
+      role: principal.role,
       changes,
     });
   }

@@ -7,6 +7,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../../src/app.module';
+import { MAX_SERVICE_NOTE_CHARS } from '../../src/modules/appointments/domain/appointment.entity';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
 import { APP_PASSWORD, APP_ROLE } from './support/database-roles';
@@ -19,7 +20,7 @@ import {
 } from './support/test-database';
 
 /**
- * Randevu uclari — RBAC + RLS zinciri UCTAN UCA (ADR-0035 Slice 1).
+ * Randevu uclari — RBAC + RLS + embedding zinciri UCTAN UCA (ADR-0035).
  *
  * `finance-http` / `projects-http` ile ayni harness. Bu modulun KENDINE OZGU
  * iddialari:
@@ -27,8 +28,10 @@ import {
  *   - ⚠️ **Katalog GENIS: `viewer` OKUR, `member` YAZAR ama SILEMEZ.** Bir
  *     onceki modul (Finans) projedeki ILK dar katalogu getirmisti; bu modul o
  *     cizgiye DONMEZ. Bir randevu takvimi PAYLASILAN bir is gercegidir.
- *   - ⚠️ **`crmContactId` ve `serviceNote` govdede REDDEDILIR** (422), sessizce
- *     yok sayilmaz — yazma yollari Slice 2 ve 3.
+ *   - ⚠️ **Sayac RANDEVU degil EMBEDDING sayar**: notsuz randevu paydan
+ *     dusmez (`appointment_embedding`, `create_appointment` DEGIL).
+ *   - ⚠️ **Sinir asan not 422**, sessiz kirpma yok; **429** ve **502** de
+ *     islenmemis 500'e dusmez (ADR-0035 §8).
  *   - ⚠️ **Takvim penceresi YARI ACIK**: `from` DAHIL, `to` HARIC. Onceki uc
  *     modulun "ikisi de dahil" kuralindan SAPAN tek davranis.
  *   - Durum gecisleri KISITLANMAZ (`no_show` -> `completed`).
@@ -67,9 +70,8 @@ describe('Randevu uclari (uctan uca)', () => {
     process.env.DATABASE_URL = `postgresql://${APP_ROLE}:${APP_PASSWORD}@${c.getHost()}:${String(c.getPort())}/${c.getDatabase()}`;
     await setIdentityTestEnv();
     // Hermetiklik: gelistiricinin `.env`'i gercek bir saglayici yaziyorsa
-    // testler para harcardi. ⚠️ Bu modul Slice 1'de HICBIR AI cagrisi yapmaz;
-    // satir yine de duruyor cunku `AppModule` diger modulleri de ayaga
-    // kaldiriyor.
+    // testler PARA HARCARDI. ⚠️ SLICE 3'TEN ITIBAREN BU SATIR ZORUNLU: modul
+    // artik gercekten embedding uretiyor.
     process.env.EMBEDDING_PROVIDER = 'fake';
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -244,17 +246,14 @@ describe('Randevu uclari (uctan uca)', () => {
 
   // --- ⚠️ SLICE SINIRI: UC ALAN GOVDEDE REDDEDILIR -------------------------
 
-  it('serviceNote govdede REDDEDILIR (422) — SLICE 3 SINIRI', async () => {
-    // ⚠️ BU TESTIN ISI BIR SLICE SINIRINI KILITLEMEKTIR. Kolon migration
-    // `0026`'da ACIK duruyor ama yazma yolu Slice 3'e ait (`EmbeddingPort`
-    // gerekiyor).
-    //
-    // `.strict()` olmasaydi alan SESSIZCE yok sayilirdi ve istemci not
-    // yazdigini SANIP yazmadigini HIC OGRENEMEZDI.
+  it('serviceNote SLICE 3 TE ACILDI — artik kabul edilir', async () => {
+    // ⚠️ Slice 1'de bu test 422 BEKLIYORDU ve o gun dogruydu: kolon acikti ama
+    // yazma yolu (`EmbeddingPort`) yoktu. Sinir Slice 3'te kalkti; testin
+    // iddiasi DARALMADI, DEGISTI.
     const owner = await tokenFor('owner');
 
     const created = await createAppointment(owner, { serviceNote: 'Dis temizligi' });
-    expect(created.status).toBe(422);
+    expect(created.status).toBe(201);
   });
 
   it('⚠️ ALAN ADI `contactId` — `crmContactId` REDDEDILIR', async () => {
@@ -423,6 +422,193 @@ describe('Randevu uclari (uctan uca)', () => {
 
     const read = await listAppointments(owner);
     expect(firstContactName(read.body)).toBeNull();
+  });
+
+  // --- ⚠️ SERVIS NOTU + EMBEDDING (ADR-0035 §3, §5, §8, §9) ---------------
+
+  /** `EMBEDDING_PROVIDER=fake` oldugu icin vektor deterministik uretilir. */
+  async function embeddingOf(id: string): Promise<string | null> {
+    const rows = await database.ownerPool.query<{ embedding: string | null }>(
+      'SELECT embedding::text AS embedding FROM appointments.appointments WHERE id = $1',
+      [id],
+    );
+    return rows.rows[0]?.embedding ?? null;
+  }
+
+  it('NOTLU randevu olusturulunca VEKTOR YAZILIR', async () => {
+    const owner = await tokenFor('owner');
+
+    const created = await createAppointment(owner, { serviceNote: 'Dis temizligi' });
+    expect(created.status).toBe(201);
+
+    expect(await embeddingOf(String(created.body.id))).not.toBeNull();
+  });
+
+  it('NOTSUZ randevuda vektor YAZILMAZ', async () => {
+    const owner = await tokenFor('owner');
+
+    const created = await createAppointment(owner);
+
+    expect(await embeddingOf(String(created.body.id))).toBeNull();
+  });
+
+  it('⚠️ NOTSUZ randevu ORAN SINIRI SAYACINI ARTIRMAZ', async () => {
+    // ⚠️ KABUL TESTI (ADR-0035 §9). Sayac RANDEVU degil EMBEDDING sayar; adinin
+    // `create_appointment` DEGIL `appointment_embedding` olmasinin sebebi budur.
+    const owner = await tokenFor('owner');
+
+    await createAppointment(owner);
+    await createAppointment(owner);
+
+    const counted = await database.ownerPool.query<{ n: string }>(
+      "SELECT COALESCE(SUM(request_count), 0)::text AS n FROM platform.rate_limits WHERE action = 'appointment_embedding'",
+    );
+    expect(Number(counted.rows[0]?.n)).toBe(0);
+  });
+
+  it('NOTLU randevu sayaci ARTIRIR', async () => {
+    const owner = await tokenFor('owner');
+
+    await createAppointment(owner, { serviceNote: 'Dis temizligi' });
+
+    const counted = await database.ownerPool.query<{ n: string }>(
+      "SELECT COALESCE(SUM(request_count), 0)::text AS n FROM platform.rate_limits WHERE action = 'appointment_embedding'",
+    );
+    expect(Number(counted.rows[0]?.n)).toBe(1);
+  });
+
+  it('⚠️ SINIRI ASAN not 422 doner — SESSIZCE KIRPILMAZ', async () => {
+    // ⚠️ KABUL TESTI (ADR-0035 §3d).
+    const owner = await tokenFor('owner');
+
+    const created = await createAppointment(owner, {
+      serviceNote: 'a'.repeat(MAX_SERVICE_NOTE_CHARS + 1),
+    });
+
+    expect(created.status).toBe(422);
+  });
+
+  it('⚠️ ORAN SINIRI asilinca 429 doner — 500 DEGIL — ve Retry-After tasir', async () => {
+    // ⚠️ KABUL TESTI (ADR-0035 §8). `RateLimitExceededError`
+    // `AppointmentsDomainError`DAN TUREMEZ; `@Catch(...)`e ayrica
+    // yazilmasaydi filtre onu GORMEZ ve kullanici ISLENMEMIS 500 alirdi.
+    const owner = await tokenFor('owner');
+
+    // Sayaci limitin ustune elle tasi: gercek limit kadar istek atmak testi
+    // gereksizce yavaslatirdi.
+    // ⚠️ Bilesik birincil anahtar: (tenant_id, user_id, action, window_start);
+    // `id` kolonu YOKTUR.
+    await database.ownerPool.query(
+      `INSERT INTO platform.rate_limits (tenant_id, user_id, action, window_start, request_count)
+       SELECT m.tenant_id, m.user_id, 'appointment_embedding', date_trunc('hour', now()), 100000
+       FROM platform.memberships m WHERE m.tenant_id = $1
+       ON CONFLICT (tenant_id, user_id, action, window_start)
+       DO UPDATE SET request_count = 100000`,
+      [TENANT_A],
+    );
+
+    const created = await createAppointment(owner, { serviceNote: 'Dis temizligi' });
+
+    expect(created.status).toBe(429);
+    expect(created.headers['retry-after']).toBeDefined();
+  });
+
+  it('PATCH ile not degisince VEKTOR YENIDEN URETILIR', async () => {
+    const owner = await tokenFor('owner');
+    const created = await createAppointment(owner, { serviceNote: 'Eski not' });
+    const before = await embeddingOf(String(created.body.id));
+
+    const patched = await api()
+      .patch(`/api/v1/appointments/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ serviceNote: 'Tamamen farkli bir not' });
+    expect(patched.status).toBe(200);
+
+    // ⚠️ Unutulursa hata SESSIZDIR: arama ESKI metni bulmaya devam eder.
+    expect(await embeddingOf(String(created.body.id))).not.toBe(before);
+  });
+
+  it('⚠️ PATCH ile not SILININCE vektor de SILINIR', async () => {
+    const owner = await tokenFor('owner');
+    const created = await createAppointment(owner, { serviceNote: 'Silinecek not' });
+    expect(await embeddingOf(String(created.body.id))).not.toBeNull();
+
+    await api()
+      .patch(`/api/v1/appointments/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ serviceNote: null });
+
+    // Aksi halde arama ARTIK VAR OLMAYAN metni bulmaya devam ederdi.
+    expect(await embeddingOf(String(created.body.id))).toBeNull();
+  });
+
+  it('reindex VEKTORSUZ NOTLU randevuyu onarir', async () => {
+    const owner = await tokenFor('owner');
+    const created = await createAppointment(owner, { serviceNote: 'Dis temizligi' });
+
+    // Vektoru elle sil: "notu olan ama vektoru olmayan" durumu uret
+    // (ADR-0029 §4'un iki transaction'li akisinin ayni sonucu).
+    await database.ownerPool.query(
+      'UPDATE appointments.appointments SET embedding = NULL WHERE id = $1',
+      [String(created.body.id)],
+    );
+
+    const repaired = await api()
+      .post('/api/v1/appointments/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(repaired.status).toBe(200);
+    expect(repaired.body).toMatchObject({ repaired: 1, failed: 0 });
+    expect(await embeddingOf(String(created.body.id))).not.toBeNull();
+  });
+
+  it('reindex NOTSUZ randevuya DOKUNMAZ — is listesi turetilmistir', async () => {
+    const owner = await tokenFor('owner');
+    await createAppointment(owner);
+
+    const repaired = await api()
+      .post('/api/v1/appointments/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+
+    expect(repaired.body).toMatchObject({ repaired: 0, failed: 0 });
+  });
+
+  it('⚠️ KISI YENIDEN ADLANDIRILINCA reindex BASLIKTAKI ADI TAZELER', async () => {
+    // ⚠️ KABUL TESTI (ADR-0035 §6.1). Baslikta ad DENORMALIZE edilir; telafi
+    // tam olarak bu uctur — ve telafi olmasaydi ad basliga KONAMAZDI.
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Ahmet Yilmaz');
+    const created = await createAppointment(owner, { contactId, serviceNote: 'Dis temizligi' });
+    const before = await embeddingOf(String(created.body.id));
+
+    await api()
+      .patch(`/api/v1/crm/contacts/${contactId}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ fullName: 'Ahmet Yilmaz Kaya' });
+
+    // Vektoru sil ki onarim is listesine girsin.
+    await database.ownerPool.query(
+      'UPDATE appointments.appointments SET embedding = NULL WHERE id = $1',
+      [String(created.body.id)],
+    );
+
+    const repaired = await api()
+      .post('/api/v1/appointments/reindex')
+      .set('Authorization', `Bearer ${owner}`);
+    expect(repaired.body).toMatchObject({ repaired: 1 });
+
+    // Yeni ad basliga girdigi icin vektor DEGISTI.
+    expect(await embeddingOf(String(created.body.id))).not.toBe(before);
+  });
+
+  it('reindex `appointment:write` ISTER — viewer 403 alir', async () => {
+    const viewer = await tokenFor('viewer');
+
+    const repaired = await api()
+      .post('/api/v1/appointments/reindex')
+      .set('Authorization', `Bearer ${viewer}`);
+
+    expect(repaired.status).toBe(403);
   });
 
   // --- Alan dogrulamalari (ADR-0035 §2) ------------------------------------

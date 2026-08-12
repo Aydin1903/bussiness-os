@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { TARGET_CHUNK_CHARS } from '../../../shared/chunking';
 import {
   Appointment,
   CLOSED_APPOINTMENT_STATUSES,
   isAppointmentStatus,
+  MAX_SERVICE_NOTE_CHARS,
+  withAppointmentHeader,
   type AppointmentFields,
 } from './appointment.entity';
 import {
@@ -11,6 +14,7 @@ import {
   InvalidAppointmentStatusError,
   InvalidAppointmentsTimestampError,
   InvalidScheduledAtError,
+  ServiceNoteTooLongError,
 } from './appointments.error';
 
 /**
@@ -42,6 +46,8 @@ function fields(overrides: Partial<AppointmentFields> = {}): AppointmentFields {
     status: 'scheduled',
     // ⚠️ SLICE 2'de eklendi: `null` = kisiye bagli degil ve MESRUDUR.
     crmContactId: null,
+    // ⚠️ SLICE 3'te eklendi: `null` = notsuz randevu ve COK YAYGINDIR.
+    serviceNote: null,
     ...overrides,
   };
 }
@@ -184,6 +190,7 @@ describe('Appointment — kaliciliktan yukleme', () => {
         durationMinutes: 30,
         status: 'scheduled',
         crmContactId: null,
+        serviceNote: null,
         createdAt: LATER,
         updatedAt: NOW,
       }),
@@ -204,5 +211,90 @@ describe('randevu durumu sozlugu', () => {
     // unutulacak turden olmasidir.
     expect(CLOSED_APPOINTMENT_STATUSES).toEqual(['completed', 'cancelled', 'no_show']);
     expect(CLOSED_APPOINTMENT_STATUSES).not.toContain('scheduled');
+  });
+});
+
+describe('Appointment — servis notu (ADR-0035 §3, SLICE 3)', () => {
+  it('⚠️ SINIRI ASAN not REDDEDILIR — SESSIZ KIRPMA YOK', () => {
+    // ⚠️ BU TESTIN ISI, MODULUN EN KRITIK URUN KISITINI KILITLEMEKTIR.
+    // Bu modulde chunking YOKTUR (§3): not TEK bir vektore gomulur. Sinir
+    // zorlanmasaydi adapter metni SESSIZCE KIRPARDI ve kullanici notunun
+    // yarisinin arandigini HIC OGRENEMEZDI.
+    const tooLong = 'a'.repeat(MAX_SERVICE_NOTE_CHARS + 1);
+
+    expect(() => create({ serviceNote: tooLong })).toThrow(ServiceNoteTooLongError);
+  });
+
+  it('SINIRIN TAM UZERINDEKI not KABUL EDILIR', () => {
+    // Sinir DAHILDIR; "en fazla N karakter" cumlesi N'i icerir.
+    const exact = 'a'.repeat(MAX_SERVICE_NOTE_CHARS);
+
+    expect(create({ serviceNote: exact }).toState().serviceNote).toHaveLength(
+      MAX_SERVICE_NOTE_CHARS,
+    );
+  });
+
+  it('⚠️ SINIR `shared/chunking.ts`IN TEK PARCA HEDEFIDIR — icat edilmis bir sayi degil', () => {
+    // Kopya bir sabit yazilsaydi ikisi SESSIZCE ayrisirdi ve randevu notu bir
+    // chunk'a sigmamaya baslardi — yani §3'un dayandigi varsayim bozulurdu.
+    expect(MAX_SERVICE_NOTE_CHARS).toBe(TARGET_CHUNK_CHARS);
+  });
+
+  it('BOS not `null`a normalize edilir — bos embedding cagrisi olmasin diye', () => {
+    // Bos bir dize PARA HARCAYAN, HICBIR SEY ARAYAN bir vektor demekti.
+    expect(create({ serviceNote: '   ' }).toState().serviceNote).toBeNull();
+  });
+
+  it('not `null` GONDERILINCE SILINIR, `undefined` DOKUNMAZ', () => {
+    const withNote = create({ serviceNote: 'Dis temizligi' });
+
+    expect(withNote.update({ serviceNote: null }, LATER).toState().serviceNote).toBeNull();
+    expect(withNote.update({ status: 'completed' }, LATER).toState().serviceNote).toBe(
+      'Dis temizligi',
+    );
+  });
+
+  it('guncellemede de sinir zorlanir', () => {
+    expect(() =>
+      create().update({ serviceNote: 'a'.repeat(MAX_SERVICE_NOTE_CHARS + 1) }, LATER),
+    ).toThrow(ServiceNoteTooLongError);
+  });
+});
+
+describe('withAppointmentHeader — baglam basligi (ADR-0035 §6.1)', () => {
+  it('UC parca: sabit etiket + tarih + kisi adi', () => {
+    expect(
+      withAppointmentHeader({
+        scheduledAt: SCHEDULED_AT,
+        contactName: 'Ahmet Yilmaz',
+        serviceNote: 'Dis temizligi',
+      }),
+    ).toBe('[Randevu · 2026-08-20 · Ahmet Yilmaz] Dis temizligi');
+  });
+
+  it('kisi YOKSA ayirici da YOK — bos bir bosluk birakmaz', () => {
+    expect(
+      withAppointmentHeader({
+        scheduledAt: SCHEDULED_AT,
+        contactName: null,
+        serviceNote: 'Dis temizligi',
+      }),
+    ).toBe('[Randevu · 2026-08-20] Dis temizligi');
+  });
+
+  it('⚠️ TARIH UTC de bicimlenir — bilinen ve KAYITLI sinir', () => {
+    // `scheduledAt` bir ANDIR (§2c) ve baslikta gun gostermek bir saat dilimi
+    // secimi gerektirir. Sunucunun kanonik dili UTC'dir.
+    //
+    // Sonucu durustce: +03:00'te 00:30'daki bir randevu baslikta BIR ONCEKI
+    // gunu tasir. Bu test o davranisi GIZLEMIYOR, KAYDEDIYOR — tenant bazli
+    // saat dilimi geldiginde (§10) bu satir da onunla birlikte duzelir.
+    expect(
+      withAppointmentHeader({
+        scheduledAt: new Date('2026-08-21T00:30:00+03:00'),
+        contactName: null,
+        serviceNote: 'Gece randevusu',
+      }),
+    ).toBe('[Randevu · 2026-08-20] Gece randevusu');
   });
 });

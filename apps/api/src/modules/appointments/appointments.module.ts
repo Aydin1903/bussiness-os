@@ -3,7 +3,17 @@ import { Inject, Module } from '@nestjs/common';
 import { SystemClock } from '../../infrastructure/clock/system-clock.adapter';
 import { DrizzleTransactionManager } from '../../infrastructure/database/drizzle-transaction-manager.adapter';
 import { UuidV7IdGenerator } from '../../infrastructure/id/uuid-v7-id-generator.adapter';
+import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
+import { createEmbeddingPort } from '../../infrastructure/ai/ai-provider.factory';
+import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
+import { DrizzleRateLimitRepository } from '../../infrastructure/rate-limit/drizzle-rate-limit.repository';
 import { PERMISSION_REGISTRY, type PermissionRegistry } from '../../platform/authz/authz.public';
+import { AI_USAGE_RECORDER, type AiUsageRecorder } from '../../shared/ai-usage-recorder.port';
+import { EMBEDDING_PORT, type EmbeddingPort } from '../../shared/embedding.port';
+import {
+  RATE_LIMIT_REPOSITORY,
+  type RateLimitRepository,
+} from '../../shared/rate-limit.repository.port';
 import { CrmModule } from '../crm/crm.module';
 import { CRM_CONTACT_DIRECTORY, type ContactDirectory } from '../crm/crm.public';
 import { CLOCK, type Clock } from '../../shared/clock.port';
@@ -51,22 +61,41 @@ import { APPOINTMENTS_PERMISSIONS } from './appointments.permissions';
  * kisi dizini hic yazilmamisti. Kural: yeni TALIP -> dosya degismez, yeni
  * KAYNAK TURU -> sahibi modul kendi dizinini yazar.
  *
- * ⚠️ KALAN IKI BAGIMLILIK SONRAKI SLICE'LARDA:
+ * ============================================================================
+ * SLICE 3: MODUL ILK KEZ AI'A DOKUNUYOR
+ * ============================================================================
+ * `EMBEDDING_PORT` artik SAGLANIYOR ve `service_note` yazma yolunda cagriliyor;
+ * her cagri `event: "ai.call"` satiri birakiyor (`AiObservabilityModule`). Oran
+ * siniri `platform.rate_limits` uzerinde tek kalem deklare ediyor — BESINCI
+ * modulde de BESINCI bir sayac tablosu ACILMIYOR.
  *
- *   Slice 3 -> `AiObservabilityModule` + `EMBEDDING_PORT` + oran siniri (§3)
+ * ⚠️ BU MODULDE KAYIT BASINA EN FAZLA BIR EMBEDDING CAGRISI VAR (ADR-0035 §3 —
+ * chunking yok, vektor ayni satirda). Onceki dort modulde uzun bir metin
+ * onlarca cagri uretebiliyordu.
+ *
+ * ⚠️ SAYAC RANDEVU DEGIL EMBEDDING SAYAR: notsuz randevu — ki bu modulde COK
+ * YAYGINDIR — paydan HIC dusmez. Kalem adinin `create_appointment` degil
+ * `appointment_embedding` olmasinin sebebi budur.
+ *
+ * ✅ Filtreye `EmbeddingFailedError` + `RateLimitExceededError` +
+ * `CompletionFailedError` ONCEDEN eklendi (Product Owner talimati, ADR-0035
+ * §8). CRM'de bu ders DORT KEZ, her seferinde bir testin kirmizi yanmasiyla
+ * ogrenilmisti; burada HICBIR TEST KIRMIZI YANMADAN eklendi.
+ *
+ * ⚠️ `LLM_PORT` SAGLANMIYOR ve bu bugun DOGRU: Randevu completion cagirmaz
+ * (ADR-0035 §7 — modul ici AI yuzeyi v1'de yok). Filtre yine de
+ * `CompletionFailedError`i yakaliyor; bedeller simetrik degil (bir satirlik olu
+ * kod ile islenmemis bir 500).
+ *
+ * ⚠️ KALAN BAGIMLILIK:
+ *
  *   Slice 4 -> `ContextModule` (iki `RetrievalContributor`, §6)
- *
- * ============================================================================
- * ⚠️ `EMBEDDING_PORT` SAGLANMIYOR VE FILTREDE AI HATASI YOK — bugun DOGRU
- * ============================================================================
- * Modul henuz hicbir port kullanmiyor; var olmayan bir bagimliligin hatasini
- * yakalamak yuzeyi gereksizce genisletirdi (Finans'in Slice 1-4 boyunca
- * uyguladigi ayni disiplin). TETIKLEYICI acikca yazildi:
- * `appointments-domain-exception.filter.ts` Slice 3'te eklenecek UC satiri
- * adiyla listeliyor.
  */
+/** AI maliyet kaydinda bu modulun etiketi (ROADMAP §8.1). */
+const APPOINTMENTS_CALLER = 'appointments';
+
 @Module({
-  imports: [CrmModule],
+  imports: [AiObservabilityModule, CrmModule],
   controllers: [AppointmentController],
   providers: [
     { provide: CLOCK, useClass: SystemClock },
@@ -74,6 +103,17 @@ import { APPOINTMENTS_PERMISSIONS } from './appointments.permissions';
     { provide: TRANSACTION_MANAGER, useClass: DrizzleTransactionManager },
 
     { provide: APPOINTMENT_REPOSITORY, useClass: DrizzleAppointmentRepository },
+    { provide: RATE_LIMIT_REPOSITORY, useClass: DrizzleRateLimitRepository },
+
+    // Adapter SINIFLARI paylasilir, ORNEK modul basinadir: `caller` kurulusta
+    // sabitlenir, boylece `ai.call` satirlari hangi modulun harcadigini
+    // gosterir (ADR-0031 Slice 0.5).
+    {
+      provide: EMBEDDING_PORT,
+      inject: [APP_CONFIG, AI_USAGE_RECORDER],
+      useFactory: (config: AppConfig, recorder: AiUsageRecorder): EmbeddingPort =>
+        createEmbeddingPort(config, recorder, APPOINTMENTS_CALLER),
+    },
 
     {
       provide: AppointmentUseCases,
@@ -83,9 +123,12 @@ import { APPOINTMENTS_PERMISSIONS } from './appointments.permissions';
         // (`contact:read`) dizinin ICINDEDIR; bu modul onu bilmez ve
         // bilmemelidir (ADR-0035 §4).
         CRM_CONTACT_DIRECTORY,
+        RATE_LIMIT_REPOSITORY,
+        EMBEDDING_PORT,
         TRANSACTION_MANAGER,
         ID_GENERATOR,
         CLOCK,
+        APP_CONFIG,
       ],
       // NestJS useFactory imzasi `inject` dizisiyle birebir eslesmek zorunda;
       // use case'in KENDI imzasi tek parametrelidir (DEVELOPMENT_RULES 2.5).
@@ -93,16 +136,23 @@ import { APPOINTMENTS_PERMISSIONS } from './appointments.permissions';
       useFactory: (
         repository: AppointmentRepository,
         contactDirectory: ContactDirectory,
+        rateLimitRepository: RateLimitRepository,
+        embeddingPort: EmbeddingPort,
         transactionManager: TransactionManager,
         idGenerator: IdGenerator,
         clock: Clock,
+        config: AppConfig,
       ): AppointmentUseCases =>
         new AppointmentUseCases({
           repository,
           contactDirectory,
+          rateLimitRepository,
+          embeddingPort,
           transactionManager,
           idGenerator,
           clock,
+          rateLimit: config.appointments.embeddingRateLimit,
+          reindexBatchSize: config.appointments.reindexBatchSize,
         }),
     },
   ],

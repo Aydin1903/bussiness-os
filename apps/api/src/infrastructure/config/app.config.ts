@@ -119,6 +119,13 @@ export interface AppConfig {
     readonly reindexBatchSize: number;
   };
 
+  /** Randevu (ADR-0035 §9). */
+  readonly appointments: {
+    /** ⚠️ Randevu degil, EMBEDDING sayar (notsuz randevu paydan dusmez). */
+    readonly embeddingRateLimit: number;
+    readonly reindexBatchSize: number;
+  };
+
   /** Gunluk rapor worker'i (ADR-0030 §2). */
   readonly dailyReport: {
     readonly enabled: boolean;
@@ -183,6 +190,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     finance: {
       commentariesRateLimit: env.FINANCE_COMMENTARIES_RATE_LIMIT,
       reindexBatchSize: env.FINANCE_REINDEX_BATCH_SIZE,
+    },
+    appointments: {
+      embeddingRateLimit: env.APPOINTMENTS_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.APPOINTMENTS_REINDEX_BATCH_SIZE,
     },
     ...toAiConfig(env),
   };

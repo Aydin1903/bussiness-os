@@ -1,9 +1,86 @@
+import { TARGET_CHUNK_CHARS } from '../../../shared/chunking';
+import { EMBEDDING_DIMENSIONS } from '../../../shared/embedding.port';
 import {
   InvalidAppointmentDurationError,
+  InvalidAppointmentEmbeddingDimensionsError,
   InvalidAppointmentStatusError,
   InvalidAppointmentsTimestampError,
   InvalidScheduledAtError,
+  ServiceNoteTooLongError,
 } from './appointments.error';
+
+/**
+ * Servis notunun SERT karakter siniri (ADR-0035 §3d).
+ *
+ * ============================================================================
+ * ⚠️ YENI BIR SAYI ICAT EDILMEDI — `TARGET_CHUNK_CHARS` REFERANS ALINDI
+ * ============================================================================
+ * `shared/chunking.ts`in TEK PARCA hedefi budur (~500 token · 2.5 karakter/token
+ * = 1250 karakter). Bu modulde chunking YOKTUR (§3), dolayisiyla notun TAMAMI
+ * tek bir parcanin buyuklugunde kalmak ZORUNDADIR — sinir tam olarak "bir
+ * chunk kadar" demektir.
+ *
+ * ⚠️ BAGIMLILIK KASITLI: chunking hedefi bir gun degisirse bu sinir da onunla
+ * birlikte degisir. Kopya bir sabit yazilsaydi ikisi SESSIZCE ayrisirdi ve
+ * randevu notu bir chunk'a sigmamaya baslardi — yani tam olarak §3'un
+ * dayandigi varsayim bozulurdu.
+ *
+ * Sinir asilirsa **422** doner; SESSIZ KIRPMA YASAKTIR (gerekce
+ * `ServiceNoteTooLongError`de).
+ */
+export const MAX_SERVICE_NOTE_CHARS = TARGET_CHUNK_CHARS;
+
+/**
+ * Gomulecek metne eklenen BAGLAM BASLIGI (ADR-0035 §6.1).
+ *
+ * ============================================================================
+ * NEDEN GEREKLI
+ * ============================================================================
+ * Bir randevunun KIMLIGI (kiminle, ne zaman) KOLONLARDADIR, METINDE DEGIL.
+ * Kullanici "Dis temizligi" yazar; "Ahmet Yilmaz" kelimesi hic gecmez ve
+ * "Ahmet Yilmaz'la ne konusmustuk" sorusu HICBIR SATIRLA ESLESMEZ.
+ *
+ * Uc parca: SABIT etiket + randevu TARIHI + (varsa) bagli CRM kisisinin ADI.
+ *
+ * ============================================================================
+ * BEDELI: DENORMALIZASYON — ve telafisi ILK GUNDEN var
+ * ============================================================================
+ * Kisi adi gomulen metne KOPYALANIR. Kisi yeniden adlandirilirsa eski vektor
+ * ESKI ADI tasir — ta ki `POST /appointments/reindex` calisana kadar.
+ * `withProjectHeader` / `Interaction`in odedigi ayni bedel ve kurdugu ayni
+ * telafi. ⚠️ Telafi mekanizmasi olmasaydi ad basliga KONAMAZDI.
+ *
+ * ⚠️ TARIH UTC'DE bicimlenir. `scheduledAt` bir ANDIR (§2c) ve baslikta gun
+ * gostermek bir saat dilimi secimi gerektirir; sunucunun kanonik dili UTC'dir
+ * (HTTP cevabi da UTC doner). Sonucu durustce: +03:00'te 00:30'daki bir randevu
+ * baslikta BIR ONCEKI gunu tasir. Tenant bazli saat dilimi geldiginde (§10) bu
+ * satir da onunla birlikte duzelir.
+ */
+export function withAppointmentHeader(input: {
+  scheduledAt: Date;
+  /** `null` = kisiye bagli degil YA DA adi cozulemedi (izin/silinmis). */
+  contactName: string | null;
+  serviceNote: string;
+}): string {
+  const day = input.scheduledAt.toISOString().slice(0, 10);
+  const who = input.contactName === null ? '' : ` · ${input.contactName}`;
+
+  return `[Randevu · ${day}${who}] ${input.serviceNote}`;
+}
+
+/**
+ * Embedding boyutunu DOGRULAR.
+ *
+ * ⚠️ Bu modulde bir `Chunk` ENTITY'si YOK (§3), yani boyut kontrolunun dogal
+ * evi de yok. Yine de `domain`de duruyor: kural bir IS KURALIDIR (`vector(1536)`
+ * kolonuyla baglidir) ve adapter'a guvenmek yerine SINIRDA kontrol etmek,
+ * yanlis yapilandirilmis bir modeli VERI YAZILMADAN yakalar.
+ */
+export function assertEmbeddingDimensions(embedding: readonly number[]): void {
+  if (embedding.length !== EMBEDDING_DIMENSIONS) {
+    throw new InvalidAppointmentEmbeddingDimensionsError(EMBEDDING_DIMENSIONS, embedding.length);
+  }
+}
 
 /**
  * Randevu durumu (ADR-0035 §2a).
@@ -132,6 +209,27 @@ export interface AppointmentFields {
    * alinmis bir kayit).
    */
   readonly crmContactId: string | null;
+
+  /**
+   * Randevunun ANLAMSAL yuzeyi — TEK bir vektore gomulur (ADR-0035 §3).
+   *
+   * ⚠️ SLICE 3'TE `AppointmentFields`E GIRDI.
+   *
+   * ⚠️ `null` ile bos dize AYNI SEYDIR ve ikisi de `null`a normalize edilir:
+   * "girilmedi" ile "bos girildi" arasinda bir fark yoktur, ve bos bir dize
+   * BOS BIR EMBEDDING CAGRISI demek olurdu — para harcayan, hicbir sey
+   * aramayan bir vektor.
+   *
+   * ⚠️ NOTSUZ RANDEVU COK YAYGINDIR (takvime yalnizca saat yazmak icin
+   * kurulmus bir kayit) ve HICBIR SEY HARCAMAZ: ne embedding cagrisi, ne oran
+   * siniri payi.
+   *
+   * ⚠️ VEKTOR BU TIPTE YOK. `embedding` kolonu ayni satirda yasar ama entity
+   * onu TASIMAZ: her okumada 1536 `float` (~6 KB) tasimanin bir bedeli var ve
+   * hicbir okuma yolu ona ihtiyac duymuyor. Vektor repository'nin ayri bir
+   * metoduyla yazilir (`setEmbedding`).
+   */
+  readonly serviceNote: string | null;
 }
 
 /**
@@ -218,6 +316,9 @@ export class Appointment {
       // kaldirdigini sanip kaldirmamis olurdu.
       crmContactId:
         changes.crmContactId === undefined ? current.crmContactId : changes.crmContactId,
+      // ⚠️ Ayni ayrim: `null` = NOTU SIL (ve vektoru de sil — use case bunu
+      // yapar), `undefined` = dokunma.
+      serviceNote: changes.serviceNote === undefined ? current.serviceNote : changes.serviceNote,
     };
 
     return new Appointment({ ...current, ...normalize(merged), updatedAt: now });
@@ -258,6 +359,15 @@ function normalize(fields: AppointmentFields): AppointmentFields {
     throw new InvalidScheduledAtError(String(fields.scheduledAt));
   }
 
+  const serviceNote = blankToNull(fields.serviceNote);
+
+  // ⚠️ SINIR BURADA ZORLANIR — adapter'da DEGIL. Adapter kirpar; domain
+  // REDDEDER (ADR-0035 §3d). Kontrol `blankToNull`DAN SONRA: bosluklarla
+  // sisirilmis bir metin, kirpildiktan sonraki gercek uzunluguyla olculur.
+  if (serviceNote !== null && serviceNote.length > MAX_SERVICE_NOTE_CHARS) {
+    throw new ServiceNoteTooLongError(serviceNote.length, MAX_SERVICE_NOTE_CHARS);
+  }
+
   return {
     scheduledAt: fields.scheduledAt,
     durationMinutes: fields.durationMinutes,
@@ -267,5 +377,12 @@ function normalize(fields: AppointmentFields): AppointmentFields {
     // (`#assertContactVisible`) — `TransactionFields`in cross-modul
     // isaretcileri icin verilmis ayni karar.
     crmContactId: fields.crmContactId,
+    serviceNote,
   };
+}
+
+/** Bos dizeler `null`a cevrilir: "girilmedi" ile "bos girildi" ayni seydir. */
+function blankToNull(value: string | null): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
 }

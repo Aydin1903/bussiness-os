@@ -256,10 +256,29 @@ yazar** ve kendi izin kapisini (`contact:read`) kendi eliyle kurar. Yeni bir
 **talip** eklendiginde ise (ADR-0034'un iki referansi) hicbir sey degismez.
 
 ⚠️ **Mutlak Kural 1-2 geregi bu is KENDI SLICE'INDA yapilir** (Slice 2) ve
-kapsami tek dosyaya + onun testine kapalidir. CRM'in var olan hicbir davranisi
-degismez, hicbir imza kirilmaz: dosyaya **eklenir**, dosyada **duzenlenmez**.
-ADR-0033'un `crm.public.ts`'i ayri bir slice'a koymasiyla **birebir ayni
-disiplin**, ikinci kez.
+olcusu sudur: **yalnizca ekleme, sifir davranis degisikligi, mevcut testler
+kirmizi yanmaz.** CRM'e dosyaya **eklenir**, dosyada **duzenlenmez**;
+`CompanyDirectory`nin tek satiri degismez ve hicbir imza kirilmaz. ADR-0033'un
+`crm.public.ts`'i ayri bir slice'a koymasiyla **birebir ayni disiplin**, ikinci
+kez.
+
+> **Duzeltme (Slice 2 uygulandiktan sonra yazildi).** Bu paragrafin ilk hali
+> olcuyu _"kapsami TEK DOSYAYA + onun testine kapalidir"_ diye yaziyordu ve bu
+> **iyimserdi**. Gercekte CRM tarafinda **bes dosya** gerekti — cunku bir dizin
+> tek basina yasamaz: `crm.public.ts` (arayuz) · `contact.repository.port.ts`
+> (`findNamesByIds`) · `drizzle-contact.repository.ts` (implementasyon) ·
+> `contact-directory.query.ts` (izin kapisi) · `crm.module.ts` (baglanti).
+> `CompanyDirectory` de tam olarak bu bes parcadan olusuyor.
+>
+> Olculen sonuc: **134 ekleme, 3 "silinen" satir** — ve ucu de genisletilen
+> `import`/`export` satiriydi (`CRM_CONTACT_DIRECTORY` ve `inArray` eklendi),
+> yani **sifir davranis degisikligi**. CRM'in 64 birim + 89 entegrasyon testi
+> tek satiri duzenlenmeden yesil kaldi.
+>
+> Dogru olcu **dosya sayisi degildir**: bir dizin bes dosyaya dokunup hicbir
+> davranisi degistirmeyebilir, ya da tek dosyada bir imzayi kirabilir. Bagimsiz
+> denetlenebilirligi saglayan sey, degisikligin **eklemeli** olmasi ve mevcut
+> testlerin **dokunulmadan** yesil kalmasidir.
 
 ### 5. Yasam dongusu, silme ve guncelleme
 
