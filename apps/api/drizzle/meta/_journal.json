@@ -183,6 +183,13 @@
       "when": 1784890000000,
       "tag": "0025_finance_commentaries",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784900000000,
+      "tag": "0026_appointments_schema",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,202 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UnauthorizedException,
+  UseFilters,
+} from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+
+import { getPrincipal } from '../../../infrastructure/auth/auth-context';
+import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
+import { RequirePermission } from '../../../platform/authz/authz.public';
+import { AppointmentUseCases } from '../application/appointment.use-cases';
+import { type AppointmentPatch, type AppointmentState } from '../domain/appointment.entity';
+import {
+  APPOINTMENT_DELETE,
+  APPOINTMENT_READ,
+  APPOINTMENT_WRITE,
+} from '../appointments.permissions';
+import { AppointmentsDomainExceptionFilter } from './appointments-domain-exception.filter';
+import {
+  createAppointmentSchema,
+  idParamSchema,
+  listAppointmentsQuerySchema,
+  updateAppointmentSchema,
+  type CreateAppointmentBody,
+  type ListAppointmentsQuery,
+  type UpdateAppointmentBody,
+} from './appointments.dto';
+
+/**
+ * Randevu uclari (ADR-0035 §9).
+ *
+ * `CategoryController` / `TransactionController` ile ayni sekil — eksi
+ * `GET :id` (gerekce `appointment.use-cases.ts`'te).
+ *
+ * ⚠️ Rota `appointments`, yani modul TEK BIR KOK ROTA tasiyor. Kardes bir
+ * controller olmadigi icin `finance/categories` ile `finance/transactions`
+ * arasindaki gibi bir onek ayrimi GEREKMEZ. Slice 3'un `POST
+ * /appointments/reindex` ucu geldiginde ise DIKKAT EDILMELI: bu controller
+ * `PATCH :id` / `DELETE :id` tasiyor ama `GET :id` TASIMIYOR, dolayisiyla
+ * `POST /appointments/reindex` bir `:id` rotasiyla CATISIR (`reindex` bir UUID
+ * olmadigi icin 422 donerdi). O gun ya `ReindexController` bu listede ONCE
+ * yazilir, ya da uc buraya eklenir — gerekce `projects.module.ts`'te.
+ */
+interface AppointmentListResponse {
+  readonly items: readonly AppointmentState[];
+  readonly total: number;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+@ApiTags('appointments')
+@Controller({ path: 'appointments', version: '1' })
+@UseFilters(AppointmentsDomainExceptionFilter)
+export class AppointmentController {
+  constructor(private readonly useCases: AppointmentUseCases) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(APPOINTMENT_WRITE)
+  @ApiOperation({ summary: 'Randevu olusturur' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Randevu kaydedildi.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Zaman/sure/durum gecersiz ya da govdede taninmayan alan var.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'appointment:write yalnizca owner/admin/member.',
+  })
+  async create(
+    @Body(new ZodValidationPipe(createAppointmentSchema)) body: CreateAppointmentBody,
+  ): Promise<AppointmentState> {
+    const principal = requireTenantPrincipal();
+
+    return this.useCases.create({
+      tenantId: principal.tenantId,
+      userId: principal.userId,
+      fields: {
+        // ⚠️ Dize -> `Date` cevrimi BURADA, domain'de degil: `domain` katmani
+        // HTTP'nin tasima bicimini bilmez. Gecersiz bir an `Invalid Date`
+        // uretir ve entity onu REDDEDER (`InvalidScheduledAtError`) —
+        // sessizce veritabanina gitmez.
+        scheduledAt: new Date(body.scheduledAt),
+        durationMinutes: body.durationMinutes,
+        status: body.status,
+      },
+    });
+  }
+
+  @Get()
+  @RequirePermission(APPOINTMENT_READ)
+  @ApiOperation({ summary: 'Randevulari listeler (takvim penceresi + durum)' })
+  async list(
+    @Query(new ZodValidationPipe(listAppointmentsQuerySchema)) query: ListAppointmentsQuery,
+  ): Promise<AppointmentListResponse> {
+    // `?? null`: Zod'un `.optional()` ciktisi "anahtar var, degeri `undefined`"
+    // demektir; port "filtre yok"u `null` ile ifade eder (gerekce port
+    // dosyasinda).
+    //
+    // ⚠️ `to` HARIC bir sinirdir (`< to`); `from` DAHIL. Gerekce
+    // `appointments.dto.ts`'te — yari acik aralik olmasaydi sinirdaki bir
+    // randevu iki haftada da gorunurdu.
+    const page = await this.useCases.list({
+      limit: query.limit,
+      offset: query.offset,
+      from: query.from === undefined ? null : new Date(query.from),
+      to: query.to === undefined ? null : new Date(query.to),
+      status: query.status ?? null,
+    });
+
+    return { ...page, limit: query.limit, offset: query.offset };
+  }
+
+  /**
+   * KISMI guncelleme; gonderilmeyen alana DOKUNULMAZ (`PUT` degil).
+   *
+   * ⚠️ DURUM GECISI DE BURADAN gecer ve KISITLANMAZ: `no_show` -> `completed`
+   * mesrudur (kisi bir saat gec geldi). Gerekce `Appointment` sinif yorumunda.
+   */
+  @Patch(':id')
+  @RequirePermission(APPOINTMENT_WRITE)
+  @ApiOperation({ summary: 'Randevuyu kismi gunceller (zaman / sure / durum)' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Randevu bulunamadi.' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Zaman/sure/durum gecersiz ya da govde bos.',
+  })
+  async update(
+    @Param(new ZodValidationPipe(idParamSchema)) params: { id: string },
+    @Body(new ZodValidationPipe(updateAppointmentSchema)) body: UpdateAppointmentBody,
+  ): Promise<AppointmentState> {
+    // ⚠️ `scheduledAt` AYRILIYOR, kosullu bir spread ile uzerine YAZILMIYOR:
+    // govde tipi `string` tasiyor, port `Date` istiyor ve kosullu spread'de
+    // TypeScript sonucun artik yalnizca `Date` oldugunu goremez
+    // (`TransactionController.update`in `amount` icin verdigi ayni karar).
+    //
+    // ⚠️ `undefined` = "dokunma"; `new Date(undefined)` onu `Invalid Date`e
+    // cevirip dogrulamayi patlatirdi.
+    const { scheduledAt, ...rest } = body;
+
+    const changes: AppointmentPatch =
+      scheduledAt === undefined ? rest : { ...rest, scheduledAt: new Date(scheduledAt) };
+
+    return this.useCases.update({ id: params.id, changes });
+  }
+
+  /**
+   * `204`: silme bir govde dondurmez.
+   *
+   * ⚠️ Silme GERI ALINAMAZ ve DENETIM IZI YOKTUR (ADR-0035 §5): kaydin
+   * silindigi bilgisi hicbir yerde kalmaz. `appointment:delete`in ayri bir izin
+   * olmasinin ve `member`a VERILMEMESININ sebebi budur.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission(APPOINTMENT_DELETE)
+  @ApiOperation({ summary: 'Randevuyu siler' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Silindi.' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'appointment:delete yalnizca owner/admin.',
+  })
+  async remove(@Param(new ZodValidationPipe(idParamSchema)) params: { id: string }): Promise<void> {
+    await this.useCases.delete(params.id);
+  }
+}
+
+/**
+ * ⚠️ PRATIKTE ULASILMAZ — `PermissionGuard` handler'dan ONCE calisir ve hem
+ * kimliksiz istegi hem tenant secilmemis token'i keser. Savunma katmani.
+ *
+ * ⚠️ `CategoryController`in yardimcisindan FARKLI: burada KULLANICI KIMLIGI de
+ * okunuyor cunku `created_by_user_id` yaziliyor (randevuyu kim girdi).
+ *
+ * ⚠️ `TransactionController`in yardimcisindan da FARKLI: orada ROL de okunuyor
+ * cunku cross-modul dizinler onu ISTIYOR. Randevu Slice 1'de hicbir modulu
+ * okumaz, dolayisiyla rolu bilmesi GEREKMEZ — izin kontrolunu guard zaten
+ * yapti. Ihtiyac duyulmayan bir baglami okumak, onu bir bagimlilik gibi
+ * gosterirdi. ⚠️ Slice 2'de `ContactDirectory` geldiginde rol BURAYA eklenir.
+ */
+function requireTenantPrincipal(): { tenantId: string; userId: string } {
+  const principal = getPrincipal();
+
+  // ⚠️ YALNIZCA `tenantId` kontrol ediliyor: `userId` principal tipinde ZATEN
+  // zorunludur (bir principal varsa kimligi de vardir). Onu da kontrol etmek
+  // lint tarafindan "types have no overlap" ile reddedilir — ve hakli: olmayan
+  // bir durumu savunmak, okuyana o durumun MUMKUN oldugunu soyler.
+  if (principal?.tenantId == null) {
+    throw new UnauthorizedException('Bu islem icin tenant secilmis bir oturum gerekiyor.');
+  }
+
+  return { tenantId: principal.tenantId, userId: principal.userId };
+}

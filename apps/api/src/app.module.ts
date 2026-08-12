@@ -5,6 +5,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { AppLoggerModule } from './infrastructure/logging/logger.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
@@ -51,6 +52,14 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // finansi HIC gormez (ADR-0034 §7). Slice 5'te bu, `POST /ask`in izin
     // filtresinin ILK GERCEK tetikcisi olacak.
     FinanceModule,
+    // Faz 5'in DORDUNCU is modulu (ADR-0035). Ayni sira, besinci kez: bu
+    // slice'ta AI YOK, once sema + RLS + RBAC zinciri kurulur.
+    //
+    // ⚠️ Permission katalogu Finans'in DAR katalogundan bilincli olarak
+    // AYRISIR: dort rol de okur (ADR-0035 §9). Bir randevu takvimi PAYLASILAN
+    // bir is gercegidir — yani `POST /ask` izin filtresinin tetikcisi HALA
+    // yalnizca Finans'tir.
+    AppointmentsModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

@@ -68,3 +68,13 @@ export { financeTransactions } from './finance-transactions.schema';
 // .description` duz kolondur (ADR-0034 §6.1 — ortak top-K havuzu).
 export { financeCommentaries } from './finance-commentaries.schema';
 export { financeCommentaryChunks } from './finance-commentary-chunks.schema';
+
+// --- Randevu / Rezervasyon (ADR-0035 §1) ---
+// `appointmentsSchema` ayri bir dosyada: sema ve tablo AYNI adi tasiyor —
+// `projects`teki cakismanin birebir aynisi, ikinci kez.
+//
+// ⚠️ BU MODULDE `*_chunks` TABLOSU YOKTUR (ADR-0035 §3). Dort onceki anlamsal
+// kaynagin dordu de ayri bir parca tablosu tasiyordu; randevu notu kisa ve tek
+// seferliktir, dolayisiyla vektor AYNI SATIRDA yasar.
+export { appointmentsSchema } from './appointments-schema.schema';
+export { appointments } from './appointments.schema';

@@ -113,6 +113,15 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0026, `appointments` semasi ve tek tablosu. TUM `finance`/`projects`/
+      // `crm` migration'larindan ONCE alinir (konvansiyon: en yeni once) ama
+      // aralarinda BAGIMLILIK YOKTUR — cross-schema FK yasak (Mutlak Kural 5)
+      // ve bu modulde `*_chunks` tablosu da yok (ADR-0035 §3), yani sema ici
+      // bir zincir bile tasimiyor. Dusurulecek tek nesne var.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI. `0019`un dersi
+      // (asagida) bir kez daha uygulanmadi diye degil, UYGULANMASIN diye.
+      '0026_appointments_schema.down.sql',
       // 0025, yorumlar + parcalar. 0023'ten ONCE (sema onlari icerir); `0024`
       // ile arasinda BAGIMLILIK YOK — yorumun ebeveyni yoktur (ADR-0034 §1.1),
       // yani `transactions` ya da `categories` ile FK iliskisi tasimaz.
