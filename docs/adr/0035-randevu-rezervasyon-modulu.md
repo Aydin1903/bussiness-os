@@ -50,9 +50,9 @@ var ve dorduncu de asagida ayri baslikla ele aliniyor:
 > ⚠️ **Bu ADR'nin cizdigi sinir bir TAKVIM sinirdir.** Randevu v1 **kaydedilmis
 > bir bulusmayi** tutar: ne zaman, ne kadar surecek, kiminle, ne icin. Musteriye
 > hatirlatma gondermek, musterinin kendi kendine rezervasyon yapmasi, tekrarlayan
-> randevu ve coklu personel takvimi **kapsam disidir** (§11). Bu bir asama degil
+> randevu ve coklu personel takvimi **kapsam disidir** (§10). Bu bir asama degil
 > bir **sinirdir**; genisletme talebi ayri bir ADR ister — ADR-0034'un muhasebe
-> sinirıyla ayni disiplin.
+> siniriyla ayni disiplin.
 
 ## Karar
 
@@ -113,7 +113,7 @@ demektir ama **isletme icin ayni sey degildir**: iptal bir haberdir, gelmemek
 bir **kayiptir** (ayrilan zaman bosa gitti). Tek degerde birlestirmek, §6.2'nin
 alarm sinyalini **tumuyle yok ederdi** — "gelmedi orani" diye bir sey
 hesaplanamazdi. Bu, projede tekrar tekrar verilen "iki farkli olguyu tek kolona
-sikistirma" kararinin bu modulddeki karsiligidir.
+sikistirma" kararinin bu moduldeki karsiligidir.
 
 **(c) `scheduled_at timestamptz`, `date` DEGIL — ONCEKI UC MODULDEN BILINCLI
 SAPMA.** ADR-0031 §3 (takip tarihi), ADR-0033 §5 (son tarih) ve ADR-0034 §2e
@@ -127,7 +127,7 @@ dogru sorudur; ama _"bu randevu saat kacta"_ sorusunun cevabi **okuyanin saat
 dilimine** baglidir. v1'in karari: **sunucu UTC dondurur, cevrimi istemci
 yapar** (tarayicinin kendi saat dilimi). Tek bir sehirde calisan bir isletme
 icin bu dogru davranir. Cok bolgeli bir tenant icin **yanlis gorunur** ve
-tenant bazli saat dilimi ayari ayri bir karardir (§11) — ⚠️ **bu, ADR-0029'dan
+tenant bazli saat dilimi ayari ayri bir karardir (§10) — ⚠️ **bu, ADR-0029'dan
 beri ertelenen kalemin ilk kez GORUNUR bir yanlis uretebildigi moduldur.**
 
 **(d) `duration_minutes integer`, `ends_at` kolonu DEGIL.** Bitis zamani
@@ -138,7 +138,7 @@ digeri unutuldugunda hata **sessiz** olurdu ve takvim gridinde **ust uste binen
 bir blok** cizilirdi. `CHECK (duration_minutes > 0)`.
 
 **(e) Cakisma kontrolu YOK.** Iki randevu ayni saate yazilabilir. Engellemek
-**coklu personel takvimi** demektir (§11 — kapsam disi): tek takvimde cakisma
+**coklu personel takvimi** demektir (§10 — kapsam disi): tek takvimde cakisma
 bir hatadir, iki personelli bir isletmede **normaldir**. Yanlis tarafa
 karar vermek yerine v1 **kayit tutar, kural koymaz**; takvim gridi cakisan
 bloklari **yan yana** cizerek durumu gorunur kilar (§7).
@@ -170,7 +170,7 @@ satirin NULL'lugu** ile ifade edilebiliyorsa, tabloyu acmak yapiyi
 
 **(c) `embedding IS NULL` mesru bir durumdur ve zaten ele alinmak zorundadir.**
 Notsuz randevu **cok yaygindir** (takvime saat yazmak icin kurulmus bir kayit).
-Yani "vektoru olmayan satir" bu modulde bir **arıza degil normaldir** — ayni
+Yani "vektoru olmayan satir" bu modulde bir **ariza degil normaldir** — ayni
 kolon, ADR-0029 §4'un iki transaction'li akisinin uretebildigi
 "gomulememis" halini de tasir ve **ayni onarim yolu** (`POST /appointments/reindex`)
 ikisini birden kapatir.
@@ -409,7 +409,7 @@ gerekcedir ve degerlendirme ayni sekilde yapildi:
 Haftalik grid, `scheduled_at` ve `duration_minutes`'tan hesaplanan bir
 `grid-row` araligi ile ciziler; hafta baslangici ve gun sinirlari native `Date`
 ile bulunur. Cakisan bloklar yan yana daraltilir (§2e). Sanallastirma,
-surukleme ve tekrar kurallari **yoktur** (§11).
+surukleme ve tekrar kurallari **yoktur** (§10).
 
 **(c) Bu bilesen `module-kit`'e girer, modul klasorune DEGIL.** ADR-0033 Slice
 5a'nin dersi: _"ikinci modul bir seyin genel olup olmadigini ogrendigimiz
@@ -418,7 +418,7 @@ zaman cizelgesi, ileride Ik'nin vardiya listesi ayni sekli ister). Yine de
 ⚠️ **kabul olcutu serttir:** bilesen randevu kelimesini **bilmez**; genel bir
 "zaman araligi bloklari" arayuzu alir. Bilemiyorsa modul klasorunde kalir.
 
-**(d) Aylik takvim v2'ye ERTELENIYOR** (§11). Haftalik gorunum, "bu hafta ne
+**(d) Aylik takvim v2'ye ERTELENIYOR** (§10). Haftalik gorunum, "bu hafta ne
 var" sorusunu — modulun birincil sorusunu — tam olarak karsilar. Aylik gorunum
 **farkli bir bilesendir** (blok degil, gun hucresi + tasma sayaci) ve ikisini
 ayni anda yazmak, ikisini de yarim yazmak olurdu.
@@ -522,7 +522,7 @@ yaradiginin olcusu budur.
 ⚠️ **Kalem adi `appointment_embedding`, `create_appointment` DEGIL** ve bu
 adlandirma onceki uc modulden (`create_interaction` · `create_progress_note` ·
 `create_commentary`) **bilincli olarak ayrisir**. Sebep, sinirlanan seyin
-**farkli** olmasidir: oncekilerde AI maliyeti uretenkayit **olusturmakti** ve
+**farkli** olmasidir: oncekilerde AI maliyeti ureten kayit **olusturmakti** ve
 her olusturma bir embedding demekti. Burada oyle degil — **notsuz bir randevu
 hicbir sey harcamaz** (cok yaygin), buna karsilik bir **guncelleme** harcar
 (§5). `create_` oneki, sayacin **ne oldugu** konusunda yanlis bilgi verirdi ve
@@ -535,7 +535,7 @@ Yeniden indeksleme **ilk gunden** vardir; is listesi **turetilmistir**
 
 ### 10. Kapsam disi (bugun yapilmiyor)
 
-**Takvim sinirı** — bunlar "sonra ekleriz" degil, **v1'in tanimi disidir**:
+**Takvim siniri** — bunlar "sonra ekleriz" degil, **v1'in tanimi disidir**:
 
 - **SMS / e-posta hatirlatma** — ⚠️ bir **zamanlayici** (scheduler/queue) ister
   ve ROADMAP §2.3'un Queue karari **hala verilmedi**. `EmailPort` var ama
@@ -587,7 +587,7 @@ getirmektir** — borc "ertelendi" degil, **tarihi belli**dir.
 **Neden §7 kutuphaneyi reddediyor.** Reddin gerekcesi "kendimiz yazariz" degil,
 **istenen seyin kucuk olmasidir**. Bir takvim kutuphanesinin getirdigi degerin
 %90'i (surukleme, RRULE, kaynak havuzu, zaman dilimi motoru) bu ADR'de
-**kapsam disi** (§11) olarak zaten yazili. Kullanilmayacak bir yuzeyi bagimlilik
+**kapsam disi** (§10) olarak zaten yazili. Kullanilmayacak bir yuzeyi bagimlilik
 olarak almak, bedelini yalnizca **tasarim catismasinda ve renk mekanizmasinda**
 odemek demektir.
 
@@ -646,7 +646,7 @@ durulur.
 - **Cakisma kontrolu yoklugu bir eksiklik gibi okunacaktir** (§2e) — dogru
   karar, ama tek personelli bir isletme icin **acikca eksik** hissedilir.
 - **Randevu v1 bir rezervasyon sistemi degildir**: hatirlatma yok, online
-  rezervasyon yok, tekrar yok, kaynak yonetimi yok. Bilincli (§11), ama modulun
+  rezervasyon yok, tekrar yok, kaynak yonetimi yok. Bilincli (§10), ama modulun
   adi ("Rezervasyon") beklentiyi **yukari** cekiyor — Finans'in "muhasebe"
   cagrisimiyla ayni tuzak, ikinci kez.
 
@@ -661,7 +661,7 @@ durulur.
 | **`ends_at` kolonu** (`duration_minutes` yerine)                 | Turetilebilir bilgiyi kaliciya yazmak — projede **yedinci** kez reddedilen ayni karar; ikisi ayrisirsa takvimde **ust uste binen blok** cizilir ve hata sessizdir                                           |
 | **`status` tenant-tanimli tablo** (Finans kategorisi gibi)       | Dort hal her sektorde ayni sey demektir; ayrica "gelmedi orani" ancak `no_show`un anlami **sabitse** hesaplanabilir (§6.2)                                                                                  |
 | **`no_show`u `cancelled` icinde eritmek**                        | Iptal bir haber, gelmemek bir **kayiptir**; birlestirmek §6.2'nin alarm sinyalini tumuyle yok eder                                                                                                          |
-| **Cakisma kontrolunu zorlamak** (`EXCLUDE` kisiti)               | Coklu personel takvimi kapsam disi (§11); iki personelli bir isletmede cakisma **normaldir**. Yanlis tarafa karar vermek yerine kayit tutulur, kural konmaz                                                 |
+| **Cakisma kontrolunu zorlamak** (`EXCLUDE` kisiti)               | Coklu personel takvimi kapsam disi (§10); iki personelli bir isletmede cakisma **normaldir**. Yanlis tarafa karar vermek yerine kayit tutulur, kural konmaz                                                 |
 | **`crm_contact_id`ye cross-schema FK**                           | Mutlak Kural 5 — tartisma konusu degil                                                                                                                                                                      |
 | **Kisi ADINI denormalize etmek** (kolona kopyalamak)             | Yeniden adlandirmada bayatlar; ikinci dogruluk kaynagi. Ayrica ad, `contact:read` tasimayan kullaniciya sizardi (ADR-0033 §2b/2c). ⚠️ Baglam basligindaki kopya **farklidir**: telafisi `reindex`tir (§6.1) |
 | **Ortak `ExternalRefDirectory` yardimcisi**                      | ADR-0034 §4.1'in "hayir"i, dorduncu talip icin tekrar okundu ve **degismedi**: izin kapisini ya cagirana (sizinti) ya `shared/`'a (Mutlak Kural 6) devrederdi                                               |
@@ -703,7 +703,7 @@ durulur.
   klasik metin aramasi yok (ADR-0011, **besinci** kez).
 - **Aylik gorunum yok** (§7d) — "bu ay ne kadar dolu" sorusu haftalik gridde
   yedi gun yedi gun gezilerek cevaplanir.
-- **Hatirlatma yok** (§11) — ve bu, kullanicinin **ilk soracagi** eksiktir;
+- **Hatirlatma yok** (§10) — ve bu, kullanicinin **ilk soracagi** eksiktir;
   Queue karari verilmeden yapilamaz.
 
 ## Uygulama plani (slice'lar)
