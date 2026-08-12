@@ -72,6 +72,28 @@ export class AppointmentNotFoundError extends AppointmentsDomainError {
   }
 }
 
+/**
+ * Randevu, gorulemeyen bir KISIYE baglanamaz (ADR-0035 §4).
+ *
+ * ============================================================================
+ * UC DURUM AYIRT EDILMEZ — bilincli
+ * ============================================================================
+ * "Kisi yok", "baska tenant'in" ve "`contact:read` tasimiyorsun" AYNI hatayi
+ * verir; `ContactDirectory` ucunu de haritada YOK olarak dondurur. Ayirmak,
+ * reddin sebebinden o kisinin VAR OLDUGUNU cikarilabilmesi demekti.
+ *
+ * `ProjectCompanyNotFoundError` / `TransactionCompanyNotFoundError` ile birebir
+ * ayni — ve bu tekrar, desenin ucuncu kez uygulanmasinin dogal sonucudur.
+ *
+ * ⚠️ 404, 422 DEGIL: govdedeki bir ALAN var olmayan bir KAYNAGA isaret ediyor.
+ */
+export class AppointmentContactNotFoundError extends AppointmentsDomainError {
+  readonly code = 'APPOINTMENT_CONTACT_NOT_FOUND';
+  constructor() {
+    super('Randevunun baglanacagi kisi bulunamadi.');
+  }
+}
+
 export class InvalidAppointmentsTimestampError extends AppointmentsDomainError {
   readonly code = 'APPOINTMENTS_TIMESTAMP_INVALID';
   constructor() {

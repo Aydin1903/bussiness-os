@@ -1,10 +1,36 @@
-import { type Appointment, type AppointmentStatus } from '../domain/appointment.entity';
+import {
+  type Appointment,
+  type AppointmentState,
+  type AppointmentStatus,
+} from '../domain/appointment.entity';
 
 export const APPOINTMENT_REPOSITORY = Symbol('APPOINTMENT_REPOSITORY');
 
 export interface ListPage<T> {
   readonly items: readonly T[];
   readonly total: number;
+}
+
+/**
+ * Kullaniciya donen satir — `AppointmentState` + COZULMUS kisi adi.
+ *
+ * ============================================================================
+ * NEDEN AYRI BIR TIP: repository `contactName` URETEMEZ
+ * ============================================================================
+ * Ad `crm.contacts`tadir; `appointments` semasindan okunamaz (Mutlak Kural 5).
+ * Repository kendi semasinin bildigi kadarini dondurur (`Appointment`); adi use
+ * case, `ContactDirectory` uzerinden EKLER.
+ *
+ * Tek tip olsaydi repository imzasi dolduramayacagi bir alan vaat ederdi —
+ * `TransactionListRow`/`TransactionEnrichedRow` ayriminin birebir aynisi.
+ *
+ * ⚠️ `null` UC anlama gelir ve UCU AYIRT EDILMEZ: randevu bir kisiye bagli
+ * degil, kisi silinmis (sarkan isaretci), ya da cagiran `contact:read`
+ * tasimiyor. Arayuz ucunde de HICBIR SEY yazmaz — "silinmis" bile yazmaz,
+ * cunku o kelime silinmis bir kaydin BIR ZAMANLAR VAR OLDUGUNU sizdirirdi.
+ */
+export interface AppointmentRow extends AppointmentState {
+  readonly contactName: string | null;
 }
 
 /**

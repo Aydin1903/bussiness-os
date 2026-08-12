@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 import { contacts } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
@@ -70,5 +70,25 @@ export class DrizzleContactRepository implements ContactRepository {
       id: contacts.id,
     });
     return deleted.length;
+  }
+
+  /**
+   * `DrizzleCompanyRepository.findNamesByIds` ile BIREBIR ayni sekil.
+   *
+   * ⚠️ `WHERE tenant_id` YOK — daraltmayi RLS yapar. Yani baska tenant'in
+   * kisisi, id'si dogru bilinse bile haritaya GIREMEZ.
+   */
+  async findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const { db } = requireTransaction();
+    const rows = await db
+      .select({ id: contacts.id, fullName: contacts.fullName })
+      .from(contacts)
+      .where(inArray(contacts.id, [...ids]));
+
+    return new Map(rows.map((row) => [row.id, row.fullName]));
   }
 }

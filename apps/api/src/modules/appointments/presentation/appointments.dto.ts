@@ -65,17 +65,32 @@ const durationSchema = z
   .max(MAX_DURATION_MINUTES, 'Sure 24 saati asamaz');
 
 /**
- * ⚠️ `crmContactId` ve `serviceNote` BU SEMADA YOK — ve `.strict()` sayesinde
- * gonderilirlerse 422 ile REDDEDILIRLER, SESSIZCE YOK SAYILMAZLAR.
+ * ⚠️ `serviceNote` BU SEMADA HALA YOK — `.strict()` sayesinde gonderilirse 422
+ * ile REDDEDILIR, SESSIZCE YOK SAYILMAZ (yazma yolu Slice 3).
  *
- * Ayrim onemlidir: sessizce yok saymak, istemcinin kisi bagladigini SANMASINA
- * ve baglanti kurulmadigini HIC OGRENMEMESINE yol acardi. Yazma yollari Slice 2
- * (`crmContactId`) ve Slice 3 (`serviceNote`) ile acilir.
+ * `contactId` SLICE 2'DE ACILDI: dogrulamasi ve adin cozulmesi icin gereken
+ * `ContactDirectory` artik `crm.public.ts`te var.
  */
 export const createAppointmentSchema = z
   .object({
     scheduledAt: instant,
     durationMinutes: durationSchema,
+    /**
+     * CROSS-MODUL YUMUSAK REFERANS (ADR-0035 §4) — hedef `crm.contacts.id`.
+     *
+     * ⚠️ ALAN ADI `contactId`, kolon adi `crm_contact_id`. Kolonda `crm_` oneki
+     * VAR cunku bir veritabani satirinda "hangi modulun kisisi" sorusu
+     * kolondan baska hicbir yerde yazmiyor; API govdesinde ise baglam zaten
+     * randevudur ve `crmContactId` gereksiz yere gurultulu olurdu.
+     *
+     * `null` MESRUDUR: bir randevu bir CRM kisisine bagli olmak ZORUNDA
+     * degildir (ic toplanti, ilk kez gelen musteri, telefonla alinmis kayit).
+     *
+     * Verilen id yazma aninda GORUNURLUK acisindan dogrulanir: goremedigin bir
+     * kisiye randevu baglayamazsin. Kontrol CRM'in public interface'i uzerinden
+     * yapilir ve izin kapisi (`contact:read`) O ARAYUZUN ICINDEDIR.
+     */
+    contactId: z.uuid('contactId gecerli bir UUID olmali').nullish(),
     /**
      * Varsayilani `scheduled` — ve bu varsayilan MESRUDUR.
      *
@@ -107,6 +122,14 @@ export const updateAppointmentSchema = z
     scheduledAt: instant,
     durationMinutes: durationSchema,
     status: appointmentStatusSchema,
+    /**
+     * ⚠️ `null` GONDERMEK BAGLANTIYI KALDIRIR, `undefined` DOKUNMAZ.
+     *
+     * Bu modulde `null`in "temizle" anlami tasidigi ILK alandir (Slice 1'de uc
+     * alanin ucu de zorunluydu). Ayrim mesrudur: yanlis kisiye baglanmis bir
+     * randevuyu ic randevuya cevirmek gercek bir istektir.
+     */
+    contactId: z.uuid('contactId gecerli bir UUID olmali').nullable(),
   })
   .partial()
   .strict()

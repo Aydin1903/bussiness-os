@@ -32,6 +32,8 @@ import { InvalidAppointmentStatusError } from '../domain/appointments.error';
 const COLUMNS = {
   id: appointments.id,
   tenantId: appointments.tenantId,
+  /** SLICE 2'de eklendi: entity artik bu isaretciyi tasiyor (ADR-0035 §4). */
+  crmContactId: appointments.crmContactId,
   scheduledAt: appointments.scheduledAt,
   durationMinutes: appointments.durationMinutes,
   status: appointments.status,
@@ -55,16 +57,19 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
 
     // Tek deyimlik UPSERT: `create` ve `update` ayni yolu kullanir.
     //
-    // ⚠️ `crmContactId` / `serviceNote` / `embedding` NE `values`TA NE `set`TE:
-    // API onlari kabul etmiyor (Slice 2 ve 3). `set` listesine bugunden
-    // konsalardi bir `PATCH`, Slice 2'de yazilan bir kisi baglantisini
-    // SESSIZCE `undefined`a cevirirdi.
+    // ⚠️ `crmContactId` SLICE 2'DE SET LISTESINE GIRDI. Slice 1 boyunca disarida
+    // durmustu cunku API onu kabul etmiyordu; `crm.public.ts`in kisi dizini
+    // geldigi icin artik yaziliyor. `undefined` = dokunma / `null` = temizle
+    // ayrimi entity'de cozulur, buraya gelen deger ZATEN nihai durumdur.
+    //
+    // ⚠️ `serviceNote` / `embedding` HALA disarida: yazma yollari Slice 3.
     await db
       .insert(appointments)
       .values(state)
       .onConflictDoUpdate({
         target: appointments.id,
         set: {
+          crmContactId: state.crmContactId,
           scheduledAt: state.scheduledAt,
           durationMinutes: state.durationMinutes,
           status: state.status,
@@ -152,6 +157,7 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
 function toAppointment(row: {
   id: string;
   tenantId: string;
+  crmContactId: string | null;
   scheduledAt: Date;
   durationMinutes: number;
   status: string;

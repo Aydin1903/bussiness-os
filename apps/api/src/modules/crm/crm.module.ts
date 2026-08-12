@@ -38,8 +38,9 @@ import {
 import { CompanySummaryUseCases } from './application/company-summary.use-cases';
 import { COMPANY_REPOSITORY, type CompanyRepository } from './application/company.repository.port';
 import { CompanyDirectoryQuery } from './application/company-directory.query';
+import { ContactDirectoryQuery } from './application/contact-directory.query';
 import { CompanyUseCases } from './application/company.use-cases';
-import { CRM_COMPANY_DIRECTORY } from './crm.public';
+import { CRM_COMPANY_DIRECTORY, CRM_CONTACT_DIRECTORY } from './crm.public';
 import { CONTACT_REPOSITORY, type ContactRepository } from './application/contact.repository.port';
 import { ContactUseCases } from './application/contact.use-cases';
 import {
@@ -291,6 +292,22 @@ const CRM_CALLER = 'crm';
       ): CompanyDirectoryQuery =>
         new CompanyDirectoryQuery({ repository, permissionChecker, transactionManager }),
     },
+    // Randevu bir randevuyu opsiyonel olarak bir KISIYE baglar ve adi BURADAN
+    // okur (ADR-0035 §4). Yon TEK YONLU: CRM Randevu'yu bilmez.
+    //
+    // ⚠️ IKINCI dizin, AYNI sekil — ve `CompanyDirectory`den BAGIMSIZ.
+    // Birlestirmek, `company:read` tasiyip `contact:read` tasimayan bir
+    // cagirani ifade edemezdi (gerekce `contact-directory.query.ts`'te).
+    {
+      provide: CRM_CONTACT_DIRECTORY,
+      inject: [CONTACT_REPOSITORY, PERMISSION_CHECKER, TRANSACTION_MANAGER],
+      useFactory: (
+        repository: ContactRepository,
+        permissionChecker: PermissionChecker,
+        transactionManager: TransactionManager,
+      ): ContactDirectoryQuery =>
+        new ContactDirectoryQuery({ repository, permissionChecker, transactionManager }),
+    },
     {
       provide: CrmPipelineContributor,
       inject: [OPPORTUNITY_REPOSITORY, TRANSACTION_MANAGER, CLOCK, APP_CONFIG],
@@ -311,7 +328,7 @@ const CRM_CALLER = 'crm';
   // ⚠️ TEK KALEM ve oyle kalmali: `crm.public.ts` disinda hicbir sey disa
   // acilmaz. Repository, use case ve entity'ler CRM'in ic isidir ve
   // `import/no-restricted-paths` bunu derlemede zaten reddeder.
-  exports: [CRM_COMPANY_DIRECTORY],
+  exports: [CRM_COMPANY_DIRECTORY, CRM_CONTACT_DIRECTORY],
 })
 export class CrmModule {
   constructor(

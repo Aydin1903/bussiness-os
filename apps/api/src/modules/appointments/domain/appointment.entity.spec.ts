@@ -40,6 +40,8 @@ function fields(overrides: Partial<AppointmentFields> = {}): AppointmentFields {
     scheduledAt: SCHEDULED_AT,
     durationMinutes: 30,
     status: 'scheduled',
+    // ⚠️ SLICE 2'de eklendi: `null` = kisiye bagli degil ve MESRUDUR.
+    crmContactId: null,
     ...overrides,
   };
 }
@@ -135,6 +137,42 @@ describe('Appointment — guncelleme', () => {
   });
 });
 
+describe('Appointment — kisi baglantisi (ADR-0035 §4, SLICE 2)', () => {
+  const CONTACT = '018f3a2b-7c4d-7e1f-9c4d-0000000000e1';
+
+  it('⚠️ `null` GONDERMEK BAGLANTIYI KALDIRIR', () => {
+    // Bu modulde `null`in "temizle" anlami tasidigi ILK alan. Mesru bir istek:
+    // yanlis kisiye baglanmis bir randevuyu ic randevuya cevirmek.
+    const state = create({ crmContactId: CONTACT }).update({ crmContactId: null }, LATER).toState();
+
+    expect(state.crmContactId).toBeNull();
+  });
+
+  it('⚠️ `undefined` GONDERMEK DOKUNMAZ — baglanti KORUNUR', () => {
+    // ⚠️ BU TESTIN ISI SESSIZ BIR VERI KAYBINI ONLEMEKTIR. `update`te
+    // `changes.crmContactId ?? current.crmContactId` yazilsaydi bu test yine
+    // GECERDI; asil tuzak TERSIDIR (yukaridaki test onu yakalar). Ikisi
+    // BIRLIKTE ayrimi kilitler.
+    const state = create({ crmContactId: CONTACT })
+      .update({ status: 'completed' }, LATER)
+      .toState();
+
+    expect(state.crmContactId).toBe(CONTACT);
+  });
+
+  it('kisi baglantisi olmadan randevu MESRUDUR', () => {
+    // Ic toplanti, ilk kez gelen musteri, telefonla alinmis kayit.
+    expect(create().toState().crmContactId).toBeNull();
+  });
+
+  it('domain isaretciyi DOGRULAMAZ — gorunurluk use case in isi', () => {
+    // ⚠️ `domain` katmani framework'suzdur ve bir veritabani sorgusu acamaz.
+    // Var olmayan bir id burada KABUL EDILIR; reddi `#assertContactVisible`
+    // yapar. Bu test o sinirin nerede oldugunu KAYDEDIYOR.
+    expect(() => create({ crmContactId: 'var-olmayan-ama-uuid-degil' })).not.toThrow();
+  });
+});
+
 describe('Appointment — kaliciliktan yukleme', () => {
   it('bozuk zaman damgasi sirasini reddeder', () => {
     expect(() =>
@@ -145,6 +183,7 @@ describe('Appointment — kaliciliktan yukleme', () => {
         scheduledAt: SCHEDULED_AT,
         durationMinutes: 30,
         status: 'scheduled',
+        crmContactId: null,
         createdAt: LATER,
         updatedAt: NOW,
       }),

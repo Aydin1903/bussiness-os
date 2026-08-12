@@ -15,8 +15,10 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { getPrincipal } from '../../../infrastructure/auth/auth-context';
+import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { RequirePermission } from '../../../platform/authz/authz.public';
+import { type AppointmentRow } from '../application/appointment.repository.port';
 import { AppointmentUseCases } from '../application/appointment.use-cases';
 import { type AppointmentPatch, type AppointmentState } from '../domain/appointment.entity';
 import {
@@ -51,7 +53,8 @@ import {
  * yazilir, ya da uc buraya eklenir — gerekce `projects.module.ts`'te.
  */
 interface AppointmentListResponse {
-  readonly items: readonly AppointmentState[];
+  /** ⚠️ SLICE 2: `AppointmentState` -> `AppointmentRow` (kisi adi eklendi). */
+  readonly items: readonly AppointmentRow[];
   readonly total: number;
   readonly limit: number;
   readonly offset: number;
@@ -84,6 +87,9 @@ export class AppointmentController {
     return this.useCases.create({
       tenantId: principal.tenantId,
       userId: principal.userId,
+      // ROL cross-modul dizine gecirilir: izin kapisi ONUN icinde
+      // (ADR-0035 §4). Controller hangi izne bakildigini BILMEZ.
+      role: principal.role,
       fields: {
         // ⚠️ Dize -> `Date` cevrimi BURADA, domain'de degil: `domain` katmani
         // HTTP'nin tasima bicimini bilmez. Gecersiz bir an `Invalid Date`
@@ -92,6 +98,9 @@ export class AppointmentController {
         scheduledAt: new Date(body.scheduledAt),
         durationMinutes: body.durationMinutes,
         status: body.status,
+        // `nullish()` -> `null | undefined`; domain "bagli degil"i `null` ile
+        // ifade eder.
+        crmContactId: body.contactId ?? null,
       },
     });
   }
@@ -115,6 +124,10 @@ export class AppointmentController {
       from: query.from === undefined ? null : new Date(query.from),
       to: query.to === undefined ? null : new Date(query.to),
       status: query.status ?? null,
+      // ROL dizine gecirilir; `contact:read` tasimayan cagiran icin her satir
+      // `contactName: null` alir ve RANDEVULARI YINE GORUR — gizlenen sey
+      // yalnizca CRM'e ait AD'dir (ADR-0035 §4).
+      role: requireTenantPrincipal().role,
     });
 
     return { ...page, limit: query.limit, offset: query.offset };
@@ -145,12 +158,24 @@ export class AppointmentController {
     //
     // ⚠️ `undefined` = "dokunma"; `new Date(undefined)` onu `Invalid Date`e
     // cevirip dogrulamayi patlatirdi.
-    const { scheduledAt, ...rest } = body;
+    //
+    // ⚠️ `contactId` -> `crmContactId` ADI DEGISIYOR ve `null` KORUNUYOR:
+    // `?? null` yazilsaydi `undefined` ("dokunma") sessizce `null`a
+    // ("baglantiyi kaldir") donerdi — kullanici yalnizca saati guncellerken
+    // kisi baglantisini KAYBEDERDI ve hata sessiz olurdu.
+    const { scheduledAt, contactId, ...rest } = body;
 
-    const changes: AppointmentPatch =
-      scheduledAt === undefined ? rest : { ...rest, scheduledAt: new Date(scheduledAt) };
+    const changes: AppointmentPatch = {
+      ...rest,
+      ...(scheduledAt === undefined ? {} : { scheduledAt: new Date(scheduledAt) }),
+      ...(contactId === undefined ? {} : { crmContactId: contactId }),
+    };
 
-    return this.useCases.update({ id: params.id, changes });
+    return this.useCases.update({
+      id: params.id,
+      role: requireTenantPrincipal().role,
+      changes,
+    });
   }
 
   /**
@@ -181,22 +206,24 @@ export class AppointmentController {
  * ⚠️ `CategoryController`in yardimcisindan FARKLI: burada KULLANICI KIMLIGI de
  * okunuyor cunku `created_by_user_id` yaziliyor (randevuyu kim girdi).
  *
- * ⚠️ `TransactionController`in yardimcisindan da FARKLI: orada ROL de okunuyor
- * cunku cross-modul dizinler onu ISTIYOR. Randevu Slice 1'de hicbir modulu
- * okumaz, dolayisiyla rolu bilmesi GEREKMEZ — izin kontrolunu guard zaten
- * yapti. Ihtiyac duyulmayan bir baglami okumak, onu bir bagimlilik gibi
- * gosterirdi. ⚠️ Slice 2'de `ContactDirectory` geldiginde rol BURAYA eklenir.
+ * ⚠️ ROL SLICE 2'DE EKLENDI: `ContactDirectory` onu ISTIYOR (cross-modul izin
+ * kapisi dizinin icinde calisir ve rolu imzasinda ACIKCA ister). Artik
+ * `TransactionController`in yardimcisiyla ayni sekilde.
+ *
+ * ⚠️ ROL principal'da DEGIL, TENANT CONTEXT'tedir: principal "kimsin"
+ * sorusunu, tenant context "bu sirkette nesin" sorusunu cevaplar.
  */
-function requireTenantPrincipal(): { tenantId: string; userId: string } {
+function requireTenantPrincipal(): { tenantId: string; userId: string; role: string } {
   const principal = getPrincipal();
+  const role = getTenantContext()?.role;
 
   // ⚠️ YALNIZCA `tenantId` kontrol ediliyor: `userId` principal tipinde ZATEN
   // zorunludur (bir principal varsa kimligi de vardir). Onu da kontrol etmek
   // lint tarafindan "types have no overlap" ile reddedilir — ve hakli: olmayan
   // bir durumu savunmak, okuyana o durumun MUMKUN oldugunu soyler.
-  if (principal?.tenantId == null) {
+  if (principal?.tenantId == null || role == null) {
     throw new UnauthorizedException('Bu islem icin tenant secilmis bir oturum gerekiyor.');
   }
 
-  return { tenantId: principal.tenantId, userId: principal.userId };
+  return { tenantId: principal.tenantId, userId: principal.userId, role };
 }

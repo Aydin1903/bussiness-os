@@ -244,22 +244,185 @@ describe('Randevu uclari (uctan uca)', () => {
 
   // --- ⚠️ SLICE SINIRI: UC ALAN GOVDEDE REDDEDILIR -------------------------
 
-  it.each([
-    ['crmContactId', '018f3a2b-7c4d-7e1f-9c4d-000000000001'],
-    ['serviceNote', 'Dis temizligi'],
-  ])('%s govdede REDDEDILIR (422) — SESSIZCE YOK SAYILMAZ', async (field, value) => {
-    // ⚠️ BU TESTIN ISI BIR SLICE SINIRINI KILITLEMEKTIR. Kolonlar migration
-    // `0026`'da ACIK duruyor ama yazma yollari Slice 2 (`crmContactId`) ve
-    // Slice 3 (`serviceNote`).
+  it('serviceNote govdede REDDEDILIR (422) — SLICE 3 SINIRI', async () => {
+    // ⚠️ BU TESTIN ISI BIR SLICE SINIRINI KILITLEMEKTIR. Kolon migration
+    // `0026`'da ACIK duruyor ama yazma yolu Slice 3'e ait (`EmbeddingPort`
+    // gerekiyor).
     //
-    // `.strict()` olmasaydi alan SESSIZCE yok sayilirdi ve istemci kisi
-    // bagladigini SANIP baglanmadigini HIC OGRENEMEZDI. Bu, ADR-0033 Slice 1'in
-    // dersinin (dogrulanamayan isaretciyi kabul etme) HTTP tarafindaki
-    // karsiligidir.
+    // `.strict()` olmasaydi alan SESSIZCE yok sayilirdi ve istemci not
+    // yazdigini SANIP yazmadigini HIC OGRENEMEZDI.
     const owner = await tokenFor('owner');
 
-    const created = await createAppointment(owner, { [field]: value });
+    const created = await createAppointment(owner, { serviceNote: 'Dis temizligi' });
     expect(created.status).toBe(422);
+  });
+
+  it('⚠️ ALAN ADI `contactId` — `crmContactId` REDDEDILIR', async () => {
+    // Kolon adi `crm_contact_id`, API alani `contactId`. Yanlis adi sessizce
+    // yok saymak, istemcinin kisi bagladigini SANMASINA yol acardi.
+    const owner = await tokenFor('owner');
+
+    const created = await createAppointment(owner, {
+      crmContactId: '018f3a2b-7c4d-7e1f-9c4d-000000000001',
+    });
+    expect(created.status).toBe(422);
+  });
+
+  // --- ⚠️ CROSS-MODUL REFERANS (ADR-0035 §4, SLICE 2) ---------------------
+
+  async function createContact(token: string, fullName: string): Promise<string> {
+    const company = await api()
+      .post('/api/v1/crm/companies')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: `Sirket ${fullName}` });
+
+    const contact = await api()
+      .post('/api/v1/crm/contacts')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ companyId: String(company.body.id), fullName });
+
+    return String(contact.body.id);
+  }
+
+  /** `items[0].contactName` projeksiyonu. */
+  function firstContactName(body: unknown): string | null {
+    const items = (body as { items?: readonly { contactName: string | null }[] }).items ?? [];
+    return items[0]?.contactName ?? null;
+  }
+
+  it('kisiye BAGLI randevu olusturulur ve listede AD COZULUR', async () => {
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Ahmet Yilmaz');
+
+    const created = await createAppointment(owner, { contactId });
+    expect(created.status).toBe(201);
+    expect(created.body.crmContactId).toBe(contactId);
+
+    const read = await listAppointments(owner);
+    expect(firstContactName(read.body)).toBe('Ahmet Yilmaz');
+  });
+
+  it('⚠️ KISI YENIDEN ADLANDIRILINCA AD ANINDA yansir — denormalize EDILMEDIGININ kaniti', async () => {
+    // ⚠️ BU, BU SLICE'IN EN DEGERLI TESTIDIR (ADR-0033 §2b'nin CRM icin
+    // yazdigi ayni iddia, ikinci kaynak turunde).
+    //
+    // Ad `appointments.appointments`a KOPYALANSAYDI bu test kirmizi yanardi:
+    // randevu listesi eski adi gostermeye devam ederdi. Kopya, ikinci bir
+    // dogruluk kaynagi demektir ve bayatlamasi SESSIZDIR.
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Ahmet Yilmaz');
+    await createAppointment(owner, { contactId });
+
+    await api()
+      .patch(`/api/v1/crm/contacts/${contactId}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ fullName: 'Ahmet Yilmaz Kaya' });
+
+    const read = await listAppointments(owner);
+    expect(firstContactName(read.body)).toBe('Ahmet Yilmaz Kaya');
+  });
+
+  it('VAR OLMAYAN kisiye baglamak 404 doner', async () => {
+    // "Kisi yok", "baska tenant'in" ve "izin yok" AYIRT EDILMEZ — ucu de 404.
+    const owner = await tokenFor('owner');
+
+    const created = await createAppointment(owner, { contactId: nextId('9c4d') });
+    expect(created.status).toBe(404);
+  });
+
+  it('⚠️ BASKA TENANT IN kisisine baglamak 404 doner — id dogru bilinse bile', async () => {
+    // RLS kisiyi zaten gorunmez kilar; dizin bos harita doner ve use case 404'e
+    // cevirir. Ayirt edici olan sudur: id GERCEKTEN VAR ama cagiran onu
+    // goremiyor — ve cevaptan bunu ANLAYAMIYOR.
+    const ownerA = await tokenFor('owner');
+    const contactId = await createContact(ownerA, 'A nin kisisi');
+
+    const userB = await signUp(`owner-b-${String(seq)}-ap@example.com`);
+    const tenantB = nextId('8a2b');
+    await createTenant(tenantB, userB.userId);
+    await addMembership(tenantB, userB.userId, 'owner');
+    const ownerB = await accessToken(userB.identityToken, tenantB);
+
+    const created = await api()
+      .post('/api/v1/appointments')
+      .set('Authorization', `Bearer ${ownerB}`)
+      .send({ scheduledAt: '2026-08-20T14:30:00Z', durationMinutes: 30, contactId });
+
+    expect(created.status).toBe(404);
+  });
+
+  it('⚠️ SILINEN kisi randevuyu DUSURMEZ — sarkan isaretci tolere edilir', async () => {
+    // ADR-0035 §4: cascade baska semaya uzanamaz (cross-schema FK yasak), okuyan
+    // yol dayanikli olmak ZORUNDADIR. Randevu listede KALIR, adi `null` olur ve
+    // arayuz hicbir sey yazmaz — "silinmis" bile yazmaz, cunku o kelime
+    // silinmis bir kaydin BIR ZAMANLAR VAR OLDUGUNU sizdirirdi.
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Silinecek Kisi');
+    await createAppointment(owner, { contactId });
+
+    const removed = await api()
+      .delete(`/api/v1/crm/contacts/${contactId}`)
+      .set('Authorization', `Bearer ${owner}`);
+    expect(removed.status).toBe(204);
+
+    const read = await listAppointments(owner);
+    expect(read.status).toBe(200);
+    expect(read.body.total).toBe(1);
+    expect(firstContactName(read.body)).toBeNull();
+    // Ham isaretci SARKIYOR ve bu tolere edilen normal bir durumdur.
+    const items = read.body.items as readonly { crmContactId: string | null }[];
+    expect(items[0]?.crmContactId).toBe(contactId);
+  });
+
+  it('PATCH ile `null` BAGLANTIYI KALDIRIR', async () => {
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Ahmet Yilmaz');
+    const created = await createAppointment(owner, { contactId });
+
+    const patched = await api()
+      .patch(`/api/v1/appointments/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ contactId: null });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.crmContactId).toBeNull();
+  });
+
+  it('⚠️ PATCH te contactId GONDERILMEZSE baglanti KORUNUR', async () => {
+    // ⚠️ SESSIZ VERI KAYBI TESTI. Controller `?? null` yazsaydi `undefined`
+    // ("dokunma") sessizce `null`a ("kaldir") donerdi: kullanici yalnizca saati
+    // guncellerken kisi baglantisini KAYBEDERDI ve hicbir hata dusmezdi.
+    const owner = await tokenFor('owner');
+    const contactId = await createContact(owner, 'Ahmet Yilmaz');
+    const created = await createAppointment(owner, { contactId });
+
+    const patched = await api()
+      .patch(`/api/v1/appointments/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ status: 'completed' });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.crmContactId).toBe(contactId);
+  });
+
+  it('PATCH ile GOREMEDIGI kisiye baglamak 404 doner', async () => {
+    const owner = await tokenFor('owner');
+    const created = await createAppointment(owner);
+
+    const patched = await api()
+      .patch(`/api/v1/appointments/${String(created.body.id)}`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({ contactId: nextId('9c4d') });
+
+    expect(patched.status).toBe(404);
+  });
+
+  it('kisisiz randevuda contactName null doner', async () => {
+    const owner = await tokenFor('owner');
+    await createAppointment(owner);
+
+    const read = await listAppointments(owner);
+    expect(firstContactName(read.body)).toBeNull();
   });
 
   // --- Alan dogrulamalari (ADR-0035 §2) ------------------------------------

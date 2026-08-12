@@ -57,6 +57,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
 
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).
   APPOINTMENT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  // Cross-modul yumusak referans (ADR-0035 §4): "yok", "baska tenant'in" ve
+  // "izin yok" AYIRT EDILMEZ — ucu de 404. `PROJECT_COMPANY_NOT_FOUND` /
+  // `FINANCE_TRANSACTION_COMPANY_NOT_FOUND` ile ayni desen.
+  APPOINTMENT_CONTACT_NOT_FOUND: HttpStatus.NOT_FOUND,
 };
 
 @Catch(AppointmentsDomainError)

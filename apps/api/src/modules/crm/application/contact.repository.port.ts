@@ -14,4 +14,18 @@ export interface ContactRepository {
     companyId: string | null;
   }): Promise<ListPage<Contact>>;
   deleteById(id: string): Promise<number>;
+
+  /**
+   * `id -> ad` haritasi — `ContactDirectory`nin (ADR-0035 §4) tek sorgusu.
+   *
+   * `CompanyRepository.findNamesByIds` ile BIREBIR ayni sekil ve ayni gerekce;
+   * kopya bilinclidir (genellestirme ADR-0034 §4.1'de reddedildi).
+   *
+   * GORUNMEYEN id HARITAYA GIRMEZ: silinmis olabilir ya da baska tenant'in
+   * (RLS). Cagiran ikisini ayirt etmez ve etmemelidir.
+   *
+   * IZIN KONTROLU BURADA DEGIL: repository veri dondurur, YETKI karari vermez
+   * (karar `ContactDirectoryQuery`de).
+   */
+  findNamesByIds(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }

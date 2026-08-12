@@ -112,6 +112,26 @@ export interface AppointmentFields {
   readonly durationMinutes: number;
 
   readonly status: AppointmentStatus;
+
+  /**
+   * Cross-modul YUMUSAK referans: `crm.contacts.id` — ama FK DEGIL
+   * (ADR-0035 §4).
+   *
+   * ⚠️ SLICE 2'DE `AppointmentFields`E GIRDI. Slice 1'de bilerek disaridaydi:
+   * dogrulamasi ve adin cozulmesi icin gereken `ContactDirectory` o gun YOKTU
+   * (`crm.public.ts` yalnizca `CompanyDirectory` tasiyordu) ve dogrulanamayan
+   * bir isaretciyi kabul etmek ILK GUNDEN sarkan satir uretmek olurdu —
+   * ADR-0033 Slice 1'in ogrettigi ders, ikinci kez uygulandi.
+   *
+   * ⚠️ VARLIK KONTROLU BURADA DEGIL: bir veritabani sorgusu gerektirir ve
+   * `domain` katmani framework'suzdur. Kontrol use case'tedir
+   * (`#assertContactVisible`).
+   *
+   * `null` MESRUDUR ve yaygindir: bir randevu bir CRM kisisine bagli olmak
+   * ZORUNDA degildir (ic toplanti, ilk kez gelen bir musteri, telefonla
+   * alinmis bir kayit).
+   */
+  readonly crmContactId: string | null;
 }
 
 /**
@@ -121,9 +141,12 @@ export interface AppointmentFields {
  * tip "alan YOK" der, "alan var ama `undefined`" DEMEZ. Zod'un `.partial()`
  * ciktisi ikincisidir.
  *
- * ⚠️ Uc alanin UCU DE zorunludur (nullable degil), yani burada `null` =
- * "temizle" ayrimi YOKTUR — `ProjectPatch`ten farki budur. Bir randevunun
- * saatsiz ya da suresiz olmasi diye bir sey yoktur.
+ * ⚠️ SLICE 2'DE BU AYRIM DOGDU. Slice 1'de uc alanin ucu de zorunluydu ve
+ * "`null` = temizle" diye bir sey YOKTU (bir randevunun saatsiz ya da suresiz
+ * olmasi diye bir sey yoktur). `crmContactId` ILK nullable alandir:
+ * `undefined` = DOKUNMA, `null` = BAGLANTIYI KALDIR. Ikincisi mesrudur —
+ * yanlis kisiye baglanmis bir randevuyu ic randevuya cevirmek
+ * (`TransactionPatch`in `companyId`si icin verilmis ayni karar).
  */
 export type AppointmentPatch = {
   readonly [K in keyof AppointmentFields]?: AppointmentFields[K] | undefined;
@@ -139,13 +162,12 @@ export interface AppointmentState extends AppointmentFields {
 }
 
 /**
- * ⚠️ `crmContactId`, `serviceNote` ve `embedding` BU TIPTE YOK.
+ * ⚠️ `serviceNote` ve `embedding` BU TIPTE HALA YOK — yazma yollari Slice 3.
  *
- * Kolonlari migration `0026`'da acik durur ama yazma yollari Slice 2 ve 3'e
- * aittir. ADR-0033 Slice 1'in ogrettigi ders: dogrulanamayan bir isaretciyi
- * bugunden KABUL ETMEK, ilk gunden sarkan satir uretmektir. `crm.public.ts`in
- * kisi dizini (`ContactDirectory`) henuz YAZILMADI, dolayisiyla bir
- * `crmContactId` bugun GORUNURLUK acisindan dogrulanamaz.
+ * Kolonlari migration `0026`'da acik durur. `crmContactId` SLICE 2'DE GIRDI:
+ * `crm.public.ts`e `ContactDirectory` yazildi, yani bir kisi isaretcisi artik
+ * GORUNURLUK acisindan dogrulanabiliyor. ADR-0033 Slice 1'in dersi tam olarak
+ * buydu — isaretci, onu dogrulayacak yuzey var olduktan SONRA kabul edilir.
  */
 export class Appointment {
   private constructor(private readonly state: AppointmentState) {}
@@ -190,6 +212,12 @@ export class Appointment {
       scheduledAt: changes.scheduledAt ?? current.scheduledAt,
       durationMinutes: changes.durationMinutes ?? current.durationMinutes,
       status: changes.status ?? current.status,
+      // ⚠️ `??` DEGIL: `null` = BAGLANTIYI KALDIR ve mesrudur.
+      // `changes.crmContactId ?? current.crmContactId` yazilsaydi `null`
+      // gonderen bir istek SESSIZCE yok sayilirdi — kullanici baglantiyi
+      // kaldirdigini sanip kaldirmamis olurdu.
+      crmContactId:
+        changes.crmContactId === undefined ? current.crmContactId : changes.crmContactId,
     };
 
     return new Appointment({ ...current, ...normalize(merged), updatedAt: now });
@@ -234,5 +262,10 @@ function normalize(fields: AppointmentFields): AppointmentFields {
     scheduledAt: fields.scheduledAt,
     durationMinutes: fields.durationMinutes,
     status: fields.status,
+    // ⚠️ BURADA DOGRULANMAZ: gorunurluk kontrolu bir veritabani sorgusu
+    // gerektirir ve `domain` katmani framework'suzdur. Kontrol use case'tedir
+    // (`#assertContactVisible`) — `TransactionFields`in cross-modul
+    // isaretcileri icin verilmis ayni karar.
+    crmContactId: fields.crmContactId,
   };
 }
