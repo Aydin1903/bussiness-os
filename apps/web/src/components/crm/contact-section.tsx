@@ -12,6 +12,7 @@ import { ContactForm } from './contact-form';
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardMeta,
   CardTitle,
   RecordCard,
@@ -141,7 +142,7 @@ export function ContactSection({
           {contacts.map((contact) => (
             <li key={contact.id}>
               <RecordCard>
-                <div className="flex items-start justify-between gap-3">
+                <CardHeader>
                   <CardTitle>{contact.fullName}</CardTitle>
 
                   {readOnly ? null : (
@@ -164,7 +165,7 @@ export function ContactSection({
                       />
                     </CardActions>
                   )}
-                </div>
+                </CardHeader>
 
                 <CardMeta items={[contact.title, contact.email, contact.phone]} />
               </RecordCard>

@@ -25,8 +25,9 @@ import { TextAreaField } from '@/components/module-kit/form-kit';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { formatCalendarDay } from '@/lib/format/datetime';
+import { CategoryBars } from './category-bars';
 import { FinanceTabs } from './chrome';
-import { Amount, NetAmount } from './marks';
+import { NetAmount } from './marks';
 
 const COMMENTARY_PAGE = 10;
 
@@ -240,6 +241,8 @@ export function CashflowScreen() {
  *
  * ⚠️ KATEGORİSİZ satır GÖRÜNÜR ve "Kategorisiz" diye yazılır — elenirse
  * kırılım toplamı para birimi toplamını TUTMAZ ve fark sessiz olurdu (§3d).
+ * Bu kural artık `CategoryBars`'ta uygulanıyor ve orada bir testle kilitli;
+ * kırılımın çizimi tümüyle ona devredildi (FRONTEND §4.10).
  */
 function CurrencyTotals({ summary }: { summary: CashflowSummary | null }) {
   if (summary === null || summary.currencies.length === 0) {
@@ -271,20 +274,18 @@ function CurrencyTotals({ summary }: { summary: CashflowSummary | null }) {
             <span>gider {row.expense}</span>
           </div>
 
+          {/*
+            ⚠️ `null` ile `[]` AYRI ŞEYLERDİR ve ikisi de hiç çizmemeye götürür,
+            ama sebepleri farklıdır: `null` = kırılım İSTENMEDİ (bu ekran
+            istiyor, yani buraya düşmez), `[]` = istendi ama kayıt yok. İkincide
+            para birimi kartı yine görünür — toplamlar var, kırılım yok.
+
+            Kırılım artık `CategoryBars`: satırlar aynı (etiket + tutar), araya
+            oranı gösteren çubuk girdi. Liste yerine grafik KONMADI, liste
+            grafiğe DÖNÜŞTÜ — bilgi kaybı yok, ekranda iki kez aynı şey de yok.
+          */}
           {row.categories === null || row.categories.length === 0 ? null : (
-            <ul className="mt-3.5 flex flex-col gap-1.5 border-t border-border pt-3">
-              {row.categories.map((category) => (
-                <li
-                  key={`${category.direction}-${category.categoryId ?? 'none'}`}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span className="min-w-0 truncate text-[12.5px] text-fg-2">
-                    {category.categoryName ?? 'Kategorisiz'}
-                  </span>
-                  <Amount value={category.total} currency="" direction={category.direction} />
-                </li>
-              ))}
-            </ul>
+            <CategoryBars categories={row.categories} income={row.income} expense={row.expense} />
           )}
         </div>
       ))}

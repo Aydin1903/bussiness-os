@@ -19,6 +19,7 @@ import { OpportunityForm } from './opportunity-form';
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardTitle,
   RecordCard,
 } from '@/components/module-kit/record-card';
@@ -192,7 +193,7 @@ function OpportunityCard({
 
   return (
     <RecordCard>
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+      <CardHeader>
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <CardTitle>{opportunity.title}</CardTitle>
           <StagePill stage={opportunity.stage} />
@@ -211,7 +212,7 @@ function OpportunityCard({
             />
           </CardActions>
         )}
-      </div>
+      </CardHeader>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         {money === null ? null : (

@@ -20,6 +20,7 @@ import {
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardMeta,
   CardTitleLink,
   RecordCard,
@@ -314,7 +315,7 @@ function ProjectCard({
 }) {
   return (
     <RecordCard>
-      <div className="flex items-start justify-between gap-3">
+      <CardHeader>
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <CardTitleLink href={`/app/projects/${project.id}`}>{project.name}</CardTitleLink>
           <StatusPill status={project.status} />
@@ -333,7 +334,7 @@ function ProjectCard({
             />
           </CardActions>
         )}
-      </div>
+      </CardHeader>
 
       {/*
         Müşteri adı `companyName`den gelir ve `null` ÜÇ anlama gelebilir: iç

@@ -61,9 +61,23 @@ export function ConfirmDelete({
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center justify-end gap-x-2.5 gap-y-1.5 rounded-[11px] bg-fill px-3 py-2"
+      className="flex max-w-full flex-wrap items-center justify-end gap-x-2.5 gap-y-1.5 rounded-[11px] bg-fill px-3 py-2"
     >
-      <p className="text-[11.5px] leading-[1.5] text-fg-2">{question}</p>
+      {/*
+        ⚠️ `min-w-0` OLMADAN BU CÜMLE SARMAZ, PANELİ TAŞIRIR.
+
+        Flex öğesinin varsayılan `min-width: auto` değeri, öğenin en uzun
+        bölünemez içeriğinden (burada: en uzun kelime değil, satırın tamamı)
+        daha ince olmasını engeller. Soru cümlesi bu yüzden tek satırda
+        kalmaya çalışır ve panelin — dolayısıyla kartın — dışına çıkar.
+        Kapsayıcıdaki `flex-wrap` bunu kurtarmaz: sarma İZNİ verir, ama öğenin
+        daralmasını sağlamaz.
+
+        `max-w-full` ise panelin kendisini kartın iç genişliğine bağlar. İkisi
+        birlikte gerekir: biri metnin sarmasını, öteki panelin kabına
+        sığmasını sağlar.
+      */}
+      <p className="min-w-0 text-[11.5px] leading-[1.5] text-fg-2">{question}</p>
 
       <div className="flex items-center gap-1">
         <button

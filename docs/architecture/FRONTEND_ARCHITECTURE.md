@@ -2,9 +2,9 @@
 
 Business OS — Frontend Mimarisi
 
-> **Durum:** Faz 5 sürüyor — Panel + "Atölye" + modül başına imza rengi — ✅ **Kabul edildi**
-> **Sürüm:** 1.5
-> **Son güncelleme:** 2026-08-08
+> **Durum:** Faz 5 sürüyor — Panel + "Atölye" + modül başına imza rengi + "Asistanım" paneli + bağımlılıksız görselleştirme — ✅ **Kabul edildi**
+> **Sürüm:** 1.7
+> **Son güncelleme:** 2026-08-12
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 ---
@@ -474,6 +474,221 @@ var(--mc) 8.5%, transparent)` kullanıyordu; matematiksel olarak aynı
 
 ---
 
+### 4.9 "Asistanım" paneli — modül içi AI özetinin standart biçimi
+
+**Bu bölüm bağlayıcıdır.** §4.8 AI'ın modül içinde hangi **renkle** konuştuğunu
+söyler; bu bölüm hangi **düzenle** konuştuğunu söyler. İkisi aynı ayrımın iki
+yüzüdür ve birlikte okunur.
+
+> **Kural:** Bir modülde bir **varlık** için (müşteri, proje, randevu, fatura…)
+> AI özeti gösterilecekse, panel **varsayılan olarak daraltılmış** kurulur:
+> tek satırlık **proaktif önizleme** + **genişletilebilir** gövde.
+
+#### 4.9.1 Neden — iki iyi isteğin çarpışması
+
+Bu desen bir tasarım tercihi olarak doğmadı, bir **çarpışmanın** çözümü olarak
+doğdu. CRM'in müşteri özeti (ADR-0032) ilk hâlinde koşulsuz açıktı ve gerekçesi
+sağlamdı, bugün de geçerlidir:
+
+> Modüller AI'a bağlam sağlamak için vardır (CLAUDE.md'nin kurucu kısıtı).
+> Müşteriyi aramadan önce okunacak şey telefon numarası değil, "nerede
+> kaldık"tır. Özet küçük bir kutuya alınsaydı ürünün iddiası ile ekranın
+> söylediği çelişirdi.
+
+Çarpışan şey o gerekçe değil **bedeliydi**: blok kaydırılan içerikten önce
+geliyor, tam genişlik kaplıyor ve `text-[26px]` ile yazılıyordu — yani AI'ı öne
+çıkarma isteği, modülün kendi verisini (kimlik kartı, yetkililer, fırsatlar)
+ilk ekranın dışına itiyordu. **Bir varlık sayfasında AI'ı öne çıkarmak, o
+varlığı görünmez kılarak yapılamaz.**
+
+Daraltmak tek başına çözüm değildir: sessiz bir daralmış panel AI'ı ikinci
+sınıf bir yardımcıya indirir ve kullanıcı onu açmayı hiç öğrenmez. Bu yüzden
+desenin **iki** yarısı vardır ve ikincisi pazarlık konusu değildir:
+
+| Yarı                   | Ne yapar                                | Atlanırsa ne olur                          |
+| ---------------------- | --------------------------------------- | ------------------------------------------ |
+| Daraltılmış varsayılan | Varlığın kendi verisi ilk ekranda kalır | AI, modülün verisini ekranın dışına iter   |
+| **Proaktif önizleme**  | Kullanıcı tıklamadan bir şey öğrenir    | Panel sessiz bir kutuya döner, hiç açılmaz |
+
+#### 4.9.2 Önizleme neyi gösterir — ve neyi GÖSTEREMEZ
+
+Önizleme **AI'ın gerçekten yazdığı ilk cümledir**, kırpma CSS'e bırakılır
+(`min-w-0 truncate`).
+
+⚠️ **Sayı gösterilmez** ("3 gözlemim var" gibi). Bu bilinçli bir yasaktır ve
+sebebi mimaridir, üslup değil: özet sözleşmeleri **düz metin** taşır
+(`summary: string | null`) ve özet prompt'ları madde işareti üretmeyi **açıkça
+yasaklar** (CRM'de: _"görüşmeleri tek tek listeleme"_). Yani sayılabilir bir
+"gözlem" birimi hiçbir yerde **yoktur**.
+
+Sayıyı istemcide cümle sayarak türetmek denendi ve **reddedildi**: Türkçe'de
+binlik ayracı noktadır ve para bu projede hiçbir noktada `number` olmaz,
+sunucunun kanonik dizesi olarak yazılır (Finans'ın bilinen sınırı). `1.500.000 TL`
+içeren bir özet üç sahte cümleye bölünür; kullanıcı "5 gözlem" okur, panelde 3
+cümle görür ve hata **sessizdir** — hiçbir test yanlış bir sayıyı yakalamaz.
+
+İlk cümlede aynı risk **zararsızdır**: yanlış bölünürse satır yalnızca kısa
+görünür, yanlış **bilgi** vermez. Kural bu asimetriden doğar:
+
+> **Önizlemede yanlış olabilecek tek şey, yanlış olduğunda BİLGİ taşımayan şey
+> olmalıdır.**
+
+Bir modül gerçek bir sayı göstermek isterse yolu bellidir ve kısa değildir:
+sözleşmeye yapılandırılmış bir alan eklenir ve prompt onu üretmeye zorlanır.
+İstemcide türetilmez.
+
+#### 4.9.3 Zorunlu davranışlar
+
+1. **Daraltılabilirlik özetin VARLIĞINA bağlıdır**, kullanıcı tercihine değil.
+   Özet yoksa panel açık kalır ve mevcut boş-durum davetini gösterir — "özet
+   çıkar" eylemini bir tıklamanın arkasına saklamak, hiç özeti olmayan varlıkta
+   üretimi **keşfedilemez** kılardı.
+2. **Tercih saklanmaz.** Her açılışta daraltılmış başlar. `localStorage` yeni
+   bir anahtar, bir göç yolu ve "kapsam kullanıcı mı varlık mı" sorusunu
+   getirirdi; önizleme proaktif olduğu için daraltılmış hâl bir kayıp değildir.
+3. **Tek tıklama hedefi.** Etiket ile önizleme cümlesi **aynı** düğmenin
+   içindedir. Ayrılsalardı görünür en büyük hedef (cümle) hiçbir şey yapmazdı.
+4. **`aria-expanded` zorunludur, her iki hâlde.** Ok işareti yalnızca
+   görseldir; durum ekran okuyucuya **öznitelikle** söylenir.
+
+   ⚠️ **`aria-controls` yalnızca gövde DOM'dayken verilir.** Gövde koşullu
+   çiziliyorsa (daraltılmışken hiç yok), öznitelik koşulsuz verilmemelidir:
+   ARIA'da IDREF'in çözülmesi zorunludur ve sarkan bir referans, ekran
+   okuyucuya "burada bir gövde var" deyip bulunamayacak bir yere göndermektir.
+   Tarayıcı bunu **hata olarak bildirmez** — sessiz bir yanlışlıktır. CRM'de
+   bu, gerçek tarayıcıda ölçülerek yakalandı ve düzeltildi; alternatif
+   (gövdeyi her zaman çizip `hidden` ile saklamak) da geçerlidir, seçilen yol
+   koşullu çizim + koşullu özniteliktir.
+
+5. **Açık gövde KENDİ İÇİNDE kaydırır** — `max-h-[min(46vh,420px)]
+overflow-y-auto overscroll-contain`. Özetin uzunluğu modelin elindedir:
+   prompt'un "4-5 cümle" demesi bir **sınır değil ricadır**, model uzun yazarsa
+   blok yine kaydı ekranın dışına iter. Tavan iki biçimde verilir: kısa ekranda
+   oran, uzun ekranda sabit piksel.
+6. **Bilgi daraltılmışken kaybolmaz.** Bayatlık (`stale`) gibi karar
+   değiştiren sinyaller daraltılmış satırda da yazılır. Saklanırsa kullanıcı
+   bayat bir özeti açmadan geçer ve güncel sanar. §4.8'in kuralı burada da
+   geçerli: rozet **kelime** taşır, renk tek taşıyıcı değildir.
+7. **AI'ın sesi terracottadır** — §4.8, istisnasız. Panel bir modül ağacının
+   içindedir ama `--accent` **kullanmaz**: nokta `bg-ai-accent`, rozet
+   `border-ai-tint`/`text-ai-ink`, metin `.ai-voice` / `.ai-voice-lead`.
+
+#### 4.9.4 ⚠️ Yükseklik animasyonu YOKTUR — ve bu bir karardır
+
+Animasyon edilen tek şey okun dönüşüdür (`260ms`/`ease-rise`, kartların kalkma
+hareketiyle aynı reçete). Gövdenin açılışı **anlıktır**.
+
+`auto` yüksekliğini animasyona sokmak ya JS ölçümü ya `grid-template-rows:
+0fr → 1fr` gerektirir. İkincisi yeni bir **tarayıcı taban çizgisi** demektir ve
+§4.8 `color-mix`'i tam bu sebeple terk etti: _"projede yazılı bir tarayıcı
+destek matrisi olmadığı için bu, belgelenecek bir bağımlılıktan iyidir."_ Aynı
+gerekçe burada da geçerlidir. Bir gün destek matrisi yazılırsa karar yeniden
+açılabilir.
+
+`prefers-reduced-motion` ayrıca ele alınmaz — `globals.css`'in global kuralı
+okun dönüşünü de susturur.
+
+#### 4.9.5 Bugünkü uygulama ve kapsamı
+
+| Modül    | Varlık                                    | Durum                                            |
+| -------- | ----------------------------------------- | ------------------------------------------------ |
+| CRM      | Müşteri (`CompanySummaryPanel`, ADR-0032) | ✅ Deseni tanımlayan uygulama                    |
+| Projeler | —                                         | Modül içi AI yüzeyi v1'de **yok** (ADR-0033 §10) |
+| Finans   | —                                         | Modül içi AI yüzeyi v1'de **yok** (ADR-0034)     |
+
+⚠️ **Bileşen henüz `module-kit`'e çıkarılmadı** ve bu bilinçlidir: bugün tek
+uygulama vardır ve bir şeyin genel olup olmadığı **ikinci** kullanımda
+öğrenilir (`module-kit`'in kendisi bu kuralla doğdu — bkz. `CardHeader`, üç
+modülde sekiz kopyadan sonra çıkarıldı). Deseni ikinci kez uygulayan modül
+`AssistantPanel`'i `components/module-kit/`'e taşımakla **yükümlüdür**;
+üçüncüsünü beklemek üçüncü kopya demektir.
+
+Randevu/Rezervasyon modülünün ADR'i bir varlık özeti öngörüyorsa bu bölüme
+referans verir ve `module-kit` çıkarımını kendi slice listesine yazar.
+
+---
+
+### 4.10 Veri görselleştirme — grafik kütüphanesi REDDEDİLDİ (Product Owner kararı, 2026-08-12)
+
+**Bu bölüm bir kararın gerekçesini saklar, bir yasak koymaz.** Bir sonraki
+grafik ihtiyacında tartışma sıfırdan yapılmasın diye yazıldı.
+
+> **Karar:** Bugünkü grafik ihtiyaçları **bağımlılıksız** karşılanır. İlk
+> uygulama Finans'ın kategori kırılımıdır (`components/finance/category-bars.tsx`,
+> `/app/finance/cashflow`).
+
+#### 4.10.1 recharts değerlendirildi ve alınmadı — üç gerekçe
+
+1. **Geçişli bağımlılıklar bu projenin şekline uymuyor.** recharts 3.x on bir
+   bağımlılık taşır ve aralarında **`@reduxjs/toolkit`, `react-redux`,
+   `immer`, `reselect`** vardır. Yani bir grafik kütüphanesi üzerinden projeye
+   **Redux girer** — oysa bu proje bilinçli olarak state kütüphanesizdir (§3.3,
+   session store elle yazılmıştır). Kurulum 7.3 MB / açılmış 21.5 MB.
+2. **Para bu projede hiçbir noktada `number` olmaz.** Grafik kütüphaneleri
+   sayısal domain ister ve biçimlendirmeyi kendi tooltip/axis katmanından
+   geçirir; sunucunun kanonik dizesi (`"1500.50"`) orada kolayca kaybolur.
+   Elle çubukta parse edilen sayı **yalnızca genişlik yüzdesi** için kullanılır
+   ve ekrana hiç yazılmaz.
+3. **İş bir `div` genişliğidir.** Çubuk zaten `bg-accent` + `width: %`;
+   token'lar birebir Atölye, iki tema ve `[data-module]` alt ağacı bedava
+   gelir. Stil kavgası yoktur.
+
+⚠️ **Ölçülmedi.** recharts kurulup bundle etkisi tartılmadı — karar yukarıdaki
+üç gerekçeye dayanıyor, ölçüme değil. Kütüphane bir gün gerçekten gerekirse ilk
+adım o ölçüm olmalıdır, tahmin değil.
+
+#### 4.10.2 Karar ne zaman yeniden açılır
+
+Bağımlılıksız çizim, **tek tipte** ve **basit** grafikler için yeterlidir. Şu
+üçünden biri gerçekleşirse bu bölüm yeniden değerlendirilir:
+
+- **Çeşitlilik:** zaman serisi, çoklu eksen, zoom/brush, kesişen çizgiler.
+- **Etkileşim:** tooltip, seçim, tıklanabilir dilim — elle yazıldığında
+  erişilebilirliği de elle taşımak gerekir.
+- **Tekrar:** aynı çizim mantığının üçüncü kopyası. (İki kopya `module-kit`'e
+  çıkarma sinyalidir, kütüphane sinyali değil.)
+
+#### 4.10.3 Kırılım çubuğunun bağlayıcı kuralları
+
+1. **Gelir/gider ayrımını BAŞLIK taşır, renk değil** — §4.8'in renk körlüğü
+   kuralı. Etiketler `DIRECTION_LABELS`ten gelir (veri İngilizce, arayüz Türkçe).
+2. **`--danger` kullanılmaz.** Gider bir hata değil, dönem gerçeğidir
+   (`NetAmount`'ın aynı kararı). Renk kuralı `DirectionPill`den devralınır:
+   **gelir imza rengiyle (uyanık), gider sessiz** — çünkü dikkat çekmesi gereken
+   şey paranın girdiği yerdir.
+3. **Her grup KENDİ içinde normalize edilir.** Gelir ile gideri aynı ölçeğe
+   koymak, ADR-0034 §5.1'in "toplanmıyor" ilkesinin görsel karşılığını bozardı:
+   iki grup birbirinin payı değildir.
+4. ⚠️ **Payda, grubun İLAN EDİLMİŞ toplamıdır** (`income`/`expense`), kategori
+   toplamı değil. Kategori toplamına bölmek çubukları her zaman %100'e
+   tamamlar, yani kırılım özetin tamamını açıklamasa bile grafik **kusursuz
+   görünür**. İlan edilen toplama bölmek eksiği **gösterir**. ADR-0034 §3d
+   "Kategorisiz" satırını tam olarak toplamın tutması için kırılımda tutuyor;
+   bu payda o garantiyi görünür kılar. Geri düşüş yalnızca ilan edilen toplam
+   kullanılamazsa (0 / sayı değil).
+5. **Hiçbir satır elenmez** — "Kategorisiz" ve **sıfır tutarlı** olanlar dahil.
+   Sıfır satırı çizilir ama çubuğu boş kalır; sıfır olmayan çok küçük bir pay
+   `min-w-[2px]` ile sliver alır (görünmez çubuk "bozuk" diye okunur).
+6. **Çubuk `aria-hidden`.** Etiket ve tutar gerçek metindir; çubuk bilginin
+   ikinci kanalıdır ve ayrıca duyurulması aynı sayıyı iki kez söylemek olurdu.
+7. **Sabit etiket kolonu** çubukları hizalar. Esnek bırakılsa her çubuk farklı
+   x'te başlar ve uzunlukları gözle karşılaştırılamaz — grafiğin tek işi o.
+
+#### 4.10.4 ⚠️ Kırılım OPT-IN'dir — ekran seçimi bir maliyet kararıdır
+
+`GET /finance/summary`'nin `categories` alanı `nullable` ve **`null` = istenmedi**,
+`[]` = istendi ama kayıt yok. Kırılım yalnızca `includeCategories=true` ile gelir
+ve sunucuda **ek bir toplama sorgusu** koşar.
+
+Bu yüzden grafik `/app/finance/cashflow`'a kondu, `/app/finance`'e **konmadı**:
+işlem listesi kırılımı istemiyor ve istememesinin yazılı gerekçesi var
+(_"orada ikinci bir sorgu bedeli boşuna olurdu"_). Bir grafiği "sadece görsel
+cila" diye başka bir ekrana taşımak, o ekranın her yüklemesine sessizce bir
+sorgu eklemek olabilir — yeni bir grafik yerleştirilirken **önce verinin o
+ekrana zaten gelip gelmediği** kontrol edilir.
+
+---
+
 ## 5. API client mimarisi (ADR-0027)
 
 Mevcut `apps/web/src/lib/api-client.ts` deseni korunur (yanıtlar paylaşılan Zod şemaları ile doğrulanır) ve genişletilir.
@@ -540,10 +755,12 @@ Bu ikisi olmadan switcher yalnızca "girişten hemen sonra" çalışırdı. Baş
 
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0   | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| 1.1   | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 1.2   | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 1.3   | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 1.5   | 2026-08-08 | **Modül başına imza rengi** (Product Owner kararı; yeni [§4.8](#48-modül-başına-imza-rengi), ilk uygulama CRM). On iki modülün paleti OKLCH'te hue'ya oturtulup açıklık taranarak seçildi; hedef AA eşiği değil §4.4'te ölçülmüş terracottanın karakteriydi. **Kural bağlayıcıdır: AI'ın sesi her modülde terracotta kalır** (`--ai-accent`/`--ai-ink`/`--ai-tint`, hiçbir modül ezemez) — CRM dahil her modül kendi rengini alır, çünkü referans modülün terracottayı koruması tam da ayrımı yok edecek çakışmayı üretirdi. Mekanizma `[data-module]` alt ağaç override'ıdır ve §4.1'in `@theme inline` kararının doğrudan sonucudur (derleyici çıktısıyla doğrulandı: `bg-accent` → `var(--accent)`, ara değişken atlanır); kapsam modülün kendi `layout.tsx`'indedir, kabukta değil. **§4.4'e uyarı eklendi** — oradaki `--accent`/`--ink` artık kök değerleridir, modül içinde değişir. Üç bilinen sınır kayda geçti: `data-module` unutulursa hata sessizdir · **modül rengi iki biçimde yazılır** (hex + `R G B`) ve senkron kalmalıdır — bu, `color-mix`'ten vazgeçilerek kabul edilen bedeldir: derlenmiş CSS'e bakınca Lightning CSS'in `color-mix` için ürettiği geri düşüşün `--tint`'i ince bir yıkama yerine **dolu renk** yaptığı görüldü (çip zeminleri okunmaz olurdu), `rgb(… / %)` ise geri düşüş gerektirmiyor ve kararın tek tarayıcı bağımlılığı böylece ortadan kalktı · **renk tek başına bilgi taşımaz** (renk körlüğü). Not: `1.4` (Atölye) başlıkta kullanılmış ama bu tabloya hiç girmemişti — geçmiş yeniden yazılmadı, ROADMAP §8'in "doküman sürüm numarası denetimi" kalemine bir örnek daha. |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0   | 2026-07-24 | İlk sürüm. Karar 1–4 (token saklama, rendering, tasarım token'ları, API client). ADR-0026 ve ADR-0027 ile eş yazıldı. Backend kontrat değişikliği **öngörülür ama uygulanmaz** (§0).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 1.1   | 2026-07-26 | §2 cookie taşıması **backend'de uygulandı** (ADR-0026). §0 "hedef" → "artık kod" olarak güncellendi; §1.2 (kontrat), §2.4 (bedel), §3.1 (RSC gerekçesi), §6 senkronlandı. §3.1 RSC-veri-çekme hâlâ hedef.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 1.2   | 2026-07-27 | **F1 (Foundation) kodlandı** (`apps/web`). §3.2 auth-gate `bo_session_hint` mekanizmasıyla düzeltildi: refresh cookie'si (host-only, API origin'i) middleware'de okunamaz. Tasarım token'ları (§4), session store + provider (§3.3), single-flight API client (§5) ve layout iskeletleri uygulandı. Gerçek auth formları F2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 1.3   | 2026-08-02 | **F2 (auth ekranları) + Dashboard kodlandı ve canlı doğrulandı.** §3.1 login routing (0/1/2+ üyelik) + tenant kapısı sayfaları · §3.3 memory/reload notu · **§3.4 session bootstrap + `bo_last_tenant`** · **§3.5 dashboard app shell** · **§5.5 identity-token `bearer` + tenant değiştirme dayanıklılığı** · ADR-0028 referansa eklendi. Bilinen borç: web'de otomatik test yok.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 1.5   | 2026-08-08 | **Modül başına imza rengi** (Product Owner kararı; yeni [§4.8](#48-modül-başına-imza-rengi), ilk uygulama CRM). On iki modülün paleti OKLCH'te hue'ya oturtulup açıklık taranarak seçildi; hedef AA eşiği değil §4.4'te ölçülmüş terracottanın karakteriydi. **Kural bağlayıcıdır: AI'ın sesi her modülde terracotta kalır** (`--ai-accent`/`--ai-ink`/`--ai-tint`, hiçbir modül ezemez) — CRM dahil her modül kendi rengini alır, çünkü referans modülün terracottayı koruması tam da ayrımı yok edecek çakışmayı üretirdi. Mekanizma `[data-module]` alt ağaç override'ıdır ve §4.1'in `@theme inline` kararının doğrudan sonucudur (derleyici çıktısıyla doğrulandı: `bg-accent` → `var(--accent)`, ara değişken atlanır); kapsam modülün kendi `layout.tsx`'indedir, kabukta değil. **§4.4'e uyarı eklendi** — oradaki `--accent`/`--ink` artık kök değerleridir, modül içinde değişir. Üç bilinen sınır kayda geçti: `data-module` unutulursa hata sessizdir · **modül rengi iki biçimde yazılır** (hex + `R G B`) ve senkron kalmalıdır — bu, `color-mix`'ten vazgeçilerek kabul edilen bedeldir: derlenmiş CSS'e bakınca Lightning CSS'in `color-mix` için ürettiği geri düşüşün `--tint`'i ince bir yıkama yerine **dolu renk** yaptığı görüldü (çip zeminleri okunmaz olurdu), `rgb(… / %)` ise geri düşüş gerektirmiyor ve kararın tek tarayıcı bağımlılığı böylece ortadan kalktı · **renk tek başına bilgi taşımaz** (renk körlüğü). Not: `1.4` (Atölye) başlıkta kullanılmış ama bu tabloya hiç girmemişti — geçmiş yeniden yazılmadı, ROADMAP §8'in "doküman sürüm numarası denetimi" kalemine bir örnek daha.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 1.6   | 2026-08-12 | **"Asistanım" paneli** — yeni [§4.9](#49-asistanım-paneli--modül-içi-ai-özetinin-standart-biçimi): bir modülde bir **varlık** için AI özeti gösterilecekse **varsayılan daraltılmış + tek satırlık proaktif önizleme + genişletilebilir gövde** ile kurulur. Desen bir tercih olarak değil bir **çarpışmanın** çözümü olarak doğdu: CRM'in koşulsuz açık özeti (ADR-0032) modülün kendi verisini ilk ekranın dışına itiyordu, ama sessiz bir daraltma da AI'ı hiç açılmayan bir kutuya çevirirdi — bu yüzden desenin **iki** yarısı vardır ve önizleme pazarlık konusu değildir. **⚠️ Önizlemede SAYI gösterilmesi yasaklandı** ("3 gözlemim var"): özet sözleşmeleri düz metin taşır (`summary: string \| null`) ve özet prompt'ları madde işaretini **açıkça yasaklar**, yani sayılabilir bir "gözlem" birimi hiçbir yerde yoktur; istemcide cümle sayarak türetmek **denendi ve reddedildi** — Türkçe'de binlik ayracı noktadır ve para bu projede hiçbir noktada `number` olmaz, `1.500.000 TL` içeren bir özet üç sahte cümleye bölünür ve hata **sessizdir**. Önizleme AI'ın gerçek ilk cümlesidir: yanlış bölünürse yalnızca kısa görünür, yanlış **bilgi** vermez — kural bu asimetriden doğar. Yedi zorunlu davranış kayda geçti (daraltılabilirlik özetin **varlığına** bağlıdır, tercihe değil · tercih saklanmaz · tek tıklama hedefi · `aria-expanded`/`aria-controls` · gövde **kendi içinde** kaydırır, `max-h` iki biçimde verilir · **bayatlık daraltılmışken de yazılır**, yoksa kullanıcı bayat özeti güncel sanar · AI'ın sesi §4.8 gereği terracotta kalır). **⚠️ Yükseklik animasyonu YOKTUR** ve gerekçe §4.8'in `color-mix` kararından birebir devralındı: `grid-template-rows: 0fr→1fr` yeni bir tarayıcı taban çizgisi demekti, animasyon edilen tek şey okun dönüşüdür. Bileşen `module-kit`'e **henüz çıkarılmadı** (tek uygulama var, genellik ikinci kullanımda öğrenilir); deseni ikinci kez uygulayan modül çıkarmakla **yükümlüdür**. §4.9.5 üç modülün durumunu tabloya bağlar — Projeler ve Finans'ta modül içi AI yüzeyi v1'de **yok**.                                                            |
+| 1.7   | 2026-08-12 | **Veri görselleştirme: grafik kütüphanesi REDDEDİLDİ** (Product Owner kararı; yeni [§4.10](#410-veri-görselleştirme--grafik-kütüphanesi-reddedildi-product-owner-kararı-2026-08-12)). İlk uygulama Finans kategori kırılımı (`category-bars.tsx`, `/app/finance/cashflow`). recharts değerlendirildi ve alınmadı — üç gerekçe: **on bir geçişli bağımlılık** (aralarında `@reduxjs/toolkit`, `react-redux`, `immer`, `reselect`, yani state kütüphanesiz bir projeye **Redux girmesi**; 7.3 MB kurulum / 21.5 MB açılmış) · **para hiçbir noktada `number` olmaz** ve kütüphane biçimlendirmeyi kendi tooltip/axis katmanından geçirir, sunucunun kanonik dizesi orada kaybolur · **iş bir `div` genişliğidir** ve token'lar/iki tema/`[data-module]` bedava gelir. ⚠️ **Bundle etkisi ÖLÇÜLMEDİ** — karar gerekçeye dayanıyor; kütüphane gerçekten gerekirse ilk adım ölçüm olmalıdır. §4.10.2 kararın yeniden açılma koşullarını sayıyor (çeşitlilik · etkileşim · **üçüncü** kopya; ikinci kopya `module-kit` sinyalidir). §4.10.3 yedi bağlayıcı kural: gelir/gider ayrımını **başlık** taşır renk değil · `--danger` yok, renk kuralı `DirectionPill`den devralınır (gelir uyanık, gider sessiz) · her grup **kendi içinde** normalize (ortak ölçek ADR-0034 §5.1'in "toplanmıyor" ilkesini bozardı) · ⚠️ **payda grubun İLAN EDİLMİŞ toplamıdır**, kategori toplamı değil — kategori toplamına bölmek eksik bir kırılımı **kusursuz gösterirdi**, ilan edilene bölmek eksiği **görünür** kılar ve ADR-0034 §3d'nin "Kategorisiz" garantisini ekranda kanıtlar · hiçbir satır elenmez (sıfır tutarlı dahil; sıfır boş çubuk, çok küçük pay `min-w-[2px]` sliver) · çubuk `aria-hidden`, sayı ve etiket gerçek metin · sabit etiket kolonu çubukları hizalar. **§4.10.4 kalıcı ders:** `categories` **opt-in**'dir (`null` = istenmedi) ve `includeCategories=true` sunucuda ek toplama sorgusu koşar — grafik bu yüzden `/app/finance`'e **konmadı**, işlem listesinin kırılımı istememesinin yazılı gerekçesi var. Bir grafiği "sadece görsel cila" diye taşımak, o ekranın her yüklemesine sessizce bir sorgu eklemek olabilir. |

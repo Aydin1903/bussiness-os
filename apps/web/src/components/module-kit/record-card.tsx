@@ -120,9 +120,62 @@ export function CardMeta({ items }: { items: readonly (string | null)[] }) {
   );
 }
 
-/** Kartın sağ üstündeki eylem şeridi — başlık örtüsünün ÜSTÜNDE durur. */
+/**
+ * Kartın başlık satırı — başlık solda, eylem şeridi sağda.
+ *
+ * ============================================================================
+ * NEDEN BİLEŞEN OLDU: AYNI SATIR SEKİZ YERDE ELLE TEKRARLANIYORDU
+ * ============================================================================
+ * `flex items-start justify-between gap-3` üç modülün sekiz kart bileşenine
+ * kopyalanmıştı ve **yedisi eksikti**: `flex-wrap` yoktu. Sekizincisi
+ * (`opportunity-section.tsx`) doğru satırı taşıyordu ama kazara — o kartta iki
+ * rozet yan yana durduğu için sarma zaten gerekmişti. Yani doğru reçete
+ * projede vardı, yalnızca paylaşılmıyordu.
+ *
+ * Düzeltmeyi sekiz yere kopyalamak dokuzuncu kopyayı 4. modülde doğururdu ve o
+ * hata SESSİZDİR: `flex-wrap` unutulan kart geniş ekranda kusursuz görünür,
+ * yalnızca dar ekranda ya da silme onayı açıldığında bozulur. Ne lint ne tip
+ * denetimi yakalar. Slice 5a'nın module-kit çıkarımıyla aynı gerekçe: ikinci
+ * (burada üçüncü) modül, bir şeyin genel olup olmadığını öğrendiğimiz yerdir.
+ *
+ * ============================================================================
+ * `flex-wrap` KABUL ÖLÇÜTÜNÜ TAM OLARAK O SAĞLIYOR
+ * ============================================================================
+ * Ölçüt: **başlık satır sayısı, silme onayı açık ve kapalıyken AYNI olmalı.**
+ * Sarma olmadan eylem şeridi genişlediğinde tek çıkış yolu başlığı sıkıştırmak
+ * olur — başlık iki satıra iner ve kart onay açıldığında ZIPLAR. Sarma ile
+ * şerit sıkıştırmak yerine **kendi satırına geçer**; başlık hiç dokunulmaz.
+ *
+ * Dikey boşluk `gap-y-2`: şerit alt satıra indiğinde başlığa yapışmasın.
+ * `gap-x-3` eski `gap-3`'ün yatay yarısıdır — yani geniş ekranda görünen
+ * hiçbir şey değişmez.
+ */
+export function CardHeader({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">{children}</div>
+  );
+}
+
+/**
+ * Kartın sağ üstündeki eylem şeridi — başlık örtüsünün ÜSTÜNDE durur.
+ *
+ * ============================================================================
+ * ⚠️ `min-w-0`, `shrink-0` DEĞİL — burası bir TAŞMA HATASININ yeriydi
+ * ============================================================================
+ * Şerit `shrink-0` taşıyordu ve iki düğme için bu doğruydu. Ama `ConfirmDelete`
+ * silme onayı açıldığında şeridin İÇİNE uzun bir soru cümlesi koyar ("… ve ona
+ * bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek."). `shrink-0`
+ * ile o cümle küçülmeyi reddeder, başlık satırı kartı taşırır ve `RecordCard`'ın
+ * `overflow-hidden`'ı taşan kısmı **kırpar** — yani en geri alınamaz eylemin
+ * "Evet, sil" / "Vazgeç" düğmeleri kartın kenarından kesilirdi.
+ *
+ * `min-w-0` tersini söyler: şerit gerektiğinde daralabilir, böylece içindeki
+ * `flex-wrap` gerçekten çalışır. (Bir flex öğesinin varsayılan `min-width: auto`
+ * değeri, içeriği "sarabilir" olsa bile küçülmesini engeller — bu yüzden
+ * `flex-wrap` tek başına yetmiyordu.)
+ */
 export function CardActions({ children }: { children: ReactNode }) {
-  return <div className="relative z-10 flex shrink-0 items-center gap-1">{children}</div>;
+  return <div className="relative z-10 flex min-w-0 items-center gap-1">{children}</div>;
 }
 
 /**

@@ -67,4 +67,28 @@ describe('ConfirmDelete', () => {
     fireEvent.click(confirm);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  /**
+   * ==========================================================================
+   * TAŞMA — jsdom ÖLÇEMEZ, o yüzden SINIF kilitlenir
+   * ==========================================================================
+   * Gerçek iddia şudur: onay paneli kartı taşırmaz. jsdom düzen hesaplamaz
+   * (`getBoundingClientRect` her yerde sıfır döner), yani taşmanın kendisi
+   * burada ölçülemez — ölçüm tarayıcıda yapılır.
+   *
+   * Test edilebilen doğru şey, taşmayı önleyen İKİ sınıfın yerinde olmasıdır.
+   * Değersiz bir test değil: ikisi de "gereksiz görünen" sınıflardır ve bir
+   * temizlik turunda silinmeleri çok olası — silindiğinde hata SESSİZDİR,
+   * yalnızca dar ekranda düğmeler kırpılır.
+   */
+  it('⚠️ soru sarabilir (`min-w-0`) ve panel kaba sığar (`max-w-full`)', () => {
+    render(<ConfirmDelete question={QUESTION} onConfirm={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sil' }));
+
+    // `min-w-0` olmadan flex öğesinin varsayılan `min-width: auto` değeri
+    // cümlenin sarmasını engeller ve satır kabı taşırır.
+    expect(screen.getByText(QUESTION).className).toContain('min-w-0');
+    expect(screen.getByRole('alert').className).toContain('max-w-full');
+  });
 });

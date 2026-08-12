@@ -30,6 +30,7 @@ import {
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardMeta,
   CardTitle,
   RecordCard,
@@ -369,13 +370,24 @@ function TransactionCard({
 }) {
   return (
     <RecordCard>
-      <div className="flex items-start justify-between gap-3">
+      <CardHeader>
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <CardTitle>{transaction.description ?? 'Açıklamasız kayıt'}</CardTitle>
           <DirectionPill direction={transaction.direction} />
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        {/*
+          ⚠️ Bu sarmalayıcı `shrink-0` TAŞIYORDU ve `CardActions`'ın `min-w-0`
+          düzeltmesini tek başına iptal ediyordu: şerit daralabilse bile onu
+          saran bu kutu daralmayı reddediyordu. Finans'ın kartı bu yüzden
+          diğer yedisinden farklı davranıyordu — tutar ile eylemleri birlikte
+          tutan tek kart burasıdır.
+
+          `min-w-0 flex-wrap` ile tutar ve eylem şeridi gerektiğinde birbirinden
+          ayrı satırlara iner. Tutarın kendisi `shrink-0` KALIR (aşağıda
+          `Amount` içinde): para bölünüp sarmaz, sarsa okunamaz.
+        */}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
           <Amount
             value={transaction.amount}
             currency={transaction.currency}
@@ -393,7 +405,7 @@ function TransactionCard({
             />
           </CardActions>
         </div>
-      </div>
+      </CardHeader>
 
       {/*
         Kategori/şirket/proje adları `null` olabilir ve `null` ÜÇ anlama gelir:

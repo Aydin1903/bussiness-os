@@ -23,6 +23,7 @@ import { CrmTabs } from './chrome';
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardMeta,
   CardTitleLink,
   RecordCard,
@@ -338,7 +339,7 @@ function CompanyCard({
 }) {
   return (
     <RecordCard>
-      <div className="flex items-start justify-between gap-3">
+      <CardHeader>
         <CardTitleLink href={`/app/crm/${company.id}`}>{company.name}</CardTitleLink>
 
         {readOnly ? null : (
@@ -354,7 +355,7 @@ function CompanyCard({
             />
           </CardActions>
         )}
-      </div>
+      </CardHeader>
 
       <CardMeta items={[company.industry, company.email, company.phone, company.website]} />
 

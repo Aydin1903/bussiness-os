@@ -28,6 +28,7 @@ import {
 import {
   CardAction,
   CardActions,
+  CardHeader,
   CardTitle,
   RecordCard,
 } from '@/components/module-kit/record-card';
@@ -229,7 +230,7 @@ export function CategoriesScreen() {
               {items.map((category) => (
                 <li key={category.id}>
                   <RecordCard>
-                    <div className="flex items-start justify-between gap-3">
+                    <CardHeader>
                       <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                         <CardTitle>{category.name}</CardTitle>
                         <DirectionPill direction={category.direction} />
@@ -266,7 +267,7 @@ export function CategoriesScreen() {
                           }}
                         />
                       </CardActions>
-                    </div>
+                    </CardHeader>
                   </RecordCard>
                 </li>
               ))}
