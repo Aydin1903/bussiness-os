@@ -281,10 +281,12 @@ denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **3. modül Finans ✅ bitti** (ADR-0034; yedi slice, HAFİF kapanış denetimi
 2026-08-12). `POST /ask` izin filtresi ilk kez **gerçekten sınandı** ve
 CLAUDE.md'nin CEO örneği **dört modülle tam karşılandı**.
-**4. modül Randevu/Rezervasyon ✅ bitti** (ADR-0035; altı slice, HAFİF kapanış
-denetimi 2026-08-13). Anlatısal içerik ilk kez **parçalanmadan** embed edildi
-(chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu** — dokuz
-katkıcı, sekiz yuva. Dördü de aşağıda.
+**4. modül Randevu/Rezervasyon ✅ TAMAMEN KAPANDI** (ADR-0035; altı slice, HAFİF
+kapanış denetimi 2026-08-13, **prod doğrulaması 2026-08-14** — `82c8ad3`,
+health 200, migration 27'de sabit). Anlatısal içerik ilk kez **parçalanmadan**
+embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
+— dokuz katkıcı, sekiz yuva. Denetimin bulduğu `DisclosableProblem` kusuru ve
+`platform/context` alt-borcu **kapandı**. Dördü de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
@@ -901,6 +903,40 @@ arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
 > deneyin" ile "beklenmeyen hata" arasındaki fark, kullanıcının tekrar deneyip
 > denemeyeceğini belirler.
 
+> ### ✅✅ RANDEVU/REZERVASYON TAMAMEN KAPANDI — prod'da doğrulandı (2026-08-14)
+>
+> ADR-0035 ve **tüm alt-borçları** kapandı; `platform/context`in
+> `DisclosableProblem` borcu dahil. Kapanışı gating eden şey kodun yazılmış
+> olması değil, **prod'da doğrulanmasıydı** — o doğrulama yapıldı.
+>
+> Push: `38eee67..82c8ad3` (iki commit — `75e6aac` beş iş modülü + `82c8ad3`
+> `platform/context`; ikincisi birincisinin `DisclosableHttpException`'ı
+> olmadan derlenmediği için ayrılamazdı). Deployment `82c8ad35bd...` ·
+> **SUCCESS** · **RUNNING**, önceki instance REMOVED.
+>
+> | Kontrol | Push öncesi | Push sonrası |
+> |---|---|---|
+> | `/api/v1/health` | 200, db ok (4 ms) | **200**, db ok (1 ms), `production` |
+> | `/api/docs` · `/api/docs/json` | 404 | **404** · **404** |
+> | Uygulanmış migration | 27 | **27 — DEĞİŞMEDİ** |
+> | Uptime | 15966 s | **2 s** (gerçekten yeniden başladı) |
+>
+> ⚠️ **Migration'ın değişmediği İKİ bağımsız kanıtla gösterildi**, tek bir
+> sayıya güvenilmedi: (1) prod'daki `drizzle.__drizzle_migrations` sayımı 27'de
+> kaldı, (2) iki commit `apps/api/drizzle/` altında **sıfır** dosyaya dokunuyor.
+> Tek başına sayım, "sayıyı okuduğum an deploy henüz migration'a gelmemişti"
+> ihtimalini eleyemezdi.
+>
+> ⚠️ **`/api/docs`in 404'ü tek başına ayırt edici DEĞİLDİR** — ölü bir uygulama
+> da 404 döndürür. Bu yüzden ayrıca bakıldı: `/api/v1/ask`, `/api/v1/appointments`
+> ve `/api/v1/knowledge/notes` üçü de **401** dönüyor, yani routing canlı ve
+> Swagger gerçekten kapalı. (`POST /api/v1/memberships` 404 — o uç GET-only.)
+>
+> ⚠️ **Prod DB okuması artık `railway ssh --service Postgres` ile yapılıyor.**
+> Public TCP proxy değişkeni yok ve `businessos_app` rolü `drizzle` şemasını
+> **okuyamıyor** (_permission denied_ — rol ayrımının çalıştığının kanıtı).
+> Migration sayımı bu yüzden Postgres container'ının kendi içinden alınır.
+
 > ### Randevu kapanırken bilinen sınırlar (ADR-0035)
 >
 > - **Kişi filtresi SUNUCUDA YOK** — liste ekranındaki ad araması **istemci
@@ -919,6 +955,16 @@ arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
 >   tetikleyici değişmedi (8. modül).
 > - **`embedding`de model/sürüm bilgisi yok** · **arama yalnızca anlamsal** ·
 >   **iyimser eşzamanlılık yok** — dördü de beşinci kez aynı sınır.
+> - ⚠️ **`DisclosableProblem`in prod'da DAVRANIŞSAL kanıtı yok** — kanıt
+>   **test paketi üzerindendir**, canlı tetikleme değil. Prod'da doğrulanan şey
+>   doğru commit'in ayakta olduğudur (`82c8ad3` · SUCCESS · health 200);
+>   gövdenin gerçekten açıldığı 1623 birim + 757 entegrasyon testiyle
+>   kilitlenir. Canlı kanıt için bir sağlayıcı çökmesi tetiklemek gerekirdi
+>   (kapanış denetiminde **lokalde** geçersiz `OPENAI_API_KEY` ile yapılmıştı);
+>   prod'da kasten bozmak, gerçek kullanıcı verisi olmayan bir ortamda bile
+>   doğrulama uğruna canlıyı bozmak olurdu. ⚠️ Bu sınır **kaydedilmezse**,
+>   ileride birisi "prod'da uçtan uca sınandı" sanabilir — sınanan **deploy**,
+>   davranış değil.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
