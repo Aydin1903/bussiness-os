@@ -64,6 +64,30 @@ export function ProjectsIcon(props: IconProps) {
   );
 }
 
+/**
+ * Randevu / takvim — ADR-0035 Slice 5.
+ *
+ * ⚠️ YENİ BİR İKON ÇİZMEK BİR TASARIM KARARIDIR ve Slice 1'de bilinçli olarak
+ * ertelenmişti (`sidebar.tsx`'in `SOON` notu). Seçim setin diline uyar: 24
+ * kutuluk viewBox, 1.7 çizgi kalınlığı, `currentColor`, dolgu yok.
+ *
+ * Takvim gövdesi + iki askı + başlık çizgisi + tek bir gün işareti. Gün işareti
+ * ONEMLİDİR: askısız/işaretsiz bir kare `ProjectsIcon`ın dikdörtgeniyle
+ * karışırdı ve sidebar'da iki satır aynı görünürdü. ⚠️ Renk körlüğü altında da
+ * ayırt edilebilmesi gerekiyor — renk TEK ayırt edici olamaz (FRONTEND §4.8).
+ */
+export function CalendarIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M8 3.5v3" />
+      <path d="M16 3.5v3" />
+      <path d="M3.5 10h17" />
+      <rect x="7" y="13" width="3.5" height="3" rx="0.8" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

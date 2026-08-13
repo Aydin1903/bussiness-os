@@ -124,7 +124,19 @@
   --mc-dark-ink: #7dc89b;
 }
 
-[data-module='booking'] {
+/*
+ * ⚠️ ANAHTAR `booking` DEĞİL `appointments` (ADR-0035 §1.1).
+ *
+ * Palet bir dönem `booking` altında duruyordu. Şema `appointments`, modül
+ * `appointments`, `data-module` `appointments` — üçü AYNI kelime olmak
+ * zorunda. Ayrı kalsalardı ortaya İKİ ADLI TEK BİR MODÜL çıkardı ve hata
+ * SESSİZ olurdu: eşleşmeyen bir attribute hiçbir paleti tutturmaz, ekran
+ * çalışır ve terracotta kalır.
+ *
+ * ⚠️ Yalnızca SEÇİCİ ADI değişti; RENK DEĞERLERİNE dokunulmadı (ölçülmüş
+ * palet — dosya başındaki kontrast tablosu).
+ */
+[data-module='appointments'] {
   --mc-light: #057a89;
   --mc-light-rgb: 5 122 137;
   --mc-light-ink: #006a77;

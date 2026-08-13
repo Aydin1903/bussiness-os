@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { ComponentType, SVGProps } from 'react';
 
 import {
+  CalendarIcon,
   ChevronLeftIcon,
   CustomersIcon,
   FinanceIcon,
@@ -62,6 +63,17 @@ const LIVE: readonly NavItem[] = [
   // modülün VARLIĞINI gizlemek olurdu ve kullanıcı neden erişemediğini
   // anlayamazdı. İzne göre menü çizmek ayrı bir karardır ve verilmedi.
   { label: 'Finans', icon: FinanceIcon, href: '/app/finance', module: 'finance' },
+  // Randevu DOĞRUDAN buraya girdi — `SOON`a HİÇ uğramadı (ADR-0035 §7).
+  //
+  // ⚠️ Finans Slice 7'de `SOON`u boşaltmıştı ve bölüm koşullu render'a
+  // alınmıştı. Randevu'yu önce `SOON`a koyup sonra taşımak, "yakında" rozetini
+  // bir an bile göstermek demekti — oysa modül bu satır yazıldığında ZATEN
+  // çalışıyor. Bölüm bu yüzden AÇILMAZ ve `SOON` boş kalır.
+  //
+  // ⚠️ Bu satır `viewer` için de GÖRÜNÜR ve bu doğru: `appointment:read` dört
+  // rolün dördünde de var (ADR-0035 §9) — Finans'ın dar kataloğundan farklı
+  // olarak burada tıklayan hiç kimse 403 görmez.
+  { label: 'Randevular', icon: CalendarIcon, href: '/app/appointments', module: 'appointments' },
 ];
 
 /**

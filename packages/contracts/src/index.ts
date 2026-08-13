@@ -247,3 +247,25 @@ export type {
   UnindexedCommentariesResponse,
   ReindexCommentariesResponse,
 } from './finance/finance.contract';
+
+export {
+  appointmentStatusSchema,
+  appointmentSchema,
+  appointmentRowSchema,
+  appointmentListResponseSchema,
+  createAppointmentRequestSchema,
+  updateAppointmentRequestSchema,
+  reindexAppointmentsResponseSchema,
+  APPOINTMENT_STATUS_LABELS,
+  MAX_SERVICE_NOTE_CHARS,
+  MAX_DURATION_MINUTES,
+} from './appointments/appointments.contract';
+export type {
+  AppointmentStatus,
+  Appointment,
+  AppointmentRow,
+  AppointmentListResponse,
+  CreateAppointmentRequest,
+  UpdateAppointmentRequest,
+  ReindexAppointmentsResponse,
+} from './appointments/appointments.contract';

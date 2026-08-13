@@ -60,6 +60,19 @@ describe('Sidebar — gezinme', () => {
     expect(screen.getByRole('link', { name: 'Finans' })).toHaveAttribute('href', '/app/finance');
   });
 
+  it('⚠️ Randevular DOĞRUDAN LIVE a girdi — SOON a HİÇ uğramadı', () => {
+    // ADR-0035 §7: modül bu satır yazıldığında ZATEN çalışıyordu. Önce `SOON`a
+    // koyup sonra taşımak, "yakında" rozetini bir an bile göstermek demekti —
+    // ve Faz 4'te bir kez yaşanan hatanın (çalışan modül "yakında" görünüyor)
+    // TERSİ ama aynı sınıftan bir yanlış olurdu.
+    render(<Sidebar collapsed={false} />);
+
+    expect(screen.getByRole('link', { name: 'Randevular' })).toHaveAttribute(
+      'href',
+      '/app/appointments',
+    );
+  });
+
   it('⚠️ "YAKINDA" BÖLÜMÜ HİÇ ÇİZİLMEZ — dizi boş', () => {
     // ============================================================================
     // BU TESTİN İŞİ BİR ŞEYİN OLMADIĞINI KANITLAMAKTIR
@@ -137,6 +150,19 @@ describe('Sidebar — modül renk kapsamı', () => {
     renderAt('/app');
 
     expect(screen.getByRole('link', { name: 'Finans' })).toHaveAttribute('data-module', 'finance');
+  });
+
+  it('⚠️ Randevular kendi kapsamını `appointments` olarak deklare eder', () => {
+    // ⚠️ ANAHTAR `booking` DEĞİL (ADR-0035 §1.1). Palet bir dönem `booking`
+    // altındaydı; şema/modül/attribute üçü de `appointments` olmak zorunda.
+    // Yanlış anahtar hiçbir paletle eşleşmez ve satır SESSİZCE terracotta
+    // kalır — ne lint ne tip denetimi yakalar.
+    render(<Sidebar collapsed={false} />);
+
+    expect(screen.getByRole('link', { name: 'Randevular' })).toHaveAttribute(
+      'data-module',
+      'appointments',
+    );
   });
 
   it('KABUK kapsam TAŞIMAZ — marka, modül değil', () => {

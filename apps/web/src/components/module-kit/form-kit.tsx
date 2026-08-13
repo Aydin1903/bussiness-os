@@ -70,7 +70,15 @@ export function TextField({
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  type?: 'text' | 'email' | 'tel' | 'url' | 'date';
+  /**
+   * ⚠️ `datetime-local` ve `number` SLICE 5'te eklendi (ADR-0035).
+   *
+   * İkisi de GENEL girdi tipleridir, modüle özgü değil: bir "an" ve bir sayı
+   * isteyen her ekran aynı kontrolü kullanır. Yerleşik girdiler tercih edildi
+   * — klavye gezinmesi, mobil yerel seçici ve ekran okuyucu desteği bedavaya
+   * gelir (`SelectField`in `<select>` tercihiyle aynı gerekçe).
+   */
+  type?: 'text' | 'email' | 'tel' | 'url' | 'date' | 'datetime-local' | 'number';
   required?: boolean;
   disabled?: boolean;
   error?: string | null;

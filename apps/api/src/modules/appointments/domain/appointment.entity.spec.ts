@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { MAX_SERVICE_NOTE_CHARS as CONTRACT_MAX_SERVICE_NOTE_CHARS } from '@business-os/contracts';
+
 import { TARGET_CHUNK_CHARS } from '../../../shared/chunking';
 import {
   Appointment,
@@ -238,6 +240,22 @@ describe('Appointment — servis notu (ADR-0035 §3, SLICE 3)', () => {
     // Kopya bir sabit yazilsaydi ikisi SESSIZCE ayrisirdi ve randevu notu bir
     // chunk'a sigmamaya baslardi — yani §3'un dayandigi varsayim bozulurdu.
     expect(MAX_SERVICE_NOTE_CHARS).toBe(TARGET_CHUNK_CHARS);
+  });
+
+  it('⚠️ SUNUCU ve SOZLESME sinirlari AYNI — arayuz 422 gostermesin diye', () => {
+    // ============================================================================
+    // ⚠️ BU TESTIN ISI IKI PAKET ARASINDAKI SESSIZ AYRISMAYI GURULTULU YAPMAK
+    // ============================================================================
+    // Arayuz (Slice 5) canli karakter sayacini ve submit engelini
+    // `@business-os/contracts`taki sabitten okur; sunucu ise `chunking.ts`ten
+    // turetir. Ikisi ayrisirsa hata SESSIZ olur ve KULLANICIDA patlar:
+    // formda "1250/1250, tamam" gorunur, sunucu 422 doner ve kullanici neden
+    // reddedildigini ANLAYAMAZ.
+    //
+    // ⚠️ Import YALNIZCA BU TEST DOSYASINDA: `domain` katmani framework'suz
+    // kalir ve bir pakete bagimli olmaz (CLAUDE.md — `shared/` ile ayni
+    // katilik). Test dosyasi o kisitin disindadir.
+    expect(CONTRACT_MAX_SERVICE_NOTE_CHARS).toBe(MAX_SERVICE_NOTE_CHARS);
   });
 
   it('BOS not `null`a normalize edilir — bos embedding cagrisi olmasin diye', () => {
