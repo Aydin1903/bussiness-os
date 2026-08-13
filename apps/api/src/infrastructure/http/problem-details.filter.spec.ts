@@ -11,7 +11,7 @@ import type { ProblemDetails } from '@business-os/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { ProblemDetailsFilter } from './problem-details.filter';
+import { DisclosableHttpException, ProblemDetailsFilter } from './problem-details.filter';
 
 interface CapturedResponse {
   readonly status: number;
@@ -111,6 +111,42 @@ describe('ProblemDetailsFilter', () => {
       handle(new InternalServerErrorException(SENSITIVE));
 
       expect(logSpy).toHaveBeenCalledOnce();
+    });
+
+    describe('DisclosableProblem — maskenin BILINCLI istisnasi', () => {
+      // Bu blok ISARETIN KENDISINI dogrular. Mekanizma Faz 2'den beri kodda
+      // duruyordu ama yalnizca Tenant kullaniyordu ve HIC test edilmemisti;
+      // bes is modulu ona bagimli hale gelince testsiz kalmasi kabul edilemezdi.
+      const DETAIL = 'Not kaydedildi ancak indekslenemedi; /reindex ile onarilabilir.';
+
+      it('isaretli 5xx govdesi ISTEMCIYE ULASIR', () => {
+        const result = handle(new DisclosableHttpException(DETAIL, 502));
+
+        expect(result.status).toBe(502);
+        expect(result.body.detail).toBe(DETAIL);
+      });
+
+      it('isaretli govde genel maske metnini KULLANMAZ', () => {
+        const result = handle(new DisclosableHttpException(DETAIL, 502));
+
+        expect(result.body.detail).not.toBe('Beklenmeyen bir hata olustu.');
+      });
+
+      it('⚠️ ISARETSIZ ayni statu HALA MASKELENIR — genel bir acma DEGIL', () => {
+        // Bu satir olmadan yukaridaki iki test, maskenin tumuyle kalktigi bir
+        // regresyonda da YESIL yanardi.
+        const result = handle(new InternalServerErrorException(SENSITIVE));
+
+        expect(result.body.detail).toBe('Beklenmeyen bir hata olustu.');
+      });
+
+      it('isaretli 5xx de LOGLANIR — govdenin acilmasi kaydi susturmaz', () => {
+        const logSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+        handle(new DisclosableHttpException(DETAIL, 502));
+
+        expect(logSpy).toHaveBeenCalledOnce();
+      });
     });
   });
 

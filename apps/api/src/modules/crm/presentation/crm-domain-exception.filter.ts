@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { type Response } from 'express';
 
+import { DisclosableHttpException } from '../../../infrastructure/http/problem-details.filter';
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
 import { CompletionFailedError } from '../../../shared/llm.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
@@ -83,6 +84,14 @@ const EMBEDDING_FAILED_DETAIL =
 const COMPLETION_FAILED_DETAIL =
   'Ozet su anda uretilemedi; birazdan tekrar deneyin. Mevcut ozet korundu.';
 
+/*
+ * ⚠️ YUKARIDAKI IKI METIN DE ISTEMCIYE VARSAYILAN OLARAK ULASMIYORDU
+ * (ADR-0035 kapanis denetimi, 2026-08-13): `ProblemDetailsFilter` her 5xx
+ * govdesini maskeler, yani ikisinin de FARKLI olmasinin sebebi ("bir sey
+ * kaydedildi" vs "hicbir sey kaybolmadi") kullaniciya hic gorunmuyordu.
+ * Cozum `DisclosableHttpException`dir; bkz. asagidaki `catch`.
+ */
+
 @Catch(CrmDomainError, RateLimitExceededError, EmbeddingFailedError, CompletionFailedError)
 export class CrmDomainExceptionFilter implements ExceptionFilter {
   catch(
@@ -90,15 +99,24 @@ export class CrmDomainExceptionFilter implements ExceptionFilter {
       CrmDomainError | RateLimitExceededError | EmbeddingFailedError | CompletionFailedError,
     host: ArgumentsHost,
   ): void {
+    // ⚠️ ASAGIDAKI IKI 502 `DisclosableHttpException`DIR, duz `HttpException`
+    // DEGIL: govdeleri ELLE YAZILMISTIR ve saglayicinin mesajini TASIMAZ.
+    // Isaretsiz birakilirlarsa global filtre ikisini de "Beklenmeyen bir hata
+    // olustu."ya cevirir.
+    //
+    // ⚠️ SECICI bir genisletme, genel bir acma DEGIL: isaretlenmeyen tek 5xx
+    // yolu (eslenmemis domain kodu -> 500) MASKELI KALIR.
     if (exception instanceof EmbeddingFailedError) {
-      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof CompletionFailedError) {
-      throw new HttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof RateLimitExceededError) {
+      // ⚠️ 429 ISARET TASIMAZ ve buna gerek YOKTUR: maske yalnizca 5xx'e
+      // uygulanir, 4xx govdeleri zaten oldugu gibi gecer.
       // `Retry-After` 429'un standart tamamlayicisidir. Govde degil BASLIK
       // oldugu icin RFC 7807 bicimlendirmesine dokunmaz.
       host
@@ -111,7 +129,8 @@ export class CrmDomainExceptionFilter implements ExceptionFilter {
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz.
+      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz. ISARETSIZ
+      // BIRAKILMASI BILINCLIDIR: maskeleme burada DEVAM EDER.
       throw new HttpException('Internal server error', status);
     }
 

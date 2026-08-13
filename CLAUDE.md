@@ -869,6 +869,25 @@ arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
 > kullanıyor; Knowledge · CRM · Projeler · Finans · Randevu **beşi de** aynı
 > maskeli gövdeyi dönüyor. **Bu modülde tek başına düzeltilmedi** — dördü daha
 > ilgilendirdiği için Mutlak Kural 1 gereği Product Owner kararı bekleniyor.
+>
+> ### ✅ KAPANDI (2026-08-13, PO talimatı — beş modül tek işte)
+>
+> `DisclosableProblem` artık beş modülün de filtresinde. Mekanizma değişmedi;
+> tek yerde somutlaştı: `infrastructure/http`'te `DisclosableHttpException`
+> (Tenant'ın `ServiceUnavailableProblem`'i kendi 503 anlamını sınıf adında
+> taşıdığı için **olduğu gibi durdu**). İşaret alan **yalnızca** bilinçli
+> yazılmış gövdeler: `EmbeddingFailedError` (beşinde de) ve
+> `CompletionFailedError` (Knowledge · CRM · Randevu).
+>
+> ⚠️ **Bu bir genel açma değil.** Eşlenmemiş domain kodunun 500'ü **maskeli
+> kaldı** ve her modülde bir test onu kilitliyor — o test olmasaydı, maskenin
+> tümüyle kalktığı bir regresyonda diğer testler de yeşil yanardı.
+> ⚠️ **429 işaret TAŞIMAZ**: maske yalnızca 5xx'e uygulanır, 4xx gövdeleri
+> zaten geçer; işaret koymak hiçbir şeyi değiştirmeyip "burada bir şey açıldı"
+> izlenimi verirdi.
+> ⚠️ **`platform/context` KAPSAM DIŞI kaldı** — `POST /ask`in iki 502'si
+> (`ContextDomainExceptionFilter`) hâlâ maskeli. Beş **iş modülü** istendi;
+> platform ucu ayrı bir karardır ve **açık borçtur**.
 
 > ### Randevu kapanırken bilinen sınırlar (ADR-0035)
 >

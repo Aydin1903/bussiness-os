@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { type Response } from 'express';
 
+import { DisclosableHttpException } from '../../../infrastructure/http/problem-details.filter';
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
 import { CompletionFailedError } from '../../../shared/llm.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
@@ -85,6 +86,12 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
  * ⚠️ Genel bir hata donmek kullaniciyi randevuyu YENIDEN GIRMEYE ve MUKERRER
  * kayda iterdi — ve bu modulde mukerrer kayit, takvimde ust uste iki blok
  * demektir. Mesaj acikca durumu soyler ve onarim yolunu gosterir.
+ *
+ * ⚠️ BU METIN ISTEMCIYE VARSAYILAN OLARAK ULASMIYORDU (ADR-0035 kapanis
+ * denetimi, 2026-08-13): `ProblemDetailsFilter` her 5xx govdesini maskeler ve
+ * kullanici "Beklenmeyen bir hata olustu." goruyordu — yani mesajin var olma
+ * SEBEBI (mukerrer kaydi onlemek) calismiyordu ve hata SESSIZDI. Cozum
+ * `DisclosableHttpException`dir; bkz. asagidaki `catch`.
  */
 const EMBEDDING_FAILED_DETAIL =
   'Randevu kaydedildi ancak notu arama icin indekslenemedi; /appointments/reindex ile onarilabilir.';
@@ -102,15 +109,27 @@ export class AppointmentsDomainExceptionFilter implements ExceptionFilter {
       | CompletionFailedError,
     host: ArgumentsHost,
   ): void {
+    // ⚠️ ASAGIDAKI IKI 502 `DisclosableHttpException`DIR, duz `HttpException`
+    // DEGIL: govdeleri ELLE YAZILMISTIR, saglayicinin mesajini TASIMAZ ve
+    // kullaniciya ne oldugunu + ne yapacagini soyler. Isaretsiz birakilirlarsa
+    // global filtre ikisini de "Beklenmeyen bir hata olustu."ya cevirir.
+    //
+    // ⚠️ Bu SECICI bir genisletmedir, genel bir acma DEGIL: bu metotta
+    // isaretlenmeyen tek 5xx yolu (eslenmemis domain kodu -> 500) MASKELI
+    // KALIR ve kalmalidir — orada govde bizim yazdigimiz bir metin degil,
+    // beklenmeyen bir hatanin kendi mesajidir.
     if (exception instanceof EmbeddingFailedError) {
-      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof CompletionFailedError) {
-      throw new HttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof RateLimitExceededError) {
+      // ⚠️ 429 ISARET TASIMAZ ve buna gerek YOKTUR: maske yalnizca 5xx'e
+      // uygulanir, 4xx govdeleri zaten oldugu gibi gecer. Isaret koymak
+      // "burada bir sey acildi" izlenimi verirdi — oysa hicbir sey degismezdi.
       // `Retry-After` 429'un standart tamamlayicisidir. Govde degil BASLIK
       // oldugu icin RFC 7807 bicimlendirmesine dokunmaz.
       host
@@ -123,7 +142,8 @@ export class AppointmentsDomainExceptionFilter implements ExceptionFilter {
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz.
+      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz. ISARETSIZ
+      // BIRAKILMASI BILINCLIDIR: global filtre bunu maskelemeye devam eder.
       throw new HttpException('Internal server error', status);
     }
 

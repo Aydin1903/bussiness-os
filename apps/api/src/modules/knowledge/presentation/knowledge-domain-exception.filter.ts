@@ -8,6 +8,7 @@ import {
 
 import { type Response } from 'express';
 
+import { DisclosableHttpException } from '../../../infrastructure/http/problem-details.filter';
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
 import { CompletionFailedError } from '../../../shared/llm.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
@@ -59,6 +60,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
  * soylemek yerine genel bir hata dondurmek, kullanicinin notu yeniden
  * yazmasina ve MUKERRER kayda yol acardi; bu yuzden mesaj acikca "not
  * kaydedildi, indeksleme basarisiz" der.
+ *
+ * ⚠️ BU METIN ISTEMCIYE VARSAYILAN OLARAK ULASMIYORDU (ADR-0035 kapanis
+ * denetimi, 2026-08-13): `ProblemDetailsFilter` her 5xx govdesini maskeler.
+ * Cozum `DisclosableHttpException`dir; bkz. asagidaki `catch`.
  */
 const EMBEDDING_FAILED_DETAIL =
   'Not kaydedildi ancak arama icin indekslenemedi; daha sonra tekrar deneyin.';
@@ -89,20 +94,29 @@ export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
       KnowledgeDomainError | EmbeddingFailedError | CompletionFailedError | RateLimitExceededError,
     host: ArgumentsHost,
   ): never {
+    // ⚠️ ASAGIDAKI IKI 502 `DisclosableHttpException`DIR, duz `HttpException`
+    // DEGIL: govdeleri ELLE YAZILMISTIR ve saglayicinin mesajini TASIMAZ.
+    // Isaretsiz birakilirlarsa global filtre ikisini de "Beklenmeyen bir hata
+    // olustu."ya cevirir ve yukaridaki iki gerekce de gecersizlesir.
+    //
+    // ⚠️ SECICI bir genisletme, genel bir acma DEGIL: isaretlenmeyen tek 5xx
+    // yolu (eslenmemis domain kodu -> 500) MASKELI KALIR.
     if (exception instanceof CompletionFailedError) {
       // ISTEMCI hatasi DEGIL: istek gecerliydi, DIS SAGLAYICI cevap veremedi.
       // `/ask` bir yan etki BIRAKMAZ (mesajlar yalnizca basaridan sonra
       // yazilir), bu yuzden mesaj `/notes`'unkinden farkli ve daha basittir.
-      throw new HttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(COMPLETION_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof EmbeddingFailedError) {
       // Saglayicinin mesaji ISTEMCIYE VERILMEZ (ic detay tasiyabilir); global
-      // filtre traceId ile loglar.
-      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      // filtre traceId ile loglar. Isaret govdemizi acar, saglayicininkini DEGIL.
+      throw new DisclosableHttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof RateLimitExceededError) {
+      // ⚠️ 429 ISARET TASIMAZ ve buna gerek YOKTUR: maske yalnizca 5xx'e
+      // uygulanir, 4xx govdeleri zaten oldugu gibi gecer.
       // `Retry-After` 429'un standart tamamlayicisidir: istemciye NE ZAMAN
       // donecegini soyler. Olmadan, iyi niyetli bir istemci bile siki bir
       // dongude yeniden dener ve sinirlayiciyi gurultuye bogar.
@@ -116,7 +130,8 @@ export class KnowledgeDomainExceptionFilter implements ExceptionFilter {
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       // Eslenmemis bir domain hatasi EKSIK ESLEME demektir. Mesaji istemciye
-      // vermeyiz; global filtre traceId ile loglar.
+      // vermeyiz; global filtre traceId ile loglar. ISARETSIZ BIRAKILMASI
+      // BILINCLIDIR: maskeleme burada DEVAM EDER.
       throw new HttpException('Internal server error', status);
     }
 

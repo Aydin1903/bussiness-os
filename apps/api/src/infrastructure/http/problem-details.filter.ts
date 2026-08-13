@@ -35,6 +35,24 @@ export interface DisclosableProblem {
   readonly disclosable: true;
 }
 
+/**
+ * `DisclosableProblem` isaretini tasiyan somut `HttpException`.
+ *
+ * Isaretin MEKANIZMASI degismedi — yalnizca TEK BIR YERDE somutlastirildi.
+ * Once yalnizca Tenant kullaniyordu (`ServiceUnavailableProblem`, kendi 503
+ * anlamini sinif adinda tasir ve OLDUGU GIBI durur); bes is modulu ayni seye
+ * ihtiyac duyunca dogru cevap bes kopya DEGIL, bir tanimdi — `module-kit`
+ * dersinin aynisi: ikinci kullanim genel olup olmadigini ogrendigimiz yerdir.
+ *
+ * ⚠️ ISARET HALA ACIKCA KONUR: bu sinifi kullanmak bilincli bir karardir ve
+ * govdesinin ELLE YAZILMIS, ic detay TASIMAYAN bir metin oldugunu soyler.
+ * Hicbir hata bunu kazara kazanmaz — `new HttpException(err.message, 500)`
+ * hala maskelenir ve maskelenmelidir.
+ */
+export class DisclosableHttpException extends HttpException implements DisclosableProblem {
+  readonly disclosable = true as const;
+}
+
 function isDisclosable(exception: HttpException): boolean {
   return 'disclosable' in exception && exception.disclosable === true;
 }

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { type Response } from 'express';
 
+import { DisclosableHttpException } from '../../../infrastructure/http/problem-details.filter';
 import { EmbeddingFailedError } from '../../../shared/embedding.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { ProjectsDomainError } from '../domain/projects.error';
@@ -66,6 +67,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
  *
  * Genel bir hata donmek kullaniciyi metni yeniden yazmaya ve MUKERRER kayda
  * iterdi. Mesaj acikca durumu soyler ve onarim yolunu gosterir.
+ *
+ * ⚠️ BU METIN ISTEMCIYE VARSAYILAN OLARAK ULASMIYORDU (ADR-0035 kapanis
+ * denetimi, 2026-08-13): `ProblemDetailsFilter` her 5xx govdesini maskeler.
+ * Cozum `DisclosableHttpException`dir; bkz. asagidaki `catch`.
  */
 const EMBEDDING_FAILED_DETAIL =
   'Ilerleme notu kaydedildi ancak arama icin indekslenemedi; /projects/reindex ile onarilabilir.';
@@ -76,11 +81,20 @@ export class ProjectsDomainExceptionFilter implements ExceptionFilter {
     exception: ProjectsDomainError | RateLimitExceededError | EmbeddingFailedError,
     host: ArgumentsHost,
   ): void {
+    // ⚠️ BU 502 `DisclosableHttpException`DIR, duz `HttpException` DEGIL:
+    // govdesi ELLE YAZILMISTIR ve saglayicinin mesajini TASIMAZ. Isaretsiz
+    // birakilirsa global filtre onu "Beklenmeyen bir hata olustu."ya cevirir
+    // ve mesajin var olma sebebi (mukerrer kaydi onlemek) calismaz.
+    //
+    // ⚠️ SECICI bir genisletme, genel bir acma DEGIL: isaretlenmeyen tek 5xx
+    // yolu (eslenmemis domain kodu -> 500) MASKELI KALIR.
     if (exception instanceof EmbeddingFailedError) {
-      throw new HttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
+      throw new DisclosableHttpException(EMBEDDING_FAILED_DETAIL, HttpStatus.BAD_GATEWAY);
     }
 
     if (exception instanceof RateLimitExceededError) {
+      // ⚠️ 429 ISARET TASIMAZ ve buna gerek YOKTUR: maske yalnizca 5xx'e
+      // uygulanir, 4xx govdeleri zaten oldugu gibi gecer.
       // `Retry-After` 429'un standart tamamlayicisidir. Govde degil BASLIK
       // oldugu icin RFC 7807 bicimlendirmesine dokunmaz.
       host
@@ -93,7 +107,8 @@ export class ProjectsDomainExceptionFilter implements ExceptionFilter {
     const status = STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz.
+      // Beklenmeyen bir domain hatasinin MESAJI disari sizmaz. ISARETSIZ
+      // BIRAKILMASI BILINCLIDIR: maskeleme burada DEVAM EDER.
       throw new HttpException('Internal server error', status);
     }
 

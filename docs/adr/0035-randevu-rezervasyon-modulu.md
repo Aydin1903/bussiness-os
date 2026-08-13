@@ -793,6 +793,15 @@ durulur.
   donduruyor. Bu denetimin buldugu bir kusurdur ve **bu modulde tek basina
   duzeltilmemistir**: dort modulu birden ilgilendirdigi icin Mutlak Kural 1
   geregi Product Owner karari beklenir.
+  - ✅ **KAPANDI (2026-08-13, PO talimati — bes modul tek iste).** Isaret bes
+    modulun de filtresinde; mekanizma degismedi, yalnizca tek yerde
+    somutlasti (`DisclosableHttpException`, `infrastructure/http`). Isaret
+    alanlar YALNIZCA bilincli yazilmis govdelerdir: `EmbeddingFailedError`
+    (besinde de) ve `CompletionFailedError` (Knowledge · CRM · Randevu).
+    ⚠️ **Genel bir acma DEGIL**: eslenmemis domain kodunun 500'u MASKELI
+    kaldi ve her modulde bir test bunu kilitler. ⚠️ `platform/context`in
+    (`POST /ask`) iki 502'si **kapsam disinda kaldi** ve hala maskelidir —
+    acik borc.
 - **Arama yalnizca anlamsaldir** — "notunda 'kontrol' gecen randevular" gibi
   klasik metin aramasi yok (ADR-0011, **besinci** kez).
 - **Aylik gorunum yok** (§7d) — "bu ay ne kadar dolu" sorusu haftalik gridde
