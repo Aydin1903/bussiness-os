@@ -280,14 +280,19 @@ denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **dört kaynağı** birleştiriyor.
 **3. modül Finans ✅ bitti** (ADR-0034; yedi slice, HAFİF kapanış denetimi
 2026-08-12). `POST /ask` izin filtresi ilk kez **gerçekten sınandı** ve
-CLAUDE.md'nin CEO örneği **dört modülle tam karşılandı**. Üçü de aşağıda.
+CLAUDE.md'nin CEO örneği **dört modülle tam karşılandı**.
+**4. modül Randevu/Rezervasyon ✅ bitti** (ADR-0035; altı slice, HAFİF kapanış
+denetimi 2026-08-13). Anlatısal içerik ilk kez **parçalanmadan** embed edildi
+(chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu** — dokuz
+katkıcı, sekiz yuva. Dördü de aşağıda.
 
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`). Riskli runtime akışları (bootstrap, tenant
-değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı. Vitest + RTL
-**143 test**; **kalan borç: Playwright e2e yok.**
+**onboarding** (`/app/onboarding`) · **dört modülün ekranları** (`/app/crm` ·
+`/app/projects` · `/app/finance` · `/app/appointments`). Riskli runtime akışları
+(bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
+Vitest + RTL **349 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
@@ -420,8 +425,9 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-dokuz modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅ —
-sıradaki 4. Randevu/Rezervasyon) · **koyu tema UI anahtarı** (bugün yalnızca OS
+sekiz modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+4. Randevu/Rezervasyon ✅ — sıradaki 5. Belge/Sözleşme Yönetimi, ⚠️ **object
+   storage kararını tetikler**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -429,9 +435,12 @@ satırı değişmedi) · **finans denetim izi** (`platform/audit` ARCHITECTURE �
 yazılı ama **kod olarak yok**; bir tutarın kim tarafından değiştirildiği
 sorulamaz — tetikleyici 8. modül)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONİKİ tablo**
-(ROADMAP §8.5; Finans Slice 5 ondan onikiye çıkardı, vektör taşıyan tablo
-sayısı DÖRDE çıktı) · **not detay ucu**
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONÜÇ tablo**
+(ROADMAP §8.5; Randevu Slice 3 onikiden onüçe çıkardı, vektör taşıyan tablo
+sayısı BEŞE çıktı — ⚠️ beşincisi listedeki ilk **kendisi ebeveyn olan** vektör
+tablosudur, chunk tablosu yoktur) · **`POST /ask` top-K havuzu DOLU** (dokuz
+katkıcı, sekiz yuva; iki yapısal kaynak sistematik olarak eleniyor — bulgu
+kayıtlı, rerank/kota **açılmadı**) · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·
@@ -773,6 +782,112 @@ izin modeli hazır geliyor — ama beş gerçekten yeni karar var:
 >   sınırsız büyür ama mali kayıt saklamak yasal yükümlülüktür (TTK) — cevabı
 >   "sil" değil **"silinmez"**. ⚠️ Bu ayrım kaydedilmezse tablo, "büyüyor" diye
 >   bakan birinin gözünde temizlenecekler listesine yanlışlıkla girer.
+
+### Faz 5 / 4. modül — Randevu/Rezervasyon (**bitti**)
+
+Karar: **ADR-0035** (kabul edildi, 2026-08-12). ROADMAP §3.5'in dördüncü sırası:
+_"Takvim tabanlı kayıt"_. Beşinci şema.
+
+Gerçekten yeni **üç** karar:
+
+1. **CHUNK TABLOSU YOK — tek satıra tek embedding.** Önceki dört anlatısal
+   modülün hepsi `<parent> + <parent>_chunks` ikilisi kurdu; Randevu **tek
+   tablo**dur ve vektör satırın kendi kolonundadır. Gerekçe veri şeklidir:
+   servis notunun üst sınırı `TARGET_CHUNK_CHARS`'a **eşitlenmiştir**, yani
+   parçalayıcı her zaman tek parça üretirdi ve ikinci tablo yalnızca bir join
+   maliyeti olurdu. ⚠️ Sınır **sunucuda zorlanır ve 422 döner** — sessiz kırpma
+   yok. Kırpsaydı kullanıcı yazdığını kaybettiğini fark etmezdi.
+2. **Bağlam başlığı sabit etikettir, serbest metin değil.** Embed edilen satır
+   `[Randevu · YYYY-MM-DD · Ad] not` biçimindedir. ⚠️ Kişi adı **vektörün
+   içindedir**, yani kişi yeniden adlandırılınca vektör **bayatlar**; telafi
+   `POST /appointments/reindex`tir ve **ilk günden vardır**.
+3. **Yeni takvim kütüphanesi YOK.** Haftalık ızgara `module-kit`te kendi
+   bileşenimizdir (`week-grid`) ve FullCalendar/react-big-calendar, recharts'ın
+   reddedildiği gerekçeyle reddedildi. ⚠️ Bileşen **"randevu" kelimesini
+   bilmez** ve bunu bir birim testi kilitler — `module-kit` ilk kez **ilk
+   günden genel** doğdu (CRM'de doğup Projeler'de dışarı çıkarma dersinin
+   uygulanması).
+
+Bir migration: `0026` şema+randevular. **Cross-modül referans dördüncü kez**
+aynı sözleşmeyle (`ContactDirectory.findNames(ids, role)`, izin kapısı
+arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 1 | `appointments` şeması + randevu yaşam döngüsü (`0026`) | ✅ |
+| 2 | Cross-modül referans (`crm.public.ts` kişi dizini) | ✅ |
+| 3 | Servis notu + tek satır embedding + `reindex` + oran sınırı | ✅ |
+| 4 | İki katkıcı (yapısal + anlamsal) | ✅ |
+| 5 | Frontend — haftalık takvim + liste, `week-grid` | ✅ |
+| 6 | **HAFİF** kapanış denetimi | ✅ |
+
+> **Renk:** Randevu'nun imza rengi **petrol**dür (`#057a89` / koyu `#51b5c5`).
+> ⚠️ Anahtar **`appointments`** — `module-colors.css`'te palet `booking` adıyla
+> ayrılmıştı ve Slice 5'te **yeniden adlandırıldı**; on iki modülün anahtarı
+> rotasıyla aynı olmalıdır, aksi halde `data-module` sessizce tutmaz.
+>
+> ⚠️ `sidebar.tsx`'in `SOON` dizisi **boş kaldı**: Randevu doğrudan `LIVE`
+> olarak eklendi. Bölümün koşullu render'ı (`SOON.length === 0`) hâlâ
+> geçerlidir ve testi hâlâ kilitliyor.
+
+> ### ✅ HAFİF kapanış denetimi — **yapıldı, 2026-08-13**
+>
+> `git status` temiz · `pnpm verify` çıkış kodu **0** · dört ucun rol turu
+> (owner 201/200/200, kimliksiz **401**, viewer okur ama yazamaz **403**, member
+> yazar ama silemez **403**) · doğrulama kapıları (süre=0, ofsetsiz zaman,
+> 1251 karakterlik not → **422**, ve **hiçbir kayıt kırpılmadı**) · renk turu
+> açık **ve** koyu temada · §6.1'in bayatlama telafisi canlı ölçüldü (kişi
+> yeniden adlandırıldı → `reindex` → vektör md5 **değişti**).
+>
+> **Bilinçli yapılmayanlar:** sıfırdan kurulum ❌ · iki tenant'la tam RLS
+> izolasyon turu ❌ (hafif denetim kuralı).
+>
+> ⚠️ **Denetimin en değerli çıktısı bir KAPASİTE SINIRININ ilk kez görülmesi
+> oldu.** §6.3'ün zorunlu ölçümü: dokuz katkıcı da doluyken tek bir `POST /ask`
+> **sekiz** kaynak döndürdü ve dağılım üç farklı soruda da **aynı** kaldı —
+> `knowledge` 1 · `crm-interactions` 1 · `appointment-notes` 1 · `project-notes`
+> 1 · `finance-commentaries` 1 · `crm-pipeline` 1 · `project-status` 2.
+> **`appointment-schedule` ve `finance-cashflow` HİÇ giremedi** (`degradedSources`
+> boş — yani bozulmadılar, **elendiler**). İzole tenant testi ikisinin de
+> çalıştığını kanıtladı: yalnız randevu verisiyle `appointment-schedule` 2 satır
+> veriyor. Sebep aritmetiktir — anlamsal katkıcının en iyi isabeti **1.0**
+> skoruyla döner, yapısal skorlar **0.95/0.90/0.75**'te tavanlıdır ve top-K
+> **8**'dir. Product Owner kararı: **rerank / kaynak kotası bugün AÇILMADI.**
+>
+> ⚠️ **Fan-out N=9 ÖLÇÜLDÜ** — N=5'ten beri iki kez atlanmıştı, üçüncü kez
+> atlanmadı: ortalama toplam **3936 ms**, fan-out payı **82 ms (%3)**, en yüksek
+> 99 ms. Darboğaz değişmedi (`LLMPort.complete`, 1680–4631 ms). ADR-0033'ün N=5
+> ölçümüyle **aynı bantta**.
+>
+> ⚠️ **Denetim bir kusur buldu ve BEŞ MODÜLÜ birden ilgilendiriyor:** §8'in
+> `EmbeddingFailedError → 502` çevirisi çalışıyor (geçersiz `OPENAI_API_KEY` ile
+> uçtan uca sınandı; notlu randevu **502**, notsuz **201**, `reindex` **200** +
+> `failed: 1`, kayıt **silinmedi**) — ama `ProblemDetailsFilter` varsayılan
+> olarak her 5xx gövdesini maskeler, yani "kaydedildi ancak indekslenemedi,
+> `reindex` ile onarılabilir" mesajı kullanıcıya **ulaşmıyor**. Filtrenin
+> `DisclosableProblem` işareti tam bu iş için var ama bugün yalnızca Tenant
+> kullanıyor; Knowledge · CRM · Projeler · Finans · Randevu **beşi de** aynı
+> maskeli gövdeyi dönüyor. **Bu modülde tek başına düzeltilmedi** — dördü daha
+> ilgilendirdiği için Mutlak Kural 1 gereği Product Owner kararı bekleniyor.
+
+> ### Randevu kapanırken bilinen sınırlar (ADR-0035)
+>
+> - **Kişi filtresi SUNUCUDA YOK** — liste ekranındaki ad araması **istemci
+>   tarafındadır** ve yalnızca **görünen sayfaya** uygulanır. Doğru çözüm
+>   `GET /appointments`e `contactId` filtresi eklemektir; bugün eklemek uç
+>   listesini bir arayüz ihtiyacı yüzünden sessizce genişletmek olurdu.
+> - **Çakışma kontrolü YOK** — iki randevu aynı saate yazılabilir; haftalık
+>   ızgara bunu **görünür** kılar ama **engellemez**.
+> - **Tenant bazlı saat dilimi YOK** — `timestamptz` UTC saklar, çevrimi istemci
+>   yapar; çok bölgeli bir tenant'ta saatler yanlış okunur.
+> - **Aylık görünüm yok** · **hatırlatma yok** (Queue kararı verilmeden
+>   yapılamaz — ⚠️ kullanıcının **ilk soracağı** eksik).
+> - **Sarkan `crm_contact_id` temizlenmez** — üçüncü sarkan işaretçi; CRM hâlâ
+>   domain event yayınlamıyor, karar açıkça **ertelendi**.
+> - **Değişiklik denetim izi YOK** — ADR-0034'ün borcu burada da geçerli,
+>   tetikleyici değişmedi (8. modül).
+> - **`embedding`de model/sürüm bilgisi yok** · **arama yalnızca anlamsal** ·
+>   **iyimser eşzamanlılık yok** — dördü de beşinci kez aynı sınır.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 

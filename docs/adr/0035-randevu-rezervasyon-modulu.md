@@ -399,6 +399,52 @@ GEREKEN bir kalem olarak yazilir.** Uc gerekce:
 sistematik olarak disari itildigini gosterirse rerank **ayri bir ADR** ile
 gelir ve `platform/context`'i ilgilendirir — tek bir modulu degil.
 
+> #### ⚠️ OLCUM YAPILDI (kapanis denetimi, 2026-08-13) — ve KOSUL GERCEKLESTI
+>
+> Yukaridaki cumlenin sartli kismi ("olcum bir kaynagin sistematik olarak
+> disari itildigini gosterirse") **gerceklesti**. Ham sayilar:
+>
+> Dokuz katkici da doluyken (bes anlamsal + dort yapisal) **tek** bir
+> `POST /ask` cagrisinin kaynak dagilimi, **uc farkli soruda da AYNI**:
+>
+> | Kaynak                     | Satir |
+> | -------------------------- | ----- |
+> | `project-status`           | 2     |
+> | `knowledge`                | 1     |
+> | `crm-interactions`         | 1     |
+> | `appointment-notes`        | 1     |
+> | `project-notes`            | 1     |
+> | `finance-commentaries`     | 1     |
+> | `crm-pipeline`             | 1     |
+> | **`appointment-schedule`** | **0** |
+> | **`finance-cashflow`**     | **0** |
+>
+> Toplam **8** (global top-K), `degradedSources: []` — yani iki kaynak
+> **bozulmadi**, **elendi**.
+>
+> **Ayirt edici test:** yalnizca kendi verisi olan izole bir tenant'ta
+> `appointment-schedule` **2 satir** doner; Finans verisi de eklendiginde
+> `finance-cashflow` **1 satir** doner. Yani ikisi de **calisiyor** — sorun
+> katkicida degil, havuzda.
+>
+> **Sebep aritmetiktir.** Anlamsal katkicilar skoru `1 - index/(length+1)`
+> formuluyle uretir; her birinin **en iyi isabeti 1.0**'a cok yakin doner. Bes
+> anlamsal kaynak, dolu bir tenant'ta sekiz yuvanin cogunu bu skorlarla kapar.
+> Yapisal skorlar ise tavani **0.95** olan sabit bir merdivendir (0.95/0.90/0.75
+> — Slice 6'da CRM ile hizalanan politika). Yani yapisal katkicilar, veri
+> zenginlestikce **once sonuncu, sonra hic** girer.
+>
+> ⚠️ **Bu bir hata degil, bir KAPASITE SINIRIDIR** ve ADR-0031 §5.1'in kota
+> reddiyle dogrudan ilgilidir: kota olsaydi bu dagilim olusmazdi, ama o gun
+> kotanin reddedilme gerekcesi de gecerliydi (sabit skorla sekiz yuvayi kaplayan
+> yapisal katkicilar). Iki karar arasindaki denge artik **olculmus** bir veriye
+> dayanabilir.
+>
+> **Product Owner karari: rerank / kaynak kotasi BUGUN ACILMADI.** Bulgu kayda
+> gecti; ayri bir ADR'nin konusudur ve `platform/context`'i ilgilendirir. 5.
+> modul (Belge/Sozlesme) **altinci** anlamsal kaynagi ekledigi gun soru
+> kendiliginden yeniden sorulur — o gun bu tablo bir baslangic noktasidir.
+
 ### 7. Frontend: HAFTALIK TAKVIM — yeni kutuphane YOK
 
 **Karar: haftalik grid gorunumu `components/module-kit/`'e YENI bir bilesen
@@ -714,10 +760,39 @@ durulur.
   akisinin ayni sonucu, besinci kez. Onarim mekanizmasi ilk gunden var.
 - **`embedding` kolonunda model/surum bilgisi YOK** — ADR-0029/0031/0033/0034'un
   ayni bilinen siniri, besinci kez.
-- **Skorlar kaynaklar arasinda KALIBRE DEGIL** ve anlamsal kaynak sayisi **bese**
-  cikiyor (§6.3) — tetikleyici cekildi, karar **olcume baglandi**.
-- **Fan-out N=9** ve **N=7 hic olculmedi** — bugunku tek dayanak ADR-0033'un
-  N=5 olcumudur (fan-out payi %2–3, darbogaz `LLMPort.complete`).
+- ⚠️ **Skorlar kaynaklar arasinda KALIBRE DEGIL ve bunun bedeli OLCULDU** (§6.3,
+  kapanis denetimi 2026-08-13). Dokuz katkici da doluyken **iki yapisal kaynak
+  havuza HIC giremedi**: `appointment-schedule` ve `finance-cashflow`, uc farkli
+  soruda da 0 satir. Izole tenant testi ikisinin de **calistigini** kanitladi —
+  yani bu bir hata degil, **kapasite sinirdir**: anlamsal katkicilarin en iyi
+  isabeti 1.0 donerken yapisal skorlar 0.95/0.90/0.75'te tavanlidir ve global
+  top-K **8**'dir. Product Owner karari: **rerank / kaynak kotasi bugun
+  ACILMADI**, bulgu kayda gecti. 5. modul altinci anlamsal kaynagi ekledigi gun
+  soru kendiliginden yeniden sorulur.
+- **Fan-out N=9 OLCULDU** (kapanis denetimi, 2026-08-13; N=7 hic olculmemisti ve
+  atlama ucuncu kez tekrarlanmadi): bes ardisik `POST /ask` cagrisinda ortalama
+  toplam **3936 ms**, fan-out payi **82 ms (%3)**, en yuksek 99 ms. Darbogaz
+  degismedi — `LLMPort.complete` (1680–4631 ms). ADR-0033'un N=5 olcumuyle
+  (%2–3) **ayni bantta**: fan-out dokuz katkiciya cikarken de dogrusal ve
+  onemsiz kaldi.
+- ⚠️ **Kisi filtresi SUNUCUDA YOK.** `GET /appointments` bir kisi parametresi
+  tasimaz (§9'un uc listesi). Liste ekranindaki ad aramasi **istemci
+  tarafindadir** ve bedeli acikca kaydedilmistir: filtre **yalnizca gorunen
+  sayfaya** uygulanir, tum veriye degil. Dogru cozum sunucuya `contactId`
+  filtresi eklemektir; bugun eklemek, uc listesini bir arayuz ihtiyaci yuzunden
+  sessizce genisletmek olurdu.
+- ⚠️ **502'nin GOVDESI maskeleniyor — ve bu BES MODULU birden ilgilendirir.**
+  §8'in `EmbeddingFailedError → 502` cevirisi calisiyor (denetimde gercersiz bir
+  `OPENAI_API_KEY` ile uctan uca sinandi: notlu randevu **502**, notsuz randevu
+  **201**, `reindex` **200** + `failed: 1`), ama `ProblemDetailsFilter` varsayilan
+  olarak her 5xx govdesini maskeler — yani kullaniciya "Randevu kaydedildi ancak
+  notu indekslenemedi, `reindex` ile onarilabilir" **ULASMAZ**, yerine "Beklenmeyen
+  bir hata olustu." gider. Filtrenin `DisclosableProblem` isareti tam bu is icin
+  var ama bugun **yalnizca** `tenant-domain-exception.filter.ts` kullaniyor;
+  Knowledge · CRM · Projeler · Finans · Randevu **beside** ayni maskeli govdeyi
+  donduruyor. Bu denetimin buldugu bir kusurdur ve **bu modulde tek basina
+  duzeltilmemistir**: dort modulu birden ilgilendirdigi icin Mutlak Kural 1
+  geregi Product Owner karari beklenir.
 - **Arama yalnizca anlamsaldir** — "notunda 'kontrol' gecen randevular" gibi
   klasik metin aramasi yok (ADR-0011, **besinci** kez).
 - **Aylik gorunum yok** (§7d) — "bu ay ne kadar dolu" sorusu haftalik gridde
@@ -762,24 +837,24 @@ migration'in getirisi yoktur (§3b).
 
 **Yapilacaklar:**
 
-- [ ] `git status` temiz · `pnpm verify` **cikis koduna** bakilarak yesil
+- [x] `git status` temiz · `pnpm verify` **cikis koduna** bakilarak yesil
       (DEVELOPMENT_RULES 5.4: cikti `grep`'lenmez)
-- [ ] Bes yeni ucun **hizli** turu — gercek isteklerle, 200/401/403/422/429
-- [ ] **Renk turu**: `/app/appointments` ve alt rotalari **petrol** gosteriyor
+- [x] Bes yeni ucun **hizli** turu — gercek isteklerle, 200/401/403/422/429
+- [x] **Renk turu**: `/app/appointments` ve alt rotalari **petrol** gosteriyor
       mu — acik **ve** koyu temada; kabugun rozeti terracotta kaliyor mu.
       ⚠️ `booking` → `appointments` yeniden adlandirmasinin gercekten
       **eslestigi** burada gorulur (eslesmezse ekran terracotta kalir)
-- [ ] **§8 sinavi**: oran siniri asildiginda **429** (`Retry-After` basligiyla),
+- [x] **§8 sinavi**: oran siniri asildiginda **429** (`Retry-After` basligiyla),
       embedding saglayicisi hata verdiginde **502** — ikisi de **500 DEGIL**
-- [ ] **§3d sinavi**: sinir uzunlugunu asan bir `service_note` **422** doner ve
+- [x] **§3d sinavi**: sinir uzunlugunu asan bir `service_note` **422** doner ve
       **sessizce kirpilmaz**
-- [ ] **§6.1 sinavi**: bagli kisi yeniden adlandirilir → `reindex` sonrasi yeni
+- [x] **§6.1 sinavi**: bagli kisi yeniden adlandirilir → `reindex` sonrasi yeni
       ad baglam basliginda gorunur
-- [ ] ⚠️ **§6.3 OLCUMU — bu denetimin ZORUNLU maddesi:** bes anlamsal + dort
+- [x] ⚠️ **§6.3 OLCUMU — bu denetimin ZORUNLU maddesi:** bes anlamsal + dort
       yapisal kaynak doluyken tek bir `POST /ask` cagrisinin kaynak dagilimi
       olculur ve **yazilir**. Bir kaynagin sistematik olarak disari itildigi
       gorulurse rerank ayri bir ADR'ye cikar
-- [ ] Bilinen sinirlar listesi guncellenir (bu ADR + CLAUDE.md + ROADMAP §8.5)
+- [x] Bilinen sinirlar listesi guncellenir (bu ADR + CLAUDE.md + ROADMAP §8.5)
 
 **Yapilmayacaklar (bilincli):**
 
@@ -790,6 +865,28 @@ migration'in getirisi yoktur (§3b).
 > ⚠️ **Fan-out gecikmesi olcumu (N=9) BU KEZ YAPILIR** ve hafif denetimin
 > istisnasidir. Gerekce: N=5'ten beri iki adim gecti ve N=7 hic olculmedi;
 > ucuncu kez atlamak, olcumun **dayanagini** kaybetmek olurdu.
+
+> ### ✅ Denetim YAPILDI — 2026-08-13
+>
+> On bir maddenin **on biri de** kosuldu; iki "yapilmayacak" madde de
+> **yapilmadi**. Sonuclar:
+>
+> | Madde                        | Sonuc                                                                                                                             |
+> | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+> | `git status` + `pnpm verify` | Temiz · **cikis kodu 0** (api 1593 + web 349 birim)                                                                               |
+> | Uc turu                      | owner 201/200/200/200 · kimliksiz **401** · viewer okur, yazamaz **403** · member yazar, silemez **403** · reindex viewer **403** |
+> | Renk turu                    | Acik `#057a89`/`#006a77`, koyu `#51b5c5`/`#64c6d7`; kabuk **ve** `--ai-accent` her ikisinde de terracotta                         |
+> | §8 — 429                     | `Retry-After: 54` + acik mesaj; **notsuz** randevu ayni anda **201** (pay odemez)                                                 |
+> | §8 — 502                     | Gecersiz `OPENAI_API_KEY` ile uctan uca: **502** (500 degil); `reindex` **200** + `failed: 1`; kayit **silinmedi**                |
+> | §3d                          | 1251 karakter → **422**; kirpilmis kayit **0**, sinir ustu kayit **0**                                                            |
+> | §6.1                         | Kisi yeniden adlandirildi → `reindex` `{repaired:1, failed:0}` → vektor md5 `90520e6e…` → `35dcf51e…`                             |
+> | **§6.3 olcumu**              | ⚠️ Yukaridaki "OLCUM YAPILDI" blogu — **kosul gerceklesti**, iki yapisal kaynak elendi                                            |
+> | **Fan-out N=9**              | Ortalama toplam **3936 ms**, fan-out **82 ms (%3)**, en yuksek 99 ms; darbogaz `LLMPort.complete`                                 |
+> | Bilinen sinirlar             | Bu ADR + CLAUDE.md + ROADMAP §8.5 (oniki → **onuc** tablo, vektor **bese**)                                                       |
+>
+> ⚠️ Denetim **plan disi bir kusur** buldu ve bes modulu birden ilgilendiriyor:
+> 502'nin govdesi maskeleniyor (bkz. Bilinen sinirlar). Bu modulde tek basina
+> duzeltilmedi.
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 
