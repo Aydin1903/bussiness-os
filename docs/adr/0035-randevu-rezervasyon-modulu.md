@@ -802,6 +802,10 @@ durulur.
     kaldi ve her modulde bir test bunu kilitler. ⚠️ `platform/context`in
     (`POST /ask`) iki 502'si **kapsam disinda kaldi** ve hala maskelidir —
     acik borc.
+  - ✅ **`platform/context` de KAPANDI** (2026-08-13, ayni gun, ayri is —
+    PO talimati). `POST /ask`in `CompletionFailedError` ve
+    `EmbeddingFailedError` 502'leri de isaretli; **alti filtre** ayni deseni
+    tasiyor. Bu bulgunun tamami kapandi.
 - **Arama yalnizca anlamsaldir** — "notunda 'kontrol' gecen randevular" gibi
   klasik metin aramasi yok (ADR-0011, **besinci** kez).
 - **Aylik gorunum yok** (§7d) — "bu ay ne kadar dolu" sorusu haftalik gridde

@@ -888,6 +888,18 @@ arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
 > ⚠️ **`platform/context` KAPSAM DIŞI kaldı** — `POST /ask`in iki 502'si
 > (`ContextDomainExceptionFilter`) hâlâ maskeli. Beş **iş modülü** istendi;
 > platform ucu ayrı bir karardır ve **açık borçtur**.
+>
+> ### ✅ `platform/context` DE KAPANDI (2026-08-13, PO talimatı)
+>
+> Borç aynı gün, ayrı bir işte kapatıldı: `POST /ask`in `CompletionFailedError`
+> ve `EmbeddingFailedError` 502'leri de işaretli. **Artık altı filtre** aynı
+> deseni taşıyor (beş iş modülü + `platform/context`) ve `DisclosableProblem`'i
+> kullanan yer sayısı yediye çıktı (Tenant'ın 503'ü dahil).
+>
+> ⚠️ Buranın ayrı bir değeri var: `/ask` **dokuz katkıcıya** dokunur ve bir
+> sağlayıcı çökmesinde kullanıcının gördüğü **tek şey** o gövdedir — "tekrar
+> deneyin" ile "beklenmeyen hata" arasındaki fark, kullanıcının tekrar deneyip
+> denemeyeceğini belirler.
 
 > ### Randevu kapanırken bilinen sınırlar (ADR-0035)
 >
