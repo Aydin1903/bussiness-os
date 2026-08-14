@@ -441,8 +441,9 @@ sorulamaz — tetikleyici 8. modül)
 (ROADMAP §8.5; Randevu Slice 3 onikiden onüçe çıkardı, vektör taşıyan tablo
 sayısı BEŞE çıktı — ⚠️ beşincisi listedeki ilk **kendisi ebeveyn olan** vektör
 tablosudur, chunk tablosu yoktur) · **`POST /ask` top-K havuzu DOLU** (dokuz
-katkıcı, sekiz yuva; iki yapısal kaynak sistematik olarak eleniyor — bulgu
-kayıtlı, rerank/kota **açılmadı**) · **not detay ucu**
+katkıcı, sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
+kapandı** — `ceil(K/3)` yuvalık **yapısal taban kısıtı**; gerçek **rerank** hâlâ
+**açılmadı** ve kalibrasyon verisi beklemede) · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·

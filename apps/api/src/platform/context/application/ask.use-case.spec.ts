@@ -46,6 +46,8 @@ function ids(sources: readonly { id: string }[]): string[] {
 /** Tek katkici — `NoteChunkSearch` fake'inin port degisikligindeki karsiligi. */
 class FakeContributor implements RetrievalContributor {
   readonly source = 'knowledge';
+  /** ADR-0036. Varsayilan anlamsal; yapisal senaryolar `StructuralContributor` kullanir. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = 'note:read';
   fragments: ContextFragment[] = [fragment(NOTE_A, 'muhasebe notu parcasi', 0.9)];
   lastLimit: number | null = null;
@@ -66,6 +68,39 @@ class FakeContributor implements RetrievalContributor {
 
 function fragment(noteId: string, content: string, score: number): ContextFragment {
   return { content, score, source: 'knowledge', reference: { kind: 'note', id: noteId } };
+}
+
+/**
+ * Sabit parcalar donduren, TURU secilebilen katkici (ADR-0036).
+ *
+ * `AskUseCase`'in tur haritasini katkici KAYDINDAN kurdugunu — yani beyanin
+ * gercekten secime ulastigini — sinamak icin var.
+ */
+class TypedContributor implements RetrievalContributor {
+  constructor(
+    readonly source: string,
+    readonly contributionKind: 'semantic' | 'structural',
+    private readonly rows: ContextFragment[],
+    readonly permission = 'note:read',
+  ) {}
+
+  contribute(): Promise<ContextFragment[]> {
+    return Promise.resolve(this.rows);
+  }
+}
+
+/** Her zaman cokun katkici — `degradedSources` senaryolari icin. */
+class FailingContributor implements RetrievalContributor {
+  readonly permission = 'note:read';
+
+  constructor(
+    readonly source: string,
+    readonly contributionKind: 'semantic' | 'structural',
+  ) {}
+
+  contribute(): Promise<ContextFragment[]> {
+    return Promise.reject(new Error('katkici cokti'));
+  }
 }
 
 class FakeContributorRegistry implements RetrievalContributorRegistry {
@@ -633,6 +668,105 @@ describe('AskUseCase — retrieval', () => {
   });
 });
 
+// --- Yapisal taban (ADR-0036) -------------------------------------------------
+
+/**
+ * Secim kararinin KENDISI `select-fragments.spec.ts`te sinaniyor. Buradaki
+ * testlerin isi farkli: turun katkici KAYDINDAN okunup secime ULASTIGINI
+ * dogrulamak. Beyan dogru ama baglanti kopuksa, orada her sey yesil yanar ve
+ * uctan uca hicbir sey degismezdi.
+ */
+describe('AskUseCase — yapisal taban kisiti', () => {
+  /** Kaynak etiketini DOGRU tasiyan parca — atif listesi bunun uzerinden kurulur. */
+  function row(source: string, id: string, score: number): ContextFragment {
+    return { content: `${source} icerigi`, score, source, reference: { kind: 'row', id } };
+  }
+
+  /**
+   * Bes anlamsal kaynagin her biri ~1.0 doner; yapisal kaynak 0.8'de kalir —
+   * yani saf skorla ASLA giremez.
+   */
+  function crowdedRegistry(scheduleKind: 'semantic' | 'structural'): FakeContributorRegistry {
+    const registry = new FakeContributorRegistry();
+
+    for (const name of ['knowledge', 'crm-interactions', 'project-notes', 'finance-commentaries']) {
+      registry.register(
+        new TypedContributor(name, 'semantic', [
+          row(name, `${name}-a`, 0.99),
+          row(name, `${name}-b`, 0.98),
+        ]),
+      );
+    }
+
+    registry.register(
+      new TypedContributor('appointment-schedule', scheduleKind, [
+        row('appointment-schedule', 'as-a', 0.8),
+      ]),
+    );
+
+    return registry;
+  }
+
+  function useCaseWith(
+    registry: FakeContributorRegistry,
+    permissions = new FakePermissionChecker(),
+  ): AskUseCase {
+    const calls: CallLog = [];
+    return new AskUseCase({
+      contributors: registry,
+      permissionChecker: permissions,
+      conversationRepository: new FakeConversationRepository(calls),
+      rateLimitRepository: new FakeRateLimitRepository(calls),
+      embeddingPort: new FakeEmbeddingPort(calls),
+      llmPort: new FakeLlmPort(calls),
+      transactionManager: new FakeTransactionManager(calls),
+      idGenerator: new SequentialIdGenerator(),
+      clock: new FixedClock(),
+      retrievalLimit: 8,
+      historyMessages: 8,
+      rateLimit: 30,
+    });
+  }
+
+  it('⚠️ dusuk skorlu YAPISAL kaynak, ~1.0 skorlu anlamsallara ragmen GIRER', async () => {
+    const result = await useCaseWith(crowdedRegistry('structural')).execute(command());
+
+    expect(result.sources.map((source) => source.source)).toContain('appointment-schedule');
+  });
+
+  it('⚠️ TUR BEYANI OLMASAYDI ayni kaynak DISARIDA kalirdi', async () => {
+    // Ayni girdi, TEK fark: katkici kendini `semantic` ilan ediyor. Bu test,
+    // yukaridakinin taban kisiti SAYESINDE gectigini kanitlar — havuzun
+    // tesadufen genis olmasi sayesinde degil.
+    const result = await useCaseWith(crowdedRegistry('semantic')).execute(command());
+
+    expect(result.sources.map((source) => source.source)).not.toContain('appointment-schedule');
+  });
+
+  it('IZNI OLMAYAN yapisal katkici taban hakki KAZANMAZ (cagrilmaz bile)', async () => {
+    const permissions = new FakePermissionChecker();
+    permissions.denied.add('note:read');
+
+    const result = await useCaseWith(crowdedRegistry('structural'), permissions).execute(command());
+
+    // Elenen kaynak `degradedSources`a da GIRMEZ — "goremezsin" ile
+    // "alamadik" ayrimi ADR-0031 §5.5'ten beri korunuyor.
+    expect(result.sources).toEqual([]);
+    expect(result.degradedSources).toEqual([]);
+  });
+
+  it('BOZULAN yapisal katkici taban yuvasini BOSA HARCAMAZ', async () => {
+    // Cokmus katkici `[]` doner; havuz yine sekiz parcayla dolar.
+    const registry = crowdedRegistry('structural');
+    registry.register(new FailingContributor('finance-cashflow', 'structural'));
+
+    const result = await useCaseWith(registry).execute(command());
+
+    expect(result.degradedSources).toEqual(['finance-cashflow']);
+    expect(result.sources.map((source) => source.source)).toContain('appointment-schedule');
+  });
+});
+
 // --- Hata yollari -------------------------------------------------------------
 
 describe('AskUseCase — hata yollari', () => {
@@ -846,6 +980,7 @@ describe('AskUseCase — IKI katkici, KISMI izin', () => {
   function twoContributors(harness: ReturnType<typeof createHarness>) {
     const second: RetrievalContributor = {
       source: 'crm-interactions',
+      contributionKind: 'semantic',
       permission: 'interaction:read',
       contribute: () => {
         harness.calls.push('crm-search');

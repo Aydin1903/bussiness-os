@@ -86,6 +86,8 @@ const SCORE_HEALTHY = 0.75;
 @Injectable()
 export class FinanceCashflowContributor implements RetrievalContributor {
   readonly source = FINANCE_CASHFLOW_SOURCE;
+  /** ADR-0036: kolonlardan TURETILEN yapisal ozet — havuzda taban yuva hakki. */
+  readonly contributionKind = 'structural' as const;
   readonly permission = CASHFLOW_READ;
 
   constructor(

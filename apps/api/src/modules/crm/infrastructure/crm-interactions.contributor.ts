@@ -26,6 +26,8 @@ export const CRM_INTERACTIONS_SOURCE = 'crm-interactions';
 @Injectable()
 export class CrmInteractionsContributor implements RetrievalContributor {
   readonly source = CRM_INTERACTIONS_SOURCE;
+  /** ADR-0036: vektor benzerligiyle bulunan ANLATISAL icerik. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = INTERACTION_READ;
 
   constructor(

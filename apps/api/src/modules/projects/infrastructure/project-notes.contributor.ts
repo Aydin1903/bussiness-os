@@ -26,6 +26,8 @@ export const PROJECT_NOTES_SOURCE = 'project-notes';
 @Injectable()
 export class ProjectNotesContributor implements RetrievalContributor {
   readonly source = PROJECT_NOTES_SOURCE;
+  /** ADR-0036: vektor benzerligiyle bulunan ANLATISAL icerik. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = PROGRESS_NOTE_READ;
 
   constructor(

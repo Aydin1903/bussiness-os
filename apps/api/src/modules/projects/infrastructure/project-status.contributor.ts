@@ -86,6 +86,8 @@ const STATUS_LABELS: Readonly<Record<ProjectStatus, string>> = {
 @Injectable()
 export class ProjectStatusContributor implements RetrievalContributor {
   readonly source = PROJECT_STATUS_SOURCE;
+  /** ADR-0036: kolonlardan TURETILEN yapisal ozet — havuzda taban yuva hakki. */
+  readonly contributionKind = 'structural' as const;
   readonly permission = PROJECT_READ;
 
   constructor(

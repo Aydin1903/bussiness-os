@@ -73,6 +73,8 @@ export const APPOINTMENT_NOTES_SOURCE = 'appointment-notes';
 @Injectable()
 export class AppointmentNotesContributor implements RetrievalContributor {
   readonly source = APPOINTMENT_NOTES_SOURCE;
+  /** ADR-0036: vektor benzerligiyle bulunan ANLATISAL icerik. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = APPOINTMENT_READ;
 
   constructor(

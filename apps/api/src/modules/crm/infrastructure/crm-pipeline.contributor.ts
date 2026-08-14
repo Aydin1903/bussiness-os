@@ -88,6 +88,8 @@ const STAGE_LABELS: Readonly<Record<OpportunityStage, string>> = {
 @Injectable()
 export class CrmPipelineContributor implements RetrievalContributor {
   readonly source = CRM_PIPELINE_SOURCE;
+  /** ADR-0036: kolonlardan TURETILEN yapisal ozet — havuzda taban yuva hakki. */
+  readonly contributionKind = 'structural' as const;
   readonly permission = OPPORTUNITY_READ;
 
   constructor(

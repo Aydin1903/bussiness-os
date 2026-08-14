@@ -38,6 +38,8 @@ export const FINANCE_COMMENTARIES_SOURCE = 'finance-commentaries';
 @Injectable()
 export class FinanceCommentariesContributor implements RetrievalContributor {
   readonly source = FINANCE_COMMENTARIES_SOURCE;
+  /** ADR-0036: vektor benzerligiyle bulunan ANLATISAL icerik. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = COMMENTARY_READ;
 
   constructor(

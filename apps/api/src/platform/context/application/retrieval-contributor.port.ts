@@ -15,6 +15,35 @@ export interface ContextFragment {
   readonly reference: { readonly kind: string; readonly id: string };
 }
 
+/**
+ * Bir katkinin TURU — ADR-0036.
+ *
+ * ============================================================================
+ * NEDEN PORT'TA: PLATFORM BUNU TURETEMEZ
+ * ============================================================================
+ * `POST /ask`in havuzunda yapisal kaynaklara bir TABAN yuva garanti edilir
+ * (ADR-0036 §1). Bunun icin platformun bir kaynagin yapisal mi anlamsal mi
+ * oldugunu bilmesi gerekir — ama platform `crm`/`knowledge` kelimelerinin
+ * ANLAMINI bilmez ve bilmemelidir (bkz. `RetrievalContributor`).
+ *
+ * Alternatif, platformun icine bir kaynak adi listesi koymakti; o liste her
+ * yeni modulde **sessizce bayatlardi** — yeni yapisal katkici garantisini
+ * alamaz ve hicbir test kirmizi yanmazdi. Bu yuzden turu MODUL DEKLARE EDER.
+ *
+ * ⚠️ ALAN ZORUNLUDUR, opsiyonel + varsayilan DEGIL. Varsayilani `'semantic'`
+ * olan opsiyonel bir alan, yazmayi unutan bir yapisal katkiciyi sessizce
+ * anlamsal sayar ve garanti yuvasini kaybettirirdi. Zorunlu alan unutuldugunda
+ * DERLEME HATASIDIR.
+ * ============================================================================
+ *
+ * - `semantic`  — vektor benzerligiyle bulunan ANLATISAL icerik. Skoru bir
+ *   siralama korumasidir ve en iyi isabeti 1.0'a yakin doner.
+ * - `structural` — kolonlardan TURETILEN deterministik ozet. Skoru riske gore
+ *   sabit tavanli bir merdivendir (0.95/0.90/0.75) ve anlamsal bir en-iyi
+ *   isabeti hicbir kosulda gecemez.
+ */
+export type ContributionKind = 'semantic' | 'structural';
+
 export interface ContributeInput {
   readonly question: string;
   /** Soru BIR KEZ embed edilir ve tum katkicilara ayni vektor verilir. */
@@ -51,6 +80,14 @@ export interface ContributeInput {
 export interface RetrievalContributor {
   /** Koken etiketi; `ContextFragment.source` ve `degradedSources` bunu tasir. */
   readonly source: string;
+
+  /**
+   * Katkinin TURU (ADR-0036). Havuzun taban kisiti bunun uzerinden isler.
+   *
+   * ⚠️ Bu bir SKOR ayari DEGILDIR: katkicinin kendi skorlama mantigi bu alandan
+   * etkilenmez. Alan yalnizca platformun secim asamasini ilgilendirir.
+   */
+  readonly contributionKind: ContributionKind;
 
   /**
    * Bu kaynagi gormeyi saglayan izin (ADR-0031 §5.3).

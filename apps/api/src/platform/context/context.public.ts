@@ -22,6 +22,8 @@ export {
   RETRIEVAL_CONTRIBUTOR_REGISTRY,
   type ContextFragment,
   type ContributeInput,
+  // ADR-0036: katkici turunu MODUL deklare eder, bu yuzden tip disa aciktir.
+  type ContributionKind,
   type RetrievalContributor,
   type RetrievalContributorRegistry,
 } from './application/retrieval-contributor.port';

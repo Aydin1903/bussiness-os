@@ -39,6 +39,8 @@ export const KNOWLEDGE_SOURCE = 'knowledge';
 @Injectable()
 export class KnowledgeRetrievalContributor implements RetrievalContributor {
   readonly source = KNOWLEDGE_SOURCE;
+  /** ADR-0036: vektor benzerligiyle bulunan ANLATISAL icerik. */
+  readonly contributionKind = 'semantic' as const;
   readonly permission = NOTE_READ;
 
   constructor(

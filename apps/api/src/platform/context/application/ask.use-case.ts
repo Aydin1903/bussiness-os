@@ -16,6 +16,7 @@ import {
   type ContextFragment,
   type RetrievalContributorRegistry,
 } from './retrieval-contributor.port';
+import { selectFragments } from './select-fragments';
 
 export interface AskCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -189,15 +190,25 @@ export class AskUseCase {
    * ICINDEKI izin sinirini degil).
    *
    * ============================================================================
-   * MODUL BASINA KOTA YOK — GLOBAL TOP-K
+   * MODUL BASINA KOTA YOK — GLOBAL TOP-K + YAPISAL TABAN
    * ============================================================================
    * Bir musteri sorusunda en alakali parcalarin HEPSI tek bir modulden
-   * gelebilir. Sabit kota ("her modulden 4"), en iyi kanitlari en
-   * kotuleriyle degistirirdi.
+   * gelebilir. Sabit MODUL kotasi ("her modulden 4"), en iyi kanitlari en
+   * kotuleriyle degistirirdi ve ADR-0031 §5.1 onu bu yuzden reddetti.
    *
-   * ⚠️ BILINEN SINIR: skorlar kaynaklar arasinda KALIBRE DEGIL (ADR-0031).
-   * Farkli metin turlerinin mesafe dagilimlari farklidir; v1 ham skorla
-   * siralar.
+   * ⚠️ ADR-0036: saf skor siralamasinin USTUNE bir TABAN eklendi. Havuzun
+   * `ceil(K/3)` kadari, AYRI yapisal kaynaklara birer yuva olarak garanti
+   * edilir. Sebep olculdu (ADR-0035 §6.3): anlamsal skorlar merdivensiz olarak
+   * ~1.0 doner, yapisal skorlar 0.95'te tavanlidir — yani yapisal kaynaklar
+   * veri zenginlestikce SISTEMATIK olarak elenir. Bu, modul kotasi DEGILDIR:
+   * kaynak TURU basina ve yalnizca bir TABAN (tavan degil).
+   *
+   * Karar burada degil `select-fragments.ts`te yasar — girdi/cikti olarak
+   * sinanabilir olmasi icin.
+   *
+   * ⚠️ BILINEN SINIR: skorlar kaynaklar arasinda HALA KALIBRE DEGIL (ADR-0031).
+   * ADR-0036 kalibrasyon yapmaz, kalibrasyonsuzlugun en gorunur sonucunu
+   * telafi eder.
    * ============================================================================
    */
   async #gather(
@@ -231,10 +242,19 @@ export class AskUseCase {
       }),
     );
 
-    const fragments = results
-      .flat()
-      .sort((a, b) => b.score - a.score)
-      .slice(0, this.deps.retrievalLimit);
+    // ⚠️ Adaylar KATKICI ile BIRLIKTE tasinir: taban garantisi, parcanin kendi
+    // `source` alanina degil, KATKICI KAYDINA dayanir. Ikisi uretimde ayni
+    // sabittir; ama garantiyi parcanin beyanina baglamak, bir modulun yanlis
+    // etiket yazmasi hâlinde onu SESSIZCE kaybettirirdi.
+    const candidates = allowed.flatMap((contributor, index) =>
+      (results[index] ?? []).map((fragment) => ({
+        fragment,
+        source: contributor.source,
+        contributionKind: contributor.contributionKind,
+      })),
+    );
+
+    const fragments = selectFragments({ candidates, limit: this.deps.retrievalLimit });
 
     return { fragments, degradedSources };
   }

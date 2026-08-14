@@ -101,6 +101,8 @@ const SCORE_HEALTHY = 0.75;
 @Injectable()
 export class AppointmentScheduleContributor implements RetrievalContributor {
   readonly source = APPOINTMENT_SCHEDULE_SOURCE;
+  /** ADR-0036: kolonlardan TURETILEN yapisal ozet — havuzda taban yuva hakki. */
+  readonly contributionKind = 'structural' as const;
   readonly permission = APPOINTMENT_READ;
 
   constructor(
