@@ -8,15 +8,18 @@ import { listFollowUps } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  RISE,
-  SectionLabel,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, RISE, SectionLabel } from '@/components/module-kit/chrome';
 import { CrmTabs } from './chrome';
+import { CrmWall } from './crm-wall';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
 import { FollowUpMark, isOverdue } from './follow-up-mark';
 import { StagePill } from './stage-pill';
 
@@ -100,56 +103,63 @@ export function FollowUpsScreen() {
   const overdueCount = state.items.filter((item) => isOverdue(item.nextFollowUpOn)).length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Takipler"
-        subtitle={
-          <Subtitle
-            loading={loading}
-            failed={error !== null}
-            total={state.total}
-            overdueCount={overdueCount}
-          />
-        }
-        right={<CrmTabs />}
-      />
-
-      <ModuleBody>
-        <FormError message={error} />
-
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent loading={loading} failed={error !== null} />
-          ) : (
-            <>
-              <div className="mb-3">
-                <SectionLabel>Yaklaşan takipler</SectionLabel>
-              </div>
-              <ul className="flex flex-col gap-2.5">
-                {state.items.map((item) => (
-                  <li key={item.opportunityId}>
-                    <FollowUpRow item={item} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Takipler"
+          meta={
+            <Subtitle
+              loading={loading}
+              failed={error !== null}
+              total={state.total}
+              overdueCount={overdueCount}
+            />
+          }
+          action={<CrmTabs />}
         />
-      </ModuleBody>
-    </div>
+
+        <CrmWall />
+
+        <Desk>
+          <DeskHead title="Takip listesi" />
+          <DeskBody>
+            <FormError message={error} />
+
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent loading={loading} failed={error !== null} />
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <SectionLabel>Yaklaşan takipler</SectionLabel>
+                  </div>
+                  <ul className="flex flex-col gap-2.5">
+                    {state.items.map((item) => (
+                      <li key={item.opportunityId}>
+                        <FollowUpRow item={item} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Rise>
+
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
+              loading={loading}
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
+              }}
+            />
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 
@@ -199,7 +209,9 @@ function Subtitle({
 
 function EmptyContent({ loading, failed }: { loading: boolean; failed: boolean }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     return null;

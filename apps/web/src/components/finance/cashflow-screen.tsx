@@ -11,20 +11,23 @@ import {
   reindexCommentaries,
 } from '@/lib/api/finance';
 import { errorMessage } from '@/lib/api/error-message';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  PillButton,
-  PrimaryButton,
-  RISE,
-  SectionLabel,
-} from '@/components/module-kit/chrome';
+import { EmptyState, PillButton, PrimaryButton } from '@/components/module-kit/chrome';
 import { RecordCard } from '@/components/module-kit/record-card';
 import { TextAreaField } from '@/components/module-kit/form-kit';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  ROOM_RISE,
+  RoomScroll,
+  RoomTop,
+} from '@/components/room/room';
+import { FinanceWall } from './finance-wall';
 import { formatCalendarDay } from '@/lib/format/datetime';
+import { monthPeriod } from '@/lib/format/period';
 import { CategoryBars } from './category-bars';
 import { FinanceTabs } from './chrome';
 import { NetAmount } from './marks';
@@ -49,7 +52,18 @@ const FORBIDDEN = 'Nakit akışını yalnızca şirket sahibi veya yönetici gö
  * YOK (ADR-0034 §10); eklendiği gün o yüzey `--ai-accent` taşımak ZORUNDADIR.
  */
 export function CashflowScreen() {
+  /*
+   * Dönemler render başına DEĞİL, bileşen ömrü boyunca SABİT.
+   *
+   * `monthPeriod()` her çağrıldığında `new Date()` okur; `useEffect`in
+   * bağımlılık dizisine girseydi her render yeni bir nesne üretir ve efekt
+   * sonsuz döngüye girerdi. `useState` başlatıcısı bir kez çalışır.
+   */
+  const [currentPeriod] = useState(() => monthPeriod(0));
+  const [previousPeriod] = useState(() => monthPeriod(1));
+
   const [summary, setSummary] = useState<CashflowSummary | null>(null);
+  const [previous, setPrevious] = useState<CashflowSummary | null>(null);
   const [commentaries, setCommentaries] = useState<readonly FinanceCommentary[]>([]);
   const [unindexed, setUnindexed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -73,15 +87,34 @@ export function CashflowScreen() {
       // ⚠️ Kırılım İSTENİYOR: bu ekranın asıl işi "en çok nereye harcıyoruz"
       // sorusunu cevaplamak. İşlem listesinde istenmiyor — orada ikinci bir
       // sorgu bedeli boşuna olurdu.
-      getCashflowSummary({ includeCategories: true }),
+      /*
+       * ⚠️ `label` GÖNDERİLMEZ — dönem nesnesi olduğu gibi yayılsaydı
+       * (`...currentPeriod`) sorgu dizesine `label=Ağustos+2026` diye bir
+       * parametre girerdi: sunucunun tanımadığı, ekranın hiç sormadığı bir alan.
+       */
+      getCashflowSummary({
+        from: currentPeriod.from,
+        to: currentPeriod.to,
+        includeCategories: true,
+      }),
+      /*
+       * ÖNCEKİ DÖNEM — yalnızca delta için, kırılım İSTENMEZ.
+       *
+       * ⚠️ Duvarın kahraman rakamı bir karşılaştırma olmadan afiştir
+       * (ADR-0038 §5). Sunucu delta vermiyor, o yüzden ikinci bir özet
+       * çağrısıyla türetiliyor — yeni bir uç açmak bir modül değişikliği
+       * olurdu ve bu iş yalnızca arayüzü kapsıyor.
+       */
+      getCashflowSummary({ from: previousPeriod.from, to: previousPeriod.to }),
       listFinanceCommentaries({ limit: COMMENTARY_PAGE, offset: 0 }),
       countUnindexedCommentaries(),
     ])
-      .then(([totals, page, pending]) => {
+      .then(([totals, before, page, pending]) => {
         if (!active) {
           return;
         }
         setSummary(totals);
+        setPrevious(before);
         setCommentaries(page.items);
         setUnindexed(pending.count);
         setError(null);
@@ -144,32 +177,22 @@ export function CashflowScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Nakit akışı"
-        subtitle="Rakamlar işlemlerden türetilir · yorumlar sizin yazdıklarınızdır"
-        right={<FinanceTabs />}
-      />
+    <Room>
+      <RoomScroll>
+        <RoomTop name="Finans" meta={currentPeriod.label} action={<FinanceTabs />} />
 
-      <ModuleBody>
-        <FormError message={error} />
+        <FinanceWall
+          period={currentPeriod}
+          summary={summary}
+          previous={previous}
+          loading={loading}
+        />
 
-        <Rise delay={RISE.action}>
-          <section className="mb-8 flex flex-col gap-3">
-            <SectionLabel>Dönem toplamı</SectionLabel>
-            {loading ? (
-              <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>
-            ) : (
-              <CurrencyTotals summary={summary} />
-            )}
-          </section>
-        </Rise>
-
-        <Rise delay={RISE.body}>
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <SectionLabel>Finansal yorumlar</SectionLabel>
-              {unindexed > 0 ? (
+        <Desk>
+          <DeskHead
+            title="Kırılım ve yorumlar"
+            right={
+              unindexed > 0 ? (
                 <PillButton
                   disabled={repairing}
                   onClick={() => {
@@ -178,58 +201,68 @@ export function CashflowScreen() {
                 >
                   {repairing ? 'Onarılıyor…' : `${String(unindexed)} yorum indekslenmemiş — onar`}
                 </PillButton>
-              ) : null}
-            </div>
+              ) : null
+            }
+          />
 
-            <div className="rounded-card border border-border bg-raised p-5 shadow-card">
-              <TextAreaField
-                id="commentary-body"
-                label="Bu dönem ne oldu?"
-                value={body}
-                onChange={setBody}
-                rows={3}
-                disabled={saving}
-                placeholder="Mart'ta nakit sıkıştı çünkü X müşterisi ödemeyi geciktirdi."
-                hint="⚠️ Yapay zekânın okuduğu TEK finans yüzeyi burasıdır. İşlem açıklamaları gömülmez — rakamlar zaten tabloda, buraya NEDENİ yazılır."
-              />
-              <FormError message={formError} />
-              <div className="mt-4 flex justify-end">
-                <PrimaryButton
-                  disabled={saving || body.trim() === ''}
-                  onClick={() => {
-                    void save();
-                  }}
-                >
-                  {saving ? 'Kaydediliyor…' : 'Yorumu kaydet'}
-                </PrimaryButton>
-              </div>
-            </div>
+          <DeskBody>
+            <FormError message={error} />
 
-            {commentaries.length === 0 ? (
-              loading ? null : (
-                <EmptyState
-                  title="Henüz yorum yok"
-                  hint="Rakamlar bir dönemin ne olduğunu söyler, nedenini söylemez. Buraya yazdığınız her cümleyi yapay zekâ okur ve sorularınızda kullanır."
+            <Rise delay={ROOM_RISE.desk}>
+              <section className="mb-7 flex flex-col gap-2.5">
+                {loading ? null : <CurrencyTotals summary={summary} />}
+              </section>
+
+              <div className="rounded-card border border-border bg-raised p-5 shadow-card">
+                <TextAreaField
+                  id="commentary-body"
+                  label="Bu dönem ne oldu?"
+                  value={body}
+                  onChange={setBody}
+                  rows={3}
+                  disabled={saving}
+                  placeholder="Mart'ta nakit sıkıştı çünkü X müşterisi ödemeyi geciktirdi."
+                  hint="⚠️ Yapay zekânın okuduğu TEK finans yüzeyi burasıdır. İşlem açıklamaları gömülmez — rakamlar zaten tabloda, buraya NEDENİ yazılır."
                 />
-              )
-            ) : (
-              <ul className="flex flex-col gap-2.5">
-                {commentaries.map((commentary) => (
-                  <li key={commentary.id}>
-                    <RecordCard>
-                      <span className="font-mono text-[9.5px] font-medium tracking-[0.09em] text-fg-3 uppercase tabular">
-                        {formatCalendarDay(commentary.occurredOn)}
-                      </span>
-                      <p className="text-[13px] leading-[1.65] text-fg-2">{commentary.body}</p>
-                    </RecordCard>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </Rise>
-      </ModuleBody>
-    </div>
+                <FormError message={formError} />
+                <div className="mt-4 flex justify-end">
+                  <PrimaryButton
+                    disabled={saving || body.trim() === ''}
+                    onClick={() => {
+                      void save();
+                    }}
+                  >
+                    {saving ? 'Kaydediliyor…' : 'Yorumu kaydet'}
+                  </PrimaryButton>
+                </div>
+              </div>
+
+              {commentaries.length === 0 ? (
+                loading ? null : (
+                  <EmptyState
+                    title="Henüz yorum yok"
+                    hint="Rakamlar bir dönemin ne olduğunu söyler, nedenini söylemez. Buraya yazdığınız her cümleyi yapay zekâ okur ve sorularınızda kullanır."
+                  />
+                )
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {commentaries.map((commentary) => (
+                    <li key={commentary.id}>
+                      <RecordCard>
+                        <span className="font-mono text-[9.5px] font-medium tracking-[0.09em] text-fg-3 uppercase tabular">
+                          {formatCalendarDay(commentary.occurredOn)}
+                        </span>
+                        <p className="text-[13px] leading-[1.65] text-fg-2">{commentary.body}</p>
+                      </RecordCard>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

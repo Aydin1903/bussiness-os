@@ -19,7 +19,7 @@ import { useSession } from '@/lib/session/session-provider';
  * + bo_last_tenant; identity dolduysa refresh cookie ile retry). Sonra `router.refresh()`:
  * gerçek tenant-scoped veri geldiğinde otomatik yeniden çekilir.
  */
-export function CompanySwitcher() {
+export function CompanySwitcher({ compact = false }: { compact?: boolean } = {}) {
   const router = useRouter();
   const { currentTenantId } = useSession();
   const [items, setItems] = useState<MyMembershipItem[] | null>(null);
@@ -65,6 +65,46 @@ export function CompanySwitcher() {
     }
   }
 
+  /*
+   * DAR MOD — koridorda (ADR-0038 §2) yalnızca 54 px genişlik var.
+   *
+   * Şirket ADI oraya sığmaz, ama "hangi şirketteyim" sorusunun cevabı
+   * gizlenemez de. Çözüm baş harflerdir: geniş modda zaten rozet olarak
+   * duruyorlardı, dar modda rozet TEK BAŞINA kalır ve tam ad `title` +
+   * `aria-label` ile taşınır — yani görsel kullanıcı harfleri, ekran okuyucu
+   * kullanıcısı tam adı alır.
+   */
+  if (compact) {
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((value) => !value);
+          }}
+          disabled={items === null || switching}
+          title={label}
+          aria-label={`Şirket: ${label}. Değiştirmek için seçin.`}
+          className="grid h-8 w-8 place-items-center rounded-[9px] bg-fill-2 text-[10.5px] font-bold text-fg-2 transition-colors hover:bg-fill hover:text-fg disabled:opacity-60"
+        >
+          {switching ? '···' : initials(label)}
+        </button>
+
+        {open ? (
+          <Popover
+            items={items}
+            currentTenantId={currentTenantId}
+            onChoose={choose}
+            onClose={() => {
+              setOpen(false);
+            }}
+            anchor="left-full ml-2 top-0"
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <button
@@ -90,41 +130,73 @@ export function CompanySwitcher() {
       </button>
 
       {open ? (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => {
-              setOpen(false);
-            }}
-            aria-hidden="true"
-          />
-          <div className="absolute left-0 z-20 mt-2 w-full min-w-[240px] rounded-card border border-border bg-raised p-1 shadow-float">
-            {items !== null && items.length > 0 ? (
-              <ul className="flex flex-col">
-                {items.map((item) => (
-                  <li key={item.tenantId}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void choose(item.tenantId);
-                      }}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-fill"
-                    >
-                      <span className="truncate text-fg">{item.tenantName}</span>
-                      {item.tenantId === currentTenantId ? (
-                        <CheckIcon className="shrink-0 text-fg" width={16} height={16} />
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-3 py-2 text-sm text-fg-muted">Üye olduğun bir şirket yok.</p>
-            )}
-          </div>
-        </>
+        <Popover
+          items={items}
+          currentTenantId={currentTenantId}
+          onChoose={choose}
+          onClose={() => {
+            setOpen(false);
+          }}
+          anchor="left-0 mt-2 w-full min-w-[240px]"
+        />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Şirket listesi — iki modun PAYLAŞTIĞI tek gövde.
+ *
+ * ⚠️ Kopyalanmadı. Dar mod eklenirken bu listeyi ikinci kez yazmak, tenant
+ * değiştirme gibi güvenlik sonucu olan bir akışı iki yerde tutmak olurdu;
+ * biri düzeltilip diğeri unutulduğunda hata SESSİZ olurdu. Modlar arasındaki
+ * tek fark konumlandırmadır ve o da `anchor` ile geçiyor.
+ */
+function Popover({
+  items,
+  currentTenantId,
+  onChoose,
+  onClose,
+  anchor,
+}: {
+  items: MyMembershipItem[] | null;
+  currentTenantId: string | undefined;
+  onChoose: (tenantId: string) => Promise<void>;
+  onClose: () => void;
+  anchor: string;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden="true" />
+      <div
+        className={`absolute z-20 rounded-card border border-border bg-raised p-1 shadow-float ${anchor}`}
+      >
+        {items !== null && items.length > 0 ? (
+          <ul className="flex w-full min-w-[220px] flex-col">
+            {items.map((item) => (
+              <li key={item.tenantId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void onChoose(item.tenantId);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-fill"
+                >
+                  <span className="truncate text-fg">{item.tenantName}</span>
+                  {item.tenantId === currentTenantId ? (
+                    <CheckIcon className="shrink-0 text-fg" width={16} height={16} />
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="min-w-[220px] px-3 py-2 text-sm text-fg-muted">
+            Üye olduğun bir şirket yok.
+          </p>
+        )}
+      </div>
+    </>
   );
 }
 

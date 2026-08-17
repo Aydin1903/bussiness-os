@@ -3,7 +3,7 @@
 Business OS — Frontend Mimarisi
 
 > **Durum:** Faz 5 sürüyor — Panel + "Atölye" + modül başına imza rengi + "Asistanım" paneli + bağımlılıksız görselleştirme — ✅ **Kabul edildi**
-> **Sürüm:** 1.7
+> **Sürüm:** 2.0
 > **Son güncelleme:** 2026-08-12
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
@@ -194,9 +194,43 @@ SessionState = {
 
 ---
 
-## 4. Tasarım token sistemi — "Atölye": malzeme + derinlik
+## 4. Tasarım token sistemi — "ODA": modülün rengi ekranın zeminidir
 
-> **Sürüm 3 — "ATÖLYE" (2026-08-05).** Product Owner üç yön arasından bunu seçti.
+> **Sürüm 4 — "ODA" (2026-08-17, ADR-0038).** Product Owner dört yapısal
+> konsept arasından bunu seçti. Tez: **her modül kendi ışığı ve derinliği olan
+> bir ODA'dır.** Modülün imza rengi artık bir düğme dolgusu değil, ekranın
+> tamamını yıkayan **tuval rengidir**.
+>
+> Her oda tek bir dikey kaydırmada iki bölgedir: üstte **duvar** (kahraman
+> rakam + uydular + asistanın cümlesi — "ne oluyor"), altta **tezgah** (yoğun
+> liste — "ne yapacağım"). Gezinme, odaların dizildiği bir **koridordur**.
+>
+> **Neyi çözdü** (ölçülmüş teşhis, ADR-0038 Bağlam):
+>
+> | Bulgu                               | Cevap                                              |
+> | ----------------------------------- | -------------------------------------------------- |
+> | Yazı boyutlarının %89'u 9–13,5 px   | Duvarın kahramanı 9 px ile ~64 px'i yan yana koyar |
+> | 13 ekranın 13'ü 720 px tek sütun    | Duvar/tezgah iskeleti + tek ızgara (§4.11)         |
+> | Renk ekranın ~%2'si                 | Tuval katmanı rengi zeminin tamamına yayar         |
+> | Üç modülde AI yüzeyi yok            | `RoomAi` — **kısmen**, aşağıdaki açık borç         |
+> | Bekleme/boşluk anları tasarlanmamış | `DeskSkeleton`, boş oda, iskeletli duvar           |
+>
+> ⚠️ **NÖTR EKSEN SICAKTAN SOĞUĞA ÇEKİLDİ** (`#f5efe7`/`#1e1811` →
+> `#f6f6f7`/`#16181b`). İki gerekçe: KobiWise'ın işareti soğuk fümedir, ve
+> daha ağır basanı — zemin on iki modül renginden biriyle yıkanacak, sıcak bir
+> taban o hue'ların yarısıyla çakışırdı. **Nötr taban oda sisteminin işlevsel
+> bir koşuludur.**
+>
+> ⚠️ **TEMA ANAHTARI ARTIK VAR** (üç durum: sistem/açık/koyu, `bo_theme`).
+> Koyu tema eskiden yalnızca işletim sistemi tercihinden geliyordu.
+>
+> ⚠️ **KREM ZEMİN TERK EDİLDİ** ve bu ayrı bir kazanç: krem + serif + terracotta
+>
+> - yuvarlak kart, 2026'da yapay zekâ üretimi arayüzün en tanınan imzasıydı.
+>
+> ---
+>
+> **Sürüm 3 — "ATÖLYE" (2026-08-05) — YERİNİ ODA'YA BIRAKTI.** Product Owner üç yön arasından bunu seçti.
 > Tez: **premium = MALZEME + DERİNLİK.** Ekran düz bir yüzey değil, katmanlı bir
 > masa — zemin sıcak kağıt, panel onun üstünde yüzer, kartlar panelin üstünde
 > durur. Işık yukarıdan gelir ve gölgeler **SICAK**: nötr siyah gölge sıcak bir
@@ -764,3 +798,4 @@ Bu ikisi olmadan switcher yalnızca "girişten hemen sonra" çalışırdı. Baş
 | 1.5   | 2026-08-08 | **Modül başına imza rengi** (Product Owner kararı; yeni [§4.8](#48-modül-başına-imza-rengi), ilk uygulama CRM). On iki modülün paleti OKLCH'te hue'ya oturtulup açıklık taranarak seçildi; hedef AA eşiği değil §4.4'te ölçülmüş terracottanın karakteriydi. **Kural bağlayıcıdır: AI'ın sesi her modülde terracotta kalır** (`--ai-accent`/`--ai-ink`/`--ai-tint`, hiçbir modül ezemez) — CRM dahil her modül kendi rengini alır, çünkü referans modülün terracottayı koruması tam da ayrımı yok edecek çakışmayı üretirdi. Mekanizma `[data-module]` alt ağaç override'ıdır ve §4.1'in `@theme inline` kararının doğrudan sonucudur (derleyici çıktısıyla doğrulandı: `bg-accent` → `var(--accent)`, ara değişken atlanır); kapsam modülün kendi `layout.tsx`'indedir, kabukta değil. **§4.4'e uyarı eklendi** — oradaki `--accent`/`--ink` artık kök değerleridir, modül içinde değişir. Üç bilinen sınır kayda geçti: `data-module` unutulursa hata sessizdir · **modül rengi iki biçimde yazılır** (hex + `R G B`) ve senkron kalmalıdır — bu, `color-mix`'ten vazgeçilerek kabul edilen bedeldir: derlenmiş CSS'e bakınca Lightning CSS'in `color-mix` için ürettiği geri düşüşün `--tint`'i ince bir yıkama yerine **dolu renk** yaptığı görüldü (çip zeminleri okunmaz olurdu), `rgb(… / %)` ise geri düşüş gerektirmiyor ve kararın tek tarayıcı bağımlılığı böylece ortadan kalktı · **renk tek başına bilgi taşımaz** (renk körlüğü). Not: `1.4` (Atölye) başlıkta kullanılmış ama bu tabloya hiç girmemişti — geçmiş yeniden yazılmadı, ROADMAP §8'in "doküman sürüm numarası denetimi" kalemine bir örnek daha.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 1.6   | 2026-08-12 | **"Asistanım" paneli** — yeni [§4.9](#49-asistanım-paneli--modül-içi-ai-özetinin-standart-biçimi): bir modülde bir **varlık** için AI özeti gösterilecekse **varsayılan daraltılmış + tek satırlık proaktif önizleme + genişletilebilir gövde** ile kurulur. Desen bir tercih olarak değil bir **çarpışmanın** çözümü olarak doğdu: CRM'in koşulsuz açık özeti (ADR-0032) modülün kendi verisini ilk ekranın dışına itiyordu, ama sessiz bir daraltma da AI'ı hiç açılmayan bir kutuya çevirirdi — bu yüzden desenin **iki** yarısı vardır ve önizleme pazarlık konusu değildir. **⚠️ Önizlemede SAYI gösterilmesi yasaklandı** ("3 gözlemim var"): özet sözleşmeleri düz metin taşır (`summary: string \| null`) ve özet prompt'ları madde işaretini **açıkça yasaklar**, yani sayılabilir bir "gözlem" birimi hiçbir yerde yoktur; istemcide cümle sayarak türetmek **denendi ve reddedildi** — Türkçe'de binlik ayracı noktadır ve para bu projede hiçbir noktada `number` olmaz, `1.500.000 TL` içeren bir özet üç sahte cümleye bölünür ve hata **sessizdir**. Önizleme AI'ın gerçek ilk cümlesidir: yanlış bölünürse yalnızca kısa görünür, yanlış **bilgi** vermez — kural bu asimetriden doğar. Yedi zorunlu davranış kayda geçti (daraltılabilirlik özetin **varlığına** bağlıdır, tercihe değil · tercih saklanmaz · tek tıklama hedefi · `aria-expanded`/`aria-controls` · gövde **kendi içinde** kaydırır, `max-h` iki biçimde verilir · **bayatlık daraltılmışken de yazılır**, yoksa kullanıcı bayat özeti güncel sanar · AI'ın sesi §4.8 gereği terracotta kalır). **⚠️ Yükseklik animasyonu YOKTUR** ve gerekçe §4.8'in `color-mix` kararından birebir devralındı: `grid-template-rows: 0fr→1fr` yeni bir tarayıcı taban çizgisi demekti, animasyon edilen tek şey okun dönüşüdür. Bileşen `module-kit`'e **henüz çıkarılmadı** (tek uygulama var, genellik ikinci kullanımda öğrenilir); deseni ikinci kez uygulayan modül çıkarmakla **yükümlüdür**. §4.9.5 üç modülün durumunu tabloya bağlar — Projeler ve Finans'ta modül içi AI yüzeyi v1'de **yok**.                                                            |
 | 1.7   | 2026-08-12 | **Veri görselleştirme: grafik kütüphanesi REDDEDİLDİ** (Product Owner kararı; yeni [§4.10](#410-veri-görselleştirme--grafik-kütüphanesi-reddedildi-product-owner-kararı-2026-08-12)). İlk uygulama Finans kategori kırılımı (`category-bars.tsx`, `/app/finance/cashflow`). recharts değerlendirildi ve alınmadı — üç gerekçe: **on bir geçişli bağımlılık** (aralarında `@reduxjs/toolkit`, `react-redux`, `immer`, `reselect`, yani state kütüphanesiz bir projeye **Redux girmesi**; 7.3 MB kurulum / 21.5 MB açılmış) · **para hiçbir noktada `number` olmaz** ve kütüphane biçimlendirmeyi kendi tooltip/axis katmanından geçirir, sunucunun kanonik dizesi orada kaybolur · **iş bir `div` genişliğidir** ve token'lar/iki tema/`[data-module]` bedava gelir. ⚠️ **Bundle etkisi ÖLÇÜLMEDİ** — karar gerekçeye dayanıyor; kütüphane gerçekten gerekirse ilk adım ölçüm olmalıdır. §4.10.2 kararın yeniden açılma koşullarını sayıyor (çeşitlilik · etkileşim · **üçüncü** kopya; ikinci kopya `module-kit` sinyalidir). §4.10.3 yedi bağlayıcı kural: gelir/gider ayrımını **başlık** taşır renk değil · `--danger` yok, renk kuralı `DirectionPill`den devralınır (gelir uyanık, gider sessiz) · her grup **kendi içinde** normalize (ortak ölçek ADR-0034 §5.1'in "toplanmıyor" ilkesini bozardı) · ⚠️ **payda grubun İLAN EDİLMİŞ toplamıdır**, kategori toplamı değil — kategori toplamına bölmek eksik bir kırılımı **kusursuz gösterirdi**, ilan edilene bölmek eksiği **görünür** kılar ve ADR-0034 §3d'nin "Kategorisiz" garantisini ekranda kanıtlar · hiçbir satır elenmez (sıfır tutarlı dahil; sıfır boş çubuk, çok küçük pay `min-w-[2px]` sliver) · çubuk `aria-hidden`, sayı ve etiket gerçek metin · sabit etiket kolonu çubukları hizalar. **§4.10.4 kalıcı ders:** `categories` **opt-in**'dir (`null` = istenmedi) ve `includeCategories=true` sunucuda ek toplama sorgusu koşar — grafik bu yüzden `/app/finance`'e **konmadı**, işlem listesinin kırılımı istememesinin yazılı gerekçesi var. Bir grafiği "sadece görsel cila" diye taşımak, o ekranın her yüklemesine sessizce bir sorgu eklemek olabilir. |
+| 2.0   | 2026-08-17 | **ODA tasarım sistemi (ADR-0038).** §4 "Atölye" → "Oda": modülün rengi ekranın zemini oldu (tuval katmanı), duvar/tezgah iskeleti `ModuleHeader`/`ModuleBody`'nin yerini aldı ve on üç ekranın on üçü odaya çevrildi. Nötr eksen sıcaktan soğuğa çekildi; tema anahtarı (üç durum) eklendi; koridor `sidebar.tsx`'in yerini aldı ve açılıp kapanabilir oldu. Panel **ikiye ayrıldı** (`/app` brifing + `/app/chat` sohbet). Marka: K işareti yalnızca küçük yüzeyler (favicon + mobil ikon **eklendi**, önce hiç yoktu), yazılı logo yer olan her yer. Finans'a genel özet grafikleri (halka + net eğilim, elle SVG).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |

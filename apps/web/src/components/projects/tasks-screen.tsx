@@ -5,17 +5,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createTask, deleteTask, listTasks, updateTask } from '@/lib/api/projects';
 import { errorMessage } from '@/lib/api/error-message';
+import { ProjectsWall } from './projects-wall';
+import { Desk, DeskBody, DeskHead, Room, RoomScroll, RoomTop } from '@/components/room/room';
+
 import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import {
   fieldErrors,
   NO_FIELD_ERRORS,
@@ -146,106 +141,118 @@ export function TasksScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Yapılacaklar"
-        subtitle={
-          <TaskCount scope={scope} loading={loading} failed={error !== null} total={state.total} />
-        }
-        right={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <ProjectTabs />
-            {readOnly || creating ? null : (
-              <PrimaryButton
-                onClick={() => {
-                  setCreating(true);
-                }}
-              >
-                Yeni görev
-              </PrimaryButton>
-            )}
-          </div>
-        }
-      />
-
-      <ModuleBody>
-        <div className="mb-5">
-          <ScopeFilter scope={scope} onPick={pickScope} />
-        </div>
-
-        {creating ? (
-          <InlineTaskForm
-            pending={busy}
-            error={formError}
-            onSubmit={(body) => {
-              void run(() => createTask(body), setFormError).then(() => {
-                setCreating(false);
-              });
-            }}
-            onCancel={() => {
-              setCreating(false);
-              setFormError(null);
-            }}
-          />
-        ) : null}
-
-        <div className="flex flex-col gap-3">
-          <FormError message={error} />
-          <FormError message={actionError} />
-        </div>
-
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Yapılacaklar"
+          meta={
+            <TaskCount
               scope={scope}
               loading={loading}
               failed={error !== null}
-              readOnly={readOnly}
-              onCreate={() => {
-                setCreating(true);
+              total={state.total}
+            />
+          }
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <ProjectTabs />
+              {readOnly || creating ? null : (
+                <PrimaryButton
+                  onClick={() => {
+                    setCreating(true);
+                  }}
+                >
+                  Yeni görev
+                </PrimaryButton>
+              )}
+            </div>
+          }
+        />
+
+        <ProjectsWall />
+
+        <Desk>
+          <DeskHead title="Yapılacaklar" />
+          <DeskBody>
+            <div className="mb-5">
+              <ScopeFilter scope={scope} onPick={pickScope} />
+            </div>
+
+            {creating ? (
+              <InlineTaskForm
+                pending={busy}
+                error={formError}
+                onSubmit={(body) => {
+                  void run(() => createTask(body), setFormError).then(() => {
+                    setCreating(false);
+                  });
+                }}
+                onCancel={() => {
+                  setCreating(false);
+                  setFormError(null);
+                }}
+              />
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              <FormError message={error} />
+              <FormError message={actionError} />
+            </div>
+
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent
+                  scope={scope}
+                  loading={loading}
+                  failed={error !== null}
+                  readOnly={readOnly}
+                  onCreate={() => {
+                    setCreating(true);
+                  }}
+                />
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {state.items.map((task) => (
+                    <li key={task.id}>
+                      <InboxTaskCard
+                        task={task}
+                        readOnly={readOnly}
+                        busy={busy}
+                        onToggle={() => {
+                          void run(
+                            () =>
+                              updateTask(task.id, {
+                                status: task.status === 'done' ? 'todo' : 'done',
+                              }),
+                            setActionError,
+                          );
+                        }}
+                        onDelete={() => {
+                          void run(() => deleteTask(task.id), setActionError);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
+
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
+              loading={loading}
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
               }}
             />
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {state.items.map((task) => (
-                <li key={task.id}>
-                  <InboxTaskCard
-                    task={task}
-                    readOnly={readOnly}
-                    busy={busy}
-                    onToggle={() => {
-                      void run(
-                        () =>
-                          updateTask(task.id, {
-                            status: task.status === 'done' ? 'todo' : 'done',
-                          }),
-                        setActionError,
-                      );
-                    }}
-                    onDelete={() => {
-                      void run(() => deleteTask(task.id), setActionError);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
-        />
-      </ModuleBody>
-    </div>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

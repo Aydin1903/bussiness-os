@@ -5,18 +5,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createProject, deleteProject, listProjects, updateProject } from '@/lib/api/projects';
 import { errorMessage } from '@/lib/api/error-message';
+import { ProjectsWall } from './projects-wall';
+import { Desk, DeskBody, DeskHead, Room, RoomScroll, RoomTop } from '@/components/room/room';
+
 import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { CountMark } from '@/components/module-kit/marks';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import {
   CardAction,
   CardActions,
@@ -154,92 +149,99 @@ export function ProjectsScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Projeler"
-        subtitle={<ProjectCount loading={loading} failed={error !== null} total={state.total} />}
-        right={
-          // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
-          // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
-          // ekranda `flex-wrap` ile alt alta düşerler (`CompaniesScreen` deseni).
-          <div className="flex flex-wrap items-center gap-2.5">
-            <ProjectTabs />
-            {readOnly || form.kind !== 'none' ? null : (
-              <PrimaryButton
-                onClick={() => {
-                  setForm({ kind: 'new' });
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Projeler"
+          meta={<ProjectCount loading={loading} failed={error !== null} total={state.total} />}
+          action={
+            // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
+            // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
+            // ekranda `flex-wrap` ile alt alta düşerler (`CompaniesScreen` deseni).
+            <div className="flex flex-wrap items-center gap-2.5">
+              <ProjectTabs />
+              {readOnly || form.kind !== 'none' ? null : (
+                <PrimaryButton
+                  onClick={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                >
+                  Yeni proje
+                </PrimaryButton>
+              )}
+            </div>
+          }
+        />
+
+        <ProjectsWall />
+
+        <Desk>
+          <DeskHead title="Proje listesi" />
+          <DeskBody>
+            {form.kind === 'none' ? null : (
+              <ProjectForm
+                {...(form.kind === 'edit' ? { initial: form.project } : {})}
+                pending={saving}
+                error={formError}
+                onSubmit={(body) => {
+                  void save(body);
                 }}
-              >
-                Yeni proje
-              </PrimaryButton>
+                onCancel={closeForm}
+              />
             )}
-          </div>
-        }
-      />
 
-      <ModuleBody>
-        {form.kind === 'none' ? null : (
-          <ProjectForm
-            {...(form.kind === 'edit' ? { initial: form.project } : {})}
-            pending={saving}
-            error={formError}
-            onSubmit={(body) => {
-              void save(body);
-            }}
-            onCancel={closeForm}
-          />
-        )}
+            <div className="flex flex-col gap-3">
+              <FormError message={error} />
+              <FormError message={actionError} />
+            </div>
 
-        <div className="flex flex-col gap-3">
-          <FormError message={error} />
-          <FormError message={actionError} />
-        </div>
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent
+                  loading={loading}
+                  failed={error !== null}
+                  readOnly={readOnly}
+                  onCreate={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                />
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {state.items.map((project) => (
+                    <li key={project.id}>
+                      <ProjectCard
+                        project={project}
+                        readOnly={readOnly}
+                        deleting={deletingId === project.id}
+                        onEdit={() => {
+                          setForm({ kind: 'edit', project });
+                        }}
+                        onDelete={() => {
+                          void remove(project.id);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
 
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
               loading={loading}
-              failed={error !== null}
-              readOnly={readOnly}
-              onCreate={() => {
-                setForm({ kind: 'new' });
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
               }}
             />
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {state.items.map((project) => (
-                <li key={project.id}>
-                  <ProjectCard
-                    project={project}
-                    readOnly={readOnly}
-                    deleting={deletingId === project.id}
-                    onEdit={() => {
-                      setForm({ kind: 'edit', project });
-                    }}
-                    onDelete={() => {
-                      void remove(project.id);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
-        />
-      </ModuleBody>
-    </div>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

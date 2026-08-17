@@ -5,14 +5,18 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createAppointment, listAppointments, updateAppointment } from '@/lib/api/appointments';
 import { errorMessage } from '@/lib/api/error-message';
+import { AppointmentsWall } from './appointments-wall';
 import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
+
+import { PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import { WeekGrid, addDays, startOfWeek, type TimeBlock } from '@/components/module-kit/week-grid';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
@@ -137,85 +141,92 @@ export function AppointmentsWeekScreen() {
   const blocks = toBlocks(items);
 
   return (
-    <>
-      <ModuleHeader
-        title="Randevular"
-        subtitle={`${weekStart.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} haftası · ${String(items.length)} kayıt`}
-        right={
-          <div className="flex items-center gap-2">
-            <AppointmentTabs />
-            <PillButton
-              onClick={() => {
-                setWeekStart((current) => addDays(current, -7));
-              }}
-            >
-              ‹
-            </PillButton>
-            <PillButton
-              onClick={() => {
-                setWeekStart(startOfWeek(new Date()));
-              }}
-            >
-              Bu hafta
-            </PillButton>
-            <PillButton
-              onClick={() => {
-                setWeekStart((current) => addDays(current, 7));
-              }}
-            >
-              ›
-            </PillButton>
-            <PrimaryButton
-              onClick={() => {
-                setEditing(null);
-                setFormError(null);
-                setFormOpen(true);
-              }}
-            >
-              Yeni randevu
-            </PrimaryButton>
-          </div>
-        }
-      />
-
-      <ModuleBody>
-        {error === null ? null : <FormError message={error} />}
-
-        {formOpen ? (
-          <Rise delay={RISE.body}>
-            <AppointmentForm
-              initial={editing}
-              onSubmit={submit}
-              onCancel={() => {
-                setFormOpen(false);
-                setEditing(null);
-              }}
-              pending={pending}
-              error={formError}
-            />
-          </Rise>
-        ) : null}
-
-        {loading ? (
-          <EmptyState title="Yükleniyor…" hint="Haftanın randevuları getiriliyor." />
-        ) : (
-          <Rise delay={RISE.body}>
-            <WeekGrid
-              weekStart={weekStart}
-              blocks={blocks}
-              emptyLabel="Bu hafta randevu yok."
-              onSelectBlock={(id) => {
-                const row = items.find((item) => item.id === id);
-                if (row !== undefined) {
-                  setEditing(row);
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Randevular"
+          meta={`${weekStart.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} haftası · ${String(items.length)} kayıt`}
+          action={
+            <div className="flex items-center gap-2">
+              <AppointmentTabs />
+              <PillButton
+                onClick={() => {
+                  setWeekStart((current) => addDays(current, -7));
+                }}
+              >
+                ‹
+              </PillButton>
+              <PillButton
+                onClick={() => {
+                  setWeekStart(startOfWeek(new Date()));
+                }}
+              >
+                Bu hafta
+              </PillButton>
+              <PillButton
+                onClick={() => {
+                  setWeekStart((current) => addDays(current, 7));
+                }}
+              >
+                ›
+              </PillButton>
+              <PrimaryButton
+                onClick={() => {
+                  setEditing(null);
                   setFormError(null);
                   setFormOpen(true);
-                }
-              }}
-            />
-          </Rise>
-        )}
-      </ModuleBody>
-    </>
+                }}
+              >
+                Yeni randevu
+              </PrimaryButton>
+            </div>
+          }
+        />
+
+        <AppointmentsWall />
+
+        <Desk>
+          <DeskHead title="Hafta" />
+          <DeskBody>
+            {error === null ? null : <FormError message={error} />}
+
+            {formOpen ? (
+              <Rise delay={RISE.body}>
+                <AppointmentForm
+                  initial={editing}
+                  onSubmit={submit}
+                  onCancel={() => {
+                    setFormOpen(false);
+                    setEditing(null);
+                  }}
+                  pending={pending}
+                  error={formError}
+                />
+              </Rise>
+            ) : null}
+
+            {loading ? (
+              <DeskSkeleton />
+            ) : (
+              <Rise delay={RISE.body}>
+                <WeekGrid
+                  weekStart={weekStart}
+                  blocks={blocks}
+                  emptyLabel="Bu hafta randevu yok."
+                  onSelectBlock={(id) => {
+                    const row = items.find((item) => item.id === id);
+                    if (row !== undefined) {
+                      setEditing(row);
+                      setFormError(null);
+                      setFormOpen(true);
+                    }
+                  }}
+                />
+              </Rise>
+            )}
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }

@@ -17,14 +17,7 @@ import {
 } from '@/lib/api/finance';
 import { errorMessage } from '@/lib/api/error-message';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+import { EmptyState, PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import {
   CardAction,
   CardActions,
@@ -48,6 +41,21 @@ import {
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { FinanceTabs } from './chrome';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Hero,
+  HeroFigure,
+  Room,
+  ROOM_RISE,
+  RoomScroll,
+  RoomTop,
+  Satellite,
+  Satellites,
+  Wall,
+  DeskSkeleton,
+} from '@/components/room/room';
 import { DirectionPill } from './marks';
 
 const FORBIDDEN = 'Kategorileri yalnızca şirket sahibi veya yönetici yönetebilir.';
@@ -166,116 +174,159 @@ export function CategoriesScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Kategoriler"
-        subtitle="Gelir ve gider kalemleriniz · her kategori tek bir yöne aittir"
-        right={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <FinanceTabs />
-            {creating ? null : (
-              <PrimaryButton
-                onClick={() => {
-                  setCreating(true);
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Finans"
+          meta="sözlük · kategoriler"
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FinanceTabs />
+              {creating ? null : (
+                <PrimaryButton
+                  onClick={() => {
+                    setCreating(true);
+                  }}
+                >
+                  Yeni kategori
+                </PrimaryButton>
+              )}
+            </div>
+          }
+        />
+
+        {/*
+          ⚠️ BU ODANIN DUVARI FARKLI — ve bu kuralın istisnası değil, kuralın
+          kendisidir: duvarın kahramanı ROTANIN SORDUĞU SORUYA göre seçilir.
+          İşlemler ve Nakit akışı "dönem ne durumda?" diye sorar ve ortak bir
+          duvar paylaşır (`FinanceWall`). Kategoriler ise sözlük yönetir;
+          oraya dönem neti koymak, sorulmamış bir soruya dev puntoyla cevap
+          vermek olurdu.
+        */}
+        <Wall>
+          <Rise delay={ROOM_RISE.wall}>
+            <Hero label="Kategori sözlüğü">
+              <HeroFigure>{loading ? '—' : items.length}</HeroFigure>
+              <p className="mt-2 max-w-[44ch] text-[12.5px] leading-[1.6] text-fg-2">
+                Her kategori tek bir yöne aittir; bu kısıt veritabanı seviyesinde zorlanır — gelir
+                kaydına gider kategorisi seçilemez.
+              </p>
+            </Hero>
+          </Rise>
+
+          {loading ? null : (
+            <Rise delay={ROOM_RISE.ai}>
+              <Satellites>
+                <Satellite
+                  label={DIRECTION_LABELS.income}
+                  value={items.filter((item) => item.direction === 'income').length}
+                  note="kategori"
+                />
+                <Satellite
+                  label={DIRECTION_LABELS.expense}
+                  value={items.filter((item) => item.direction === 'expense').length}
+                  note="kategori"
+                />
+              </Satellites>
+            </Rise>
+          )}
+        </Wall>
+
+        <Desk>
+          <DeskHead title="Kategoriler" />
+
+          <DeskBody>
+            {creating ? (
+              <CategoryForm
+                pending={saving}
+                error={formError}
+                onSubmit={(body) => {
+                  void save(body);
                 }}
-              >
-                Yeni kategori
-              </PrimaryButton>
-            )}
-          </div>
-        }
-      />
-
-      <ModuleBody>
-        {creating ? (
-          <CategoryForm
-            pending={saving}
-            error={formError}
-            onSubmit={(body) => {
-              void save(body);
-            }}
-            onCancel={() => {
-              setCreating(false);
-              setFormError(null);
-            }}
-          />
-        ) : null}
-
-        <div className="flex flex-col gap-3">
-          <FormError message={error} />
-          <FormError message={actionError} />
-        </div>
-
-        <Rise delay={RISE.body}>
-          {items.length === 0 ? (
-            loading ? (
-              <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>
-            ) : error !== null ? null : (
-              <EmptyState
-                title="Henüz kategori yok"
-                hint="Kategoriler kayıtlarınızı sınıflandırır ve nakit akışı kırılımını mümkün kılar. Sabit bir liste yoktur — kendi kalemlerinizi siz açarsınız."
-                action={
-                  <PillButton
-                    onClick={() => {
-                      setCreating(true);
-                    }}
-                  >
-                    İlk kategoriyi aç
-                  </PillButton>
-                }
+                onCancel={() => {
+                  setCreating(false);
+                  setFormError(null);
+                }}
               />
-            )
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {items.map((category) => (
-                <li key={category.id}>
-                  <RecordCard>
-                    <CardHeader>
-                      <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                        <CardTitle>{category.name}</CardTitle>
-                        <DirectionPill direction={category.direction} />
-                        {category.isArchived ? (
-                          /*
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              <FormError message={error} />
+              <FormError message={actionError} />
+            </div>
+
+            <Rise delay={RISE.body}>
+              {items.length === 0 ? (
+                loading ? (
+                  <DeskSkeleton />
+                ) : error !== null ? null : (
+                  <EmptyState
+                    title="Henüz kategori yok"
+                    hint="Kategoriler kayıtlarınızı sınıflandırır ve nakit akışı kırılımını mümkün kılar. Sabit bir liste yoktur — kendi kalemlerinizi siz açarsınız."
+                    action={
+                      <PillButton
+                        onClick={() => {
+                          setCreating(true);
+                        }}
+                      >
+                        İlk kategoriyi aç
+                      </PillButton>
+                    }
+                  />
+                )
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {items.map((category) => (
+                    <li key={category.id}>
+                      <RecordCard>
+                        <CardHeader>
+                          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                            <CardTitle>{category.name}</CardTitle>
+                            <DirectionPill direction={category.direction} />
+                            {category.isArchived ? (
+                              /*
                             Arşiv rozeti: renk TEK bilgi taşıyıcısı değildir —
                             "arşiv" kelimesi zaten yazıyor (FRONTEND §4.8).
                           */
-                          <span className="inline-flex shrink-0 items-center rounded-[6px] border border-border-strong px-1.5 py-[2px] font-mono text-[9.5px] font-semibold tracking-[0.08em] text-fg-3 uppercase">
-                            arşiv
-                          </span>
-                        ) : null}
-                      </div>
+                              <span className="inline-flex shrink-0 items-center rounded-[6px] border border-border-strong px-1.5 py-[2px] font-mono text-[9.5px] font-semibold tracking-[0.08em] text-fg-3 uppercase">
+                                arşiv
+                              </span>
+                            ) : null}
+                          </div>
 
-                      <CardActions>
-                        <CardAction
-                          onClick={() => {
-                            void toggleArchive(category);
-                          }}
-                          ariaLabel={`${category.name} kategorisini ${category.isArchived ? 'arşivden çıkar' : 'arşivle'}`}
-                        >
-                          {busyId === category.id
-                            ? '…'
-                            : category.isArchived
-                              ? 'Arşivden çıkar'
-                              : 'Arşivle'}
-                        </CardAction>
-                        <ConfirmDelete
-                          pending={busyId === category.id}
-                          ariaLabel={`${category.name} kategorisini sil`}
-                          question={`"${category.name}" silinecek. Kullanımdaysa silinemez — o durumda arşivlemeniz gerekir.`}
-                          onConfirm={() => {
-                            void remove(category);
-                          }}
-                        />
-                      </CardActions>
-                    </CardHeader>
-                  </RecordCard>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Rise>
-      </ModuleBody>
-    </div>
+                          <CardActions>
+                            <CardAction
+                              onClick={() => {
+                                void toggleArchive(category);
+                              }}
+                              ariaLabel={`${category.name} kategorisini ${category.isArchived ? 'arşivden çıkar' : 'arşivle'}`}
+                            >
+                              {busyId === category.id
+                                ? '…'
+                                : category.isArchived
+                                  ? 'Arşivden çıkar'
+                                  : 'Arşivle'}
+                            </CardAction>
+                            <ConfirmDelete
+                              pending={busyId === category.id}
+                              ariaLabel={`${category.name} kategorisini sil`}
+                              question={`"${category.name}" silinecek. Kullanımdaysa silinemez — o durumda arşivlemeniz gerekir.`}
+                              onConfirm={() => {
+                                void remove(category);
+                              }}
+                            />
+                          </CardActions>
+                        </CardHeader>
+                      </RecordCard>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

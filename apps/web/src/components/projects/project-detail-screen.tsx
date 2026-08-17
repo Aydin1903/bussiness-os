@@ -15,7 +15,8 @@ import {
 } from '@/lib/api/projects';
 import { errorMessage } from '@/lib/api/error-message';
 import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
-import { ModuleBody, ModuleHeader, RISE } from '@/components/module-kit/chrome';
+import { RISE } from '@/components/module-kit/chrome';
+import { Desk, DeskBody, DeskHead, Room, RoomScroll, RoomTop } from '@/components/room/room';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { StatusPill } from './marks';
@@ -117,79 +118,102 @@ export function ProjectDetailScreen({ projectId }: { projectId: string }) {
 
   if (fatalError !== null) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ModuleHeader title="Proje" subtitle="Bu proje açılamadı" right={<BackLink />} />
-        <ModuleBody>
-          <FormError message={fatalError} />
-        </ModuleBody>
-      </div>
+      <Room>
+        <RoomScroll>
+          <RoomTop name="Proje" meta="Bu proje açılamadı" action={<BackLink />} />
+          <Desk>
+            <DeskHead title="Proje kaydı" />
+            <DeskBody>
+              <FormError message={fatalError} />
+            </DeskBody>
+          </Desk>
+        </RoomScroll>
+      </Room>
     );
   }
 
   if (state === null) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ModuleHeader title="Proje" subtitle="Yükleniyor…" right={<BackLink />} />
-        <ModuleBody>
-          <p className="text-[12.5px] text-fg-3">{loading ? 'Yükleniyor…' : null}</p>
-        </ModuleBody>
-      </div>
+      <Room>
+        <RoomScroll>
+          <RoomTop name="Proje" meta="Yükleniyor…" action={<BackLink />} />
+          <Desk>
+            <DeskHead title="Proje kaydı" />
+            <DeskBody>
+              <p className="text-[12.5px] text-fg-3">{loading ? 'Yükleniyor…' : null}</p>
+            </DeskBody>
+          </Desk>
+        </RoomScroll>
+      </Room>
     );
   }
 
   const { project, tasks, notes } = state;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title={project.name}
-        subtitle={<DetailSubtitle project={project} />}
-        right={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <StatusPill status={project.status} />
-            <BackLink />
-          </div>
-        }
-      />
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name={project.name}
+          meta={<DetailSubtitle project={project} />}
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <StatusPill status={project.status} />
+              <BackLink />
+            </div>
+          }
+        />
 
-      <ModuleBody>
-        <div className="flex flex-col gap-3">
-          <FormError message={actionError === '' ? null : actionError} />
-        </div>
+        {/*
+        ⚠️ BU ODANIN DUVARI YOKTUR — şirket detayıyla aynı gerekçe.
+        Duvar odanın DURUMUNU özetler; bir proje sayfasında özetlenecek bir
+        durum değil TEK BİR KAYIT vardır. Projeler'in genel "yürüyen iş"
+        sayısını buraya koymak, bakılan projeyle ilgisi olmayan bir dev rakam
+        olurdu.
+      */}
+        <Desk>
+          <DeskHead title="Proje kaydı" />
+          <DeskBody>
+            <div className="flex flex-col gap-3">
+              <FormError message={actionError === '' ? null : actionError} />
+            </div>
 
-        <Rise delay={RISE.body}>
-          <div className="flex flex-col gap-8">
-            <TaskSection
-              tasks={tasks}
-              readOnly={readOnly}
-              busy={busy}
-              onCreate={(body: CreateTaskRequest) => {
-                void run(() => createTask({ ...body, projectId }), setActionError);
-              }}
-              onToggle={(task) => {
-                void run(
-                  () => updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' }),
-                  setActionError,
-                );
-              }}
-              onDelete={(task) => {
-                void run(() => deleteTask(task.id), setActionError);
-              }}
-            />
+            <Rise delay={RISE.body}>
+              <div className="flex flex-col gap-8">
+                <TaskSection
+                  tasks={tasks}
+                  readOnly={readOnly}
+                  busy={busy}
+                  onCreate={(body: CreateTaskRequest) => {
+                    void run(() => createTask({ ...body, projectId }), setActionError);
+                  }}
+                  onToggle={(task) => {
+                    void run(
+                      () =>
+                        updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' }),
+                      setActionError,
+                    );
+                  }}
+                  onDelete={(task) => {
+                    void run(() => deleteTask(task.id), setActionError);
+                  }}
+                />
 
-            <ProgressNoteSection
-              notes={notes}
-              readOnly={readOnly}
-              busy={busy}
-              error={noteError === '' ? null : noteError}
-              onCreate={(body) => {
-                void run(() => createProgressNote({ projectId, body }), setNoteError);
-              }}
-            />
-          </div>
-        </Rise>
-      </ModuleBody>
-    </div>
+                <ProgressNoteSection
+                  notes={notes}
+                  readOnly={readOnly}
+                  busy={busy}
+                  error={noteError === '' ? null : noteError}
+                  onCreate={(body) => {
+                    void run(() => createProgressNote({ projectId, body }), setNoteError);
+                  }}
+                />
+              </div>
+            </Rise>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

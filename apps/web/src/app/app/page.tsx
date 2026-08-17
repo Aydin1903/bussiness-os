@@ -1,5 +1,5 @@
 import { OnboardingGate } from '@/components/dashboard/onboarding-gate';
-import { PanelScreen } from '@/components/panel/panel-screen';
+import { BriefingScreen } from '@/components/panel/briefing-screen';
 
 /**
  * `/app` — Panel.
@@ -15,10 +15,18 @@ import { PanelScreen } from '@/components/panel/panel-screen';
  * Sayfa Server Component kalır; ekranın tamamı Client'tır (oturum token'ı
  * memory'de, veri istemciden çekilir).
  */
+/**
+ * ⚠️ SOHBET BURADAN ÇIKTI (Product Owner kararı, 2026-08-17).
+ *
+ * Yukarıdaki "tek yüzeyde BİRLEŞTİ" kararı geri alındı: günlük özet ile sohbet
+ * aynı ekranda yarışıyor ve ekranı karmaşıklaştırıyordu. Panel artık yalnızca
+ * BRİFİNGdir (oku + not al); konuşma `/app/chat`e taşındı ve oraya buradaki
+ * "Sohbet et" düğmesiyle gidilir.
+ */
 export default function PanelPage() {
   return (
     <OnboardingGate>
-      <PanelScreen />
+      <BriefingScreen />
     </OnboardingGate>
   );
 }

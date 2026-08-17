@@ -25,6 +25,7 @@ import {
 } from '@/components/module-kit/record-card';
 import { formatMoney, StagePill } from './stage-pill';
 import { StageAgeMark } from './signals';
+import { DeskSkeleton } from '@/components/room/room';
 
 const FORBIDDEN =
   'Bu işlem için yetkiniz yok. Fırsatları yalnızca sahip, yönetici veya üye değiştirebilir.';
@@ -242,7 +243,9 @@ function EmptyOpportunities({
   readOnly: boolean;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     return <p className="text-[12.5px] text-fg-3">Fırsatlar şu an getirilemedi.</p>;

@@ -9,6 +9,7 @@ import { FormError } from '@/components/ui/form-error';
 import { PillButton, SectionLabel } from '@/components/module-kit/chrome';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { ContactForm } from './contact-form';
+import { DeskSkeleton } from '@/components/room/room';
 import {
   CardAction,
   CardActions,
@@ -200,7 +201,9 @@ function EmptyContacts({
   readOnly: boolean;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     return <p className="text-[12.5px] text-fg-3">Yetkililer şu an getirilemedi.</p>;

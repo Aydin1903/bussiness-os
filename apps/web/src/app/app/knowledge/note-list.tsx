@@ -54,9 +54,7 @@ export function NoteList({
       </div>
 
       {items.length === 0 && error === null ? (
-        <p className="mt-2 text-sm text-fg-muted">
-          {loading ? 'Yükleniyor…' : 'Henüz not eklenmemiş.'}
-        </p>
+        <p className="mt-2 text-sm text-fg-muted">{loading ? '' : 'Henüz not eklenmemiş.'}</p>
       ) : (
         <ul className="mt-2 flex flex-col divide-y divide-border">
           {items.map((item) => (

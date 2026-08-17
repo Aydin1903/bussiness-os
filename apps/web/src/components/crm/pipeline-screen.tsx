@@ -8,8 +8,10 @@ import {
 import Link from 'next/link';
 
 import { Rise } from '@/components/panel/stream';
-import { EmptyState, ModuleHeader, RISE, SectionLabel } from '@/components/module-kit/chrome';
+import { EmptyState, RISE, SectionLabel } from '@/components/module-kit/chrome';
 import { CrmTabs } from './chrome';
+import { CrmWall } from './crm-wall';
+import { Desk, DeskBody, DeskHead, Room, RoomScroll, RoomTop } from '@/components/room/room';
 import { FollowUpMark } from './follow-up-mark';
 import { formatMoney } from './stage-pill';
 import { StageAgeMark } from './signals';
@@ -57,42 +59,47 @@ export function PipelineScreen() {
   const empty = !loading && !anyFailed && total === 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Fırsatlar"
-        subtitle={<Subtitle loading={loading} failed={anyFailed} total={total} />}
-        right={<CrmTabs />}
-      />
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Fırsatlar"
+          meta={<Subtitle loading={loading} failed={anyFailed} total={total} />}
+          action={<CrmTabs />}
+        />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-5 pt-8 pb-10 md:px-10">
-          {empty ? (
-            <div className="mx-auto max-w-[720px]">
-              <EmptyState
-                title="Henüz fırsat yok"
-                hint="Her fırsat bir müşteriye bağlıdır. Bir müşteri açıp sayfasından ilk fırsatı ekleyin; buraya düşecek."
-                action={
-                  <Link
-                    href="/app/crm"
-                    className="text-[12.5px] font-semibold text-ink underline-offset-2 hover:underline"
-                  >
-                    Müşterilere git
-                  </Link>
-                }
-              />
-            </div>
-          ) : (
-            <Rise delay={RISE.body}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {columns.map((column) => (
-                  <Column key={column.stage} column={column} loading={loading} />
-                ))}
+        <CrmWall />
+
+        <Desk>
+          <DeskHead title="Hat" />
+          <DeskBody>
+            {empty ? (
+              <div>
+                <EmptyState
+                  title="Henüz fırsat yok"
+                  hint="Her fırsat bir müşteriye bağlıdır. Bir müşteri açıp sayfasından ilk fırsatı ekleyin; buraya düşecek."
+                  action={
+                    <Link
+                      href="/app/crm"
+                      className="text-[12.5px] font-semibold text-ink underline-offset-2 hover:underline"
+                    >
+                      Müşterilere git
+                    </Link>
+                  }
+                />
               </div>
-            </Rise>
-          )}
-        </div>
-      </div>
-    </div>
+            ) : (
+              <Rise delay={RISE.body}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  {columns.map((column) => (
+                    <Column key={column.stage} column={column} loading={loading} />
+                  ))}
+                </div>
+              </Rise>
+            )}
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 

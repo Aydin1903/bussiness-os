@@ -10,16 +10,18 @@ import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { CompanyForm } from './company-form';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import { CrmTabs } from './chrome';
+import { CrmWall } from './crm-wall';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
 import {
   CardAction,
   CardActions,
@@ -162,92 +164,99 @@ export function CompaniesScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Müşteriler"
-        subtitle={<CompanyCount loading={loading} failed={error !== null} total={state.total} />}
-        right={
-          // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
-          // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
-          // ekranda `flex-wrap` ile alt alta düşerler.
-          <div className="flex flex-wrap items-center gap-2.5">
-            <CrmTabs />
-            {readOnly || form.kind !== 'none' ? null : (
-              <PrimaryButton
-                onClick={() => {
-                  setForm({ kind: 'new' });
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Müşteriler"
+          meta={<CompanyCount loading={loading} failed={error !== null} total={state.total} />}
+          action={
+            // Sekmeler ile birincil eylem AYNI slotta: ikisi de "sağ taraf"tır ve
+            // ayrı bir satır açmak başlık şeridini iki kat yükseltirdi. Dar
+            // ekranda `flex-wrap` ile alt alta düşerler.
+            <div className="flex flex-wrap items-center gap-2.5">
+              <CrmTabs />
+              {readOnly || form.kind !== 'none' ? null : (
+                <PrimaryButton
+                  onClick={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                >
+                  Yeni müşteri
+                </PrimaryButton>
+              )}
+            </div>
+          }
+        />
+
+        <CrmWall />
+
+        <Desk>
+          <DeskHead title="Şirketler" />
+          <DeskBody>
+            {form.kind === 'none' ? null : (
+              <CompanyForm
+                {...(form.kind === 'edit' ? { initial: form.company } : {})}
+                pending={saving}
+                error={formError}
+                onSubmit={(body) => {
+                  void save(body);
                 }}
-              >
-                Yeni müşteri
-              </PrimaryButton>
+                onCancel={closeForm}
+              />
             )}
-          </div>
-        }
-      />
 
-      <ModuleBody>
-        {form.kind === 'none' ? null : (
-          <CompanyForm
-            {...(form.kind === 'edit' ? { initial: form.company } : {})}
-            pending={saving}
-            error={formError}
-            onSubmit={(body) => {
-              void save(body);
-            }}
-            onCancel={closeForm}
-          />
-        )}
+            <div className="flex flex-col gap-3">
+              <FormError message={error} />
+              <FormError message={actionError} />
+            </div>
 
-        <div className="flex flex-col gap-3">
-          <FormError message={error} />
-          <FormError message={actionError} />
-        </div>
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent
+                  loading={loading}
+                  failed={error !== null}
+                  readOnly={readOnly}
+                  onCreate={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                />
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {state.items.map((company) => (
+                    <li key={company.id}>
+                      <CompanyCard
+                        company={company}
+                        readOnly={readOnly}
+                        deleting={deletingId === company.id}
+                        onEdit={() => {
+                          setForm({ kind: 'edit', company });
+                        }}
+                        onDelete={() => {
+                          void remove(company.id);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
 
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
               loading={loading}
-              failed={error !== null}
-              readOnly={readOnly}
-              onCreate={() => {
-                setForm({ kind: 'new' });
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
               }}
             />
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {state.items.map((company) => (
-                <li key={company.id}>
-                  <CompanyCard
-                    company={company}
-                    readOnly={readOnly}
-                    deleting={deletingId === company.id}
-                    onEdit={() => {
-                      setForm({ kind: 'edit', company });
-                    }}
-                    onDelete={() => {
-                      void remove(company.id);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
-        />
-      </ModuleBody>
-    </div>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 
@@ -301,7 +310,9 @@ function EmptyContent({
   onCreate: () => void;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     // Hata zaten yukarıda `FormError` ile yazıldı; burada İKİNCİ bir iddia

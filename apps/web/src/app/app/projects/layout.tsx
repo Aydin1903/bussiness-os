@@ -22,8 +22,10 @@ import type { ReactNode } from 'react';
  *
  * ⚠️ BU MODÜL O KURALIN İKİNCİ SINAVIDIR. CRM tek örnekti; mekanizmanın
  * gerçekten genelleştiği ancak ikinci modülde görülür. Somut beklenti:
- * `/app/projects` altındaki her şey ZEYTİN, kabuk (sidebar'ın "BO" rozeti ve
- * şirket seçici) TERRACOTTA kalır — çünkü onlar marka, modül değil.
+ * `/app/projects` altındaki her şey ZEYTİN, kabuk (KobiWise işareti ve şirket
+ * seçici) modülün rengini ALMAZ — çünkü onlar marka, modül değil.
+ *
+ * ⚠️ İşaret artık terracotta da değildir, hiç renk taşımaz (ADR-0038 §7.1).
  *
  * ============================================================================
  * AI'IN SESİ

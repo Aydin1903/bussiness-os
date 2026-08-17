@@ -6,8 +6,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { deleteAppointment, listAppointments } from '@/lib/api/appointments';
 import { errorMessage } from '@/lib/api/error-message';
+import { AppointmentsWall } from './appointments-wall';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
+
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
-import { EmptyState, ModuleBody, ModuleHeader, Pager, RISE } from '@/components/module-kit/chrome';
+import { EmptyState, Pager, RISE } from '@/components/module-kit/chrome';
 import {
   CardAction,
   CardActions,
@@ -149,131 +160,134 @@ export function AppointmentsListScreen() {
         );
 
   return (
-    <>
-      <ModuleHeader
-        title="Randevular"
-        subtitle={`${String(total)} kayıt`}
-        right={<AppointmentTabs />}
-      />
+    <Room>
+      <RoomScroll>
+        <RoomTop name="Randevular" meta={`${String(total)} kayıt`} action={<AppointmentTabs />} />
 
-      <ModuleBody>
-        {error === null ? null : <FormError message={error} />}
+        <AppointmentsWall />
 
-        <Rise delay={RISE.body}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <TextField
-              id="filter-from"
-              label="Başlangıç"
-              type="date"
-              value={from}
-              onChange={(next) => {
-                setOffset(0);
-                setFrom(next);
-              }}
-            />
-            <TextField
-              id="filter-to"
-              label="Bitiş"
-              type="date"
-              value={to}
-              onChange={(next) => {
-                setOffset(0);
-                setTo(next);
-              }}
-            />
-            <SelectField
-              id="filter-status"
-              label="Durum"
-              value={status}
-              onChange={(next) => {
-                setOffset(0);
-                setStatus(next);
-              }}
-              options={STATUS_OPTIONS}
-            />
-            <TextField
-              id="filter-contact"
-              label="Kişi"
-              value={contactQuery}
-              onChange={setContactQuery}
-              placeholder="Ad ara"
-              hint="Yalnızca bu sayfada arar."
-            />
-          </div>
-        </Rise>
+        <Desk>
+          <DeskHead title="Tüm randevular" />
+          <DeskBody>
+            {error === null ? null : <FormError message={error} />}
 
-        {loading ? (
-          <EmptyState title="Yükleniyor…" hint="Randevular getiriliyor." />
-        ) : visible.length === 0 ? (
-          <EmptyState title="Kayıt yok" hint="Seçtiğiniz aralıkta randevu bulunamadı." />
-        ) : (
-          <Rise delay={RISE.body}>
-            <div className="flex flex-col gap-2">
-              {visible.map((row) => {
-                const startsAt = new Date(row.scheduledAt);
+            <Rise delay={RISE.body}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <TextField
+                  id="filter-from"
+                  label="Başlangıç"
+                  type="date"
+                  value={from}
+                  onChange={(next) => {
+                    setOffset(0);
+                    setFrom(next);
+                  }}
+                />
+                <TextField
+                  id="filter-to"
+                  label="Bitiş"
+                  type="date"
+                  value={to}
+                  onChange={(next) => {
+                    setOffset(0);
+                    setTo(next);
+                  }}
+                />
+                <SelectField
+                  id="filter-status"
+                  label="Durum"
+                  value={status}
+                  onChange={(next) => {
+                    setOffset(0);
+                    setStatus(next);
+                  }}
+                  options={STATUS_OPTIONS}
+                />
+                <TextField
+                  id="filter-contact"
+                  label="Kişi"
+                  value={contactQuery}
+                  onChange={setContactQuery}
+                  placeholder="Ad ara"
+                  hint="Yalnızca bu sayfada arar."
+                />
+              </div>
+            </Rise>
 
-                return (
-                  <RecordCard key={row.id}>
-                    <CardHeader>
-                      <CardTitle>
-                        {/* ⚠️ Kişi adı yoksa HİÇBİR ŞEY yazılmaz — "silinmiş"
+            {loading ? (
+              <DeskSkeleton />
+            ) : visible.length === 0 ? (
+              <EmptyState title="Kayıt yok" hint="Seçtiğiniz aralıkta randevu bulunamadı." />
+            ) : (
+              <Rise delay={RISE.body}>
+                <div className="flex flex-col gap-2">
+                  {visible.map((row) => {
+                    const startsAt = new Date(row.scheduledAt);
+
+                    return (
+                      <RecordCard key={row.id}>
+                        <CardHeader>
+                          <CardTitle>
+                            {/* ⚠️ Kişi adı yoksa HİÇBİR ŞEY yazılmaz — "silinmiş"
                             bile: null'ın üç sebebi ayırt edilmez. */}
-                        {row.contactName ?? 'Randevu'}
-                      </CardTitle>
-                      <StatusPill status={row.status} />
-                    </CardHeader>
+                            {row.contactName ?? 'Randevu'}
+                          </CardTitle>
+                          <StatusPill status={row.status} />
+                        </CardHeader>
 
-                    <CardMeta
-                      items={[
-                        startsAt.toLocaleString('tr-TR', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        }),
-                        `${String(row.durationMinutes)} dk`,
-                        row.serviceNote,
-                      ]}
-                    />
+                        <CardMeta
+                          items={[
+                            startsAt.toLocaleString('tr-TR', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            }),
+                            `${String(row.durationMinutes)} dk`,
+                            row.serviceNote,
+                          ]}
+                        />
 
-                    <CardActions>
-                      <CardAction
-                        onClick={() => {
-                          setDeleting(row.id);
-                        }}
-                        danger
-                      >
-                        Sil
-                      </CardAction>
-                    </CardActions>
+                        <CardActions>
+                          <CardAction
+                            onClick={() => {
+                              setDeleting(row.id);
+                            }}
+                            danger
+                          >
+                            Sil
+                          </CardAction>
+                        </CardActions>
 
-                    {deleting === row.id ? (
-                      <ConfirmDelete
-                        question="Bu randevu silinsin mi? Bu işlem geri alınamaz."
-                        ariaLabel="Randevuyu sil"
-                        onConfirm={() => {
-                          remove(row.id);
-                        }}
-                      />
-                    ) : null}
-                  </RecordCard>
-                );
-              })}
-            </div>
-          </Rise>
-        )}
+                        {deleting === row.id ? (
+                          <ConfirmDelete
+                            question="Bu randevu silinsin mi? Bu işlem geri alınamaz."
+                            ariaLabel="Randevuyu sil"
+                            onConfirm={() => {
+                              remove(row.id);
+                            }}
+                          />
+                        ) : null}
+                      </RecordCard>
+                    );
+                  })}
+                </div>
+              </Rise>
+            )}
 
-        <Pager
-          offset={offset}
-          count={visible.length}
-          total={total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((current) => Math.max(0, current - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((current) => current + PAGE_SIZE);
-          }}
-        />
-      </ModuleBody>
-    </>
+            <Pager
+              offset={offset}
+              count={visible.length}
+              total={total}
+              loading={loading}
+              onPrevious={() => {
+                setOffset((current) => Math.max(0, current - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((current) => current + PAGE_SIZE);
+              }}
+            />
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }

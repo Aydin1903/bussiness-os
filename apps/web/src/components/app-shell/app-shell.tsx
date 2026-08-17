@@ -3,11 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
+import { KobiWiseMark, KobiWiseWordmark } from '@/components/brand';
 import { MenuIcon } from '@/components/icons';
+import { Rail } from '@/components/room/rail';
 import { bootstrapSession } from '@/lib/session/bootstrap';
 import { clearSessionHint } from '@/lib/session/session-hint';
 import { getAccessToken } from '@/lib/session/session-store';
-import { Sidebar } from './sidebar';
 
 type Phase = 'loading' | 'ready' | 'redirect';
 
@@ -31,12 +32,38 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<Phase>(() =>
     getAccessToken() !== undefined ? 'ready' : 'loading',
   );
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const toggleCollapse = useCallback(() => {
-    setCollapsed((value) => !value);
+  /*
+   * Koridor genişliği — VARSAYILAN GENİŞ (ADR-0038 §2, PO 2026-08-17).
+   *
+   * ⚠️ Başlangıç `false` ve tercih efektte okunuyor: `useState(() =>
+   * localStorage…)` sunucuda ve istemcide farklı değer üretip hidrasyon
+   * uyuşmazlığı verirdi. Görsel bedeli bir karelik genişlik animasyonudur ve
+   * `transition-[width]` onu zaten yumuşatıyor.
+   */
+  const [railCollapsed, setRailCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setRailCollapsed(window.localStorage.getItem('bo_rail') === 'collapsed');
+    } catch {
+      // Depolama kapalıysa varsayılan geniş kalır; gezinme çalışmaya devam eder.
+    }
   }, []);
+
+  const toggleRail = useCallback(() => {
+    setRailCollapsed((value) => {
+      const next = !value;
+      try {
+        window.localStorage.setItem('bo_rail', next ? 'collapsed' : 'wide');
+      } catch {
+        // Yazılamadıysa seçim bu oturumda geçerli olur, kalıcı olmaz.
+      }
+      return next;
+    });
+  }, []);
+
   const openMobile = useCallback(() => {
     setMobileOpen(true);
   }, []);
@@ -67,9 +94,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [phase, router]);
 
   if (phase === 'loading') {
+    /*
+     * ⚠️ AÇILIŞ EKRANI — kullanıcının gördüğü İLK kare.
+     *
+     * Eskiden burada çıplak bir `Yükleniyor…` yazısı vardı. Oturum kurulumu
+     * (`bootstrapSession`) bir ağ turu sürer ve o süre boyunca ekranda tek bir
+     * gri kelime duruyordu: ürünün ilk izlenimi bir hata sayfası gibiydi.
+     *
+     * Yerine markanın kendisi kondu. Metin YOK ve bu bilinçli — "Yükleniyor"
+     * yazmak kullanıcıya zaten gördüğü şeyi söylemektir; işaretin sakin nabzı
+     * aynı bilgiyi gürültüsüz verir.
+     *
+     * `role="status"` + `aria-label`: görsel olmayan kullanıcı da durumu bilir.
+     */
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="text-sm text-fg-muted">Yükleniyor…</span>
+      <div
+        role="status"
+        aria-label="Oturum hazırlanıyor"
+        className="flex min-h-dvh items-center justify-center"
+      >
+        <KobiWiseMark height={34} className="pulse-ring rounded-[6px] text-fg-3" />
       </div>
     );
   }
@@ -79,23 +123,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     /*
-     * ATÖLYE KABUĞU — kabuk zeminden AYRILIR, panel zeminden YÜKSELİR.
+     * ODA KABUĞU — ADR-0038.
      *
-     * Sol menü artık kendi zemini olan bir sütun değil; sıcak kağıdın üstünde
-     * duran saydam bir katman. İçerik ise yüzen bir yüzey: kendi köşesi, kendi
-     * gölgesi var. Derinlik böyle kurulur — çizgiyle değil, katmanla.
+     * ============================================================================
+     * KABUK ARTIK BİR ÇERÇEVE DEĞİL, KORİDOR + ODA
+     * ============================================================================
+     * Eski kabuk içeriği yüzen bir panele koyuyordu: kendi köşesi, kenarlığı ve
+     * gölgesi olan bir kart. Oda sisteminde bu YANLIŞ olurdu — odanın rengi
+     * ekranın ZEMİNİ olmalı, bir kartın içine hapsedilmiş bir yüzey değil.
+     * Panel kaldırıldı; oda kenardan kenara uzanır ve koridor onun solunda durur.
      *
-     * MOBİLDE PANEL TAM KANAR: `md` altında dolgu ve köşe sıfırlanır. Küçük
-     * ekranda kenar boşluğu lüks değil kayıptır; okunur genişlik zaten dar.
+     * `md:p-3` ve `md:rounded-panel` bu yüzden GİTTİ. Yuvarlatılmış köşe
+     * korunsaydı odanın tuvali ile ekranın zemini arasında ince bir krem şerit
+     * kalırdı — tam olarak terk edilen görünüm.
      */
-    <div className="flex h-dvh overflow-hidden p-0 md:gap-3 md:p-3">
-      {/* Masaüstü sol menü — saydam, zeminin üstünde durur. */}
+    <div className="flex h-dvh overflow-hidden">
+      {/* KORİDOR — masaüstünde daima görünür, genişliği kullanıcı seçer. */}
       <aside
-        className={`hidden shrink-0 transition-[width] duration-300 ease-rise md:block ${
-          collapsed ? 'w-[68px]' : 'w-[236px]'
+        className={`hidden shrink-0 border-r border-border bg-sunken/40 transition-[width] duration-300 ease-rise md:block ${
+          railCollapsed ? 'w-[62px]' : 'w-[216px]'
         }`}
       >
-        <Sidebar collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+        <Rail collapsed={railCollapsed} onToggle={toggleRail} />
       </aside>
 
       {/* Mobil çekmece — `md` altında tek gezinme yolu. */}
@@ -106,36 +155,38 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={closeMobile}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 left-0 z-40 w-[264px] bg-bg p-3 shadow-lift">
-            <Sidebar collapsed={false} onNavigate={closeMobile} />
+          {/* Mobilde daima GENİŞ: çekmece zaten örtü olarak açılıyor ve orada
+              yer kazanmanın bir anlamı yok — etiketler okunur olsun. */}
+          <aside className="fixed inset-y-0 left-0 z-40 w-[240px] border-r border-border bg-bg shadow-lift">
+            <Rail collapsed={false} onNavigate={closeMobile} />
           </aside>
         </div>
       ) : null}
 
-      {/*
-        Yüzen yüzey. `overflow-hidden` köşeleri korur: içerideki kaydırma
-        alanı yuvarlatılmış kenarın dışına taşamaz.
-      */}
-      <main
-        className={[
-          'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface',
-          'md:rounded-panel md:border md:border-border md:shadow-float',
-        ].join(' ')}
-      >
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/*
-          Mobil başlık şeridi — YALNIZCA `md` altında. Masaüstünde daraltma
-          düğmesi sol menünün kendi başlığına taşındı; içerik alanının üstünde
-          boş bir şerit tutmak, yüzen panelin ilk satırını harcıyordu.
+          MOBİL BAŞLIK ŞERİDİ — yalnızca `md` altında.
+          ============================================================================
+          ⚠️ Şerit MARKAYI da taşır. Mobilde koridor bir çekmecede gizli olduğu
+          için, açılışta ekranda ürünün adını söyleyen hiçbir şey kalmıyordu —
+          kullanıcı hangi uygulamada olduğunu yalnızca sekme başlığından
+          anlayabiliyordu.
+
+          ⚠️ Dokunma hedefi 44 px (`h-11 w-11`). Eskiden 36 px'ti (`h-9 w-9`) ve
+          bu, mobil erişilebilirlik eşiğinin ALTINDA: parmak ucu ortalama 45 px
+          civarındadır, daha küçük hedefler ıskalanır. İkon 18 px kaldı —
+          büyüyen şey hedef, çizim değil.
         */}
-        <div className="flex h-12 shrink-0 items-center border-b border-border px-2 md:hidden">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-2 md:hidden">
           <button
             type="button"
             onClick={openMobile}
             aria-label="Menüyü aç"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-fg-2 transition-colors hover:bg-fill hover:text-fg"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[12px] text-fg-2 transition-colors hover:bg-fill hover:text-fg"
           >
             <MenuIcon width={18} height={18} />
           </button>
+          <KobiWiseWordmark size={17} />
         </div>
 
         {/* Dolgu YOK: her sayfa kendi düzenini kurar ve panelin kenarına

@@ -389,12 +389,46 @@ Constraint 2 sözleşmesi hem dev hem sıfırdan kurulumda 40/40 geçti, sıfır
 kurulum ayrı container'da baştan sona çalıştı. Denetim üç belge sapması ve bir
 sözleşme tutarsızlığı buldu; dördü de kapatıldı.
 
-### Tasarım: "Atölye" (2026-08-05)
+### Tasarım: "ODA" (2026-08-17, ADR-0038) — **Atölye'nin yerini aldı**
 
-Frontend tasarım dili değişti — imza rengi **amberden terracottaya**, kabuk
-zeminden ayrıldı ve içerik yüzen bir yüzey oldu. Üç ses üç aile: Inter (ürün),
-Newsreader (AI), JetBrains Mono (sistem); üçü de `next/font` ile self-host.
-SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md` (v1.5).
+**Her modül kendi ışığı ve derinliği olan bir ODAdır.** Modülün imza rengi artık
+bir düğme dolgusu değil, **ekranın tamamını yıkayan tuval rengi**. Her oda tek
+bir dikey kaydırmada iki bölge: üstte **duvar** (kahraman rakam + uydular +
+asistanın cümlesi — "ne oluyor"), altta **tezgah** (yoğun liste — "ne
+yapacağım"). Gezinme, odaların dizildiği bir **koridor**.
+
+Teşhis ölçülmüştü, göz kararı değildi: yazı boyutlarının **%89'u 9–13,5 px**
+bandında, **13 ekranın 13'ü** 720 px tek sütun, renk ekranın **~%2'si**.
+Ayrıca krem + serif + terracotta + yuvarlak kart, 2026'da yapay zekâ üretimi
+arayüzün **en tanınan imzasıydı** — Product Owner'ın "AI yapmış gibi
+hissedilmesin" talebi Atölye'nin evrimiyle karşılanamazdı.
+
+⚠️ **Nötr eksen sıcaktan SOĞUĞA çekildi** (`#f5efe7`/`#1e1811` →
+`#f6f6f7`/`#16181b`). Marka gerekçesinden daha ağır basanı: zemin on iki modül
+renginden biriyle yıkanıyor ve sıcak bir taban o hue'ların yarısıyla çakışırdı.
+**Nötr taban oda sisteminin işlevsel bir koşuludur.**
+
+⚠️ **`ModuleHeader` / `ModuleBody` EMEKLİ.** Yerlerini `RoomTop` + `Wall` +
+`Desk`/`DeskBody` aldı ve hepsi odanın **tek ızgarasını** paylaşır. Ekran başına
+elle `max-w` yazılmaz — orantı hatası tam olarak iki ayrı ızgaradan doğmuştu.
+
+⚠️ **Duvar ORTAKTIR, tezgah değişir.** Bir modülün birden çok rotası varsa
+bunlar ayrı odalar değil, aynı odanın çalışma yüzeyleridir. İstisna: rotanın
+sorusu gerçekten farklıysa duvarı da farklıdır (Finans/Kategoriler). Detay
+sayfalarının duvarı **yoktur** — özetlenecek bir durum değil, tek bir kayıt var.
+
+⚠️ **Panel ikiye ayrıldı**: `/app` brifing (oku + not al), `/app/chat` sohbet
+(temiz sayfa). Günlük özet ile sohbet aynı ekranda yarışıyordu.
+
+⚠️ **Tema anahtarı artık VAR** (üç durum: sistem/açık/koyu, `bo_theme`).
+
+**Marka — iki ayrı varlık, yan yana KULLANILMAZ:** K işareti yalnızca yer
+olmayan yüzeyler (favicon · mobil ikon · dar koridor); yazılı logo yer olan her
+yer (giriş · geniş koridor). Favicon ve mobil ikon **bu işte eklendi** — daha
+önce hiç yoktu.
+
+Üç ses üç aile korundu: Inter (ürün), Newsreader (AI), JetBrains Mono (sistem).
+SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md` (v2.0).
 
 ### Modül başına imza rengi (2026-08-08) — **bağlayıcı**
 

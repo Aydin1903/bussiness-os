@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!--
+    KOBIWISE MOBIL UYGULAMA IKONU (apple-touch-icon).
+
+    ~ Kose yaricapi YOK: iOS ana ekranda kendi maskesini uygular. Burada da
+      yuvarlatmak ikonu ic ice iki yuvarlak kose olarak gosterirdi.
+    ~ Isaret optik olarak ortalanmis: K'nin govdesi solda agir oldugu icin
+      geometrik merkez sola kacik durur; yatayda 4 birim saga kaydirildi.
+
+    UYARI: yollar `components/brand.tsx > MARK_PATHS` ile BIREBIR AYNI olmak
+    zorunda — `brand-assets.spec` kilitler.
+  -->
+  <rect width="180" height="180" fill="#16181b" />
+  <g transform="translate(58 38) scale(1.04)" fill="#f6f6f7" stroke="#f6f6f7" stroke-width="2.2" stroke-linejoin="round">
+    <path d="M0 9.5A9.5 9.5 0 0 1 19 9.5L19 100L9.5 100A9.5 9.5 0 0 1 0 90.5Z" />
+    <path d="M26 55L48 23L74 23L52 55Z" />
+    <path d="M26 64L52 64L74 96L48 96Z" />
+  </g>
+</svg>

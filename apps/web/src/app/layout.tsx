@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Newsreader } from 'next/font/google';
 import type { ReactNode } from 'react';
 
+import { THEME_NO_FLASH_SCRIPT } from '@/lib/theme/theme';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -45,14 +46,57 @@ const jetbrains = JetBrains_Mono({
   display: 'swap',
 });
 
+/**
+ * ⚠️ Ürün adı KobiWise (2026-08-14). `@business-os/contracts` gibi PAKET adları
+ * bilinçli olarak değişmedi: onlar iç isimlendirmedir, kullanıcı görmez ve
+ * yeniden adlandırmak monorepo çapında bir kırıcı değişiklik olurdu. Burada
+ * değişen şey kullanıcının GÖRDÜĞÜ addır.
+ */
 export const metadata: Metadata = {
-  title: 'Business OS',
-  description: 'AI destekli, cok kiracili SaaS Business Operating System',
+  title: 'KobiWise',
+  description: 'İşletmeniz için yapay zekâ işletim sistemi',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="tr" className={`${inter.variable} ${newsreader.variable} ${jetbrains.variable}`}>
+    /*
+     * ⚠️ `suppressHydrationWarning` — TEMA SCRIPT'İNİN ZORUNLU EŞLİKÇİSİ.
+     *
+     * Aşağıdaki inline script `<html>`e `data-theme` yazar ve bunu React
+     * hidrasyondan ÖNCE yapar (FOUC'un tek çaresi bu). Sunucunun ürettiği HTML
+     * ise o attribute'u taşımaz — sunucu kullanıcının tercihini bilemez, çünkü
+     * tercih `localStorage`'da.
+     *
+     * Sonuç React için bir uyuşmazlıktır ve her yüklemede konsola bir HATA
+     * yazar. Görünür bir bozulma YOK (React attribute'a dokunmaz, tema doğru
+     * kalır) ama bedeli daha sinsi: gerçek bir hidrasyon hatası bu gürültünün
+     * içinde KAYBOLUR.
+     *
+     * ⚠️ Bayrak YALNIZCA bu öğeye ve YALNIZCA bir seviye derinliğe uygulanır;
+     * ağacın geri kalanı normal şekilde denetlenmeye devam eder. Gövdeye ya da
+     * daha aşağı taşımak, gerçek hataları susturmak olurdu.
+     */
+    <html
+      lang="tr"
+      suppressHydrationWarning
+      className={`${inter.variable} ${newsreader.variable} ${jetbrains.variable}`}
+    >
+      <head>
+        {/*
+          TEMA — İLK BOYAMADAN ÖNCE (ADR-0038 Dilim 1).
+
+          React ağacı hidrasyondan sonra çalışır; o ana kadar belge
+          attribute'suzdur ve koyu tema seçmiş bir kullanıcı bir kare boyunca
+          BEYAZ ekran görür. `<head>` içindeki senkron bir script bunu kapatan
+          tek yoldur — `next/script` bile yeterince erken değildir.
+
+          ⚠️ Script gövdesi ELLE YAZILMADI: `theme.ts`'in sabitlerinden üretilir
+          (`THEME_NO_FLASH_SCRIPT`). Elle yazılsaydı depolama anahtarı iki yerde
+          durur ve biri değişince hata SESSİZ olurdu — tema kaydedilir ama
+          açılışta okunmazdı.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-bg font-sans text-fg antialiased">
         <Providers>{children}</Providers>
       </body>

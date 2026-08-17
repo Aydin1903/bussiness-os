@@ -11,15 +11,18 @@ import { isReadOnly, useCurrentRole } from '@/lib/session/use-current-role';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { CompanyForm } from './company-form';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import { ContactSection } from './contact-section';
-import {
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  RISE,
-  SectionLabel,
-} from '@/components/module-kit/chrome';
+import { Pager, RISE, SectionLabel } from '@/components/module-kit/chrome';
 import { CompanySummaryPanel } from './company-summary';
 import { CrmReindexBanner } from './crm-reindex-banner';
 import { CardAction, CardActions } from '@/components/module-kit/record-card';
@@ -137,138 +140,151 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
   const { company } = detail;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title={company?.name ?? 'Müşteri'}
-        subtitle={<Subtitle company={company} loading={loading} />}
-        right={
-          readOnly || company === null ? null : (
-            <CardActions>
-              <CardAction
-                ariaLabel={`${company.name} müşterisini düzenle`}
-                onClick={() => {
-                  setEditing(true);
-                }}
-              >
-                Düzenle
-              </CardAction>
-              <ConfirmDelete
-                pending={deleting}
-                ariaLabel={`${company.name} müşterisini sil`}
-                question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekânın hafızasından da çıkar.`}
-                onConfirm={() => {
-                  void remove();
-                }}
-              />
-            </CardActions>
-          )
-        }
-      />
-
-      {/*
-        AI ÖZETİ — sayfanın ilk ekranı, `ModuleBody`'nin DIŞINDA.
-        İçeride olsaydı 720px'lik okuma sütununa ve gövde dolgusuna girerdi;
-        bu blok panelin tam genişliğini kaplamalı ve kaydırılan içerikten önce
-        gelmeli (ADR-0032 §5). Kendi kenar boşluğunu kendisi verir.
-      */}
-      <CompanySummaryPanel companyId={companyId} readOnly={readOnly} />
-
-      <ModuleBody>
-        <BackLink />
-
-        <FormError message={actionError} />
-
-        {editing && company !== null ? (
-          <CompanyForm
-            initial={company}
-            pending={saving}
-            error={formError}
-            onSubmit={(body) => {
-              void save(body);
-            }}
-            onCancel={() => {
-              setEditing(false);
-              setFormError(null);
-            }}
-          />
-        ) : null}
-
-        <PartialNotice failures={failures} onRetry={reload} />
-
-        <Rise delay={RISE.body}>
-          <ContactSection
-            companyId={companyId}
-            contacts={detail.contacts}
-            total={detail.contactTotal}
-            loading={loading}
-            failed={failures.contacts}
-            readOnly={readOnly}
-            onChanged={reload}
-          />
-
-          <OpportunitySection
-            companyId={companyId}
-            opportunities={detail.opportunities}
-            contacts={detail.contacts}
-            total={detail.opportunityTotal}
-            loading={loading}
-            failed={failures.opportunities}
-            readOnly={readOnly}
-            onChanged={reload}
-          />
-
-          <section className="mt-10">
-            <div className="mb-3">
-              <SectionLabel>
-                Görüşmeler{failures.interactions ? '' : ` · ${String(detail.interactionTotal)}`}
-              </SectionLabel>
-            </div>
-
-            <CrmReindexBanner readOnly={readOnly} onRepaired={reload} />
-
-            {readOnly ? null : (
-              <div className="mb-7">
-                <InteractionComposer
-                  companyId={companyId}
-                  contacts={detail.contacts}
-                  pending={logging}
-                  error={logError}
-                  onSubmit={(body) => {
-                    void log(body);
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name={company?.name ?? 'Müşteri'}
+          meta={<Subtitle company={company} loading={loading} />}
+          action={
+            readOnly || company === null ? null : (
+              <CardActions>
+                <CardAction
+                  ariaLabel={`${company.name} müşterisini düzenle`}
+                  onClick={() => {
+                    setEditing(true);
+                  }}
+                >
+                  Düzenle
+                </CardAction>
+                <ConfirmDelete
+                  pending={deleting}
+                  ariaLabel={`${company.name} müşterisini sil`}
+                  question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekânın hafızasından da çıkar.`}
+                  onConfirm={() => {
+                    void remove();
                   }}
                 />
-              </div>
-            )}
+              </CardActions>
+            )
+          }
+        />
 
-            {detail.interactions.length === 0 ? (
-              <EmptyInteractions
+        {/*
+        ============================================================================
+        AI ÖZETİ BU ODANIN DUVARIDIR — ve bu yüzden `Wall` YOK
+        ============================================================================
+        Duvar, odanın DURUMUNU özetler. Bir müşteri sayfasında özetlenecek bir
+        durum değil TEK BİR KAYIT vardır; CRM'in genel hat toplamını buraya
+        koymak, bakılan müşteriyle ilgisi olmayan bir dev rakam olurdu.
+
+        Bu sayfanın kahramanı asistanın müşteri özetidir ve zaten burada duruyor
+        — duvarın işlevini o görüyor (ADR-0032 §5). Blok tezgahın DIŞINDA kalır
+        ki okuma sütununa ve gövde dolgusuna girmesin.
+      */}
+        <CompanySummaryPanel companyId={companyId} readOnly={readOnly} />
+
+        <Desk>
+          <DeskHead title="Müşteri kaydı" />
+          <DeskBody>
+            <BackLink />
+
+            <FormError message={actionError} />
+
+            {editing && company !== null ? (
+              <CompanyForm
+                initial={company}
+                pending={saving}
+                error={formError}
+                onSubmit={(body) => {
+                  void save(body);
+                }}
+                onCancel={() => {
+                  setEditing(false);
+                  setFormError(null);
+                }}
+              />
+            ) : null}
+
+            <PartialNotice failures={failures} onRetry={reload} />
+
+            <Rise delay={RISE.body}>
+              <ContactSection
+                companyId={companyId}
+                contacts={detail.contacts}
+                total={detail.contactTotal}
                 loading={loading}
-                failed={failures.interactions}
+                failed={failures.contacts}
                 readOnly={readOnly}
+                onChanged={reload}
               />
-            ) : (
-              <InteractionStream
-                items={detail.interactions}
-                contactNames={contactNameMap(detail.contacts)}
-              />
-            )}
 
-            <Pager
-              offset={interactionOffset}
-              count={detail.interactions.length}
-              total={detail.interactionTotal}
-              loading={loading}
-              onPrevious={() => {
-                setInteractionOffset((previous) => Math.max(0, previous - INTERACTION_PAGE_SIZE));
-              }}
-              onNext={() => {
-                setInteractionOffset((previous) => previous + INTERACTION_PAGE_SIZE);
-              }}
-            />
-          </section>
-        </Rise>
-      </ModuleBody>
-    </div>
+              <OpportunitySection
+                companyId={companyId}
+                opportunities={detail.opportunities}
+                contacts={detail.contacts}
+                total={detail.opportunityTotal}
+                loading={loading}
+                failed={failures.opportunities}
+                readOnly={readOnly}
+                onChanged={reload}
+              />
+
+              <section className="mt-10">
+                <div className="mb-3">
+                  <SectionLabel>
+                    Görüşmeler{failures.interactions ? '' : ` · ${String(detail.interactionTotal)}`}
+                  </SectionLabel>
+                </div>
+
+                <CrmReindexBanner readOnly={readOnly} onRepaired={reload} />
+
+                {readOnly ? null : (
+                  <div className="mb-7">
+                    <InteractionComposer
+                      companyId={companyId}
+                      contacts={detail.contacts}
+                      pending={logging}
+                      error={logError}
+                      onSubmit={(body) => {
+                        void log(body);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {detail.interactions.length === 0 ? (
+                  <EmptyInteractions
+                    loading={loading}
+                    failed={failures.interactions}
+                    readOnly={readOnly}
+                  />
+                ) : (
+                  <InteractionStream
+                    items={detail.interactions}
+                    contactNames={contactNameMap(detail.contacts)}
+                  />
+                )}
+
+                <Pager
+                  offset={interactionOffset}
+                  count={detail.interactions.length}
+                  total={detail.interactionTotal}
+                  loading={loading}
+                  onPrevious={() => {
+                    setInteractionOffset((previous) =>
+                      Math.max(0, previous - INTERACTION_PAGE_SIZE),
+                    );
+                  }}
+                  onNext={() => {
+                    setInteractionOffset((previous) => previous + INTERACTION_PAGE_SIZE);
+                  }}
+                />
+              </section>
+            </Rise>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 
@@ -349,7 +365,9 @@ function EmptyInteractions({
   readOnly: boolean;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     return null;
@@ -367,14 +385,19 @@ function EmptyInteractions({
 /** Şirket hiç yüklenemedi: gösterilecek bir sayfa yok, çıkış yolu verilir. */
 function FatalState({ message }: { message: string }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader title="Müşteri" subtitle="Kayıt açılamadı" />
-      <ModuleBody>
-        <FormError message={message} />
-        <div className="mt-4">
-          <BackLink />
-        </div>
-      </ModuleBody>
-    </div>
+    <Room>
+      <RoomScroll>
+        <RoomTop name="Müşteri" meta="Kayıt açılamadı" />
+        <Desk>
+          <DeskHead title="Müşteri kaydı" />
+          <DeskBody>
+            <FormError message={message} />
+            <div className="mt-4">
+              <BackLink />
+            </div>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }

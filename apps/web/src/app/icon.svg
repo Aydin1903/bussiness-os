@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!--
+    KOBIWISE FAVICON — K isaretinin ASIL yeri (Product Owner, 2026-08-17).
+
+    Isaret yalnizca yer olmayan yuzeylerde kullanilir; sekme ikonu bunlarin en
+    kucugudur (16 px). Yazili logo buraya sigmaz.
+
+    ~ Neden zemin var: sekme cubugu acik ya da koyu olabilir ve `currentColor`
+      bir favicon'da calismaz. Kendi zeminini tasiyan bir ikon ikisinde de
+      ayni gorunur.
+    ~ Neden yuvarlak kare: tarayicilar ikonu kirpmaz ama isletim sistemi
+      kisayollarinda kirpar; 22'lik yaricap her iki durumda da bozulmaz.
+
+    UYARI: yollar `components/brand.tsx > MARK_PATHS` ile BIREBIR AYNI olmak
+    zorunda. Statik SVG import edemez; `brand-assets.spec` ikisini kilitler.
+  -->
+  <rect width="100" height="100" rx="22" fill="#16181b" />
+  <g transform="translate(30 22) scale(0.56)" fill="#f6f6f7" stroke="#f6f6f7" stroke-width="2.2" stroke-linejoin="round">
+    <path d="M0 9.5A9.5 9.5 0 0 1 19 9.5L19 100L9.5 100A9.5 9.5 0 0 1 0 90.5Z" />
+    <path d="M26 55L48 23L74 23L52 55Z" />
+    <path d="M26 64L52 64L74 96L48 96Z" />
+  </g>
+</svg>

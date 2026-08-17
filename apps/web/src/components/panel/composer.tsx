@@ -29,7 +29,15 @@ export function Composer({
   hint,
 }: {
   mode: ComposerMode;
-  onModeChange: (mode: ComposerMode) => void;
+  /**
+   * ⚠️ İSTEĞE BAĞLI — verilmezse mod şeridi HİÇ ÇİZİLMEZ.
+   *
+   * Sohbet odası (ADR-0038, Panel ayrımı) yalnızca soru sorar; orada bir
+   * "Sor / Not ekle" anahtarı göstermek, kullanıcıya olmayan bir seçim
+   * sunmak olurdu. Ayrı bir `showModes` bayrağı yerine bunun isteğe bağlı
+   * olması kendini anlatır: mod değiştirmenin yolu yoksa anahtarı da yoktur.
+   */
+  onModeChange?: (mode: ComposerMode) => void;
   onSubmit: (text: string) => void;
   pending: boolean;
   error: string | null;
@@ -69,7 +77,7 @@ export function Composer({
    * Enter/Space ile etkinleştirme aynen çalışır.
    */
   function pickMode(next: ComposerMode): void {
-    onModeChange(next);
+    onModeChange?.(next);
     inputRef.current?.focus();
   }
 
@@ -84,36 +92,38 @@ export function Composer({
   return (
     <div className="border-t border-border bg-surface px-5 pt-4 pb-5 md:px-10">
       <div className="mx-auto w-full max-w-[720px]">
-        <div className="mb-3 inline-flex gap-0.5 rounded-full border border-border bg-sunken p-[3px]">
-          {(
-            [
-              ['ask', 'Sor'],
-              ['note', 'Not ekle'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              // Odağı taşıyan olay `mousedown`; engellenince input odağını
-              // hiç kaybetmez ve halka sönmez.
-              onMouseDown={(event) => {
-                event.preventDefault();
-              }}
-              onClick={() => {
-                pickMode(value);
-              }}
-              className={[
-                'rounded-full px-[17px] py-[7px] text-[12.5px] font-semibold tracking-[-0.008em]',
-                'transition-[background-color,color] duration-[260ms] ease-rise',
-                mode === value
-                  ? 'bg-accent text-accent-fg shadow-card'
-                  : 'text-fg-3 hover:text-fg-2',
-              ].join(' ')}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {onModeChange === undefined ? null : (
+          <div className="mb-3 inline-flex gap-0.5 rounded-full border border-border bg-sunken p-[3px]">
+            {(
+              [
+                ['ask', 'Sor'],
+                ['note', 'Not ekle'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                // Odağı taşıyan olay `mousedown`; engellenince input odağını
+                // hiç kaybetmez ve halka sönmez.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  pickMode(value);
+                }}
+                className={[
+                  'rounded-full px-[17px] py-[7px] text-[12.5px] font-semibold tracking-[-0.008em]',
+                  'transition-[background-color,color] duration-[260ms] ease-rise',
+                  mode === value
+                    ? 'bg-accent text-accent-fg shadow-card'
+                    : 'text-fg-3 hover:text-fg-2',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <FormError message={error} />
 

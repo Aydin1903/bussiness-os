@@ -2,8 +2,6 @@
 
 import type { ReactNode } from 'react';
 
-import { Rise } from '@/components/panel/stream';
-
 /**
  * MODÜL KİTİ — Atölye'nin modül ekranlarında tekrar eden parçaları.
  *
@@ -41,45 +39,25 @@ import { Rise } from '@/components/panel/stream';
  * ============================================================================
  */
 
+/*
+ * ============================================================================
+ * ⚠️ `ModuleHeader` VE `ModuleBody` EMEKLİYE AYRILDI (ADR-0038)
+ * ============================================================================
+ * İkisi Atölye'nin ekran iskeletiydi: sabit bir başlık şeridi ve 720 px'lik
+ * tek sütun. Oda sistemi o iskeleti değiştirdi — başlık `RoomTop`, gövde ise
+ * `Wall` + `Desk`/`DeskBody` oldu ve hepsi odanın TEK ızgarasını paylaşıyor
+ * (ADR-0038 §6.8).
+ *
+ * Emekli edildiler çünkü on üç ekranın on üçü de artık oda; burada durmaları
+ * "iki ayrı ekran iskeleti var" izlenimi verirdi ve yeni bir modül yazan kişi
+ * yanlış olanı seçebilirdi.
+ *
+ * Bu dosyanın kalanı (`PillButton`, `PrimaryButton`, `EmptyState`, `Pager`,
+ * `SectionLabel`) oda içinde de aynen kullanılıyor ve YERİNDE duruyor.
+ */
+
 /** Giriş sahnelemesi — Panel'in `RISE` sabitiyle aynı kademeler. */
 export const RISE = { title: 0, action: 60, body: 180 } as const;
-
-/**
- * Sayfa başlığı — `PanelHeader` ile AYNI şerit.
- *
- * Sağ slot serbesttir: modülün sekmeleri, birincil eylemi ya da ikisi birden
- * oraya girer. Bileşen değişmesin diye slot `ReactNode`; "sekme" diye özel bir
- * prop tanımlamak, üçüncü kullanımda dördüncü bir prop doğururdu.
- */
-export function ModuleHeader({
-  title,
-  subtitle,
-  right,
-}: {
-  title: string;
-  subtitle: ReactNode;
-  right?: ReactNode;
-}) {
-  return (
-    <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-b border-border px-5 py-5 md:px-10">
-      <Rise delay={RISE.title}>
-        <h1 className="text-[15px] font-semibold tracking-[-0.022em]">{title}</h1>
-        <p className="mt-0.5 text-[11.5px] tracking-[-0.004em] text-fg-3">{subtitle}</p>
-      </Rise>
-
-      {right === undefined ? null : <Rise delay={RISE.action}>{right}</Rise>}
-    </header>
-  );
-}
-
-/** Kaydırılan içerik alanı — Panel'in okunur genişliğiyle aynı (720px). */
-export function ModuleBody({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[720px] px-5 pt-8 pb-10 md:px-10">{children}</div>
-    </div>
-  );
-}
 
 /** Bölüm etiketi — `sidebar.tsx › GroupLabel` ile birebir aynı reçete. */
 export function SectionLabel({ children }: { children: ReactNode }) {

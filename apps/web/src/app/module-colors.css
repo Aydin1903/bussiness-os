@@ -311,4 +311,15 @@
   --tint: rgb(var(--mc-rgb) / var(--mc-tint-a));
   --tint-2: rgb(var(--mc-rgb) / var(--mc-tint-2-a));
   --glow: rgb(var(--mc-rgb) / var(--mc-glow-a));
+
+  /*
+   * Oda tuvalinin ham bileşenleri (ADR-0038 §3).
+   *
+   * `--tint` HAZIR bir alfa taşır (%8.5/%12); tuval ise kendi yüzdesini
+   * (%7 gündüz / %8 gece) türetmek zorunda ve bunun için ham `R G B` ister.
+   * Kökte terracottadır (`globals.css`), burada modülün rengine döner — yani
+   * `Room` bileşeni tek bir sınıfla hem Panel'de hem her odada doğru çalışır
+   * ve `pathname → modül` haritası GEREKMEZ.
+   */
+  --accent-rgb: var(--mc-rgb);
 }

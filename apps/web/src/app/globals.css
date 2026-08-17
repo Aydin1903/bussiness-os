@@ -60,26 +60,45 @@
 :root {
   color-scheme: light dark;
 
-  /* — yüzeyler: zeminden yukarı — */
-  --bg: #f5efe7;
-  --sunken: #ebe2d6;
-  --surface: #fffdfb;
+  /* — yüzeyler: zeminden yukarı —
+     ⚠️ NÖTR EKSEN SICAKTAN SOĞUĞA ÇEKİLDİ (ADR-0038 §7.2).
+     Eski değerler sıcak kremdi (`#f5efe7` / `#1e1811`). İki gerekçe:
+
+     1. MARKA. KobiWise'ın işareti soğuk fümedir (`#1c1f22`). Sıcak kahve-siyah
+        bir paletin üstünde logo KİRLİ görünür.
+     2. ODA SİSTEMİ — ve bu gerekçe daha ağır basar. Zemin, on iki modül
+        renginden biriyle yıkanacak (`Room` tuvali). Sıcak bir taban on iki
+        farklı hue'nun YARISIYLA çakışırdı; çivit mavisi bir zeminin altında
+        krem, yeşilin altında sarımsı bir kirlilik üretirdi. Nötr taban oda
+        sisteminin İŞLEVSEL bir koşuludur, yalnızca marka tercihi değil.
+
+     Yan kazanç: krem zemin, 2026'nın "AI üretimi arayüz" imzasının ilk
+     maddesiydi (ADR-0038 Baglam). Terk edilmesi ayrı bir iş olmaktan çıktı. */
+  --bg: #f6f6f7;
+  --sunken: #ebebed;
+  --surface: #fcfcfd;
   --raised: #ffffff;
 
-  /* Zemine dökülen ılık ışık — köşelerden gelir, merkezde kaybolur. */
-  --bg-warm: rgba(212, 154, 106, 0.16);
+  /* Zemine dökülen ılık ışık — köşelerden gelir, merkezde kaybolur.
+     ⚠️ Bu terracottadır ve öyle KALIR: kabuk AI'ın yüzeyidir (Panel). Modülün
+     kendi ışığı `Room` bileşenine taşınacak (ADR-0038 §3) — orada tuval
+     `--accent`'ten türetilir ve bu değişken kapsam dışında kalır. */
+  --bg-warm: rgba(212, 154, 106, 0.13);
   /* Kağıt taneciği. Düz renk dijitaldir; hafif tanecik KAĞITTIR. */
   --grain: 0.035;
 
   /* — çizgiler: iki ağırlık, yarı saydam (her zeminde çalışsın) — */
-  --border: rgba(30, 24, 17, 0.07);
-  --border-strong: rgba(30, 24, 17, 0.13);
+  --border: rgba(20, 23, 27, 0.09);
+  --border-strong: rgba(20, 23, 27, 0.16);
 
-  /* — metin: dört kademe (en kötü zemindeki oran) — */
-  --fg: #1e1811; /* 15.9:1 */
-  --fg-2: #574c3f; /*  8.2:1 */
-  --fg-3: #695c4d; /*  5.1:1 */
-  --fg-4: #736657; /*  4.4:1 — yalnızca 11px+ metinde */
+  /* — metin: dört kademe (en kötü zemindeki oran) —
+     ⚠️ ORANLAR YENİDEN HESAPLANDI, renkler "soğuğa çevrilmiş" değil yeniden
+     SEÇİLDİ. En kötü zemin `--sunken` (#ebebed) ve dördü de ona karşı ölçüldü;
+     eski dosyanın kuralı korundu: küçük punto DAHA FAZLA kontrast ister. */
+  --fg: #16181b; /* 14.9:1 */
+  --fg-2: #454a51; /*  7.5:1 */
+  --fg-3: #5f656d; /*  5.0:1 */
+  --fg-4: #656c74; /*  4.6:1 — yalnızca 11px+ metinde */
 
   /* — terracotta: AI'IN SESİ, ezilemez —
      İlk seçim `#b85c2b`'ydi ve üstündeki `--accent-fg` metni 4.40:1 veriyordu:
@@ -98,24 +117,48 @@
      okur. Bir modül kapsamına girilmediği sürece (Panel, auth, kabuk) her şey
      bugünkü gibi terracotta kalır. `module-colors.css` bunları ezer. */
   --accent: var(--ai-accent);
-  --accent-fg: #fffaf6;
+  /* ⚠️ `--accent-fg` on iki modül renginin HEPSİNE karşı ölçülmüştür
+     (`module-colors.css` kontrast tablosu). Sıcak beyazdan (`#fffaf6`) soğuk
+     beyaza geçiş luminansı 0.972 → 0.983'e ÇIKARIR, yani her modülde kontrast
+     bir miktar ARTAR — tablo geçersizleşmez, alt sınırları korunur. */
+  --accent-fg: #fbfcfd;
   /* Accent renkli METİN. Dolgu tonu metin olarak kontrastı tutmuyor. */
   --ink: var(--ai-ink);
   --tint: var(--ai-tint);
   --tint-2: rgba(178, 86, 40, 0.15);
   --glow: rgba(178, 86, 40, 0.17);
 
+  /* Accent'in `R G B` üçlüsü — ODA TUVALİ İÇİN (ADR-0038 §3).
+     ============================================================================
+     `--tint` gibi HAZIR bir alfa değeri değil, ham bileşenlerdir: oda tuvali
+     kendi yüzdesini (%7 gündüz / %8 gece) `rgb(var(--accent-rgb) / 7%)` ile
+     türetir ve bu yüzde tint'inkinden (%8.5) FARKLIDIR.
+
+     ⚠️ Kökteki değer terracottadır ve `--ai-accent`i yankılar. Elle yazılması
+     ZORUNLU: CSS'te bir hex'ten bileşen çıkarmanın yolu yok. `module-colors.css`
+     bunu `[data-module]` altında `--mc-rgb`ye bağlar — yani aynı ikili yazım
+     kuralı (hex + üçlü) burada da geçerli ve ikisi senkron kalmalı. */
+  --accent-rgb: 178 86 40;
+
+  /* Oda tuvalinin iki yüzdesi (ADR-0038 §4). Gündüz pencereden ışık:
+     yıkama ince, yüzeyler beyaz kalıp yükselebilsin. */
+  --room-wash: 7%;
+  --room-bloom: 13%;
+
   /* — nötr dolgular: HOVER'IN DOĞRU ARACI — */
-  --fill: rgba(30, 24, 17, 0.05);
-  --fill-2: rgba(30, 24, 17, 0.09);
+  --fill: rgba(20, 23, 27, 0.05);
+  --fill-2: rgba(20, 23, 27, 0.09);
 
-  --danger: #a8281a;
+  /* Tehlike SICAK kalır — nötr eksen soğusa da "yanlış giden şey" kırmızıdır;
+     bu semantik bir renktir, palet tercihi değil. */
+  --danger: #b02a17;
 
-  /* Gölgeler kahve-kızıl bir siyahtan türer; her biri iki katman:
-     yakın temas + geniş ortam. */
-  --sh-card: 0 1px 2px rgba(78, 50, 26, 0.05), 0 2px 5px rgba(78, 50, 26, 0.04);
-  --sh-float: 0 2px 4px rgba(78, 50, 26, 0.05), 0 9px 22px rgba(78, 50, 26, 0.07);
-  --sh-lift: 0 4px 8px rgba(78, 50, 26, 0.06), 0 22px 50px rgba(78, 50, 26, 0.11);
+  /* Gölgeler soğuk-mavi bir siyahtan türer (eskiden kahve-kızıldı); her biri
+     iki katman: yakın temas + geniş ortam. Sıcak gölge, soğuk bir zeminde
+     "kirli sarı" görünürdü — eski dosyanın uyarısının tersi yönde aynı kural. */
+  --sh-card: 0 1px 2px rgba(18, 24, 33, 0.06), 0 2px 5px rgba(18, 24, 33, 0.05);
+  --sh-float: 0 2px 4px rgba(18, 24, 33, 0.06), 0 9px 22px rgba(18, 24, 33, 0.08);
+  --sh-lift: 0 4px 8px rgba(18, 24, 33, 0.07), 0 22px 50px rgba(18, 24, 33, 0.12);
 }
 
 /*
@@ -128,30 +171,38 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #120e0a;
-    --sunken: #0d0a07;
-    --surface: #1b1611;
-    --raised: #241d16;
-    --bg-warm: rgba(232, 147, 90, 0.09);
+    /* Koyu tema da soğuğa çekildi. En kötü zemin `--raised` (#1e2226) ve dört
+       metin kademesi ona karşı yeniden ölçüldü. */
+    --bg: #0d0f11;
+    --sunken: #08090b;
+    --surface: #16191c;
+    --raised: #1e2226;
+    --bg-warm: rgba(232, 147, 90, 0.08);
     --grain: 0.055;
-    --border: rgba(248, 242, 233, 0.075);
-    --border-strong: rgba(248, 242, 233, 0.14);
-    --fg: #f8f2e9; /* 16.1:1 */
-    --fg-2: #c2b5a3; /*  8.9:1 */
-    --fg-3: #b0a390; /*  6.7:1 */
-    --fg-4: #9a8e7c; /*  5.2:1 */
+    --border: rgba(240, 242, 243, 0.08);
+    --border-strong: rgba(240, 242, 243, 0.15);
+    --fg: #f0f2f3; /* 14.4:1 */
+    --fg-2: #b4bac0; /*  8.1:1 */
+    --fg-3: #9fa6ae; /*  6.5:1 */
+    --fg-4: #939aa2; /*  5.6:1 */
     --ai-accent: #e8935a;
     --ai-ink: #f2a874;
     --ai-tint: rgba(232, 147, 90, 0.12);
     --accent: var(--ai-accent);
-    --accent-fg: #1a120b;
+    /* Soğuk siyah: luminans 0.00676 → 0.00625, yani modül renklerine karşı
+       kontrast bir miktar ARTAR (`module-colors.css` tablosu korunur). */
+    --accent-fg: #0f1316;
     --ink: var(--ai-ink);
     --tint: var(--ai-tint);
     --tint-2: rgba(232, 147, 90, 0.2);
     --glow: rgba(232, 147, 90, 0.22);
-    --fill: rgba(248, 242, 233, 0.06);
-    --fill-2: rgba(248, 242, 233, 0.11);
-    --danger: #f2a99e;
+    --accent-rgb: 232 147 90;
+    /* Gece lamba ışığı: karanlık zemin rengi daha çok emer, bir kademe fazla. */
+    --room-wash: 8%;
+    --room-bloom: 17%;
+    --fill: rgba(240, 242, 243, 0.06);
+    --fill-2: rgba(240, 242, 243, 0.11);
+    --danger: #f0a094;
     --sh-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 5px rgba(0, 0, 0, 0.3);
     --sh-float: 0 2px 4px rgba(0, 0, 0, 0.45), 0 9px 22px rgba(0, 0, 0, 0.38);
     --sh-lift: 0 4px 8px rgba(0, 0, 0, 0.5), 0 22px 50px rgba(0, 0, 0, 0.5);
@@ -160,30 +211,38 @@
 
 /* Kullanıcının koyu tema seçimi sistem tercihini EZER. */
 :root[data-theme='dark'] {
-  --bg: #120e0a;
-  --sunken: #0d0a07;
-  --surface: #1b1611;
-  --raised: #241d16;
-  --bg-warm: rgba(232, 147, 90, 0.09);
+  /* ⚠️ YUKARIDAKİ `@media` BLOĞUYLA BİREBİR AYNI KALMAK ZORUNDA.
+     Ayrışırlarsa hata SESSİZDİR ve iki ayrı koyu tema ortaya çıkar: işletim
+     sisteminden gelen koyu tema ile ANAHTARdan gelen koyu tema farklı görünür.
+     Tema anahtarı geldiğinden beri bu blok ölü kod değil, ASIL yoldur —
+     bir birim testi (`theme-tokens.spec`) ikisini kilitler. */
+  --bg: #0d0f11;
+  --sunken: #08090b;
+  --surface: #16191c;
+  --raised: #1e2226;
+  --bg-warm: rgba(232, 147, 90, 0.08);
   --grain: 0.055;
-  --border: rgba(248, 242, 233, 0.075);
-  --border-strong: rgba(248, 242, 233, 0.14);
-  --fg: #f8f2e9;
-  --fg-2: #c2b5a3;
-  --fg-3: #b0a390;
-  --fg-4: #9a8e7c;
+  --border: rgba(240, 242, 243, 0.08);
+  --border-strong: rgba(240, 242, 243, 0.15);
+  --fg: #f0f2f3;
+  --fg-2: #b4bac0;
+  --fg-3: #9fa6ae;
+  --fg-4: #939aa2;
   --ai-accent: #e8935a;
   --ai-ink: #f2a874;
   --ai-tint: rgba(232, 147, 90, 0.12);
   --accent: var(--ai-accent);
-  --accent-fg: #1a120b;
+  --accent-fg: #0f1316;
   --ink: var(--ai-ink);
   --tint: var(--ai-tint);
   --tint-2: rgba(232, 147, 90, 0.2);
   --glow: rgba(232, 147, 90, 0.22);
-  --fill: rgba(248, 242, 233, 0.06);
-  --fill-2: rgba(248, 242, 233, 0.11);
-  --danger: #f2a99e;
+  --accent-rgb: 232 147 90;
+  --room-wash: 8%;
+  --room-bloom: 17%;
+  --fill: rgba(240, 242, 243, 0.06);
+  --fill-2: rgba(240, 242, 243, 0.11);
+  --danger: #f0a094;
   --sh-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 5px rgba(0, 0, 0, 0.3);
   --sh-float: 0 2px 4px rgba(0, 0, 0, 0.45), 0 9px 22px rgba(0, 0, 0, 0.38);
   --sh-lift: 0 4px 8px rgba(0, 0, 0, 0.5), 0 22px 50px rgba(0, 0, 0, 0.5);
@@ -248,6 +307,68 @@
 
   /* Hareket — tek eğri. "Çıkışta yavaşla": doğal, pahalı his. */
   --ease-rise: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * ============================================================================
+ * ODA TUVALİ — ADR-0038 §3 ve §4
+ * ============================================================================
+ * Modülün rengi artık bir düğme dolgusu değil, EKRANIN ZEMİNİ. Tuval, oda
+ * renginin ince bir yıkamasıdır; kartlar ve tezgah satırları ondan yükselir.
+ *
+ * ⚠️ NEDEN BİR SINIF, NEDEN TAILWIND ARBITRARY DEĞİL
+ * `bg-[linear-gradient(rgb(var(--accent-rgb)/7%),…),var(--bg)]` yazılabilirdi
+ * ama üç sorunu vardı: okunmaz, gündüz/gece yüzdesi için ikinci bir varyant
+ * gerektirir, ve `::before` katmanı (ışık hüzmesi) utility ile hiç yazılamaz.
+ *
+ * ⚠️ `--accent-rgb` NEREDEN GELİR: kökte terracotta (`globals.css`), bir
+ * `[data-module]` alt ağacında o modülün rengi (`module-colors.css`). Yani bu
+ * TEK sınıf hem Panel'de hem beş odanın hepsinde doğru çalışır ve kabukta
+ * `pathname → modül` haritası GEREKMEZ.
+ */
+/*
+ * ⚠️ `--room-wash` / `--room-bloom` BU DOSYANIN ÜSTÜNDEKİ üç palet bloğunda
+ * tanımlıdır, burada AYRI bir blokta değil. Sebep bir testtir:
+ * `theme-tokens.spec` iki koyu tema bloğunun BİREBİR aynı token kümesini
+ * tanımladığını kilitliyor ve bunu her seçicinin İLK geçtiği yeri okuyarak
+ * yapıyor. Buraya ikinci bir `:root[data-theme='dark']` bloğu açmak, o bloktaki
+ * token'ları kilidin DIŞINDA bırakırdı — yani gündüz/gece yıkama yüzdeleri
+ * sessizce ayrışabilirdi.
+ */
+.room-canvas {
+  position: relative;
+  /* İki katman: renk yıkaması + nötr taban. Yıkama `background-color` olarak
+     yazılamaz çünkü tabanı EZERDİ; gradyan olarak yazılınca ÜSTÜNE biner. */
+  background:
+    linear-gradient(
+      rgb(var(--accent-rgb) / var(--room-wash)),
+      rgb(var(--accent-rgb) / var(--room-wash))
+    ),
+    var(--bg);
+}
+
+/*
+ * Işık daima SOL ÜSTTEN. Gündüz ve gecede yön DEĞİŞMEZ — değişen kaynaktır.
+ * `sticky`/`fixed` değil `absolute`: hüzme odanın kendisine aittir, ekrana
+ * değil; oda kaydırıldığında onunla birlikte kayar.
+ */
+.room-canvas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    58% 52% at 5% -8%,
+    rgb(var(--accent-rgb) / var(--room-bloom)),
+    transparent 72%
+  );
+}
+
+/* Odanın içeriği hüzmenin ÜSTÜNDE kalır. */
+.room-canvas > * {
+  position: relative;
+  z-index: 1;
 }
 
 /*

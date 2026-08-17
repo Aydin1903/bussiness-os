@@ -12,6 +12,13 @@ import { StageListScreen } from './stage-list-screen';
  */
 const listOpportunities = vi.hoisted(() => vi.fn());
 
+/*
+ * ⚠️ ODANIN DUVARI MOCK'LANIR — bu testin konusu ekranın KENDİ mantığı.
+ * Duvar ayrı bir bileşendir, kendi veri çağrılarını yapar ve kendi testini
+ * hak eder; buraya karıştırmak her ekran testine ilgisiz mock'lar
+ * eklettirirdi (ADR-0038 §6.5 — duvar ortak, tezgah değişir).
+ */
+vi.mock('./crm-wall', () => ({ CrmWall: () => null }));
 vi.mock('@/lib/api/crm', () => ({ listOpportunities }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app/crm/pipeline/potential' }));
 

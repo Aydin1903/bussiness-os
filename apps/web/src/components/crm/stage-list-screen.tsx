@@ -12,15 +12,18 @@ import { listOpportunities } from '@/lib/api/crm';
 import { errorMessage } from '@/lib/api/error-message';
 import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  RISE,
-  SectionLabel,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, RISE, SectionLabel } from '@/components/module-kit/chrome';
 import { CrmTabs } from './chrome';
+import { CrmWall } from './crm-wall';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
 import { FollowUpMark } from './follow-up-mark';
 import { StageAgeMark } from './signals';
 import { formatMoney } from './stage-pill';
@@ -120,51 +123,58 @@ export function StageListScreen({ stage }: { stage: string }) {
   const closed = CLOSED_OPPORTUNITY_STAGES.includes(parsed.data);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title={label}
-        subtitle={<Subtitle loading={loading} failed={error !== null} total={state.total} />}
-        right={<CrmTabs />}
-      />
-
-      <ModuleBody>
-        <BackLink />
-
-        <FormError message={error} />
-
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent loading={loading} failed={error !== null} label={label} />
-          ) : (
-            <>
-              <div className="mb-3">
-                <SectionLabel>Önce gecikmiş takipler</SectionLabel>
-              </div>
-              <ul className="flex flex-col gap-2">
-                {state.items.map((item) => (
-                  <li key={item.id}>
-                    <CompactRow item={item} closed={closed} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name={label}
+          meta={<Subtitle loading={loading} failed={error !== null} total={state.total} />}
+          action={<CrmTabs />}
         />
-      </ModuleBody>
-    </div>
+
+        <CrmWall />
+
+        <Desk>
+          <DeskHead title="Aşamadaki fırsatlar" />
+          <DeskBody>
+            <BackLink />
+
+            <FormError message={error} />
+
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent loading={loading} failed={error !== null} label={label} />
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <SectionLabel>Önce gecikmiş takipler</SectionLabel>
+                  </div>
+                  <ul className="flex flex-col gap-2">
+                    {state.items.map((item) => (
+                      <li key={item.id}>
+                        <CompactRow item={item} closed={closed} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Rise>
+
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
+              loading={loading}
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
+              }}
+            />
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 
@@ -221,7 +231,9 @@ function EmptyContent({
   label: string;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     return null;
@@ -297,27 +309,35 @@ function CompactRow({ item, closed }: { item: OpportunityListRow; closed: boolea
 /** Yoldaki aşama adı beş aşamadan biri değil. */
 function UnknownStage() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* Alt satır ile boş durum başlığı AYNI cümleyi tekrar etmez. */}
-      <ModuleHeader
-        title="Fırsatlar"
-        subtitle="Adres satırındaki aşama tanınmadı"
-        right={<CrmTabs />}
-      />
-      <ModuleBody>
-        <EmptyState
-          title="Böyle bir aşama yok"
-          hint="Adres satırındaki aşama adı beş aşamadan biri değil. Panodan doğru aşamaya girebilirsiniz."
-          action={
-            <Link
-              href="/app/crm/pipeline"
-              className="text-[12.5px] font-semibold text-ink underline-offset-2 hover:underline"
-            >
-              Panoya dön
-            </Link>
-          }
-        />
-      </ModuleBody>
-    </div>
+    <Room>
+      <RoomScroll>
+        {/* Alt satır ile boş durum başlığı AYNI cümleyi tekrar etmez. */}
+        <RoomTop name="Fırsatlar" meta="Adres satırındaki aşama tanınmadı" action={<CrmTabs />} />
+
+        {/*
+        ⚠️ BİLİNMEYEN AŞAMADA DUVAR ÇİZİLMEZ. Duvar odanın DURUMUNU söyler;
+        burada durum "böyle bir yer yok"tur ve bunun üstüne havadaki işin
+        toplamını yazmak, hatalı bir adresi normal bir sayfa gibi gösterirdi.
+      */}
+
+        <Desk>
+          <DeskHead title="Aşamadaki fırsatlar" />
+          <DeskBody>
+            <EmptyState
+              title="Böyle bir aşama yok"
+              hint="Adres satırındaki aşama adı beş aşamadan biri değil. Panodan doğru aşamaya girebilirsiniz."
+              action={
+                <Link
+                  href="/app/crm/pipeline"
+                  className="text-[12.5px] font-semibold text-ink underline-offset-2 hover:underline"
+                >
+                  Panoya dön
+                </Link>
+              }
+            />
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }

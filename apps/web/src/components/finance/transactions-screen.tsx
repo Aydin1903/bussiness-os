@@ -18,15 +18,7 @@ import {
 } from '@/lib/api/finance';
 import { errorMessage } from '@/lib/api/error-message';
 import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
-import {
-  EmptyState,
-  ModuleBody,
-  ModuleHeader,
-  Pager,
-  PillButton,
-  PrimaryButton,
-  RISE,
-} from '@/components/module-kit/chrome';
+import { EmptyState, Pager, PillButton, PrimaryButton, RISE } from '@/components/module-kit/chrome';
 import {
   CardAction,
   CardActions,
@@ -39,7 +31,19 @@ import { FormError } from '@/components/ui/form-error';
 import { Rise } from '@/components/panel/stream';
 import { formatCalendarDay } from '@/lib/format/datetime';
 import { FinanceTabs } from './chrome';
-import { Amount, DirectionPill, NetAmount } from './marks';
+import { FinanceWall } from './finance-wall';
+import { FinanceOverview } from './finance-overview';
+import {
+  Desk,
+  DeskBody,
+  DeskHead,
+  Room,
+  RoomScroll,
+  RoomTop,
+  DeskSkeleton,
+} from '@/components/room/room';
+import { monthPeriod, type Period } from '@/lib/format/period';
+import { Amount, DirectionPill } from './marks';
 import { TransactionForm } from './transaction-form';
 
 export const PAGE_SIZE = 20;
@@ -59,9 +63,10 @@ interface ListState {
 }
 
 /** Liste + özet + kategoriler — TEK yükleme turu (`useProjectList` deseni). */
-function useFinanceData(offset: number) {
+function useFinanceData(offset: number, period: Period, before: Period) {
   const [state, setState] = useState<ListState>({ items: [], total: 0 });
   const [summary, setSummary] = useState<CashflowSummary | null>(null);
+  const [previous, setPrevious] = useState<CashflowSummary | null>(null);
   const [categories, setCategories] = useState<readonly FinanceCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,15 +80,22 @@ function useFinanceData(offset: number) {
     // üç tur geciktirirdi.
     Promise.all([
       listFinanceTransactions({ limit: PAGE_SIZE, offset }),
-      getCashflowSummary({}),
+      /*
+       * ⚠️ ARTIK DÖNEMLİ. Eskiden `{}` gönderiliyordu, yani TÜM ZAMANLAR —
+       * bir duvar kahramanı olamayacak bir rakam (ADR-0038 §5: dönem +
+       * değişim + eğilim). Önceki dönem yalnızca delta için çekilir.
+       */
+      getCashflowSummary({ from: period.from, to: period.to, includeCategories: true }),
+      getCashflowSummary({ from: before.from, to: before.to }),
       listFinanceCategories({ limit: 100, offset: 0 }),
     ])
-      .then(([page, totals, categoryPage]) => {
+      .then(([page, totals, earlier, categoryPage]) => {
         if (!active) {
           return;
         }
         setState({ items: page.items, total: page.total });
         setSummary(totals);
+        setPrevious(earlier);
         setCategories(categoryPage.items);
         setError(null);
       })
@@ -103,13 +115,13 @@ function useFinanceData(offset: number) {
     return () => {
       active = false;
     };
-  }, [offset, reloadToken]);
+  }, [offset, reloadToken, period, before]);
 
   const reload = useCallback(() => {
     setReloadToken((previous) => previous + 1);
   }, []);
 
-  return { state, summary, categories, error, loading, reload };
+  return { state, summary, previous, categories, error, loading, reload };
 }
 
 type FormTarget =
@@ -124,7 +136,19 @@ type FormTarget =
  */
 export function TransactionsScreen() {
   const [offset, setOffset] = useState(0);
-  const { state, summary, categories, error, loading, reload } = useFinanceData(offset);
+  /*
+   * Dönemler bileşen ömrü boyunca SABİT: `monthPeriod()` her çağrıldığında
+   * `new Date()` okur; efektin bağımlılık dizisinde her render yeni bir nesne
+   * üretip sonsuz döngü kurardı. `useState` başlatıcısı bir kez çalışır.
+   */
+  const [period] = useState(() => monthPeriod(0));
+  const [before] = useState(() => monthPeriod(1));
+
+  const { state, summary, previous, categories, error, loading, reload } = useFinanceData(
+    offset,
+    period,
+    before,
+  );
 
   const [form, setForm] = useState<FormTarget>({ kind: 'none' });
   const [saving, setSaving] = useState(false);
@@ -176,135 +200,127 @@ export function TransactionsScreen() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ModuleHeader
-        title="Finans"
-        subtitle={
-          <TransactionCount loading={loading} failed={error !== null} total={state.total} />
-        }
-        right={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <FinanceTabs />
-            {form.kind === 'none' ? (
-              <PrimaryButton
-                onClick={() => {
-                  setForm({ kind: 'new' });
-                }}
-              >
-                Yeni kayıt
-              </PrimaryButton>
-            ) : null}
-          </div>
-        }
-      />
+    <Room>
+      <RoomScroll>
+        <RoomTop
+          name="Finans"
+          meta={`${period.label} · işlemler`}
+          action={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FinanceTabs />
+              {form.kind === 'none' ? (
+                <PrimaryButton
+                  onClick={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                >
+                  Yeni kayıt
+                </PrimaryButton>
+              ) : null}
+            </div>
+          }
+        />
 
-      <ModuleBody>
-        {form.kind === 'none' ? null : (
-          <TransactionForm
-            {...(form.kind === 'edit' ? { initial: form.transaction } : {})}
-            categories={categories}
-            pending={saving}
-            error={formError}
-            onSubmit={(body) => {
-              void save(body);
-            }}
-            onCancel={closeForm}
+        <FinanceWall period={period} summary={summary} previous={previous} loading={loading} />
+
+        <Desk>
+          <DeskHead
+            title="Hareketler"
+            right={
+              /*
+               * ⚠️ SARMALAYICI ZORUNLU. `TransactionCount` bir Fragment döndürür
+               * (`<b>7</b>` + metin); doğrudan buraya konunca iki çocuk AYRI
+               * flex öğesi olur ve `DeskHead`in `justify-between`i onları
+               * şeridin iki ucuna dağıtır — "7" ortada asılı kalır. Tarayıcıda
+               * görüldü; jsdom düzen hesaplamadığı için hiçbir test yakalamazdı.
+               */
+              <span className="text-[11.5px] text-fg-3">
+                <TransactionCount loading={loading} failed={error !== null} total={state.total} />
+              </span>
+            }
           />
-        )}
 
-        <div className="flex flex-col gap-3">
-          <FormError message={error} />
-          <FormError message={actionError} />
-        </div>
+          <DeskBody>
+            {/*
+              GENEL ÖZET — Finans'a ilk girişte (PO talebi, 2026-08-17).
+              Duvar tek bir anı söyler; bu iki grafik dağılımı ve yönü verir.
+            */}
+            <FinanceOverview summary={summary} loading={loading} />
 
-        {summary === null ? null : <SummaryStrip summary={summary} />}
+            {form.kind === 'none' ? null : (
+              <TransactionForm
+                {...(form.kind === 'edit' ? { initial: form.transaction } : {})}
+                categories={categories}
+                pending={saving}
+                error={formError}
+                onSubmit={(body) => {
+                  void save(body);
+                }}
+                onCancel={closeForm}
+              />
+            )}
 
-        <Rise delay={RISE.body}>
-          {state.items.length === 0 ? (
-            <EmptyContent
+            <div className="flex flex-col gap-3">
+              <FormError message={error} />
+              <FormError message={actionError} />
+            </div>
+
+            <Rise delay={RISE.body}>
+              {state.items.length === 0 ? (
+                <EmptyContent
+                  loading={loading}
+                  failed={error !== null}
+                  onCreate={() => {
+                    setForm({ kind: 'new' });
+                  }}
+                />
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {state.items.map((transaction) => (
+                    <li key={transaction.id}>
+                      <TransactionCard
+                        transaction={transaction}
+                        deleting={deletingId === transaction.id}
+                        onEdit={() => {
+                          setForm({ kind: 'edit', transaction });
+                        }}
+                        onDelete={() => {
+                          void remove(transaction.id);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Rise>
+
+            <Pager
+              offset={offset}
+              count={state.items.length}
+              total={state.total}
               loading={loading}
-              failed={error !== null}
-              onCreate={() => {
-                setForm({ kind: 'new' });
+              onPrevious={() => {
+                setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
+              }}
+              onNext={() => {
+                setOffset((previous) => previous + PAGE_SIZE);
               }}
             />
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {state.items.map((transaction) => (
-                <li key={transaction.id}>
-                  <TransactionCard
-                    transaction={transaction}
-                    deleting={deletingId === transaction.id}
-                    onEdit={() => {
-                      setForm({ kind: 'edit', transaction });
-                    }}
-                    onDelete={() => {
-                      void remove(transaction.id);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Rise>
-
-        <Pager
-          offset={offset}
-          count={state.items.length}
-          total={state.total}
-          loading={loading}
-          onPrevious={() => {
-            setOffset((previous) => Math.max(0, previous - PAGE_SIZE));
-          }}
-          onNext={() => {
-            setOffset((previous) => previous + PAGE_SIZE);
-          }}
-        />
-      </ModuleBody>
-    </div>
+          </DeskBody>
+        </Desk>
+      </RoomScroll>
+    </Room>
   );
 }
 
-/**
- * Özet şeridi — PARA BİRİMİ BAŞINA bir kart.
+/*
+ * ⚠️ `SummaryStrip` KALDIRILDI — yerini odanın DUVARI aldı (`FinanceWall`).
  *
- * ⚠️ KARTLAR TOPLANMAZ. Tek bir "net" rakamı çizmek, sunucunun bilinçli olarak
- * vermediği yanlışı istemcide üretmek olurdu (ADR-0034 §5.1): 2000 TRY ile
- * 2000 USD'yi toplayan bir sayı, kullanıcının GÖREMEYECEĞİ bir yanlıştır.
- *
- * Hiç hareket yoksa şerit HİÇ ÇİZİLMEZ — "0,00 TRY" uydurmak, hangi para
- * biriminde sıfır olduğunu bilmediğimiz hâlde bir iddia ortaya atmaktı.
+ * Şerit, para birimi başına küçük kartlar çiziyordu ve işlem listesinin
+ * üstünde ikinci bir özet katmanıydı. Oda sisteminde özetin yeri duvardır;
+ * ikisini birden tutmak aynı rakamı ekranda iki kez göstermek olurdu — Panel'de
+ * bir test tarafından yakalanan hatanın aynısı.
  */
-function SummaryStrip({ summary }: { summary: CashflowSummary }) {
-  if (summary.currencies.length === 0) {
-    return null;
-  }
-
-  return (
-    <Rise delay={RISE.action}>
-      <div className="mb-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {summary.currencies.map((row) => (
-          <div
-            key={row.currency}
-            className="rounded-card border border-border bg-surface px-4 py-3.5 shadow-card"
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[9.5px] font-semibold tracking-[0.14em] text-fg-3 uppercase">
-                {row.currency} · net
-              </span>
-              <NetAmount value={row.net} currency="" />
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-fg-3 tabular">
-              <span>gelir {row.income}</span>
-              <span aria-hidden>·</span>
-              <span>gider {row.expense}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Rise>
-  );
-}
 
 /** Liste ÇEKİLEMEDİYSE sayı çizilmez — "0 kayıt" bir ölçüm değildir. */
 function TransactionCount({
@@ -341,7 +357,9 @@ function EmptyContent({
   onCreate: () => void;
 }) {
   if (loading) {
-    return <p className="text-[12.5px] text-fg-3">Yükleniyor…</p>;
+    // ⚠️ İskelet, listenin KENDİ şeklini taşır: düz metin ekranı bir an boş
+    // gösterip içerik gelince ZIPLATIRDI (ADR-0038 bulgu 5).
+    return <DeskSkeleton />;
   }
   if (failed) {
     // Hata zaten yukarıda yazıldı; burada İKİNCİ bir iddia ortaya atılmaz.

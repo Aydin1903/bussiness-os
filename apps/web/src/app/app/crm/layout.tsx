@@ -14,8 +14,12 @@ import type { ReactNode } from 'react';
  * dosyasına dokunulmaz.
  *
  * İkinci sonucu bilinçlidir: sidebar ve kabuk bu kapsamın DIŞINDA kalır, yani
- * "BO" rozeti ve şirket seçici terracotta kalmaya devam eder — onlar marka,
- * modül değil.
+ * KobiWise işareti ve şirket seçici modülün rengini ALMAZ — onlar marka, modül
+ * değil.
+ *
+ * ⚠️ İşaretin kendisi hiçbir accent taşımaz (ADR-0038 §7.1): logo tek renktir
+ * ve `text-fg` kullanır. Eskiden burada terracotta dolgulu bir "BO" rozeti
+ * vardı ve bu satır onu tarif ediyordu.
  *
  * ============================================================================
  * BU DIV NE YAPAR, NE YAPMAZ

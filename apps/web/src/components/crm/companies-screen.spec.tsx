@@ -17,6 +17,13 @@ const updateCompany = vi.hoisted(() => vi.fn());
 const deleteCompany = vi.hoisted(() => vi.fn());
 const role = vi.hoisted((): { value: string } => ({ value: 'owner' }));
 
+/*
+ * ⚠️ ODANIN DUVARI MOCK'LANIR — bu testin konusu ekranın KENDİ mantığı.
+ * Duvar ayrı bir bileşendir, kendi veri çağrılarını yapar ve kendi testini
+ * hak eder; buraya karıştırmak her ekran testine ilgisiz mock'lar
+ * eklettirirdi (ADR-0038 §6.5 — duvar ortak, tezgah değişir).
+ */
+vi.mock('./crm-wall', () => ({ CrmWall: () => null }));
 vi.mock('@/lib/api/crm', () => ({ listCompanies, createCompany, updateCompany, deleteCompany }));
 vi.mock('@/lib/session/use-current-role', () => ({
   useCurrentRole: () => role.value,
