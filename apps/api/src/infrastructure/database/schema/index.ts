@@ -78,3 +78,19 @@ export { financeCommentaryChunks } from './finance-commentary-chunks.schema';
 // seferliktir, dolayisiyla vektor AYNI SATIRDA yasar.
 export { appointmentsSchema } from './appointments-schema.schema';
 export { appointments } from './appointments.schema';
+
+// --- Belge / Sozlesme Yonetimi (ADR-0037 §1) ---
+// `documentsSchema` ayri bir dosyada: sema ve tablo AYNI adi tasiyor —
+// `projects` ve `appointments`taki cakismanin birebir aynisi, UCUNCU kez.
+//
+// ⚠️ CHUNK TABLOSU GERI DONDU (ADR-0037 §3): bir onceki modul (Randevu) onu
+// bilincli olarak reddetmisti. Iki karar celismiyor — ayni olcut (metnin ust
+// sinirini KULLANICI mi VERI mi belirliyor) iki farkli cevap veriyor.
+//
+// ⚠️ BU MODUL, PROJENIN VERITABANI DISINDAKI ILK KALICI DURUMUNU acar:
+// dosyanin kendisi Cloudflare R2'dedir (ADR-0037 §5) ve `documents.storageKey`
+// ona isaret eder. Nesne deposunda RLS YOKTUR — o taraftaki izolasyon tumuyle
+// anahtar duzenine dayanir.
+export { documentsSchema } from './documents-schema.schema';
+export { documents } from './documents.schema';
+export { documentChunks } from './document-chunks.schema';

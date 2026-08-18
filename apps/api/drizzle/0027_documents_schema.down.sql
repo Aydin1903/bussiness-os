@@ -1,0 +1,33 @@
+-- 0027_documents_schema — GERI ALMA
+--
+-- DEVELOPMENT_RULES 6: her migration geri alinabilir olur.
+--
+-- ⚠️ BU DOSYA TEK BASINA YETMEZ. `database.integration.spec`'in geri alma
+-- LISTESINE de eklenmis olmasi gerekir — Projeler Slice 1'de ogrenilen kalici
+-- ders: migration `0019` yazildiginda listeye girmemisti ve test o gunden beri
+-- kirmiziydi. Eksik olan down dosyasi degil, onu CALISTIRAN satirdi.
+--
+-- ⚠️ SIRA: `0028` (parcalar) BU DOSYADAN ONCE geri alinmalidir.
+-- `document_chunks` bu tabloya FK tasir; once bu tabloyu dusurmek FK ihlali
+-- verir. Geri alma listesi en yeniden eskiye gider ve `0028` orada `0027`den
+-- once yazilidir.
+--
+-- Sema en sonda dusurulur ve `CASCADE` KULLANILMAZ: icinde beklenmedik bir
+-- nesne kaldiysa migration PATLAMALIDIR. `DROP SCHEMA ... CASCADE`, sessizce ne
+-- sildigini soylemez (`0016` / `0020` / `0023` / `0026`nin ayni gerekcesi).
+--
+-- ===========================================================================
+-- ⚠️ BU GERI ALMA R2'DEKI NESNELERI SILMEZ — VE SILEMEZ
+-- ===========================================================================
+-- Migration'lar veritabanini geri alir; nesne deposu ayri bir dogruluk
+-- kaynagidir (ADR-0037 §5.3) ve bir SQL dosyasindan erisilemez. Bu tablo
+-- dusuruldugunde R2'deki her nesne YETIM kalir.
+--
+-- Bu, kaydin durustce yazilmasi gereken bir bedeldir: geri alma "temiz" degil
+-- YARIM olur. Ayni sebeple retention isi (ROADMAP §8.5) yazildiginda satirla
+-- birlikte NESNEYI DE silmek zorundadir — yalnizca satir silen bir is,
+-- faturaya donusen bir yigin birakir.
+
+DROP TABLE IF EXISTS documents.documents;
+--> statement-breakpoint
+DROP SCHEMA IF EXISTS documents;

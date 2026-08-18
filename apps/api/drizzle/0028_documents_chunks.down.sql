@@ -1,0 +1,21 @@
+-- 0028_documents_chunks — GERI ALMA
+--
+-- DEVELOPMENT_RULES 6: her migration geri alinabilir olur.
+--
+-- ⚠️ BU DOSYA `0027`DEN ONCE CALISTIRILMALIDIR: `document_chunks`
+-- `documents.documents`e FK tasir. Geri alma listesinde (en yeniden eskiye)
+-- `0028_documents_chunks.down.sql` satiri `0027_documents_schema.down.sql`den
+-- ONCE gelir.
+--
+-- ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI — `0019`un dersi (bir
+-- migration geri alma listesine hic girmemisti ve test o gunden beri
+-- kirmiziydi) bir kez daha uygulanmadi diye degil, UYGULANMASIN diye.
+--
+-- `vector` eklentisi BURADA DUSURULMEZ: onu `0011` kurdu ve bes tablo daha
+-- kullaniyor. Burada dusurmek, bu migration'i geri almanin Knowledge/CRM/
+-- Projeler/Finans/Randevu'yu da bozmasi demekti.
+--
+-- Sema BURADA DUSURULMEZ: `documents.documents` hala ayakta ve onu `0027`
+-- dusurur.
+
+DROP TABLE IF EXISTS documents.document_chunks;

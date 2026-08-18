@@ -23,6 +23,9 @@ const validEnv = {
  *   - `EMAIL_PROVIDER=console` -> dogrulama kodunu loglar (P1 · sir sizintisi)
  *   - `EMBEDDING_PROVIDER=fake` / `LLM_PROVIDER=fake` -> sir sizdirmaz ama
  *     urunu SESSIZCE islevsiz kilar
+ *   - `STORAGE_PROVIDER=memory` (ADR-0037 §5) -> KULLANICI VERISINI KAYBEDER:
+ *     yukleme 201 doner, liste dolu gorunur ve ilk yeniden baslatmada her dosya
+ *     YOK OLUR. Dordu icinde sonucu EN AGIR olan budur.
  */
 const productionEnv = {
   ...validEnv,
@@ -34,6 +37,11 @@ const productionEnv = {
   OPENAI_API_KEY: 'sk-live',
   LLM_PROVIDER: 'deepseek',
   DEEPSEEK_API_KEY: 'sk-live',
+  STORAGE_PROVIDER: 's3',
+  STORAGE_ENDPOINT: 'https://accountid.r2.cloudflarestorage.com',
+  STORAGE_BUCKET: 'business-os-documents',
+  STORAGE_ACCESS_KEY_ID: 'r2-live',
+  STORAGE_SECRET_ACCESS_KEY: 'r2-live-secret',
 } as const;
 
 describe('createAppConfig', () => {
@@ -262,6 +270,48 @@ describe('createAppConfig', () => {
 
     it('bilinmeyen saglayiciyi reddeder', () => {
       expect(() => createAppConfig({ ...validEnv, EMAIL_PROVIDER: 'smtp' })).toThrow();
+    });
+  });
+
+  // --- Nesne deposu (ADR-0009 · ADR-0037 §5) -------------------------------
+
+  describe('nesne deposu', () => {
+    it('gelistirmede memory VARSAYILANDIR', () => {
+      // Docker'siz bir makinede `pnpm test` calismali; lokal gelistirmenin
+      // DOGRU yolu yine de MinIO'dur (`pnpm docker:up`).
+      const config = createAppConfig({ ...validEnv });
+
+      expect(config.storage.provider).toBe('memory');
+    });
+
+    it('⚠️ URETIMDE memory REDDEDILIR — veri KAYBI riski', () => {
+      // Sahte AI saglayicilari urunu sessizce islevsiz kilar; bellek ici depo
+      // KULLANICI VERISINI KAYBEDER. Yukleme 201 doner, liste dolu gorunur ve
+      // ilk yeniden baslatmada her dosya yok olur — geriye hicbir nesnenin
+      // karsilik gelmedigi metadata satirlari kalir.
+      expect(() => createAppConfig({ ...productionEnv, STORAGE_PROVIDER: 'memory' })).toThrow(
+        /STORAGE_PROVIDER/,
+      );
+    });
+
+    it('⚠️ s3 secildiyse kimlik bilgileri ZORUNLUDUR', () => {
+      // Eksikse surec BASLAMAZ. Alternatifi, her yuklemede 502 vermekti —
+      // acilista patlamak fail-closed davranistir.
+      const { STORAGE_BUCKET: _omitted, ...withoutBucket } = productionEnv;
+
+      expect(() => createAppConfig({ ...withoutBucket })).toThrow(/STORAGE_BUCKET/);
+    });
+
+    it('uretimde s3 kabul edilir ve degerler OLDUGU GIBI aktarilir', () => {
+      const config = createAppConfig({ ...productionEnv });
+
+      expect(config.storage).toMatchObject({
+        provider: 's3',
+        bucket: 'business-os-documents',
+        // ⚠️ Saglayici ADI yapilandirmada GECMEZ: R2 de MinIO da `s3`tir ve
+        // ayrimi `endpoint` tasir (ADR-0009'un vaadi).
+        endpoint: 'https://accountid.r2.cloudflarestorage.com',
+      });
     });
   });
 

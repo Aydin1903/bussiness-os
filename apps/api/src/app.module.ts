@@ -7,6 +7,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { AuthContextMiddleware } from './modules/identity/presentation/auth-context.middleware';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CrmModule } from './modules/crm/crm.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
@@ -60,6 +61,21 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // bir is gercegidir — yani `POST /ask` izin filtresinin tetikcisi HALA
     // yalnizca Finans'tir.
     AppointmentsModule,
+    // Faz 5'in BESINCI is modulu (ADR-0037). Uc sey ILK KEZ oluyor:
+    //
+    //   1. ⚠️ Kalici durum VERITABANI DISINA cikiyor (Cloudflare R2 —
+    //      ADR-0009'un acik biraktigi saglayici secimi kapandi). Nesne
+    //      deposunda RLS YOKTUR; izolasyon anahtar duzenine dayanir.
+    //   2. Chunk tablosu GERI DONUYOR — bir onceki modulun (Randevu) kararinin
+    //      tam tersi. Ayni olcut (metnin ust sinirini KULLANICI mi VERI mi
+    //      belirliyor) iki farkli cevap veriyor.
+    //   3. Cross-modul referans HICBIR SEY YAPILMAYARAK dogrulaniyor: iki
+    //      modulun verisine baglaniyor ama `crm.public.ts` ve
+    //      `projects.public.ts` TEK SATIR degismedi.
+    //
+    // ⚠️ TEK katkici (yalnizca anlamsal) ve o, ALTINCI anlamsal kaynaktir —
+    // ADR-0036'nin taban kisiti ilk gercek yukunu burada tasiyor.
+    DocumentsModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

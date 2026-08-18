@@ -453,6 +453,104 @@ const baseEnvSchema = z.object({
 
   /** Ozetlenecek pencere (ADR-0030 §2.2: son 24 saat). */
   DAILY_REPORT_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+
+  // ==========================================================================
+  // NESNE DEPOSU (ADR-0009 · ADR-0037 §5)
+  // ==========================================================================
+  /**
+   * Nesne deposu saglayicisi.
+   *
+   * ⚠️ `s3` ADI SAGLAYICIYI DEGIL PROTOKOLU soyler. Production **Cloudflare
+   * R2**, lokal/CI **MinIO** — ikisi de ayni S3 API'sini konusur ve AYNI
+   * adapter'i kullanir. Fark yalnizca `STORAGE_ENDPOINT` +
+   * `STORAGE_FORCE_PATH_STYLE`tir. Degiskenin adi `r2` olsaydi, ADR-0009'un
+   * onlemek icin var oldugu sey olurdu: saglayici seciminin yapilandirmaya
+   * ismiyle kazinmasi.
+   *
+   * ⚠️ Uretimde `memory` REDDEDILIR (asagidaki superRefine).
+   */
+  STORAGE_PROVIDER: z.enum(['s3', 'memory']).default('memory'),
+
+  /** S3-uyumlu uc nokta. MinIO: `http://localhost:9000`; R2: hesap uc noktasi. */
+  STORAGE_ENDPOINT: z.string().min(1).optional(),
+
+  /**
+   * Bolge. R2 icin anlamsizdir ama SDK bir deger ISTER; `auto` R2'nin kendi
+   * onerdigi degerdir ve MinIO da onu kabul eder.
+   */
+  STORAGE_REGION: z.string().min(1).default('auto'),
+
+  STORAGE_BUCKET: z.string().min(1).optional(),
+  STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+  STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+
+  /**
+   * Path-style adresleme (`<host>/<bucket>`).
+   *
+   * MinIO'nun varsayilan lokal kurulumunda `true` OLMALIDIR: sanal-host
+   * adresleme (`<bucket>.localhost`) DNS geregi cozulmez. R2 ikisini de
+   * destekler, dolayisiyla `true` birakmak da calisir.
+   */
+  STORAGE_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
+
+  // ==========================================================================
+  // BELGE / SOZLESME (ADR-0037 §6, §10)
+  // ==========================================================================
+  /**
+   * Belge icin SAATLIK embedding payi (ADR-0037 §10).
+   *
+   * ============================================================================
+   * ⚠️ VARSAYILAN BILEREK KUCUK — VE BU MODULDE ILK KEZ GEREKLI
+   * ============================================================================
+   * Oran siniri ISTEK sayar, TOKEN harcamasini degil (ADR-0029 §5'ten beri
+   * yazili bilinen sinir). Bugune kadar bu sinir YANILTICI DEGILDI: onceki dort
+   * modulde bir istek BIR embedding cagrisi uretiyordu, yani sayac ile maliyet
+   * arasindaki oran SABITTI.
+   *
+   * BURADA DEGIL. Bir belge = N parca = N embedding cagrisi ve N, 300'e kadar
+   * cikabilir (`DOCUMENTS_MAX_CHUNKS`). Randevu'nunkiyle ayni kova (60) bu
+   * modulde onlarca KAT maliyete izin verirdi.
+   *
+   * ⚠️ Asil fren yine de bu degil `DOCUMENTS_MAX_CHUNKS`tir: kova istekleri
+   * sayar, parca siniri her istegin USTUNU kapatir.
+   */
+  DOCUMENTS_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(10),
+
+  /**
+   * Tek `POST /documents/reindex` cagrisinda onarilacak EN FAZLA belge.
+   *
+   * Varsayilan Randevu'nunkinden (25) COK DUSUK ve sebep aynidir: orada bir
+   * kayit bir embedding cagrisiydi, burada bir kayit onlarca. Bes belgelik bir
+   * parti, en kotu durumda 1500 cagri demektir.
+   */
+  DOCUMENTS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(5),
+
+  /**
+   * Kabul edilen EN BUYUK dosya (bayt) — ADR-0037 §6.1.
+   *
+   * ⚠️ Bu bir R2 siniri DEGIL, SUNUCU BELLEGI siniridir: dosya, MIME tespiti ve
+   * metin cikarimi icin bellege alinir (§5.3'un sirasi geregi cikarim
+   * YUKLEMEDEN once yapilir — reddedilen hicbir dosya depoya girmez).
+   *
+   * 20 MB ~ birkac yuz sayfalik bir PDF; v1'in hedefi budur. Asilirsa **413**.
+   */
+  DOCUMENTS_MAX_FILE_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .max(200 * 1024 * 1024)
+    .default(20 * 1024 * 1024),
+
+  /**
+   * Bir belgeden uretilebilecek EN FAZLA parca (ADR-0037 §6.1).
+   *
+   * ⚠️ ASIL MALIYET FRENIDIR. Sinirsiz birakmak, tek bir yuklemenin dakikalarca
+   * suren ve sinirsiz maliyet ureten bir istege donusmesi demekti.
+   *
+   * 300 parca ~ 375.000 karakter (`TARGET_CHUNK_CHARS` = 1250) ~ 150 sayfa.
+   * Asilirsa **422** ve KAYIT ACILMAZ — dosya R2'ye de YAZILMAZ.
+   */
+  DOCUMENTS_MAX_CHUNKS: z.coerce.number().int().min(1).max(2000).default(300),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
@@ -465,6 +563,8 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
   requireDeepSeekCredentials(env, ctx);
   forbidConsoleEmailInProduction(env, ctx);
   forbidFakeProvidersInProduction(env, ctx);
+  requireS3StorageCredentials(env, ctx);
+  forbidMemoryStorageInProduction(env, ctx);
 });
 
 /** Zod'un `superRefine` baglami — kurallarin ortak imzasi. */
@@ -604,3 +704,63 @@ function isBlank(value: string | undefined): boolean {
 }
 
 export type Env = z.infer<typeof envSchema>;
+
+/**
+ * `s3` secildiyse uc nokta, bucket ve kimlik bilgileri ZORUNLUDUR
+ * (ADR-0037 §5).
+ *
+ * Eksikse surec BASLAMAZ. `requireResendCredentials` ile ayni gerekce, ama
+ * sonucu daha agir: kimliksiz bir S3 istemcisi HER yuklemede hata verir ve
+ * ADR-0037 §5.3'un sirasi geregi bu, DB satiri acilmadan once olur — yani veri
+ * kaybi olmaz ama modul TUMUYLE calismaz. Acilista patlamak, her yuklemede
+ * 502 vermekten iyidir (fail closed).
+ */
+function requireS3StorageCredentials(env: RawEnv, ctx: RefinementContext): void {
+  if (env.STORAGE_PROVIDER !== 's3') {
+    return;
+  }
+
+  const required = [
+    ['STORAGE_ENDPOINT', env.STORAGE_ENDPOINT],
+    ['STORAGE_BUCKET', env.STORAGE_BUCKET],
+    ['STORAGE_ACCESS_KEY_ID', env.STORAGE_ACCESS_KEY_ID],
+    ['STORAGE_SECRET_ACCESS_KEY', env.STORAGE_SECRET_ACCESS_KEY],
+  ] as const;
+
+  for (const [name, value] of required) {
+    if (value === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [name],
+        message: `STORAGE_PROVIDER=s3 secildi: ${name} zorunludur.`,
+      });
+    }
+  }
+}
+
+/**
+ * Uretimde `STORAGE_PROVIDER=memory` YASAK (ADR-0037 §5).
+ *
+ * ============================================================================
+ * NEDEN — `fake` AI saglayicilarindan DAHA AGIR bir sonuc
+ * ============================================================================
+ * Sahte bir embedding urunu SESSIZCE islevsiz kilar; bellek ici depo ise
+ * KULLANICI VERISINI KAYBEDER. Yukleme 201 doner, liste dolu gorunur, arama
+ * calisir — ve ilk yeniden baslatmada her dosya YOK OLUR. Geriye, hicbir
+ * nesnenin karsilik gelmedigi metadata satirlari kalir: yani tam olarak
+ * ADR-0037 §5.3'un "NESNESIZ KAYIT asla" diye onlemeye calistigi durum, bu kez
+ * toptan.
+ *
+ * Uyari loglamak yeterli DEGILDIR: acilis loglari kimsenin bakmadigi yerdir.
+ */
+function forbidMemoryStorageInProduction(env: RawEnv, ctx: RefinementContext): void {
+  if (env.NODE_ENV === 'production' && env.STORAGE_PROVIDER === 'memory') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['STORAGE_PROVIDER'],
+      message:
+        'Uretimde STORAGE_PROVIDER=memory kullanilamaz: dosyalar bellekte tutulur ve ' +
+        'yeniden baslatmada KAYBOLUR. STORAGE_PROVIDER=s3 olmalidir.',
+    });
+  }
+}

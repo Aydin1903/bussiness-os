@@ -128,6 +128,34 @@ export interface AppConfig {
     readonly noShowAlertRate: number;
   };
 
+  /**
+   * Nesne deposu (ADR-0009 · ADR-0037 §5).
+   *
+   * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
+   * ayrimi `endpoint` + `forcePathStyle` tasir. Saglayici adini buraya yazmak,
+   * ADR-0009'un onlemek icin var oldugu seydi.
+   */
+  readonly storage: {
+    readonly provider: 's3' | 'memory';
+    readonly endpoint: string;
+    readonly region: string;
+    readonly bucket: string;
+    readonly accessKeyId: string;
+    readonly secretAccessKey: string;
+    readonly forcePathStyle: boolean;
+  };
+
+  /** Belge / Sozlesme (ADR-0037 §6, §10). */
+  readonly documents: {
+    /** ⚠️ Kova KUCUK: bir istek ONLARCA embedding uretebilir (§10). */
+    readonly embeddingRateLimit: number;
+    readonly reindexBatchSize: number;
+    /** Asilirsa 413 — sunucu bellegi siniri, R2 siniri degil. */
+    readonly maxFileBytes: number;
+    /** Asilirsa 422 ve KAYIT ACILMAZ. Asil maliyet frenidir. */
+    readonly maxChunks: number;
+  };
+
   /** Gunluk rapor worker'i (ADR-0030 §2). */
   readonly dailyReport: {
     readonly enabled: boolean;
@@ -198,7 +226,39 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       reindexBatchSize: env.APPOINTMENTS_REINDEX_BATCH_SIZE,
       noShowAlertRate: env.APPOINTMENTS_NO_SHOW_ALERT_RATE,
     },
+    storage: toStorageConfig(env),
+    documents: {
+      embeddingRateLimit: env.DOCUMENTS_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.DOCUMENTS_REINDEX_BATCH_SIZE,
+      maxFileBytes: env.DOCUMENTS_MAX_FILE_BYTES,
+      maxChunks: env.DOCUMENTS_MAX_CHUNKS,
+    },
     ...toAiConfig(env),
+  };
+}
+
+/**
+ * Nesne deposu. Deger DONUSTURMEZ; yalnizca eslestirir.
+ *
+ * ⚠️ Bos dizeye DUSURME (`?? ''`) BILINCLIDIR ve tehlikeli DEGILDIR: env semasi
+ * `STORAGE_PROVIDER=s3` iken bu dortlunun varligini ZATEN zorunlu kilar
+ * (`requireS3StorageCredentials`) ve surec eksikse hic baslamaz. Yani bu dal
+ * yalnizca `memory` saglayicisinda calisir — orada dordunun de karsiligi
+ * yoktur ve okunmazlar.
+ *
+ * Alternatif, tipi `string | undefined` yapmakti; o zaman adapter'in kurucusu
+ * her alani ikinci kez kontrol etmek zorunda kalirdi — env semasinda zaten
+ * verilmis bir garantiyi ikinci kez, bu kez SESSIZCE.
+ */
+function toStorageConfig(env: Env): AppConfig['storage'] {
+  return {
+    provider: env.STORAGE_PROVIDER,
+    endpoint: env.STORAGE_ENDPOINT ?? '',
+    region: env.STORAGE_REGION,
+    bucket: env.STORAGE_BUCKET ?? '',
+    accessKeyId: env.STORAGE_ACCESS_KEY_ID ?? '',
+    secretAccessKey: env.STORAGE_SECRET_ACCESS_KEY ?? '',
+    forcePathStyle: env.STORAGE_FORCE_PATH_STYLE,
   };
 }
 

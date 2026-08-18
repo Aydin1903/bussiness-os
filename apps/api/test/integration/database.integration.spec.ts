@@ -113,6 +113,23 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0028, `documents.document_chunks`. ⚠️ 0027'DEN ONCE: parca tablosu
+      // `documents.documents`e FK tasir ve once ebeveyni dusurmek FK ihlali
+      // verir. Bu, ADR-0037'nin IKI migration'a bolunmesinin dogrudan sonucu —
+      // `0026` tek tabloluydu ve boyle bir zincir tasimiyordu.
+      //
+      // ⚠️ BU IKI SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI. `0019`un dersi
+      // (bir migration bu listeye hic girmemisti ve test o gunden beri
+      // kirmiziydi) bir kez daha uygulanmadi diye degil, UYGULANMASIN diye.
+      '0028_documents_chunks.down.sql',
+      // 0027, `documents` semasi ve `documents.documents`. TUM onceki modul
+      // migration'larindan ONCE alinir (konvansiyon: en yeni once) ama
+      // aralarinda BAGIMLILIK YOKTUR — cross-schema FK yasak (Mutlak Kural 5).
+      //
+      // ⚠️ Bu geri alma R2'DEKI NESNELERI SILMEZ ve SILEMEZ: nesne deposu ayri
+      // bir dogruluk kaynagidir (ADR-0037 §5.3) ve bir SQL dosyasindan
+      // erisilemez. Geri alma "temiz" degil YARIM olur — durustce kayitli.
+      '0027_documents_schema.down.sql',
       // 0026, `appointments` semasi ve tek tablosu. TUM `finance`/`projects`/
       // `crm` migration'larindan ONCE alinir (konvansiyon: en yeni once) ama
       // aralarinda BAGIMLILIK YOKTUR — cross-schema FK yasak (Mutlak Kural 5)
