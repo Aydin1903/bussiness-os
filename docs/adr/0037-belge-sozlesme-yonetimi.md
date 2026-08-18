@@ -630,11 +630,11 @@ denetimi). Olculecek sey iki tanedir: (a) on katkici doluyken kaynak dagilimi,
 cevapta bulunmasi. Taban ADR-0036'nin birim testleriyle kilitli; eksik olan
 **canli** kanittir.
 
-### 9. Exception filter — iki port hatasi + oran siniri, `CompletionFailedError` DISARIDA
+### 9. Exception filter — DORT hata tipi, hepsi ILK GUNDEN
 
 **Karar: `DocumentsDomainExceptionFilter` `@Catch(...)` listesine
-`EmbeddingFailedError`, `StorageFailedError` ve `RateLimitExceededError`
-BASTAN yazilir.**
+`EmbeddingFailedError`, `StorageFailedError`, `RateLimitExceededError` ve
+`CompletionFailedError` — **dordu de** — BASTAN yazilir.**
 
 ADR-0035 §8'in genellenmis kurali dogrudan uygulanir:
 
@@ -642,19 +642,20 @@ ADR-0035 §8'in genellenmis kurali dogrudan uygulanir:
 > eklenmelidir.**
 
 Bu modul **iki** paylasilan port kullanir (`EmbeddingPort`, `StoragePort`) ve
-platformun oran siniri mekanizmasina baglanir. Ucu de `DocumentsDomainError`'dan
-**turemez**; `@Catch(...)`e yazilmazlarsa filtre onlari **gormez** ve kullanici
-502/429 yerine **islenmemis 500** alir.
+platformun oran siniri mekanizmasina baglanir. Hicbiri
+`DocumentsDomainError`'dan **turemez**; `@Catch(...)`e yazilmazlarsa filtre
+onlari **gormez** ve kullanici 502/429 yerine **islenmemis 500** alir.
 
 **`DisclosableProblem` isareti** (`DisclosableHttpException`,
 `infrastructure/http`) **ilk gunden** tasinir — beste sonradan eklenen sey burada
 **bastan** yazilir. Isaret yalnizca **bilincli yazilmis** govdelere konur:
 
-| Hata                     | Kod     | Kullaniciya giden govde                                                           |
-| ------------------------ | ------- | --------------------------------------------------------------------------------- |
-| `StorageFailedError`     | **502** | _"Belge deposuna ulasilamadi. Dosya kaydedilmedi, tekrar deneyin."_               |
-| `EmbeddingFailedError`   | **502** | _"Belge yuklendi ancak icerigi indekslenemedi; `reindex` ile onarilabilir."_      |
-| `RateLimitExceededError` | **429** | Standart govde + `Retry-After` (⚠️ 4xx **isaret tasimaz** — maske yalnizca 5xx'e) |
+| Hata                     | Kod     | Kullaniciya giden govde                                                                                                                          |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `StorageFailedError`     | **502** | _"Belge deposuna ulasilamadi. Dosya kaydedilmedi, tekrar deneyin."_                                                                              |
+| `EmbeddingFailedError`   | **502** | _"Belge yuklendi ancak icerigi indekslenemedi; `reindex` ile onarilabilir."_                                                                     |
+| `RateLimitExceededError` | **429** | Standart govde + `Retry-After` (⚠️ 4xx **isaret tasimaz** — maske yalnizca 5xx'e)                                                                |
+| `CompletionFailedError`  | **502** | ⚠️ **Bugun tetiklenemez** — §12'nin "belgeyi ozetle"si eklendigi gun: _"Belge ozeti uretilemedi; belge ve icerigi etkilenmedi, tekrar deneyin."_ |
 
 Ikinci satir tam olarak ADR-0035'in kapanis denetiminde bulunan kusurdur ve
 mesajin ulasmasi burada **bir regresyon degil bir gereksinimdir**: §5.3'un
@@ -668,28 +669,33 @@ istemcinin **dogru** bir istegine karsi sunucu tarafinda olusur (502) ve
 ikisinde de kullanicinin yapabilecegi sey **aynidir**. Ayrim, **govde
 metnindedir** — HTTP kodunda degil.
 
-> ### ⚠️ `CompletionFailedError` bu filtreye YAZILMAZ — ve bu ADR-0035'ten AYRISIR
+> ### ⚠️ `CompletionFailedError` BUGUN TETIKLENEMEZ — ve yine de BASTAN yaziliyor
 >
-> ADR-0035 §8 uc hata tipini birden yazdirmisti ve gerekcesi soyleydi: _"bedeli
-> bir satirlik olu koddur, alternatifin bedeli islenmemis bir 500'dur."_ O
-> gerekce **genel bir kural degildi**, Product Owner'in o modul icin verdigi
-> acik bir istisnaydi.
+> Bu modul `LLMPort`'u **kullanmaz** (§8: tek katkici, modul ici AI yuzeyi yok),
+> yani o satir bugun **olu koddur**. Yazilmasinin sebebi ADR-0035 §8'in
+> **asimetrik bedel** argumanidir ve o arguman burada **degismeden** gecerlidir:
 >
-> **Burada Finans'in cizgisine donuluyor.** Uc sebep:
+> > _"Bedeller simetrik degil: bir satirlik olu kod ile islenmemis bir 500.
+> > Simetrik olmayan bir riskte ucuz tarafta durulur."_
 >
-> 1. Bu modul `LLMPort`'u **kullanmaz** ve modul ici AI yuzeyi §12'de
->    **acikca kapsam disidir** — bir "yakinda gelebilir" degil, yazili bir
->    sinir.
-> 2. CRM'de o satiri **yanlislayan** olay (Katman 2'de musteri ozetinin
->    eklenmesi) bir **hatirlama** isiydi: mevcut bir moduldeki yeni bir
->    use-case. Burada modul ici bir AI ozeti eklemek **ayri bir ADR** gerektirir
->    (§12) ve bir ADR yazilirken filtre satirinin unutulmasi, hatirlamaya
->    birakilmis bir ayrinti degil, **denetim listesinin bir maddesidir**.
-> 3. Kural netligi kendi basina bir degerdir: "kullanilmayan portun hatasi
->    yakalanmaz" cumlesi, "bazen yakalanir" cumlesinden **daha az** unutulur.
+> **Belirleyici ayrinti §12'dedir:** "bu sozlesmeyi ozetle" bir **yasak degil**,
+> v2 kapsam listesinde duran bir **kalemdir**. Yani bu modulun `LLMPort`'a
+> baglanmasi **ongorulmus bir gelecektir**; ongorulmus bir gelecege ait tek
+> satiri "o gun hatirlariz" diye ertelemek, projenin tekrar tekrar reddettigi
+> seydir. CRM'de tam olarak bu yasandi: ayni gerekceyle disarida birakilan
+> satir Katman 2'de (musteri ozeti eklenirken) **yanlislandi** ve o gun
+> hatirlanmak zorunda kalindi.
 >
-> ⚠️ Bu bir yargidir, bir olcum degil; Product Owner tersini soylerse tek
-> satirlik bir eklemedir ve gerekcesi (asimetrik bedel) hala savunulabilir.
+> ⚠️ Bu, **"her modul her hata tipini yakalasin" DEGILDIR** — ADR-0035 §8'in
+> koydugu sinir burada da gecerli: filtre yalnizca `shared/`daki portlarin
+> hatalarini kapsar, cunku hepsi bu modulun kullandigi ya da **yarin kullanmasi
+> ongorulen** portlara aittir.
+>
+> ⚠️ Bedeli acikca: bugun **tetiklenemeyen** bir kod yolu yazilmis oluyor ve bir
+> birim testi onu ancak **sahte** bir hata firlatarak sinayabilir. Bu, ADR-0034
+> Slice 1'in `CategoryInUseError` icin verdigi kararin aynisidir — _"bugun
+> tetiklenemeyen bir yol bilerek yazildi"_ — ve orada da alternatif, sonraki
+> slice'ta **hatirlamaya guvenmekti**.
 
 ### 10. Izinler, uclar ve oran siniri
 
@@ -835,8 +841,9 @@ renk kurali ve Atolye dili baglayicidir.
   maliyet, ayri gecikme profili.
 - **Modul ici AI yuzeyi** ("bu sozlesmeyi ozetle") — Randevu'daki §7 karariyla
   ayni. Belge yalnizca `RetrievalContributor` uzerinden **merkezi `POST /ask`**'a
-  beslenir. ⚠️ Eklendigi gun `--ai-accent` kullanmak **zorunludur** ve §9'un
-  `CompletionFailedError` karari **yeniden okunur**.
+  beslenir. ⚠️ Eklendigi gun `--ai-accent` kullanmak **zorunludur**; filtre
+  tarafinda ise yapilacak bir sey **yoktur** — §9 `CompletionFailedError`i tam
+  olarak bu gun icin **bastan** yazdi.
 - **Belge sablonlari** (sozlesme uretme) — bu bir **yazma** ozelligidir; modul
   v1'de bir **arsivdir**. Ayrica dogru sirasi 8. modulden (Teklif/Fatura)
   sonradir.
@@ -895,12 +902,15 @@ haline geldi; icerigi zayif bir ozeti yapisal ilan etmek, o yuvayi gercekten
 alarm ureten bir kaynagin elinden almak olurdu. Bir modulun **katki
 vermemesi**, kotu bir katki vermesinden iyidir.
 
-**Neden §9 ADR-0035'ten ayrisiyor.** ADR-0035'in gerekcesi (asimetrik bedel)
-hala gecerli ve bu ADR onu **yanlis** ilan etmiyor. Fark sudur: Randevu'da
-modul ici AI yuzeyi **muhtemel** bir yakin gelecekti; burada **yazili olarak
-kapsam disidir** ve eklenmesi bir ADR gerektirir. Bir ADR yazilirken filtre
-satiri **hatirlanmasi gereken bir ayrinti** degil, denetim listesinin bir
-maddesidir.
+**Neden §9 ADR-0035'i AYNEN izliyor.** `CompletionFailedError` bu modulde
+bugun **tetiklenemez** ve bir sure daha olu kod olarak duracak. Yine de bastan
+yazilmasinin sebebi ADR-0035 §8'in asimetrik bedel argumanidir: bir satirlik
+olu kodun bedeli olculebilir degildir, islenmemis bir 500'un bedeli ise
+kullanicinin gordugu **tek** seydir. Belirleyici ayrinti §12'de duruyor —
+"belgeyi ozetle" kapsam disi ama **v2 listesinde**, yani modulun `LLMPort`'a
+baglanmasi ongorulmus bir gelecektir. Ongorulmus bir gelecege ait tek satiri
+"o gun hatirlariz" diye ertelemek, CRM'de Katman 2'de bir kez zaten
+**yanlislandi**.
 
 ## Sonuclari
 
@@ -957,31 +967,31 @@ maddesidir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                                        | Neden secilmedi                                                                                                                                                                                                                     |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dosyalari PostgreSQL'de (`bytea`) tutmak**                      | ADR-0009'un zaten reddettigi secenek: veritabani boyutu ve yedekleme suresi patlar. Ayrica her `pg_dump` on sayfalik sozlesmeleri tasir                                                                                             |
-| **Dogrudan S3 SDK, port'suz**                                     | ADR-0009: saglayici degisimi tum kodu etkilerdi. Ayrica Mutlak Kural 7'nin dis servis karsiligi                                                                                                                                     |
-| **AWS S3** (R2 yerine)                                            | Egress ucretli ve bu modulde egress **kullanimla dogru orantili** buyuyen tek kalemdir (§5a). S3-uyumluluk sayesinde karar zaten geri alinabilir                                                                                    |
-| **MinIO'yu prod'da da kullanmak**                                 | Kendi nesne deposunu isletmek (yedek, dayaniklilik, olcekleme) bir altyapi isidir; Railway uzerinde tek instance ile calistirmak **veri kaybi riskidir**                                                                            |
-| **Presigned URL ile indirme** (§5.4)                              | Erisim karari policy engine'den **bir dizeye** devredilir; tenant izolasyonunun en zayif dayanagi tek basina yeterli hale gelir. R2'de egress ucretsiz oldugu icin kazanci da kucuk                                                 |
-| **Chunk tablosu ACMAMAK** (Randevu gibi tek satir vektor)         | Bir sozlesme `TARGET_CHUNK_CHARS`'a sigmaz; tek vektor on sayfanin **ortalamasi** olur ve _"fesih bildirimi otuz gun once"_ cumlesi kaybolur — yani modulun var olus sebebi (§3)                                                    |
-| **Sabit belge turu enum'u** (`sozlesme`/`teklif`/`fatura`)        | On iki sektorun belge turlerini bugunden bilmeyi gerektirir; kullaniciyi **sahte kategoriye** iter ve sahte kategori §8'in baglam basligina girip AI'a yanlis bilgi ogretir (§2a)                                                   |
-| **Tenant-tanimli etiket sozlugu** (Finans kategorisi gibi)        | Finans sozlugunun **yapisal bir isi** vardi (yon + bilesik FK). Etiketin yoktur; ayri tablo bir yonetim ekrani borclandirir, karsiliginda hicbir sey kazandirmaz (§2b)                                                              |
-| **Coklu etiket** (`document_labels` tablosu)                      | Cok-a-cok iliski + yonetim yuzeyi. Tek kolondan coklu tabloya gecmek bir migration'dir; tersi **veri kaybidir** (§2d)                                                                                                               |
-| **Her dosya turunu kabul edip yalnizca PDF/DOCX'i indekslemek**   | Kullanici dosyasinin arama disinda kaldigini **hicbir yerden ogrenemez** — ekranda digerleriyle ayni gorunur. **415 acik bir cevaptir** (§6.1)                                                                                      |
-| **OCR'i v1'e almak**                                              | Ayri servis, ayri maliyet kalemi, ayri gecikme profili; dogru zamani taranmis belgelerin gercekten **olculdugu** gundur (§6.3)                                                                                                      |
-| **Metin cikarimini kendimiz yazmak** (kutuphane reddi)            | ADR-0035 §7'nin red gerekcesi (kullanilmayan %90 + tasarim dili catismasi + `--accent` override'i) **hicbiri** bir sunucu tarafi ayristiriciya uygulanmaz. Bir PDF ayristiricisi yazmak ciddi bir onerinin konusu degil (§6.2)      |
-| **`TextExtractorPort`u `shared/`'a koymak**                       | Bugun tek tuketicisi var ve bir **platform yetenegi degil**. `shared/`'a koymak Faz 4'un hatasinin tersi olurdu: kimsenin kullanmadigi seyi kernele koymak (§6.2)                                                                   |
-| **Versiyon gecmisi tablosu**                                      | Gercek versiyon gecmisi fark, yururluk, aranabilirlik (havuz **iki kat** kirlenir) ve saklama sorularini birlikte getirir. Yarim bir versiyon gecmisi hic olmamasindan **kotudur** (§7)                                             |
-| **Ayni `storage_key` uzerine yazmak** (versiyon degisiminde)      | Nesne depolarinin tutarlilik modeline ve CDN/tarayici onbelleklerine guvenmek demektir; kullanici yeni dosyayi yukler, **eskisini indirir** ve fark etmez (§5.2)                                                                    |
-| **Once R2'yi silip sonra DB satirini silmek**                     | **Nesnesiz kayit** uretir: kullanici listede duran belgeye tiklar, indiremez ve hata **her denemede** tekrarlanir. Yetim nesne ise gorunmez ve temizlenebilir (§5.3)                                                                |
-| **Yapisal bir katkici da yazmak** ("sozlesme durumu")             | Bir belgenin **durumu yoktur**. Zorlanabilecek her aday ya baska bir modulun isi ya kapsam disi; ustelik ADR-0036 sonrasi "yapisal" etiketi bir **imtiyazdir** ve bos bir ozet o imtiyazi anlamsizlastirirdi (§8)                   |
-| **Bagli kisi/proje adini baglam basligina koymak** (Randevu gibi) | **Iki** bagli varlik var; ikisini koymak ADR-0033'un "tek ad" kuralini ihlal eder, birini secmek keyfidir. Ucuncu yol (hicbiri) `original_filename`e dayanir ve **hic bayatlamaz** (§8.1)                                           |
-| **Dar izin katalogu** (Finans gibi)                               | Sorunu **cozmez ama cozmus gibi gorunur**: hassasiyet belge basinadir, rol seviyesinde ifade edilemez; `admin` yine tumunu gorurdu. Dogru cozum belge bazli erisimdir ve backlog'tadir (§10)                                        |
-| **Ayri `document:download` izni**                                 | Belge **adi** icerigin cogunu soyler ve icerik `POST /ask` uzerinden zaten `document:read` ile cevaba girer. Tek bir sinirin iki yerde yasamasi olurdu (§10)                                                                        |
-| **`CompletionFailedError`i filtreye eklemek** (ADR-0035 gibi)     | Modul `LLMPort` kullanmiyor ve modul ici AI yuzeyi **yazili olarak** kapsam disi; eklendigi gun bir **ADR** gerekir, yani unutulmasi hatirlamaya kalmaz. ⚠️ Asimetrik-bedel argumani hala savunulabilir — PO tersini secebilir (§9) |
-| **`PATCH` ile dosya degisimini ayni uca koymak**                  | JSON ve multipart tek dogrulama semasinda birlesirdi; ustelik yan etkileri zit (bir kolon vs. dosya + tum chunk'lar) (§10)                                                                                                          |
-| **Ayri `documents.rate_limits` tablosu**                          | `platform.rate_limits` zaten var; altinci modulde altinci tablo, ADR-0031 §4.2'nin tam olarak onledigi cogalma                                                                                                                      |
+| Alternatif                                                        | Neden secilmedi                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dosyalari PostgreSQL'de (`bytea`) tutmak**                      | ADR-0009'un zaten reddettigi secenek: veritabani boyutu ve yedekleme suresi patlar. Ayrica her `pg_dump` on sayfalik sozlesmeleri tasir                                                                                                                                                                                      |
+| **Dogrudan S3 SDK, port'suz**                                     | ADR-0009: saglayici degisimi tum kodu etkilerdi. Ayrica Mutlak Kural 7'nin dis servis karsiligi                                                                                                                                                                                                                              |
+| **AWS S3** (R2 yerine)                                            | Egress ucretli ve bu modulde egress **kullanimla dogru orantili** buyuyen tek kalemdir (§5a). S3-uyumluluk sayesinde karar zaten geri alinabilir                                                                                                                                                                             |
+| **MinIO'yu prod'da da kullanmak**                                 | Kendi nesne deposunu isletmek (yedek, dayaniklilik, olcekleme) bir altyapi isidir; Railway uzerinde tek instance ile calistirmak **veri kaybi riskidir**                                                                                                                                                                     |
+| **Presigned URL ile indirme** (§5.4)                              | Erisim karari policy engine'den **bir dizeye** devredilir; tenant izolasyonunun en zayif dayanagi tek basina yeterli hale gelir. R2'de egress ucretsiz oldugu icin kazanci da kucuk                                                                                                                                          |
+| **Chunk tablosu ACMAMAK** (Randevu gibi tek satir vektor)         | Bir sozlesme `TARGET_CHUNK_CHARS`'a sigmaz; tek vektor on sayfanin **ortalamasi** olur ve _"fesih bildirimi otuz gun once"_ cumlesi kaybolur — yani modulun var olus sebebi (§3)                                                                                                                                             |
+| **Sabit belge turu enum'u** (`sozlesme`/`teklif`/`fatura`)        | On iki sektorun belge turlerini bugunden bilmeyi gerektirir; kullaniciyi **sahte kategoriye** iter ve sahte kategori §8'in baglam basligina girip AI'a yanlis bilgi ogretir (§2a)                                                                                                                                            |
+| **Tenant-tanimli etiket sozlugu** (Finans kategorisi gibi)        | Finans sozlugunun **yapisal bir isi** vardi (yon + bilesik FK). Etiketin yoktur; ayri tablo bir yonetim ekrani borclandirir, karsiliginda hicbir sey kazandirmaz (§2b)                                                                                                                                                       |
+| **Coklu etiket** (`document_labels` tablosu)                      | Cok-a-cok iliski + yonetim yuzeyi. Tek kolondan coklu tabloya gecmek bir migration'dir; tersi **veri kaybidir** (§2d)                                                                                                                                                                                                        |
+| **Her dosya turunu kabul edip yalnizca PDF/DOCX'i indekslemek**   | Kullanici dosyasinin arama disinda kaldigini **hicbir yerden ogrenemez** — ekranda digerleriyle ayni gorunur. **415 acik bir cevaptir** (§6.1)                                                                                                                                                                               |
+| **OCR'i v1'e almak**                                              | Ayri servis, ayri maliyet kalemi, ayri gecikme profili; dogru zamani taranmis belgelerin gercekten **olculdugu** gundur (§6.3)                                                                                                                                                                                               |
+| **Metin cikarimini kendimiz yazmak** (kutuphane reddi)            | ADR-0035 §7'nin red gerekcesi (kullanilmayan %90 + tasarim dili catismasi + `--accent` override'i) **hicbiri** bir sunucu tarafi ayristiriciya uygulanmaz. Bir PDF ayristiricisi yazmak ciddi bir onerinin konusu degil (§6.2)                                                                                               |
+| **`TextExtractorPort`u `shared/`'a koymak**                       | Bugun tek tuketicisi var ve bir **platform yetenegi degil**. `shared/`'a koymak Faz 4'un hatasinin tersi olurdu: kimsenin kullanmadigi seyi kernele koymak (§6.2)                                                                                                                                                            |
+| **Versiyon gecmisi tablosu**                                      | Gercek versiyon gecmisi fark, yururluk, aranabilirlik (havuz **iki kat** kirlenir) ve saklama sorularini birlikte getirir. Yarim bir versiyon gecmisi hic olmamasindan **kotudur** (§7)                                                                                                                                      |
+| **Ayni `storage_key` uzerine yazmak** (versiyon degisiminde)      | Nesne depolarinin tutarlilik modeline ve CDN/tarayici onbelleklerine guvenmek demektir; kullanici yeni dosyayi yukler, **eskisini indirir** ve fark etmez (§5.2)                                                                                                                                                             |
+| **Once R2'yi silip sonra DB satirini silmek**                     | **Nesnesiz kayit** uretir: kullanici listede duran belgeye tiklar, indiremez ve hata **her denemede** tekrarlanir. Yetim nesne ise gorunmez ve temizlenebilir (§5.3)                                                                                                                                                         |
+| **Yapisal bir katkici da yazmak** ("sozlesme durumu")             | Bir belgenin **durumu yoktur**. Zorlanabilecek her aday ya baska bir modulun isi ya kapsam disi; ustelik ADR-0036 sonrasi "yapisal" etiketi bir **imtiyazdir** ve bos bir ozet o imtiyazi anlamsizlastirirdi (§8)                                                                                                            |
+| **Bagli kisi/proje adini baglam basligina koymak** (Randevu gibi) | **Iki** bagli varlik var; ikisini koymak ADR-0033'un "tek ad" kuralini ihlal eder, birini secmek keyfidir. Ucuncu yol (hicbiri) `original_filename`e dayanir ve **hic bayatlamaz** (§8.1)                                                                                                                                    |
+| **Dar izin katalogu** (Finans gibi)                               | Sorunu **cozmez ama cozmus gibi gorunur**: hassasiyet belge basinadir, rol seviyesinde ifade edilemez; `admin` yine tumunu gorurdu. Dogru cozum belge bazli erisimdir ve backlog'tadir (§10)                                                                                                                                 |
+| **Ayri `document:download` izni**                                 | Belge **adi** icerigin cogunu soyler ve icerik `POST /ask` uzerinden zaten `document:read` ile cevaba girer. Tek bir sinirin iki yerde yasamasi olurdu (§10)                                                                                                                                                                 |
+| **`CompletionFailedError`i filtreden CIKARMAK** (Finans gibi)     | Gerekcesi savunulabilirdi — modul bugun `LLMPort` kullanmiyor. Ama ADR-0035 §8'in **asimetrik bedeli** burada da gecerli (bir satirlik olu kod ile islenmemis bir 500) ve "belgeyi ozetle" §12'nin **v2 listesinde** duruyor: baglanti ongorulmus bir gelecektir. CRM'de ayni satir Katman 2'de bir kez **yanlislandi** (§9) |
+| **`PATCH` ile dosya degisimini ayni uca koymak**                  | JSON ve multipart tek dogrulama semasinda birlesirdi; ustelik yan etkileri zit (bir kolon vs. dosya + tum chunk'lar) (§10)                                                                                                                                                                                                   |
+| **Ayri `documents.rate_limits` tablosu**                          | `platform.rate_limits` zaten var; altinci modulde altinci tablo, ADR-0031 §4.2'nin tam olarak onledigi cogalma                                                                                                                                                                                                               |
 
 ## Bilinen sinirlar
 
@@ -1096,7 +1106,8 @@ biri digerini maskelerdi.
 - [ ] **§9 sinavi**: oran siniri asildiginda **429** (`Retry-After` ile);
       embedding saglayicisi hata verdiginde **502** ve govde **DisclosableProblem
       mesajini tasiyor** (maskeli degil); depoya ulasilamadiginda **502** —
-      ucu de **500 DEGIL**
+      ucu de **500 DEGIL**. ⚠️ `CompletionFailedError` bugun **tetiklenemez**
+      (§9); filtredeki varligi birim testiyle kilitlenir, canli turda aranmaz
 - [ ] **§6.1 sinavi**: desteklenmeyen tur **415**, 20 MB ustu **413**, 300 parca
       ustu **422** — ve ⚠️ **reddedilen hicbir dosya R2'ye YAZILMAMIS** olmali
       (bucket sayimi ile dogrulanir)
