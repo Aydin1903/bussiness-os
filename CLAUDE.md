@@ -697,6 +697,9 @@ Gerçekten yeni **dört** karar:
 
 > **Kalıcı ders (Slice 1'de yakalandı):** yeni bir migration eklerken
 > `database.integration.spec`'in **geri alma listesine de** eklenmeli.
+> ⚠️ Bu, "yeni migration ekleme kontrol listesi"nin **3. adımıdır**; 2. adım
+> (`_journal.json`) ADR-0037'de atlandı ve tam listeye dönüştü — bkz. aşağıdaki
+> **YENİ MIGRATION EKLEME KONTROL LİSTESİ**.
 > Migration `0019` (ADR-0032) o listeye hiç girmemişti ve test o günden beri
 > kırmızıydı — `crm.company_summaries` ayakta kaldığı için `0016`'nın geri
 > alması `cannot drop table crm.companies` ile patlıyordu. Testin kendi
@@ -1073,6 +1076,39 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > Aynı sınıftan ikinci tuzak: `docker/postgres/init/` betikleri **yalnızca boş
 > veri dizininde** çalışır, yani sonradan eklenen roller mevcut volume'a hiç
 > gelmez.
+
+> ### ⚠️ Kalıcı ders: YENİ MIGRATION EKLEME KONTROL LİSTESİ (zorunlu)
+>
+> **SQL dosyası yazmak YETMEZ.** Drizzle yalnızca `drizzle/meta/_journal.json`'da
+> kayıtlı migration'ları uygular. Dosya yazılıp journal'a eklenmezse
+> `pnpm db:migrate` **"migrations applied successfully" yazar, çıkış kodu 0
+> verir ve HİÇBİR ŞEY UYGULAMAZ.**
+>
+> Hata **sessizdir** ve bu, onu tehlikeli yapan şeydir: tablolar oluşmaz,
+> uygulama sorunsuz ayağa kalkar, `pnpm verify` yeşil yanar. ADR-0037'de
+> gerçekten yaşandı — kusur ancak `POST /ask` bir kaynağı sessizce
+> `degradedSources`a düşürünce fark edildi.
+>
+> ⚠️ **`database.integration.spec` bunu YAKALAMAZ:** geri alma listesi
+> `DROP TABLE IF EXISTS` çalıştırır ve **olmayan bir tablo için de başarılıdır**.
+> Yani yeşil yanan geri alma testi, migration'ın uygulandığının kanıtı DEĞİLDİR.
+>
+> **Her yeni migration'da üçü de yapılır:**
+>
+> 1. `drizzle/<NNNN>_<ad>.sql` **ve** `<NNNN>_<ad>.down.sql` yazılır
+>    (DEVELOPMENT_RULES 6 — her migration geri alınabilir).
+> 2. ⚠️ **`drizzle/meta/_journal.json`'a giriş eklenir** — `idx` sıralı, `when`
+>    **artan**, `tag` dosya adıyla birebir aynı. Bu adım atlanırsa yukarıdaki
+>    sessiz hata olur.
+> 3. ⚠️ **`database.integration.spec`'in geri alma listesine eklenir** — en
+>    yeniden eskiye, bağımlı tablo ebeveyninden **önce** (ADR-0032'nin `0019`
+>    dersi — yukarıda, Projeler bölümünde).
+>
+> **Kanıt adımı:** migration'ın gerçekten uygulandığı, tabloların **varlığını**
+> iddia eden bir entegrasyon testiyle kilitlenir (`documents-schema
+> .integration.spec`'in "iki tablo da GERÇEKTEN oluşturuldu" maddesi bunun
+> içindir). Sayı saymak yetmez — `drizzle.__drizzle_migrations` sayacı da
+> journal'a bağlıdır ve aynı yalanı söyler.
 
 > **Kalıcı ders:** `pnpm dev` çalışırken `pnpm verify` (ya da `pnpm build`)
 > **koşulmaz** — ikisi aynı `apps/web/.next` dizinini paylaşır ve `next build`,
