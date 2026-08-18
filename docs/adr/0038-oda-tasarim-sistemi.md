@@ -325,6 +325,48 @@ kalicidir (`bo_rail`).
 gorunen etiket kisalir — gorsel kullanici ikonu gorup baglami tamamlar, ekran
 okuyucu kullanicisi tamamlayamaz.
 
+### 6.10 BINLIK AYRACI — ADR-0034'un "bilinen siniri" KAPANDI
+
+> **Product Owner talimati, 2026-08-17:** _"binlik ayraci eksikligini duzelt …
+> tarayicinin otomatik locale algisina guvenme — kendi formatlama fonksiyonunu
+> yaz, davranisi sabitle."_
+
+ADR-0034 bunu bilinen sinir olarak kaydetmisti: _"Binlik ayraci yok:
+sunucunun kanonik dizesi oldugu gibi yazilir; bicimlendirmek `Number`a cevirmek
+demekti ve para bu projede hicbir noktada `number` olmuyor."_
+
+⚠️ **Sinir ODA SISTEMIYLE GORUNUR HALE GELDI.** 13–15 px'te `1284500.00` goze
+batmiyordu; duvarin **64 px'lik** kahraman rakaminda okunaksiz bir rakam
+dizisi. Yani teshis degil, TESHIRI degisti.
+
+**Cozum `lib/format/money.ts`** ve o gunku itirazi bozmuyor: dize
+**PARCALANIR**, `Number`dan gecmez. Bir test 17 haneli bir tutarla bunu
+kanitliyor — `Number`dan gecseydi son basamak degisirdi (IEEE-754 yalnizca
+2^53'e kadar kayipsiz).
+
+⚠️ **`Intl.NumberFormat` / `toLocaleString` REDDEDILDI**, iki gerekce:
+
+1. Sayiya cevirmeyi gerektirir (yukaridaki kural).
+2. **Ortama bagimlidir** — tarayici, isletim sistemi ve ICU verisine gore
+   farkli cikti verebilir ve fark SESSIZDIR.
+
+⚠️ Ikinci madde teorik degil: bu projede ayni siniftan bir hata YASANDI.
+`text-transform: uppercase`, belge `lang="tr"` oldugu icin "Business OS"u
+ekranda **"BUSINESS OS"** yerine noktali I ile cizdi. Locale'e duyarli her
+donusum ayni riski tasir; ayraclar bu yuzden **koda yazilidir**.
+
+⚠️ **Iki bicim var ve ayrimi anlamlidir:**
+
+| Fonksiyon            | Kurus            | Nerede                               |
+| -------------------- | ---------------- | ------------------------------------ |
+| `formatMoney`        | daima yazilir    | duvarin kahramani, tutar isaretleri  |
+| `formatMoneyCompact` | sifirsa gizlenir | yogun listeler (CRM firsat kartlari) |
+
+Ikincisi CRM'de ZATEN alinmis bir karardi (`stage-pill.tsx`) — ve dogru cozum
+projede VARDI, yalnizca **paylasilmiyordu**: Finans ayni sorunu yasarken ham
+dize basiyordu. Mantik `lib/`e tasindi, `stage-pill.tsx` imzasini koruyan bir
+sarmalayici oldu.
+
 ### 7. Marka — logo uc sey soyluyor
 
 `logo/` altindaki iki dosya okundu (K isareti + "KobiWise / BUSINESS OS"

@@ -1,4 +1,5 @@
 import { OPPORTUNITY_STAGE_LABELS, type OpportunityStage } from '@business-os/contracts';
+import { formatMoneyCompact } from '@/lib/format/money';
 
 /**
  * Aşama rozeti — RENKLE DEĞİL, DOLULUKLA ayrışır.
@@ -55,25 +56,27 @@ export function StagePill({ stage }: { stage: OpportunityStage }) {
 /**
  * Tahmini değer — `1.250.000 TRY`.
  *
- * ⚠️ Sunucu `numeric`i STRING olarak taşır ve burada da string kalır: `Number`'a
- * çevirmek 14 haneli bir tutarda kayan nokta hassasiyetini kaybettirebilir.
- * Yalnızca binlik ayracı eklenir, aritmetik YAPILMAZ.
+ * ============================================================================
+ * ⚠️ BİÇİMLENDİRME ARTIK `lib/format/money.ts`'TE — burada YALNIZCA sarmalayıcı
+ * ============================================================================
+ * Gruplama mantığı bir dönem YALNIZCA burada yaşıyordu ve doğruydu: string
+ * üzerinde çalışıyor, `Intl` kullanmıyor, aritmetik yapmıyordu. Ama Finans
+ * modülü aynı sorunu yaşarken ham dize basıyordu — yani doğru çözüm projede
+ * VARDI, sadece PAYLAŞILMIYORDU.
  *
- * Ayraç `Intl` ile değil elle konur: locale'e bağlı biçimleme sunucu ile
- * istemcide farklı çıktı verip hydration uyuşmazlığı üretebilir
- * (`lib/format/datetime.ts`'in aynı gerekçesi).
+ * `module-kit`'in dersi burada da geçerli: ikinci tüketici, bir şeyin genel
+ * olup olmadığını öğrendiğimiz yerdir. Mantık `shared`a taşındı; bu fonksiyon
+ * imzasını KORUYOR (üç çağıran değişmedi) ve yalnızca para birimini ekliyor.
+ *
+ * ⚠️ `formatMoneyCompact` bilinçli seçim: kuruş sıfırsa yazılmaz. Fırsat
+ * kartları bir LİSTEDİR ve "250.000,00" gürültüdür. Duvarın kahraman rakamı
+ * ise tam biçimi kullanır.
  */
 export function formatMoney(value: string | null, currency: string | null): string | null {
   if (value === null) {
     return null;
   }
 
-  const [whole = '', fraction] = value.split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  // Kuruş yalnızca SIFIRDAN FARKLIYSA yazılır: "250.000" ile "250.000,00"
-  // aynı bilgiyi taşır, ikincisi listeyi gürültüyle doldurur.
-  const withFraction =
-    fraction === undefined || Number(fraction) === 0 ? grouped : `${grouped},${fraction}`;
-
-  return currency === null ? withFraction : `${withFraction} ${currency}`;
+  const shown = formatMoneyCompact(value);
+  return currency === null ? shown : `${shown} ${currency}`;
 }

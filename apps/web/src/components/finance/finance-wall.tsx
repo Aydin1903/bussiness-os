@@ -3,6 +3,7 @@ import type { CashflowSummary } from '@business-os/contracts';
 import { Hero, HeroFigure, Satellite, Satellites, Wall } from '@/components/room/room';
 import { Rise } from '@/components/panel/stream';
 import { ROOM_RISE } from '@/components/room/room';
+import { formatMoney } from '@/lib/format/money';
 import { percentChange, type Period } from '@/lib/format/period';
 
 /**
@@ -95,11 +96,11 @@ export function FinanceWall({
             delta={<DeltaLine current={lead} previous={previous} />}
           >
             {/*
-              ⚠️ Kanonik dize OLDUĞU GİBİ basılır (`marks.tsx` kuralı). Negatif
-              için tipografik eksi kullanılır: rakamlarla aynı genişlikte durur
-              ve `tabular` hizasını bozmaz.
+              ⚠️ 64 px'lik kahraman rakam da BİÇİMLENDİRİLİR. Binlik ayracı
+              küçük puntoda göze batmıyordu; bu boyutta "1284500.00" okunaksız
+              bir rakam dizisidir. Tipografik eksiyi de `formatMoney` koyar.
             */}
-            <HeroFigure>{lead.net.startsWith('-') ? `−${lead.net.slice(1)}` : lead.net}</HeroFigure>
+            <HeroFigure>{formatMoney(lead.net)}</HeroFigure>
           </Hero>
         )}
       </Rise>
@@ -107,8 +108,8 @@ export function FinanceWall({
       {loading || lead === null ? null : (
         <Rise delay={ROOM_RISE.ai}>
           <Satellites>
-            <Satellite label={`Gelir · ${lead.currency}`} value={lead.income} />
-            <Satellite label={`Gider · ${lead.currency}`} value={lead.expense} />
+            <Satellite label={`Gelir · ${lead.currency}`} value={formatMoney(lead.income)} />
+            <Satellite label={`Gider · ${lead.currency}`} value={formatMoney(lead.expense)} />
             {/*
               ⚠️ DİĞER PARA BİRİMLERİ SAYI OLARAK DEĞİL, SAYIM OLARAK.
               Toplamak ADR-0034 §5.1'in yasakladığı şeydir; kahraman tek bir

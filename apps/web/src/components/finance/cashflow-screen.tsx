@@ -27,6 +27,7 @@ import {
 } from '@/components/room/room';
 import { FinanceWall } from './finance-wall';
 import { formatCalendarDay } from '@/lib/format/datetime';
+import { formatMoney } from '@/lib/format/money';
 import { monthPeriod } from '@/lib/format/period';
 import { CategoryBars } from './category-bars';
 import { FinanceTabs } from './chrome';
@@ -302,9 +303,9 @@ function CurrencyTotals({ summary }: { summary: CashflowSummary | null }) {
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-fg-3 tabular">
-            <span>gelir {row.income}</span>
+            <span>gelir {formatMoney(row.income)}</span>
             <span aria-hidden>·</span>
-            <span>gider {row.expense}</span>
+            <span>gider {formatMoney(row.expense)}</span>
           </div>
 
           {/*

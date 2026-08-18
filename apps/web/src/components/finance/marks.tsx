@@ -1,5 +1,7 @@
 import { DIRECTION_LABELS, type FinanceDirection } from '@business-os/contracts';
 
+import { formatMoney } from '@/lib/format/money';
+
 /**
  * Finans'ın KENDİNE ÖZGÜ kart işaretleri.
  *
@@ -42,9 +44,11 @@ export function DirectionPill({ direction }: { direction: FinanceDirection }) {
  * Sunucu zaten KANONİK biçimde gönderiyor (`"1500.50"`), yani ekranda
  * yapılacak tek iş onu göstermektir.
  *
- * Bedeli açıkça: binlik ayracı yok. Bilinen sınır olarak kaydedildi; çözümü
- * dizeyi PARÇALAYAN bir biçimlendirici olurdu (sayıya çevirmeyen), ve o ayrı
- * bir iştir.
+ * ⚠️ BİNLİK AYRACI ARTIK VAR (2026-08-17). Bu paragraf bir dönem "bilinen
+ * sınır" diyor ve çözümü şöyle tarif ediyordu: _"dizeyi PARÇALAYAN bir
+ * biçimlendirici olurdu (sayıya çevirmeyen), ve o ayrı bir iştir"_. O iş
+ * yapıldı: `lib/format/money.ts`. Tutar hâlâ hiçbir noktada `number` olmuyor
+ * ve `Intl` reddi de aynen duruyor.
  *
  * `tabular` ZORUNLU: rakamlar alt alta hizalanmazsa iki tutarı gözle
  * karşılaştırmak imkânsızlaşır.
@@ -64,7 +68,7 @@ export function Amount({
   return (
     <span className="shrink-0 text-[13.5px] font-semibold tracking-[-0.01em] text-fg tabular">
       {sign}
-      {value} <span className="text-[11px] font-medium text-fg-3">{currency}</span>
+      {formatMoney(value)} <span className="text-[11px] font-medium text-fg-3">{currency}</span>
     </span>
   );
 }
@@ -86,9 +90,11 @@ export function NetAmount({ value, currency }: { value: string; currency: string
         negative ? 'text-ink' : 'text-fg',
       ].join(' ')}
     >
-      {/* `-` yerine tipografik eksi: rakamlarla aynı genişlikte durur. */}
-      {negative ? `−${value.slice(1)}` : value}{' '}
-      <span className="text-[11px] font-medium text-fg-3">{currency}</span>
+      {/*
+        ⚠️ Tipografik eksiyi `formatMoney` KOYAR; burada elle eklemek çift
+        işaret üretirdi. `negative` yalnızca RENK için okunuyor.
+      */}
+      {formatMoney(value)} <span className="text-[11px] font-medium text-fg-3">{currency}</span>
     </span>
   );
 }

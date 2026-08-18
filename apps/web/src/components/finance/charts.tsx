@@ -1,5 +1,6 @@
 import type { CashflowCategoryTotal } from '@business-os/contracts';
 
+import { formatMoney } from '@/lib/format/money';
 import { Amount } from './marks';
 
 /**
@@ -113,7 +114,7 @@ export function ExpenseDonut({
           className="h-[150px] w-[150px] shrink-0"
           role="img"
           aria-label={`Gider kırılımı: ${shown
-            .map((row) => `${row.categoryName ?? 'Kategorisiz'} ${row.total}`)
+            .map((row) => `${row.categoryName ?? 'Kategorisiz'} ${formatMoney(row.total)}`)
             .join(', ')}`}
         >
           {/* Boş kalan pay — kırılım toplamı ilan edilen toplamı tutmuyorsa GÖRÜNÜR. */}

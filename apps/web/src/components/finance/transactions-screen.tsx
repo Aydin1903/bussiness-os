@@ -45,6 +45,7 @@ import {
 import { monthPeriod, type Period } from '@/lib/format/period';
 import { Amount, DirectionPill } from './marks';
 import { TransactionForm } from './transaction-form';
+import { formatMoney } from '@/lib/format/money';
 
 export const PAGE_SIZE = 20;
 
@@ -418,7 +419,7 @@ function TransactionCard({
             <ConfirmDelete
               pending={deleting}
               ariaLabel="Kaydı sil"
-              question={`${transaction.amount} ${transaction.currency} tutarındaki kayıt kalıcı olarak silinecek. ⚠️ Bu işlemin denetim izi YOKTUR — silindiği bilgisi hiçbir yerde kalmaz.`}
+              question={`${formatMoney(transaction.amount)} ${transaction.currency} tutarındaki kayıt kalıcı olarak silinecek. ⚠️ Bu işlemin denetim izi YOKTUR — silindiği bilgisi hiçbir yerde kalmaz.`}
               onConfirm={onDelete}
             />
           </CardActions>

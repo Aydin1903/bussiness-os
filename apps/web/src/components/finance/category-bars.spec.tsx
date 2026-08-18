@@ -195,16 +195,38 @@ describe('CategoryBars — payda GRUBUN İLAN EDİLMİŞ toplamıdır', () => {
   });
 });
 
-describe('CategoryBars — para KANONİK dize olarak yazılır', () => {
-  it('sunucunun dizesi olduğu gibi görünür, yerel biçimlendirme YOK', () => {
-    // `Number()` bu bileşende YALNIZCA genişlik için kullanılır; parse edilen
-    // değer ekrana hiç yazılmaz (`marks.tsx`'in kuralı).
+describe('CategoryBars — para SAYIYA ÇEVRİLMEDEN biçimlendirilir', () => {
+  /*
+   * ============================================================================
+   * ⚠️ BU TESTİN İDDİASI 2026-08-17'DE DEĞİŞTİ — ama YARISI aynı kaldı
+   * ============================================================================
+   * Eskiden iki şey birden iddia ediliyordu:
+   *
+   *   1. "Tutar sayıya çevrilmez"          → HÂLÂ GEÇERLİ, korunuyor
+   *   2. "Binlik ayracı EKLENMEZ"          → ARTIK YANLIŞ
+   *
+   * İkisi aslında ayrı kararlardı ama tek testte birleşmişti. Product Owner
+   * binlik ayracı istedi (2026-08-17) ve `lib/format/money.ts` onu tam da
+   * birinci kuralı bozmadan ekliyor: dize PARÇALANIR, `Number`dan geçmez.
+   *
+   * Yani değişen şey "kanonik dize ekrana basılır" değil, "ekrana basılmadan
+   * önce gruplanır"dır. Aritmetik hâlâ yok.
+   */
+  it('binlik ayracı ve TR ondalık ayracıyla yazılır', () => {
     render(
       <CategoryBars categories={[row({ total: '1500.50' })]} income="1500.50" expense="0.00" />,
     );
 
-    expect(screen.getByText(/1500\.50/)).toBeInTheDocument();
-    // Binlik ayracı EKLENMEZ — bilinen ve kabul edilmiş sınır.
-    expect(screen.queryByText(/1\.500,50/)).not.toBeInTheDocument();
+    expect(screen.getByText(/1\.500,50/)).toBeInTheDocument();
+  });
+
+  it('⚠️ ham kanonik dize ARTIK ekranda görünmez', () => {
+    // Biçimlendirme atlanırsa bu iddia kırmızı yanar — 64 px'lik kahraman
+    // rakamda "1284500.00" okunaksızdı, sorun buydu.
+    render(
+      <CategoryBars categories={[row({ total: '1500.50' })]} income="1500.50" expense="0.00" />,
+    );
+
+    expect(screen.queryByText(/1500\.50/)).not.toBeInTheDocument();
   });
 });

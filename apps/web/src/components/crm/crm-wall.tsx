@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Rise } from '@/components/panel/stream';
 import { Hero, HeroFigure, ROOM_RISE, Satellite, Satellites, Wall } from '@/components/room/room';
 import { listFollowUps, listOpportunities } from '@/lib/api/crm';
+import { formatMoney } from '@/lib/format/money';
 import { isOverdue } from './follow-up-mark';
 
 /**
@@ -175,7 +176,7 @@ export function CrmWall() {
               </>
             }
           >
-            <HeroFigure>{money.lead.total}</HeroFigure>
+            <HeroFigure>{formatMoney(money.lead.total)}</HeroFigure>
           </Hero>
         )}
       </Rise>
