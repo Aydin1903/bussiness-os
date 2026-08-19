@@ -8,6 +8,7 @@ import { AuthContextMiddleware } from './modules/identity/presentation/auth-cont
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
@@ -76,6 +77,22 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // ⚠️ TEK katkici (yalnizca anlamsal) ve o, ALTINCI anlamsal kaynaktir —
     // ADR-0036'nin taban kisiti ilk gercek yukunu burada tasiyor.
     DocumentsModule,
+    // Faz 5'in ALTINCI is modulu (ADR-0039). Uc sey kayda deger:
+    //
+    //   1. ⚠️ MODULUN MERKEZI SAYISI BIR KOLONDA DEGIL: miktar
+    //      `inventory.movements`tan HER OKUMADA turetilir (§2). Projede
+    //      dokuzuncu kez ayni karar — ama ilk kez GERCEK BIR BEDELLE, cunku
+    //      turetme sinirsiz buyuyen bir defteri tarar.
+    //   2. ⚠️ DEFTER DEGISTIRILEMEZ (§3.3) — ADR-0034'ten bilincli sapma.
+    //      Finans islemi duzeltilebilir; envanter hareketi duzeltilemez, cunku
+    //      gecmisi degistirmek BUGUNKU MIKTARI sessizce yeniden yazar.
+    //   3. ⚠️ CRM'DEN BU YANA CIKAN KENARI OLMAYAN ILK IS MODULU (§9): hicbir
+    //      baska is modulunu import etmiyor. Bagimlilik grafigi alti kenarda
+    //      kaliyor ve Stok, CRM ile ayni katmanda bir kok dugum.
+    //
+    // ⚠️ Iki katkici YAPISAL kaynak sayisini 4'ten 5'e cikariyor ve ADR-0036'nin
+    // yeniden gozden gecirme esigine (6) BIR ADIM kaliyor.
+    InventoryModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

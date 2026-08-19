@@ -204,6 +204,13 @@
       "when": 1784920000000,
       "tag": "0028_documents_chunks",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1784930000000,
+      "tag": "0029_inventory_schema",
+      "breakpoints": true
     }
   ]
 }

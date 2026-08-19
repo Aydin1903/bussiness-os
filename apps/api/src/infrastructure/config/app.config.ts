@@ -129,6 +129,21 @@ export interface AppConfig {
   };
 
   /**
+   * Stok / Envanter (ADR-0039 §5, §6.1).
+   *
+   * ⚠️ MIKTARLA ILGILI HICBIR AYAR YOKTUR ve bu bilincli: miktar TURETILIR
+   * (ADR-0039 §2), yani ayarlanacak bir esik, bir yuvarlama ya da bir onbellek
+   * suresi yok. Bir gun bir onbellek eklenirse ILK ayar burada belirir.
+   */
+  readonly inventory: {
+    /** ⚠️ Kalem de hareket de degil, EMBEDDING sayar (hareket paydan dusmez). */
+    readonly embeddingRateLimit: number;
+    readonly reindexBatchSize: number;
+    /** ⚠️ AI siralamasini etkiler; web karsiligi geldiginde senkron kalmali. */
+    readonly nearThresholdRatio: number;
+  };
+
+  /**
    * Nesne deposu (ADR-0009 · ADR-0037 §5).
    *
    * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
@@ -225,6 +240,11 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       embeddingRateLimit: env.APPOINTMENTS_EMBEDDING_RATE_LIMIT,
       reindexBatchSize: env.APPOINTMENTS_REINDEX_BATCH_SIZE,
       noShowAlertRate: env.APPOINTMENTS_NO_SHOW_ALERT_RATE,
+    },
+    inventory: {
+      embeddingRateLimit: env.INVENTORY_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.INVENTORY_REINDEX_BATCH_SIZE,
+      nearThresholdRatio: env.INVENTORY_NEAR_THRESHOLD_RATIO,
     },
     storage: toStorageConfig(env),
     documents: {

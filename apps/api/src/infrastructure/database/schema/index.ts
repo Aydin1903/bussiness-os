@@ -94,3 +94,21 @@ export { appointments } from './appointments.schema';
 export { documentsSchema } from './documents-schema.schema';
 export { documents } from './documents.schema';
 export { documentChunks } from './document-chunks.schema';
+
+// --- Stok / Envanter (ADR-0039 §1) ---
+// YEDINCI sema. ⚠️ Sema adi ile tablo adlari CAKISMIYOR (`inventory` vs
+// `items`/`movements`) — onceki uc modulun (`projects`, `appointments`,
+// `documents`) yasadigi cakisma burada YOK. Dosya adlari yine de `inventory-`
+// onekli: bu klasorde `notes`, `tasks`, `messages` gibi nitelenmemis adlar
+// baska modullere ait ve `items.schema.ts` hangi modulun oldugunu SOYLEMEZDI.
+//
+// ⚠️ BU MODULUN EN ONEMLI OZELLIGI BIR KOLONUN YOKLUGUDUR: `items`te miktar
+// kolonu YOKTUR (ADR-0039 §2). Mevcut miktar `movements`tan HER OKUMADA
+// turetilir — `finance.balances`in reddiyle ayni karar, dokuzuncu kez.
+//
+// ⚠️ `movements` DEGISTIRILEMEZ bir defterdir (§3.3) ve `items`e `ON DELETE
+// RESTRICT` ile baglidir: hareketi olan bir kalemin silinmesini VERITABANI
+// reddeder, uygulama degil.
+export { inventorySchema } from './inventory-schema.schema';
+export { inventoryItems } from './inventory-items.schema';
+export { inventoryMovements } from './inventory-movements.schema';

@@ -113,6 +113,13 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0029, `inventory` semasi + IKI tablo. ⚠️ Down dosyasi KENDI ICINDE de
+      // sirali: `movements` ONCE dusuyor cunku `items`e `ON DELETE RESTRICT` ile
+      // bagli (ADR-0039 §3.3) — ebeveyni once dusurmek FK ihlali verirdi.
+      // ADR-0037'nin `0028 -> 0027` dersi burada TEK MIGRATION ICINDE geciyor.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0029_inventory_schema.down.sql',
       // 0028, `documents.document_chunks`. ⚠️ 0027'DEN ONCE: parca tablosu
       // `documents.documents`e FK tasir ve once ebeveyni dusurmek FK ihlali
       // verir. Bu, ADR-0037'nin IKI migration'a bolunmesinin dogrudan sonucu —

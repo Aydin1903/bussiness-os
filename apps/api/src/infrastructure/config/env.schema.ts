@@ -551,6 +551,54 @@ const baseEnvSchema = z.object({
    * Asilirsa **422** ve KAYIT ACILMAZ — dosya R2'ye de YAZILMAZ.
    */
   DOCUMENTS_MAX_CHUNKS: z.coerce.number().int().min(1).max(2000).default(300),
+
+  /**
+   * Kalem notu icin SAATLIK embedding payi (ADR-0039 §5).
+   *
+   * ⚠️ SAYAC NE KALEM NE HAREKET SAYAR, EMBEDDING SAYAR — ve bu modulde ayrim
+   * EN KESKIN: bu modulun EN SIK islemi HAREKET YAZMAKTIR ve bir hareket
+   * HICBIR SEY HARCAMAZ. Bir depo gorevlisi gunde yuzlerce hareket yazar, tek
+   * kurus AI maliyeti uretmez (`inventory.rate-limits.ts`).
+   *
+   * Sayilan yollar: notlu kalem acmak, notu YA DA AD/SKU'yu degistirmek
+   * (baglam basligi degistigi icin vektor yeniden uretilir — ADR-0039 §6.2) ve
+   * `reindex`.
+   *
+   * Varsayilan RANDEVU SINIFINDA (60), Belge sinifinda (10) DEGIL: chunking
+   * yok, yani kayit basina EN FAZLA BIR embedding cagrisi var. Belge'de bir
+   * dosya 300 cagriya kadar cikabiliyordu ve kucuk kova onun icindi.
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR.
+   */
+  INVENTORY_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /inventory/items/reindex` cagrisinda onarilacak EN FAZLA kalem.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil. Randevu'nunkiyle ayni deger (25) ve ayni gerekce: kayit basina en
+   * fazla bir cagri.
+   */
+  INVENTORY_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+
+  /**
+   * "Esige YAKIN" carpani (ADR-0039 §6.1).
+   *
+   * Miktar `esik * bu carpan` degerinin altina dustugunde yapisal katkici
+   * 0.90 (dikkat) verir; esigin kendisinin altina dustugunde 0.95 (alarm).
+   * `1.0` yazmak "yaklasma bandi yok" demektir ve mesrudur.
+   *
+   * ============================================================================
+   * ⚠️ BU BIR GOSTERIM TERCIHI DEGIL — AI'IN GORDUGU SIRALAMAYI ETKILER
+   * ============================================================================
+   * `CRM_STALE_STAGE_DAYS` / `STALE_STAGE_DAYS` ayrismasinin UCUNCU tekrari.
+   * ⚠️ BUGUN WEB TARAFINDA KARSILIGI YOKTUR — stok arayuzu Slice 2'de
+   * yazilacak. O gun bir "azaliyor" rozeti gosterilirse
+   * `NEXT_PUBLIC_INVENTORY_NEAR_THRESHOLD_RATIO` acilmali ve VARSAYILANI
+   * BUNUNLA AYNI olmalidir. Ayrisirlarsa hata SESSIZDIR: ekran "yaklasti" der,
+   * katkici saglikli sayip 0.75 verir.
+   */
+  INVENTORY_NEAR_THRESHOLD_RATIO: z.coerce.number().min(1).max(10).default(1.25),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

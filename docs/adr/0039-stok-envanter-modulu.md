@@ -414,7 +414,7 @@ ADR-0031 §5.4'un deseni **altinci** kez:
 | Katkici           | Kaynak                | Nasil calisir                              | Izin              | `contributionKind` |
 | ----------------- | --------------------- | ------------------------------------------ | ----------------- | ------------------ |
 | `inventory-stock` | `items` + `movements` | **Yapisal** — deterministik SQL, SINIRLI   | `stock_item:read` | `'structural'`     |
-| `inventory-items` | `items.embedding`     | Anlamsal — pgvector, **tek satir vektoru** | `stock_item:read` | `'semantic'`       |
+| `inventory-notes` | `items.embedding`     | Anlamsal — pgvector, **tek satir vektoru** | `stock_item:read` | `'semantic'`       |
 
 ⚠️ **`contributionKind` ZORUNLU bir alandir** (ADR-0036 §5): unutulursa
 **derleme hatasidir**, sessiz bir kayip degil. Bu modul o alanin yazildigi
@@ -490,7 +490,7 @@ bir isi kaldi: **gomulememis** notlari onarmak
 
 | Olcu                      | Belge sonrasi     | **Stok sonrasi**              |
 | ------------------------- | ----------------- | ----------------------------- |
-| Anlamsal kaynak           | 6                 | **7** (`inventory-items`)     |
+| Anlamsal kaynak           | 6                 | **7** (`inventory-notes`)     |
 | Yapisal kaynak            | 4                 | **5** (`inventory-stock`)     |
 | Toplam katkici (fan-out)  | 10                | **12**                        |
 | Global top-K              | 8                 | **8 — DEGISMEDI**             |
