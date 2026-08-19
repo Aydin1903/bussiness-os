@@ -1099,9 +1099,11 @@ Gerçekten yeni **dört** karar:
 > - ⚠️ **Belge bazlı gizlilik YOK**: `document:read` taşıyan herkes TÜM
 >   belgeleri görür. Hassas belge (özlük, bordro) bu modüle konulmamalı.
 >   **Tetikleyici: 9. modül (İK).**
-> - ⚠️ **Dosya değiştirme ARAYÜZÜ yok** — uç çalışıyor (denetimde 200), ama
->   detay ekranında düğmesi yok; geri alınamazlığı doğru anlatan bir tasarım
->   tek başına bir iştir.
+> - ~~⚠️ **Dosya değiştirme ARAYÜZÜ yok**~~ ✅ **kapandı (2026-08-19)**: iki
+>   aşamalı akış eklendi (önce dosya seçilir, sonra "geri alınamaz — dosya ve
+>   embedding kalıcı değişecek" uyarısıyla onaylanır; etiket ve bağlantıların
+>   korunacağı da yazılır). ⚠️ Backend'e tek satır dokunulmadı — eksik olan uç
+>   değil, geri alınamazlığı anlatan tasarımdı.
 > - **Taranmış belgeler aranamaz** (OCR yok) — `chunkCount: 0` ekranda söylenir.
 > - **Yalnızca PDF/DOCX** (415) · **20 MB** (413) · **300 parça** (422).
 > - **Versiyon geçmişi yok** · **değişiklik denetim izi yok** (8. modül) ·

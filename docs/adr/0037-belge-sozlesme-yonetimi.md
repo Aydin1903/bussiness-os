@@ -1049,12 +1049,17 @@ baglanmasi ongorulmus bir gelecektir. Ongorulmus bir gelecege ait tek satiri
   - ✅ **OLCULDU** (2026-08-19): ortalama **5030 ms**, fan-out payi **≤315 ms
     (%6)**, darbogaz `LLMPort.complete` (4458 ms). N=9'un 82 ms'ine gore
     artti — belge katkicisi bir chunk tablosunu tariyor — ama oran hala kucuk.
-- ⚠️ **DOSYA DEGISTIRME ARAYUZU YOK.** `PUT /documents/:id/file` ucu calisiyor
-  ve denetimde sinandi (200), ama **detay ekraninda bir dugmesi yok**. Sebep
-  ucun tasidigi geri alinamazliktir: eski dosya ve TUM parcalari silinir. Dogru
-  tasarimi (iki asamali onay + neyin kaybolacaginin gosterilmesi) tek basina
-  bir istir. ⚠️ Uc **olu degil**, arayuzu yok — bir sonraki arayuz isinde ya
-  eklenir ya da uc kaldirilir; ikisi arasinda kalmak en kotusudur.
+- ~~⚠️ **DOSYA DEGISTIRME ARAYUZU YOK.**~~ ✅ **KAPANDI (2026-08-19, PO
+  talimati).** Detay ekranina **iki asamali** bir akis eklendi: (1) dosya
+  SECILIR — bu adim hicbir sey gondermez, (2) secilen dosyanin adi ve
+  boyutuyla birlikte _"bu islem geri alinamaz — mevcut dosya ve arama indeksi
+  (embedding) kalici olarak degisecek"_ uyarisi gosterilir ve NE KORUNACAGI da
+  yazilir (etiket · kisi · proje), (3) ancak ondan sonra onaylanir.
+  ⚠️ Kapanma bicimi kaydin kendisiydi: eksik olan **uc degil, GERI
+  ALINAMAZLIGI ANLATAN TASARIMDI**. Backend'e TEK SATIR dokunulmadi.
+  ⚠️ Donen `chunkCount` ekranda TAZELENIR — eski dosyanin parca sayisi
+  kalsaydi, yeni dosyanin metni okunamadiginda kullanici belgeyi aranabilir
+  sanmaya devam ederdi (§6.3'un tersten ihlali).
 - ⚠️ **DENETIMIN BULDUGU UC KUSUR** (hepsi duzeltildi) — ve ucu de **birim
   testleriyle gorunmuyordu**. Kayda geciyor cunku hangi test turunun neyi
   kacirdigini gosteriyorlar:

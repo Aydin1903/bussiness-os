@@ -17,7 +17,7 @@ import {
   TextField,
 } from '@/components/module-kit/form-kit';
 import { FormError } from '@/components/ui/form-error';
-import { formatBytes } from './chrome';
+import { formatBytes, validateDocumentFile } from './chrome';
 
 /**
  * Belge yükleme formu — SÜRÜKLE-BIRAK + etiket + iki bağımsız bağlantı.
@@ -47,19 +47,12 @@ import { formatBytes } from './chrome';
  * 413/415/422'si her koşulda ayakta kalır ve mesajları olduğu gibi gösterilir.
  */
 
-/** Sunucunun ürettiği mesaj gelmezse kullanılacak yedekler (ADR-0037 §9). */
-export const UPLOAD_STATUS_MESSAGES: Readonly<Record<number, string>> = {
-  413: `Dosya çok büyük. En fazla ${formatBytes(MAX_DOCUMENT_BYTES)} olabilir.`,
-  415: 'Yalnızca PDF ve Word (.docx) dosyaları yüklenebilir.',
-  422: 'Belge çok uzun; arama için parçalanamadı. Belgeyi bölerek yükleyin.',
-  429: 'Saatlik yükleme hakkınız doldu. Bir süre sonra tekrar deneyin.',
-};
-
-/** Uzantı ön kontrolü — sunucunun içerik tespitinin YERİNE GEÇMEZ. */
-function looksSupported(file: File): boolean {
-  const name = file.name.toLocaleLowerCase('tr');
-  return name.endsWith('.pdf') || name.endsWith('.docx');
-}
+/**
+ * ⚠️ Durum mesajları ve dosya doğrulaması `chrome.tsx`e TAŞINDI — dosya
+ * değiştirme akışı da aynı kuralı kullanıyor (ADR-0037 §7). İki yerde
+ * tutulsalardı kullanıcı iki ekranda iki farklı sınır görürdü.
+ */
+export { DOCUMENT_STATUS_MESSAGES as UPLOAD_STATUS_MESSAGES } from './chrome';
 
 export interface UploadLinkOption {
   readonly value: string;
@@ -101,16 +94,12 @@ export function DocumentUpload({
       return;
     }
 
-    if (!looksSupported(next)) {
-      setLocalError(UPLOAD_STATUS_MESSAGES[415] ?? 'Desteklenmeyen dosya türü.');
-      setFile(null);
-      return;
-    }
-
-    // ⚠️ BOYUT SEÇİLİR SEÇİLMEZ bakılır — yükleme BAŞLAMADAN. Sunucuya
-    // gönderip 413 beklemek, kullanıcının bağlantısını boşuna harcamaktır.
-    if (next.size > MAX_DOCUMENT_BYTES) {
-      setLocalError(UPLOAD_STATUS_MESSAGES[413] ?? 'Dosya çok büyük.');
+    // ⚠️ TÜR VE BOYUT SEÇİLİR SEÇİLMEZ bakılır — yükleme BAŞLAMADAN. Sunucuya
+    // gönderip 413/415 beklemek, kullanıcının bağlantısını boşuna harcamaktır.
+    // Kural `chrome.tsx`te TEK yerde ve dosya değiştirme akışıyla ORTAK.
+    const problem = validateDocumentFile(next);
+    if (problem !== null) {
+      setLocalError(problem);
       setFile(null);
       return;
     }

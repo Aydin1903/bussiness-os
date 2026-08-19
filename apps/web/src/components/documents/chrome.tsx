@@ -1,6 +1,10 @@
 'use client';
 
-import { DOCUMENT_TYPE_LABELS, type DocumentMimeType } from '@business-os/contracts';
+import {
+  DOCUMENT_TYPE_LABELS,
+  MAX_DOCUMENT_BYTES,
+  type DocumentMimeType,
+} from '@business-os/contracts';
 
 /**
  * Belge modülünün KENDİNE ÖZGÜ kabuk parçaları.
@@ -12,6 +16,54 @@ import { DOCUMENT_TYPE_LABELS, type DocumentMimeType } from '@business-os/contra
  * bir şerit taşıyordu; Belge'nin tek liste rotası + detay sayfaları var. Tek
  * sekmeli bir şerit, hiyerarşi hakkında yalan söyleyen boş bir süs olurdu.
  */
+
+/**
+ * İstemci ön kontrolü — YÜKLEME ve DEĞİŞTİRME akışlarının ORTAK kuralı.
+ *
+ * ============================================================================
+ * ⚠️ BU BİR DOĞRULAMA DEĞİL, BİR KOLAYLIKTIR
+ * ============================================================================
+ * Tür tespiti sunucuda İÇERİKTEN yapılır (ADR-0037 §6.1) ve son sözü o söyler:
+ * `sozlesme.pdf` adlı bir dosya PDF olmak zorunda değildir. Buradaki kontrol
+ * yalnızca kullanıcıyı BEKLEMEKTEN kurtarır — 20 MB'lik bir dosyayı yükleyip
+ * **413** almak, dakikalarca süren bir yüklemeyi çöpe atmaktır.
+ *
+ * ⚠️ TEK YERDE durur çünkü İKİ akış kullanıyor (yükleme + dosya değiştirme).
+ * İki yere kopyalansaydı biri değiştiğinde diğeri sessizce ayrışırdı ve
+ * kullanıcı iki ekranda İKİ FARKLI sınır görürdü.
+ *
+ * @returns hata mesajı, ya da dosya kabul edilebiliyorsa `null`.
+ */
+export function validateDocumentFile(file: File): string | null {
+  const name = file.name.toLocaleLowerCase('tr');
+  if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
+    return DOCUMENT_STATUS_MESSAGES[415] ?? null;
+  }
+
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    return DOCUMENT_STATUS_MESSAGES[413] ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Sunucunun ürettiği mesaj gelmezse kullanılacak yedekler (ADR-0037 §9).
+ *
+ * ⚠️ Bunlar İKİNCİ SIRADADIR: backend 413/415/422'de zaten anlaşılır bir metin
+ * üretiyor ve arayüz onu EZMEZ (`errorMessage` önce gövdeyi okur). Bu sözlük
+ * yalnızca gövdesiz bir cevap geldiğinde devreye girer.
+ *
+ * ⚠️ Aynı zamanda `validateDocumentFile`in kaynağıdır: istemcinin önden
+ * gösterdiği mesaj ile sunucunun döndürdüğü mesaj AYNI cümle olsun diye. İki
+ * ayrı metin, aynı kuralı iki farklı şekilde anlatırdı.
+ */
+export const DOCUMENT_STATUS_MESSAGES: Readonly<Record<number, string>> = {
+  413: `Dosya çok büyük. En fazla ${formatBytes(MAX_DOCUMENT_BYTES)} olabilir.`,
+  415: 'Yalnızca PDF ve Word (.docx) dosyaları yüklenebilir.',
+  422: 'Belge çok uzun; arama için parçalanamadı. Belgeyi bölerek yükleyin.',
+  429: 'Saatlik yükleme hakkınız doldu. Bir süre sonra tekrar deneyin.',
+};
 
 /** Bayt → insan okunur boyut. Para değil, dolayısıyla `number` MEŞRUDUR. */
 export function formatBytes(bytes: number): string {
