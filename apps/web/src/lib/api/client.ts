@@ -23,6 +23,13 @@ import { refreshSession } from './refresh';
  */
 export interface ApiFetchOptions {
   readonly method?: string;
+  /**
+   * Istek govdesi.
+   *
+   * ⚠️ `FormData` verilirse JSON'a CEVRILMEZ ve `content-type` elle
+   * yazilmaz — tarayici `multipart/form-data; boundary=...` uretir
+   * (ADR-0037 §10, belge yukleme ucu).
+   */
   readonly body?: unknown;
   /** Ek başlıklar (content-type ve authorization sarmalayıcı tarafından yönetilir). */
   readonly headers?: Record<string, string>;
@@ -83,8 +90,15 @@ async function requestWithRetry(path: string, options: ApiFetchOptions): Promise
 async function send(path: string, options: ApiFetchOptions): Promise<Response> {
   const accessToken = getAccessToken();
 
+  // ⚠️ `FormData` GOVDESINE `content-type` ELLE YAZILMAZ (ADR-0037 §10 —
+  // yukleme ucu `multipart/form-data` alir). Tarayici bu basligi kendisi
+  // uretir ve icine `boundary=...` koyar; elle yazmak boundary'yi DUSURUR ve
+  // sunucu govdeyi ayristiramaz. Hata SESSIZ degil ama teshis edilmesi zordur:
+  // istek 400/422 doner ve sebep govdenin kendisinde gorunmez.
+  const isMultipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const headers: Record<string, string> = { ...options.headers };
-  if (options.body !== undefined) {
+  if (options.body !== undefined && !isMultipart) {
     headers['content-type'] ??= 'application/json';
   }
   // Açık `bearer` (identity token) memory'deki access token'ı ezer.
@@ -97,7 +111,15 @@ async function send(path: string, options: ApiFetchOptions): Promise<Response> {
     method: options.method ?? (options.body === undefined ? 'GET' : 'POST'),
     headers,
     credentials: 'include',
-    body: options.body === undefined ? null : JSON.stringify(options.body),
+    // ⚠️ `FormData` OLDUGU GIBI gecirilir; `JSON.stringify` onu "{}"ye
+    // cevirirdi — dosya sessizce KAYBOLURDU.
+    //
+    // ⚠️ 401 sonrasi tekrar denemede AYNI `FormData` ornegi yeniden
+    // gonderilir ve bu GUVENLIDIR: `FormData` bir akis degil, tekrar
+    // okunabilir bir yapidir. Bir `ReadableStream` govdesi olsaydi ikinci
+    // deneme bos govde gonderirdi.
+    body:
+      options.body === undefined ? null : isMultipart ? options.body : JSON.stringify(options.body),
     signal: options.signal ?? null,
   });
 }

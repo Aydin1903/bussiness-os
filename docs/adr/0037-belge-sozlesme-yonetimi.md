@@ -1046,6 +1046,35 @@ baglanmasi ongorulmus bir gelecektir. Ongorulmus bir gelecege ait tek satiri
   modulde **en cok** hissedilecek yerdir: _"icinde 'fesih' gecen sozlesmeler"_
   tipik bir belge sorusudur.
 - **Fan-out N=10 HENUZ OLCULMEDI** — kapanis denetiminin zorunlu maddesi.
+  - ✅ **OLCULDU** (2026-08-19): ortalama **5030 ms**, fan-out payi **≤315 ms
+    (%6)**, darbogaz `LLMPort.complete` (4458 ms). N=9'un 82 ms'ine gore
+    artti — belge katkicisi bir chunk tablosunu tariyor — ama oran hala kucuk.
+- ⚠️ **DOSYA DEGISTIRME ARAYUZU YOK.** `PUT /documents/:id/file` ucu calisiyor
+  ve denetimde sinandi (200), ama **detay ekraninda bir dugmesi yok**. Sebep
+  ucun tasidigi geri alinamazliktir: eski dosya ve TUM parcalari silinir. Dogru
+  tasarimi (iki asamali onay + neyin kaybolacaginin gosterilmesi) tek basina
+  bir istir. ⚠️ Uc **olu degil**, arayuzu yok — bir sonraki arayuz isinde ya
+  eklenir ya da uc kaldirilir; ikisi arasinda kalmak en kotusudur.
+- ⚠️ **DENETIMIN BULDUGU UC KUSUR** (hepsi duzeltildi) — ve ucu de **birim
+  testleriyle gorunmuyordu**. Kayda geciyor cunku hangi test turunun neyi
+  kacirdigini gosteriyorlar:
+  1. **`multipart` opsiyonel alanlari**: `optionalFormText`te `.optional()`
+     eksikti; `contactId` yazmayan HER yukleme **422** aliyordu ve dogrulama
+     dosya kontrolunden once calistigi icin desteklenmeyen tur de **415 yerine
+     422** donuyordu. Birim testleri govdeyi ZATEN COZULMUS veriyordu, yani Zod
+     katmanina hic ugramiyorlardi. `documents.dto.spec` semayi artik DOGRUDAN
+     sinar.
+  2. **Parca sayaci**: projeksiyona gomulu korelasyonlu alt sorgu hata VERMEDI
+     ve **her zaman 0** dondurdu — yani parcasi olan bir belge ekranda
+     "Aranamiyor" gorunuyordu. Bu, §6.3'un tam TERSI bir sessiz yanlistir.
+     Elle yazilan ayni SQL psql'de dogru calisiyordu; sorun Drizzle'in `sql`
+     sablonunda tablo interpolasyonundaydi. Acik, toplu bir sorguya cevrildi.
+  3. **Indirme**: controller ham bir `Readable` donduruyordu; NestJS onu govde
+     sanip serilestirmeye calisiyor ve **islenmemis 500** uretiyordu.
+     `StreamableFile` ile sarmalandi.
+     ⚠️ **Ortak ders:** ucu de ancak **gercek bir HTTP istegiyle** gorundu. Bu
+     modulun yuzeyi (multipart govde, akis cevabi, ORM sablonu) birim testlerinin
+     dogal olarak atladigi yerlerde yasiyor.
 
 ## Uygulama plani (slice'lar)
 
@@ -1097,34 +1126,34 @@ biri digerini maskelerdi.
 
 **Yapilacaklar:**
 
-- [ ] `git status` temiz · `pnpm verify` **cikis koduna** bakilarak yesil
+- [x] `git status` temiz · `pnpm verify` **cikis koduna** bakilarak yesil
       (DEVELOPMENT_RULES 5.4: cikti `grep`'lenmez)
-- [ ] Sekiz yeni ucun **hizli** turu — gercek isteklerle, 200/401/403/413/415/422/429
-- [ ] **Renk turu**: `/app/documents` ve alt rotalari `#557380` gosteriyor mu —
+- [x] Sekiz yeni ucun **hizli** turu — gercek isteklerle, 200/401/403/413/415/422/429
+- [x] **Renk turu**: `/app/documents` ve alt rotalari `#557380` gosteriyor mu —
       acik **ve** koyu temada; kabugun rozeti ve `--ai-accent` terracotta
       kaliyor mu
-- [ ] **§9 sinavi**: oran siniri asildiginda **429** (`Retry-After` ile);
+- [x] **§9 sinavi**: oran siniri asildiginda **429** (`Retry-After` ile);
       embedding saglayicisi hata verdiginde **502** ve govde **DisclosableProblem
       mesajini tasiyor** (maskeli degil); depoya ulasilamadiginda **502** —
       ucu de **500 DEGIL**. ⚠️ `CompletionFailedError` bugun **tetiklenemez**
       (§9); filtredeki varligi birim testiyle kilitlenir, canli turda aranmaz
-- [ ] **§6.1 sinavi**: desteklenmeyen tur **415**, 20 MB ustu **413**, 300 parca
+- [x] **§6.1 sinavi**: desteklenmeyen tur **415**, 20 MB ustu **413**, 300 parca
       ustu **422** — ve ⚠️ **reddedilen hicbir dosya R2'ye YAZILMAMIS** olmali
       (bucket sayimi ile dogrulanir)
-- [ ] **§6.3 sinavi**: taranmis (metinsiz) bir PDF **201** doner, `chunkCount: 0`
+- [x] **§6.3 sinavi**: taranmis (metinsiz) bir PDF **201** doner, `chunkCount: 0`
       ve ekran bunu **soyluyor**
-- [ ] **§5.3 sinavi**: silme sonrasi hem DB satiri hem R2 nesnesi **yok**;
+- [x] **§5.3 sinavi**: silme sonrasi hem DB satiri hem R2 nesnesi **yok**;
       dosya degisimi sonrasi eski nesne **yok**, chunk'lar **yeniden uretilmis**
-- [ ] **§5.2 sinavi**: iki tenant, iki belge — anahtar onekleri ayri ve bir
+- [x] **§5.2 sinavi**: iki tenant, iki belge — anahtar onekleri ayri ve bir
       tenant digerinin belgesini **hicbir ucla** okuyamiyor
-- [ ] ⚠️ **§8.2 OLCUMU — bu denetimin ZORUNLU maddesi** (ADR-0036'nin
+- [x] ⚠️ **§8.2 OLCUMU — bu denetimin ZORUNLU maddesi** (ADR-0036'nin
       **acikca buraya biraktigi** borc): alti anlamsal + dort yapisal kaynak
       doluyken tek bir `POST /ask` cagrisinin kaynak dagilimi olculur ve
       **yazilir**. Iki sey aranir: (a) `documents` havuza **giriyor** mu,
       (b) **en az uc AYRI yapisal ses** cevapta var mi (tabanin canli kaniti)
-- [ ] ⚠️ **Fan-out N=10 olcumu** — N=9 (3936 ms toplam / 82 ms fan-out) ile
+- [x] ⚠️ **Fan-out N=10 olcumu** — N=9 (3936 ms toplam / 82 ms fan-out) ile
       karsilastirilir; darbogazin hala `LLMPort.complete` oldugu dogrulanir
-- [ ] Bilinen sinirlar listesi guncellenir (bu ADR + CLAUDE.md + ROADMAP §8.5:
+- [x] Bilinen sinirlar listesi guncellenir (bu ADR + CLAUDE.md + ROADMAP §8.5:
       onuc → **onbes** tablo, vektor bes → **alti**; ROADMAP §2.3'un object
       storage satiri **kapatilir**; ADR-0009'un durumu **guncellenir**)
 
@@ -1136,6 +1165,74 @@ biri digerini maskelerdi.
   ⚠️ **Istisna:** §5.2'nin nesne deposu izolasyon sinavi **yapilir** — orada
   RLS **yoktur**, yani entegrasyon testlerinin dayandigi mekanizma da yoktur.
 - ❌ R2 uzerinde yuk/dayaniklilik testi
+
+> ### ✅ Denetim YAPILDI — 2026-08-19
+>
+> On bir maddenin **on biri de** kosuldu. ⚠️ Denetim **UC GERCEK KUSUR** buldu
+> ve ucu de duzeltildi — hicbiri birim testleriyle gorunmuyordu:
+>
+> | Madde                            | Sonuc                                                                                                                                                                                           |
+> | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | 1 · `git status` + `pnpm verify` | Temiz · **cikis kodu 0** (api 1732 + web 454 birim)                                                                                                                                             |
+> | 2 · Sekiz ucun turu              | kimliksiz **401** · owner **201/200/204** · olmayan kayit **404** · viewer okur/indirir **200**, yazamaz/silemez **403**                                                                        |
+> | 3 · Renk turu                    | Acik `#557380`/`#45626e`, koyu `#8dacba`/`#9dbdcb`; kabuk **ve** `--ai-accent` iki temada da terracotta (`#b25628` / `#e8935a`)                                                                 |
+> | 4 · §9 sinavi                    | embedding cokmesi **502** + govde ULASIYOR (kayit **silinmedi**) · depo cokmesi **502** + govde ULASIYOR (kayit **acilmadi**) · oran siniri **429** + `Retry-After: 314` — ucu de **500 DEGIL** |
+> | 5 · §6.1 sinavi                  | **415** (desteklenmeyen) · **413** (21 MB) · **422** (800 parca) · ⚠️ reddedilen UC dosya da R2'ye **HIC yazilmadi** (nesne sayisi 5 → 5)                                                       |
+> | 6 · §6.3 sinavi                  | Metinsiz DOCX **201** + `chunkCount: 0`; ekranda uydu "ARANAMIYOR 1 · metni okunamadi", kartta kirmizi rozet, detayda tam aciklama                                                              |
+> | 7 · §5.3 sinavi                  | Silme: DB satiri **ve** R2 nesnesi gitti (3 → 2) · dosya degisimi: eski nesne silindi, parcalar yeniden uretildi                                                                                |
+> | 8 · §5.2 sinavi                  | Anahtarlar `tenants/<tenantId>/documents/...` onekli ve MinIO'daki nesnelerle birebir · Tenant B, A'nin belgesinde **404** (satir gorunmedigi icin ANAHTAR HIC OKUNMADI), listesi **0**         |
+> | 9 · **§8.2 OLCUMU**              | ⚠️ Asagidaki blok — **taban kisiti CALISIYOR**                                                                                                                                                  |
+> | 10 · Fan-out N=10                | Ortalama toplam **5030 ms**; `complete` 4458 ms + `embed` 257 ms; fan-out payi **≤315 ms (%6)**                                                                                                 |
+> | 11 · Bilinen sinirlar            | Bu ADR + CLAUDE.md + ROADMAP §8.5 (onuc → **onbes** tablo, vektor bes → **alti**)                                                                                                               |
+>
+> **Bilincli yapilmayanlar:** ❌ sifirdan kurulum · ❌ iki tenant'la **tam** RLS
+> izolasyon turu (sema sablonu degismedi, altinci kez ayni; entegrasyon
+> testleri kapsiyor). ⚠️ **Istisna uygulandi:** §5.2'nin nesne deposu izolasyon
+> sinavi YAPILDI — orada RLS **yoktur**, yani entegrasyon testlerinin dayandigi
+> mekanizma da yoktur.
+>
+> ### ⚠️ OLCUM: ADR-0036'NIN TABAN KISITI GERCEKTEN CALISIYOR
+>
+> On katkici da doluyken (**alti** anlamsal + **dort** yapisal) tek bir
+> `POST /ask` cagrisinin kaynak dagilimi, **uc farkli soruda da AYNI**:
+>
+> | Kaynak                 | Tur          | Satir |
+> | ---------------------- | ------------ | ----- |
+> | `crm-pipeline`         | yapisal      | 1     |
+> | `finance-cashflow`     | yapisal      | 1     |
+> | `project-status`       | yapisal      | 1     |
+> | `knowledge`            | anlamsal     | 1     |
+> | `crm-interactions`     | anlamsal     | 1     |
+> | `project-notes`        | anlamsal     | 1     |
+> | `appointment-notes`    | anlamsal     | 1     |
+> | **`documents`**        | **anlamsal** | **1** |
+> | `appointment-schedule` | yapisal      | 0     |
+> | `finance-commentaries` | anlamsal     | 0     |
+>
+> Toplam **8** (global top-K), `degradedSources: []`.
+>
+> ✅ **UC AYRI YAPISAL SES cevapta** (`crm-pipeline` · `finance-cashflow` ·
+> `project-status`) — tam olarak `ceil(8/3) = 3`. ADR-0035'in olcumunde
+> `finance-cashflow` **hic giremiyordu**; taban kisiti onu iceri aldi. **Kisit
+> calisiyor ve olculdu.**
+>
+> ✅ **`documents` SISTEMATIK OLARAK DISLANMIYOR** — uc soruda da iceride.
+> Altinci anlamsal kaynagin eklenmesi onu kendiliginden disari itmedi.
+>
+> ⚠️ **Disarida kalan ikisi de ADR-0036'nin YAZILI BEKLENTISIDIR, kusur
+> degil:**
+>
+> - `appointment-schedule` (yapisal): _"Dordunculuk garantisi YOK. Bugun dort
+>   yapisal kaynak var, taban 3 — yani biri yine disarida kalabilir."_
+> - `finance-commentaries` (anlamsal): _"Anlamsal kaynaklar arasinda taban
+>   YOKTUR. Alti anlamsal kaynak bes serbest yuva icin yarisacak ve biri sifir
+>   alabilir. Bu bilincli."_
+>
+> ⚠️ Olcum **GERCEK saglayicilarla** yapildi (OpenAI embedding + DeepSeek
+> completion), yani ADR-0035'in N=9 olcumuyle dogrudan karsilastirilabilir.
+> Darbogaz **degismedi**: `LLMPort.complete` (4458 ms). Fan-out payi N=9'daki
+> 82 ms'ten 315 ms'e cikti — belge katkicisi bir chunk tablosunu HNSW ile
+> tariyor — ama hala toplamın yalnizca **%6**'si.
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

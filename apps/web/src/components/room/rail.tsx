@@ -9,6 +9,7 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   CustomersIcon,
+  DocumentsIcon,
   FinanceIcon,
   OverviewIcon,
   ProjectsIcon,
@@ -73,6 +74,21 @@ const DOORS: readonly Door[] = [
     icon: CalendarIcon,
     href: '/app/appointments',
     module: 'appointments',
+  },
+  /**
+   * ⚠️ ALTINCI KAPI — Faz 5'in besinci is modulu (ADR-0037 §11).
+   *
+   * Anahtar `documents`: sema, modul ve `data-module` UCU DE ayni kelime.
+   * Renk `module-colors.css`'te ZATEN olculmus (`#557380` / koyu `#8dacba`) ve
+   * bilincli olarak setin EN SONUK rengidir — "sozlesme ekrani dikkat cekmek
+   * icin degil OKUMAK icin vardir".
+   */
+  {
+    label: 'Belgeler',
+    short: 'Belge',
+    icon: DocumentsIcon,
+    href: '/app/documents',
+    module: 'documents',
   },
 ];
 

@@ -44,7 +44,18 @@ const MAX_LABEL_CHARS = 120;
 const optionalFormText = z
   .string()
   .trim()
-  .transform((value) => (value === '' ? undefined : value));
+  // ⚠️ `.optional()` TRANSFORM'DAN ONCE gelmek ZORUNDA.
+  //
+  // Ilk yazimda sonda degildi ve alan HIC GONDERILMEDIGINDE `z.string()`
+  // "expected string, received undefined" ile patliyordu — yani `contactId`
+  // yazmayan HER yukleme 422 aliyordu. Daha kotusu: dogrulama dosya
+  // kontrolunden ONCE calistigi icin desteklenmeyen bir tur de 415 yerine 422
+  // donuyordu, yani IKI ayri kural birden gorunmez oluyordu.
+  //
+  // Kusur kapanis denetiminde, sekiz ucun gercek isteklerle turunda bulundu
+  // (birim testleri govdeyi zaten cozulmus haliyle veriyordu).
+  .optional()
+  .transform((value) => (value === undefined || value === '' ? undefined : value));
 
 const optionalFormUuid = optionalFormText.pipe(z.uuid('Gecerli bir UUID olmali').optional());
 

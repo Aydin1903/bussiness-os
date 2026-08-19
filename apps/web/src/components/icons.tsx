@@ -88,6 +88,28 @@ export function CalendarIcon(props: IconProps) {
   );
 }
 
+/**
+ * Belge / Sozlesme — kivrik kosesi olan bir SAYFA (ADR-0037 §11).
+ *
+ * ⚠️ `KnowledgeIcon`DAN AYIRT EDILEBILIR OLMAK ZORUNDA: o bir KITAP (kurumsal
+ * hafiza), bu bir DOSYA. Koridorda yan yana durabilecekleri icin iki ikonun
+ * silueti farkli olmali — ayni "dikdortgen + cizgiler" sekli iki modulu
+ * karistirilir kilardi.
+ *
+ * Kivrik kose bilincli: sete uygun ince cizgi dilinde "dosya"yi anlatan en
+ * taninir isarettir ve dolgu gerektirmez.
+ */
+export function DocumentsIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7.5z" />
+      <path d="M14 3.5V7a.5.5 0 0 0 .5.5H18" />
+      <path d="M9 13h6" />
+      <path d="M9 16.5h4" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

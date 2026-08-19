@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, cosineDistance, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, cosineDistance, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 
 import { documentChunks, documents } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
@@ -83,14 +83,15 @@ export class DrizzleDocumentRepository implements DocumentRepository {
   async findRowById(id: string): Promise<DocumentWithChunkCount | null> {
     const { db } = requireTransaction();
 
-    const rows = await db
-      .select({ ...COLUMNS, chunkCount: chunkCountExpression() })
-      .from(documents)
-      .where(eq(documents.id, id))
-      .limit(1);
+    const rows = await db.select(COLUMNS).from(documents).where(eq(documents.id, id)).limit(1);
 
     const row = rows[0];
-    return row === undefined ? null : { document: toDocument(row), chunkCount: row.chunkCount };
+    if (row === undefined) {
+      return null;
+    }
+
+    const counts = await countChunksByDocument([row.id]);
+    return { document: toDocument(row), chunkCount: counts.get(row.id) ?? 0 };
   }
 
   async list(input: {
@@ -133,7 +134,7 @@ export class DrizzleDocumentRepository implements DocumentRepository {
     // `id` TIE-BREAKER: ayni ana dusen iki yukleme mumkundur ve kararsiz
     // siralama, sayfalamada bir kaydin iki kez ya da HIC gorunmesi demektir.
     const rows = await db
-      .select({ ...COLUMNS, chunkCount: chunkCountExpression() })
+      .select(COLUMNS)
       .from(documents)
       .where(filter)
       .orderBy(desc(documents.createdAt), asc(documents.id))
@@ -145,8 +146,14 @@ export class DrizzleDocumentRepository implements DocumentRepository {
       .from(documents)
       .where(filter);
 
+    // ⚠️ TEK TOPLU sorgu — satir basina bir sayim N+1 olurdu.
+    const chunkCounts = await countChunksByDocument(rows.map((row) => row.id));
+
     return {
-      items: rows.map((row) => ({ document: toDocument(row), chunkCount: row.chunkCount })),
+      items: rows.map((row) => ({
+        document: toDocument(row),
+        chunkCount: chunkCounts.get(row.id) ?? 0,
+      })),
       total: counted?.total ?? 0,
     };
   }
@@ -246,19 +253,44 @@ export class DrizzleDocumentRepository implements DocumentRepository {
 }
 
 /**
- * Belge basina parca sayisi — ILISKILI ALT SORGU.
+ * Belge basina parca sayisi — AYRI, TOPLU bir sorgu.
  *
- * ⚠️ `LEFT JOIN` + `GROUP BY` DEGIL: gruplama, projeksiyondaki on iki kolonun
- * hepsini `GROUP BY`a yazmayi (ya da `DISTINCT ON` kullanmayi) gerektirirdi ve
- * yeni bir kolon eklendiginde UNUTULMASI kolay bir yer olurdu. Alt sorgu
- * projeksiyondan BAGIMSIZDIR.
+ * ============================================================================
+ * ⚠️ NEDEN ILISKILI ALT SORGU DEGIL — bir kapanis denetimi bulgusu
+ * ============================================================================
+ * Ilk yazimda bu, projeksiyonun icine gomulmus bir korelasyonlu alt sorguydu
+ * (`sql` sablonuna tablo ve kolon interpolasyonu). Uretilen SQL kabul edildi,
+ * hata VERMEDI ve HER ZAMAN 0 dondurdu — yani parcasi olan bir belge ekranda
+ * "Aranamiyor" gorunuyordu.
+ *
+ * Kusur SESSIZDI ve tam olarak ADR-0037 §6.3'un onlemeye calistigi seyi TERSINE
+ * cevirmisti: gercekten aranabilir bir belgeye "aranamaz" demek, aranamayan bir
+ * belgeye susmak kadar yanlistir. Elle yazilan ayni SQL psql'de dogru calisiyor
+ * (denetimde karsilastirildi), yani sorun sorgunun SEKLINDE degil Drizzle'in
+ * `sql` sablonunda tablo interpolasyonundaydi.
+ *
+ * ⚠️ Bu yuzden ORM'in sablonuna guvenmek yerine ACIK bir sorgu yazildi: girdisi
+ * ve ciktisi okunabilir, entegrasyon testiyle dogrudan kilitlenebilir.
+ *
+ * TEK sorgu, `GROUP BY` ile — satir basina bir sayim N+1 olurdu.
  */
-function chunkCountExpression(): SQL<number> {
-  return sql<number>`(
-    SELECT count(*)::int
-    FROM ${documentChunks}
-    WHERE ${documentChunks.documentId} = ${documents.id}
-  )`;
+async function countChunksByDocument(ids: readonly string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  const { db } = requireTransaction();
+
+  const rows = await db
+    .select({
+      documentId: documentChunks.documentId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(documentChunks)
+    .where(inArray(documentChunks.documentId, [...ids]))
+    .groupBy(documentChunks.documentId);
+
+  return new Map(rows.map((row) => [row.documentId, row.count]));
 }
 
 /** Satiri entity'ye cevirir; `mimeType` daraltmasi tek yerde yapilir. */

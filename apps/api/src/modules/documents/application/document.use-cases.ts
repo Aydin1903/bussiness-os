@@ -1,3 +1,5 @@
+import { type Readable } from 'node:stream';
+
 import { chunkText } from '../../../shared/chunking';
 import { type Clock } from '../../../shared/clock.port';
 import { EmbeddingFailedError, type EmbeddingPort } from '../../../shared/embedding.port';
@@ -265,7 +267,12 @@ export class DocumentUseCases {
    * ⚠️ IMZALI URL URETILMEZ (§5.4): erisim karari ADR-0025'in policy
    * engine'inden cikip bir DIZEYE devredilirdi.
    */
-  async download(id: string): Promise<{ document: DocumentState; body: NodeJS.ReadableStream }> {
+  //
+  // ⚠️ DONUS TIPI `Readable`, `NodeJS.ReadableStream` DEGIL: controller onu
+  // `StreamableFile`a sarmalar ve o, Node'un `Readable`ini ISTER. Genis tip
+  // yazildiginda derleme hatasi veriyordu — ve o hata IYI bir seydi, cunku
+  // alternatifi bir tip zorlamasiyla susturmakti.
+  async download(id: string): Promise<{ document: DocumentState; body: Readable }> {
     const document = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
       this.deps.repository.findById(id),
     );

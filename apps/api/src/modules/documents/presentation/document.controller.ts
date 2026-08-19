@@ -11,6 +11,7 @@ import {
   Put,
   Query,
   Res,
+  StreamableFile,
   UnauthorizedException,
   UploadedFile,
   UseFilters,
@@ -200,7 +201,7 @@ export class DocumentController {
   async download(
     @Param(new ZodValidationPipe(idParamSchema)) params: { id: string },
     @Res({ passthrough: true }) response: Response,
-  ): Promise<NodeJS.ReadableStream> {
+  ): Promise<StreamableFile> {
     const { document, body } = await this.useCases.download(params.id);
 
     response.setHeader('Content-Type', document.mimeType);
@@ -214,7 +215,17 @@ export class DocumentController {
       `attachment; filename*=UTF-8''${encodeURIComponent(document.originalFilename)}`,
     );
 
-    return body;
+    // ⚠️ HAM `Readable` DONDURULEMEZ — `StreamableFile` ZORUNLU.
+    //
+    // Ilk yazimda akis dogrudan donduruluyordu ve NestJS onu bir GOVDE nesnesi
+    // sanip serilestirmeye calisiyordu: sonuc **islenmemis 500**di. Kapanis
+    // denetiminde gercek bir indirme istegiyle gorundu (birim testleri
+    // controller'i bu yoldan gecirmiyordu).
+    //
+    // ⚠️ Hata SESSIZ DEGIL ama YANILTICIYDI: 500'un govdesi global filtre
+    // tarafindan maskeleniyor (dogru davranis), yani logta da "beklenmeyen
+    // hata"dan baska bir sey yazmiyordu.
+    return new StreamableFile(body);
   }
 
   /**

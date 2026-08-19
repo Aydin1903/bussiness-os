@@ -269,3 +269,33 @@ export type {
   UpdateAppointmentRequest,
   ReindexAppointmentsResponse,
 } from './appointments/appointments.contract';
+
+// --- Belge / Sozlesme Yonetimi (ADR-0037) ---
+// ⚠️ Yukleme istegi icin bir SEMA YOKTUR: govde `multipart/form-data`dir ve
+// `FormData` bir JSON govdesi degildir. Paylasilan sey CEVAP semalari ve
+// SINIRLARDIR.
+export {
+  documentMimeTypeSchema,
+  documentSchema,
+  documentRowSchema,
+  documentListResponseSchema,
+  documentResultSchema,
+  updateDocumentRequestSchema,
+  reindexDocumentsResponseSchema,
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_ACCEPT,
+  PDF_MIME_TYPE,
+  DOCX_MIME_TYPE,
+  MAX_DOCUMENT_BYTES,
+  MAX_DOCUMENT_CHUNKS,
+  MAX_DOCUMENT_LABEL_CHARS,
+} from './documents/documents.contract';
+export type {
+  DocumentMimeType,
+  Document,
+  DocumentRow,
+  DocumentListResponse,
+  DocumentResult,
+  UpdateDocumentRequest,
+  ReindexDocumentsResponse,
+} from './documents/documents.contract';

@@ -281,6 +281,14 @@ denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **3. modül Finans ✅ bitti** (ADR-0034; yedi slice, HAFİF kapanış denetimi
 2026-08-12). `POST /ask` izin filtresi ilk kez **gerçekten sınandı** ve
 CLAUDE.md'nin CEO örneği **dört modülle tam karşılandı**.
+**5. modül Belge/Sözleşme ✅ bitti** (ADR-0037; üç slice, HAFİF kapanış
+denetimi 2026-08-19). ⚠️ Üç şey **ilk kez** oldu: kalıcı durum **veritabanı
+dışına** çıktı (Cloudflare R2 — ADR-0009'un açık sağlayıcı kalemi kapandı),
+chunk tablosu **geri döndü** (Randevu'nun kararının tam tersi, aynı ölçütten),
+ve cross-modül referans **hiçbir şey yapılmayarak** doğrulandı (`crm.public.ts`
+ve `projects.public.ts` tek satır değişmedi). ⚠️ **ADR-0036'nın taban kısıtı
+ölçüldü ve ÇALIŞIYOR**: üç ayrı yapısal ses cevapta, `documents` sistematik
+olarak dışlanmıyor.
 **4. modül Randevu/Rezervasyon ✅ TAMAMEN KAPANDI** (ADR-0035; altı slice, HAFİF
 kapanış denetimi 2026-08-13, **prod doğrulaması 2026-08-14** — `82c8ad3`,
 health 200, migration 27'de sabit). Anlatısal içerik ilk kez **parçalanmadan**
@@ -291,8 +299,8 @@ embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`) · **dört modülün ekranları** (`/app/crm` ·
-`/app/projects` · `/app/finance` · `/app/appointments`). Riskli runtime akışları
+**onboarding** (`/app/onboarding`) · **beş modülün ekranları** (`/app/crm` ·
+`/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents`). Riskli runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
 Vitest + RTL **349 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
@@ -461,9 +469,8 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-sekiz modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
-4. Randevu/Rezervasyon ✅ — sıradaki 5. Belge/Sözleşme Yönetimi, ⚠️ **object
-   storage kararını tetikler**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+yedi modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅ — sıradaki 6. Stok/Envanter) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -471,10 +478,11 @@ satırı değişmedi) · **finans denetim izi** (`platform/audit` ARCHITECTURE �
 yazılı ama **kod olarak yok**; bir tutarın kim tarafından değiştirildiği
 sorulamaz — tetikleyici 8. modül)
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONÜÇ tablo**
-(ROADMAP §8.5; Randevu Slice 3 onikiden onüçe çıkardı, vektör taşıyan tablo
-sayısı BEŞE çıktı — ⚠️ beşincisi listedeki ilk **kendisi ebeveyn olan** vektör
-tablosudur, chunk tablosu yoktur) · **`POST /ask` top-K havuzu DOLU** (dokuz
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONBEŞ tablo**
+(ROADMAP §8.5; Belge Slice 2 onüçten onbeşe çıkardı, vektör taşıyan tablo
+sayısı ALTIYA çıktı — ⚠️ **yeni bir boyut**: bu kalemde veritabanı dışında bir
+**R2 nesnesi** de var ve retention işi satırla birlikte onu da silmek
+zorundadır) · **`POST /ask` top-K havuzu DOLU** (dokuz
 katkıcı, sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
 kapandı** — `ceil(K/3)` yuvalık **yapısal taban kısıtı**; gerçek **rerank** hâlâ
 **açılmadı** ve kalibrasyon verisi beklemede) · **not detay ucu**
@@ -1003,6 +1011,102 @@ arayüzün **içinde**); yeni kenar `Randevu → CRM`, grafik hâlâ DAG.
 >   doğrulama uğruna canlıyı bozmak olurdu. ⚠️ Bu sınır **kaydedilmezse**,
 >   ileride birisi "prod'da uçtan uca sınandı" sanabilir — sınanan **deploy**,
 >   davranış değil.
+
+### Faz 5 / 5. modül — Belge / Sözleşme Yönetimi (**bitti**)
+
+Karar: **ADR-0037** (kabul edildi, 2026-08-14). ROADMAP §3.5'in beşinci sırası.
+**Altıncı şema.** Üç slice: ADR → Backend (`0027`, `0028`) → Frontend + HAFİF
+kapanış denetimi.
+
+Gerçekten yeni **dört** karar:
+
+1. ⚠️ **Kalıcı durum ilk kez VERİTABANI DIŞINDA.** ADR-0009'un açık bıraktığı
+   sağlayıcı seçimi kapandı: **Cloudflare R2** (egress ücretsiz). `StoragePort`
+   `shared/`'a, adapter `infrastructure/storage/`'a; lokal/CI **MinIO** — ikisi
+   de aynı adapter, fark yalnızca endpoint. ⚠️ **Nesne deposunda RLS YOKTUR**:
+   izolasyonun tek mekanik dayanağı anahtar düzenidir
+   (`tenants/<tenantId>/documents/...`) ve anahtar **her zaman veritabanından**
+   gelir.
+2. ⚠️ **İki doğruluk kaynağı arasında atomiklik yok** — sıra bilinçli seçildi:
+   **her zaman YETİM NESNE tarafında kalınır, NESNESİZ KAYIT asla.** Yükleme:
+   doğrula → çıkar → R2'ye yaz → DB satırını aç. Silme: DB satırını sil → nesneyi
+   sil. Denetimde canlı kanıtlandı (depo çökmesinde kayıt **açılmadı**).
+3. **Chunk tablosu GERİ DÖNDÜ** — ADR-0035'in kararının tam tersi, **aynı
+   ölçütten**: metnin üst sınırını Randevu'da BİZ belirliyorduk, burada DOSYA
+   belirliyor. İki ADR'nin birlikte ürettiği kural: _chunk tablosu, metnin üst
+   sınırını kullanıcı değil verinin kendisi belirliyorsa açılır._
+4. **TEK katkıcı, yalnızca anlamsal.** Bir belgenin türetilebilir bir DURUMU
+   yoktur; ADR-0036 sonrası "yapısal" etiketi bir **imtiyazdır** ve uydurma bir
+   özeti yapısal ilan etmek taban kısıtından haksız yuva çalmak olurdu.
+
+> ### ✅ Cross-modül referans İLK KEZ HİÇBİR ŞEY YAPILMAYARAK doğrulandı
+>
+> Belge iki modülün verisine bağlanıyor (CRM kişisi + proje) ama
+> `crm.public.ts` ve `projects.public.ts` **tek satır değişmedi**:
+> `ContactDirectory`yi Randevu, `ProjectDirectory`yi Finans yazmıştı.
+> ADR-0035'in netleştirdiği kural (_"yeni TALİP → dosya değişmez; yeni KAYNAK
+> TÜRÜ → sahibi modül kendi dizinini yazar"_) ilk kez **talip** tarafından
+> sınandı. Ölçülebilir sonucu: **cross-modül için ayrı bir slice gerekmedi.**
+>
+> Bağımlılık grafiği altı kenar, hâlâ DAG (katman 0: CRM · 1: Projeler ·
+> 2: Finans, Randevu, Belge).
+
+> ### ✅ HAFİF kapanış denetimi — **yapıldı, 2026-08-19**
+>
+> On bir maddenin on biri de koşuldu. ⚠️ **Denetim ÜÇ GERÇEK KUSUR buldu ve
+> üçü de birim testleriyle görünmüyordu** — hepsi düzeltildi:
+>
+> 1. **`multipart` opsiyonel alanları**: `.optional()` eksikti; `contactId`
+>    yazmayan HER yükleme 422 alıyordu ve doğrulama dosya kontrolünden önce
+>    çalıştığı için desteklenmeyen tür de **415 yerine 422** dönüyordu. Birim
+>    testleri gövdeyi zaten çözülmüş veriyordu, yani Zod katmanına hiç
+>    uğramıyorlardı.
+> 2. **Parça sayacı**: projeksiyona gömülü korelasyonlu alt sorgu hata VERMEDİ
+>    ve **her zaman 0** döndürdü — parçası olan bir belge ekranda "Aranamıyor"
+>    görünüyordu. Bu, §6.3'ün tam TERSİ bir sessiz yanlıştır.
+> 3. **İndirme**: ham `Readable` döndürülüyordu; NestJS onu gövde sanıp
+>    **işlenmemiş 500** üretiyordu (`StreamableFile` gerekiyor).
+>
+> ⚠️ **Ortak ders:** üçü de ancak **gerçek bir HTTP isteğiyle** göründü. Bu
+> modülün yüzeyi (multipart gövde, akış cevabı, ORM şablonu) birim testlerinin
+> doğal olarak atladığı yerlerde yaşıyor.
+>
+> ### ⚠️ ADR-0036'NIN TABAN KISITI ÖLÇÜLDÜ VE ÇALIŞIYOR
+>
+> On katkıcı da doluyken (altı anlamsal + dört yapısal) dağılım, üç farklı
+> soruda da aynı: **üç ayrı yapısal ses** cevapta (`crm-pipeline` ·
+> `finance-cashflow` · `project-status`) — tam olarak `ceil(8/3) = 3`.
+> ADR-0035'in ölçümünde `finance-cashflow` **hiç giremiyordu**; taban onu içeri
+> aldı. `documents` üç soruda da içeride, yani **sistematik olarak
+> dışlanmıyor**.
+>
+> ⚠️ Dışarıda kalan ikisi de ADR-0036'nın **yazılı beklentisidir**:
+> `appointment-schedule` (dördüncülük garantisi yok) ve `finance-commentaries`
+> (anlamsal kaynaklar arasında taban yoktur — eleme liyakattir).
+>
+> **Fan-out N=10:** ortalama 5030 ms, fan-out payı ≤315 ms (%6), darboğaz
+> değişmedi (`LLMPort.complete`, 4458 ms). Gerçek sağlayıcılarla ölçüldü.
+
+> **Renk:** Belge'nin imza rengi **#557380** (koyu `#8dacba`) ve setin
+> **en sönüğü** — bilinçli: _"sözleşme ekranı dikkat çekmek için değil okumak
+> için vardır."_ ⚠️ Anahtar **`documents`**; palet ilk günden doğru adla
+> yazılmıştı, Randevu'daki yeniden adlandırma işi burada **gerekmedi**.
+
+> ### Belge kapanırken bilinen sınırlar (ADR-0037)
+>
+> - ⚠️ **Nesne deposunda RLS YOK** — izolasyon anahtar düzenine dayanır.
+> - ⚠️ **Yetim nesne temizliği YOK** — retention kararıyla aynı gün verilmeli.
+> - ⚠️ **Belge bazlı gizlilik YOK**: `document:read` taşıyan herkes TÜM
+>   belgeleri görür. Hassas belge (özlük, bordro) bu modüle konulmamalı.
+>   **Tetikleyici: 9. modül (İK).**
+> - ⚠️ **Dosya değiştirme ARAYÜZÜ yok** — uç çalışıyor (denetimde 200), ama
+>   detay ekranında düğmesi yok; geri alınamazlığı doğru anlatan bir tasarım
+>   tek başına bir iştir.
+> - **Taranmış belgeler aranamaz** (OCR yok) — `chunkCount: 0` ekranda söylenir.
+> - **Yalnızca PDF/DOCX** (415) · **20 MB** (413) · **300 parça** (422).
+> - **Versiyon geçmişi yok** · **değişiklik denetim izi yok** (8. modül) ·
+>   **bağlı kişi/proje adı vektörde yok** (ADR-0035'ten bilinçli sapma) ·
+>   **klasik metin araması yok** (ADR-0011, altıncı kez).
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
