@@ -624,7 +624,7 @@ sonradan tartisilirsa yanlis yere dusebilir.
 
 ---
 
-### 10. Exception filter — DORT hata tipi, hepsi ILK GUNDEN
+### 10. Exception filter — BES hata tipi, hepsi ILK GUNDEN
 
 **Karar: `InventoryDomainExceptionFilter` `@Catch(...)` listesi BASTAN yazilir.**
 
@@ -635,15 +635,50 @@ tetiklenemez"_ diye ertelenirse, tetiklenebildigi gun **ham 500** doner ve kusur
 | Hata                         | HTTP | `DisclosableProblem` | Ne zaman                                                                |
 | ---------------------------- | ---- | -------------------- | ----------------------------------------------------------------------- |
 | `EmbeddingFailedError`       | 502  | ✅ **EVET**          | Notlu kalem yazilirken saglayici coker — kayit **acilir**, not gomulmez |
+| `CompletionFailedError`      | 502  | ✅ **EVET**          | ⚠️ **Bugun tetiklenemez** — asagi bakiniz                               |
 | `RateLimitExceededError`     | 429  | ❌ (4xx zaten gecer) | `Retry-After` ile                                                       |
 | `StockItemHasMovementsError` | 409  | ❌                   | Hareketi olan kalem silinmeye calisilir (§3.4)                          |
 | `StockItemNotFoundError`     | 404  | ❌                   | —                                                                       |
 
-⚠️ **`CompletionFailedError` YOKTUR** cunku bu modulde **modul ici AI yuzeyi
-yok** (ADR-0033'un Projeler icin verdigi ayni karar). Bir "stok ozeti" eklendigi
-gun bu satir **yeniden baglayici** olur.
+#### 10.1 ⚠️ `CompletionFailedError` BUGUN TETIKLENEMEZ VE YINE DE YAZILIR
 
-⚠️ **`StorageFailedError` YOKTUR** — bu modul dosya saklamaz.
+Bu modulde **modul ici AI yuzeyi yoktur** (ADR-0033'un Projeler icin verdigi
+ayni karar) — yani bir `LLMPort.complete` cagrisi bugun **hicbir yoldan**
+yapilmiyor ve bu satir **olu koddur**.
+
+Yine de yazilir, cunku bu **Product Owner'in kalici standardidir** ve
+ADR-0035 §8'den beri boyledir. Gerekce **asimetrik bedeldir**:
+
+| Secim                              | Yanlis oldugunda bedeli                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Simdi yaz** (tetiklenemese bile) | Bir satirlik **olu kod**. Gorunur, ucuz, zararsiz.                                                                                                                                       |
+| **Sonra ekle** (gerektiginde)      | ⚠️ Unutulursa ilk `complete` cagrisi eklendigi gun **ham 500** doner: govde maskelenir, kullanici "beklenmeyen hata" gorur ve **tekrar denemesi gerektigini ogrenemez**. Hata SESSIZDIR. |
+
+Iki bedel ayni buyuklukte degildir; bu yuzden karar **modul modul yeniden
+tartisilmaz**. Bir "stok ozeti" eklendigi gun yapilacak is **sifirdir** —
+filtre zaten hazirdir.
+
+⚠️ Bu, ADR-0035'in bes modulu birden ilgilendiren kusurunun (`DisclosableProblem`
+maskesi) **bir daha dogmamasi icin** konmus onlemdir: o kusur tam olarak
+"bugun gerekmiyor" diye ertelenen satirlardan olusmustu ve **bes modulde
+birden** duzeltilmek zorunda kalindi.
+
+#### 10.2 `StorageFailedError` DISARIDA — ve bu, 10.1 ile CELISMEZ
+
+⚠️ **`StorageFailedError` YOKTUR** ve bu bir tutarsizlik degildir: §10.1'in
+kurali **AI hata tipleri** icindir (`EmbeddingFailedError` ·
+`CompletionFailedError` · `RateLimitExceededError`) ve gerekcesi
+"her modul er ya da gec AI'a dokunur"dur — **bu proje AI merkezlidir**
+(CLAUDE.md).
+
+Depolama farkli bir kategoridir: bu modul `StoragePort`'u **bugun kullanmiyor
+ve kullanmayacak** — envanterin sakladigi hicbir sey dosya degil. "Er ya da
+gec" varsayimi burada **gecerli degildir**, yani satir olu kod degil
+**yaniltici** olurdu: okuyan biri modulun bir depolama yuzeyi oldugunu
+sanabilirdi.
+
+Kural tek cumleyle: **AI hata tipleri her modulde bastan yazilir; alan bazli
+hata tipleri (depolama gibi) yalnizca o alani kullanan modulde yazilir.**
 
 ⚠️ Eslenmemis domain kodunun 500'u **maskeli kalir** ve bunu **bir test
 kilitler** — o test olmasaydi, maskenin tumuyle kalktigi bir regresyonda diger
@@ -956,6 +991,10 @@ bolerdi**.
 - [ ] **Oran siniri** asildiginda **429** (`Retry-After` ile) · gecersiz
       `OPENAI_API_KEY` ile notlu kalem → **502** ve govde **`DisclosableProblem`
       ile acik** (§10) · notsuz kalem **201** · kayit **silinmez**
+- [ ] ⚠️ **Filtrenin `@Catch` listesi BES tip iceriyor mu** (§10) —
+      `CompletionFailedError` **canli tetiklenemez** (§10.1), yani kanit bir
+      **birim testidir**; `StorageFailedError`in listede **olmadigi** da ayni
+      testle kilitlenir (§10.2)
 - [ ] **Renk turu**: `/app/inventory` **ve** `/app/inventory/movements`
       `#876b1c` gosteriyor mu — acik **ve** koyu temada; koridorun rozeti ve
       `--ai-accent` **terracotta** kaliyor mu (§11.1)

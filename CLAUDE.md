@@ -1216,6 +1216,45 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > içindir). Sayı saymak yetmez — `drizzle.__drizzle_migrations` sayacı da
 > journal'a bağlıdır ve aynı yalanı söyler.
 
+> ### ⚠️ Kalıcı ders: `DisclosableProblem` — AI HATA TİPLERİ HER MODÜLDE BAŞTAN
+>
+> **`EmbeddingFailedError`, `RateLimitExceededError` ve `CompletionFailedError`
+> HER modülün exception filter'ının `@Catch(...)` listesine BAŞTAN eklenir —
+> o modül bugün kullanıyor olsun ya da olmasın.**
+>
+> **Bu, modül modül yeniden tartışılmaz.** Product Owner'ın kalıcı standardıdır
+> (ADR-0035 §8; ADR-0037 §9 ve ADR-0039 §10.1'de tekrar uygulandı).
+>
+> Gerekçe **asimetrik bedeldir**:
+>
+> | Seçim | Yanlış olduğunda bedeli |
+> |---|---|
+> | **Şimdi yaz** (tetiklenemese bile) | Bir satırlık **ölü kod**. Görünür, ucuz, zararsız. |
+> | **Sonra ekle** (gerektiğinde) | ⚠️ Unutulursa o yol ilk kez çalıştığı gün **ham 500** döner: `ProblemDetailsFilter` gövdeyi maskeler, kullanıcı "beklenmeyen hata" görür ve **tekrar denemesi gerektiğini öğrenemez**. Hata **SESSİZDİR**. |
+>
+> Bu kural bir varsayımdan doğmuyor, **yaşanmış bir kusurdan** doğuyor: ADR-0035'in
+> kapanış denetimi, `DisclosableProblem` işaretinin **beş modülde birden** eksik
+> olduğunu buldu (Knowledge · CRM · Projeler · Finans · Randevu) ve düzeltme tek
+> bir işte beş modüle birden dokunmak zorunda kaldı; `platform/context` ayrı bir
+> iş olarak devraldı. O kusur tam olarak "bugün gerekmiyor" diye ertelenen
+> satırlardan oluşmuştu.
+>
+> ⚠️ **Kapsam AI hata tipleridir, hepsi değil.** Gerekçe bu projenin kurucu
+> kısıtıdır: **her modül er ya da geç AI'a dokunur** — modüller hafızadır.
+> **Alan bazlı** hata tipleri (`StorageFailedError` gibi) yalnızca o alanı
+> gerçekten kullanan modülde yazılır; dosya saklamayan bir modüle depolama hatası
+> koymak ölü kod değil **yanıltıcı** olurdu — okuyan biri o modülün bir depolama
+> yüzeyi olduğunu sanardı.
+>
+> ⚠️ **429 işaret TAŞIMAZ:** maske yalnızca 5xx'e uygulanır, 4xx gövdeleri zaten
+> geçer. `RateLimitExceededError` listeye girer ama `DisclosableProblem`
+> **almaz**; işaret koymak hiçbir şeyi değiştirmeyip "burada bir şey açıldı"
+> izlenimi verirdi.
+>
+> ⚠️ **Bu bir GENEL AÇMA değildir.** Eşlenmemiş domain kodunun 500'ü **maskeli
+> kalır** ve her modülde bir test onu kilitler — o test olmasaydı, maskenin
+> tümüyle kalktığı bir regresyonda diğer testler de yeşil yanardı.
+
 > **Kalıcı ders:** `pnpm dev` çalışırken `pnpm verify` (ya da `pnpm build`)
 > **koşulmaz** — ikisi aynı `apps/web/.next` dizinini paylaşır ve `next build`,
 > `next dev`'in altındaki dosyaları ezer. Sonuç sessiz değil ama yanıltıcıdır:
