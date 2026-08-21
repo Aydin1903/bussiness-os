@@ -144,6 +144,20 @@ export interface AppConfig {
   };
 
   /**
+   * Tedarikci Yonetimi (ADR-0040 §6).
+   *
+   * ⚠️ `nearThresholdRatio` benzeri bir esik alani YOKTUR ve bu bir eksik
+   * degil, §3'un dogrudan sonucudur: bu modulun YAPISAL KATKICISI YOK, yani
+   * ayarlanacak bir risk merdiveni de yok.
+   */
+  readonly suppliers: {
+    /** ⚠️ Tedarikci de kisi de degil, EMBEDDING sayar (ikisi de paydan dusmez). */
+    readonly embeddingRateLimit: number;
+    /** ⚠️ Onarimin IKI isi var: eksik vektor + BAYAT baslik (§6). */
+    readonly reindexBatchSize: number;
+  };
+
+  /**
    * Nesne deposu (ADR-0009 · ADR-0037 §5).
    *
    * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
@@ -245,6 +259,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
       embeddingRateLimit: env.INVENTORY_EMBEDDING_RATE_LIMIT,
       reindexBatchSize: env.INVENTORY_REINDEX_BATCH_SIZE,
       nearThresholdRatio: env.INVENTORY_NEAR_THRESHOLD_RATIO,
+    },
+    suppliers: {
+      embeddingRateLimit: env.SUPPLIERS_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.SUPPLIERS_REINDEX_BATCH_SIZE,
     },
     storage: toStorageConfig(env),
     documents: {

@@ -112,3 +112,27 @@ export { documentChunks } from './document-chunks.schema';
 export { inventorySchema } from './inventory-schema.schema';
 export { inventoryItems } from './inventory-items.schema';
 export { inventoryMovements } from './inventory-movements.schema';
+
+// --- Tedarikci Yonetimi (ADR-0040 §1) ---
+// SEKIZINCI sema. ⚠️ Sema ve tablo AYNI adi tasiyor (`suppliers.suppliers`) —
+// `projects`, `appointments` ve `documents`taki cakismanin DORDUNCU tekrari;
+// sema tanimi bu yuzden ayri bir dosyada.
+//
+// ⚠️ EXPORT ADI `supplierCompanies`, tablo adi `suppliers`. Cakisan sey sema
+// degil TypeScript export'udur: `suppliersSchema` zaten bu adi kullaniyor.
+// Ayni sebeple `contacts` -> `supplierContacts`, `interactions` ->
+// `supplierInteractions` (CRM'in `contacts` ve `interactions`i zaten export
+// edilmis durumda ve iki farkli tablo tek kelimeyi PAYLASAMAZ).
+//
+// ⚠️ CHUNK TABLOSU YOK (ADR-0040 §2.2): vektor `interactions` satirinin
+// KENDISINDE yasar. Bu, CRM'i "ucuza tekrar ederken" ondan BILINCLI olarak
+// AYRILDIGIMIZ yerdir — CRM'in `interaction_chunks`i bir emsal degil, chunk
+// olcutu yazilmadan onceki bir MIRASTIR.
+//
+// ⚠️ BU MODUL BAGIMLILIK GRAFIGINE HICBIR KENAR EKLEMEZ (§4). Stok'ta da boyle
+// olmustu ama sebebi farkliydi (hedef sema yoktu); burada hedef VAR ve kenar
+// yine eklenmiyor. Grafik alti kenarda ve DAG.
+export { suppliersSchema } from './suppliers-schema.schema';
+export { supplierCompanies } from './suppliers.schema';
+export { supplierContacts } from './supplier-contacts.schema';
+export { supplierInteractions } from './supplier-interactions.schema';

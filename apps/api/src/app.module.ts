@@ -9,6 +9,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
@@ -93,6 +94,23 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // ⚠️ Iki katkici YAPISAL kaynak sayisini 4'ten 5'e cikariyor ve ADR-0036'nin
     // yeniden gozden gecirme esigine (6) BIR ADIM kaliyor.
     InventoryModule,
+    // Faz 5'in YEDINCI is modulu (ADR-0040). ROADMAP §3.5: "CRM deseninin UCUZ
+    // TEKRARI — ayni sekil, ters yon (satin alma)". Uc sey kayda deger:
+    //
+    //   1. ⚠️ "UCUZ TEKRAR" KOD KOPYALAMAK DEGILDIR (§2): CRM'in
+    //      `interaction_chunks` tablosu ACILMADI — o tablo bir EMSAL degil,
+    //      chunk olcutu (ADR-0035 §3 + ADR-0037 §3) yazilmadan onceki bir
+    //      MIRASTIR. Firsat/pipeline da yok: belirsizlik tedarikcide degil
+    //      SIPARISTEDIR ve siparis kapsam disi.
+    //   2. ⚠️ YAPISAL KATKICI YOK (§3) — ve bu bir eksik degil, ADR-0036'NIN
+    //      ESIGINE DOKUNMAMA KARARIDIR. ADR-0039 §7.2 bu module acikca soru
+    //      birakmisti ("bir yapisal katkici eklerse esik ASILIR"); uc aday
+    //      degerlendirildi, ucu de reddedildi. Yapisal kaynak 5'te KALIYOR.
+    //   3. ⚠️ CIKAN KENARI OLMAYAN IKINCI IS MODULU (§4) — ama Stok'tan FARKLI
+    //      bir sebeple: orada hedef sema YOKTU, burada VAR (`inventory` canli,
+    //      ROADMAP §3.6 kenari sayiyor) ve YINE DE eklenmiyor. Grafik alti
+    //      kenarda ve DAG.
+    SuppliersModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

@@ -113,6 +113,14 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0030, `suppliers` semasi + UC tablo. ⚠️ Down dosyasi KENDI ICINDE UC
+      // KADEMELI: `interactions` -> `contacts` -> `suppliers`. Cocuklari once
+      // dusurmek zorunludur (`interactions` HEM `contacts`a HEM `suppliers`a
+      // bagli); ebeveyni once dusurmek FK ihlali verirdi. `0029` iki tabloluydu
+      // ve tek kademeydi.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0030_suppliers_schema.down.sql',
       // 0029, `inventory` semasi + IKI tablo. ⚠️ Down dosyasi KENDI ICINDE de
       // sirali: `movements` ONCE dusuyor cunku `items`e `ON DELETE RESTRICT` ile
       // bagli (ADR-0039 §3.3) — ebeveyni once dusurmek FK ihlali verirdi.

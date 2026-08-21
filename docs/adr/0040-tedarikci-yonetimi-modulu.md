@@ -1,6 +1,6 @@
 # 0040 — Faz 5 / Modul 7: Tedarikci Yonetimi
 
-- **Durum:** **Onerildi** — Product Owner onayi bekliyor
+- **Durum:** Kabul edildi — **Slice 1 (Backend) UYGULANDI** (2026-08-21)
 - **Tarih:** 2026-08-21
 - **Karar veren:** Product Owner
 - **Faz:** 5

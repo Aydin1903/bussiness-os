@@ -599,6 +599,37 @@ const baseEnvSchema = z.object({
    * katkici saglikli sayip 0.75 verir.
    */
   INVENTORY_NEAR_THRESHOLD_RATIO: z.coerce.number().min(1).max(10).default(1.25),
+
+  /**
+   * Tedarikci gorusmesi EMBEDDING'i icin saatlik pay (ADR-0040 §6).
+   *
+   * ⚠️ Ad `SUPPLIERS_EMBEDDING_...`, `SUPPLIERS_INTERACTION_...` DEGIL: sayac
+   * GORUSME degil EMBEDDING sayar. Tedarikci olusturmak, kisi eklemek ve bir
+   * tedarikciyi yeniden adlandirmak paydan DUSMEZ — hicbiri saglayiciya
+   * gitmez. ⚠️ Yeniden adlandirma bu modulde bedava DEGILDIR ama bedeli ANINDA
+   * degil, `reindex` calistiginda odenir (ad AYRI SATIRDA yasar — ADR-0039'un
+   * "bayatlama penceresi yok" kazanci burada YOKTUR).
+   *
+   * Varsayilan RANDEVU/STOK SINIFINDA (60), Belge sinifinda (10) DEGIL:
+   * chunking yok (§2.2), yani kayit basina EN FAZLA BIR embedding cagrisi var.
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR — ayri bir kova, onarimi BUTCESIZ
+   * BIR YAN KAPIYA cevirirdi (ADR-0029'un gerekcesi, ALTINCI kez).
+   */
+  SUPPLIERS_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /suppliers/reindex` cagrisinda islenecek EN FAZLA gorusme.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil. Randevu ve Stok ile ayni deger (25) ve ayni gerekce: kayit basina en
+   * fazla bir cagri.
+   *
+   * ⚠️ BU MODULDE ONARIMIN IKI ISI VAR (ADR-0040 §6): eksik vektoru uretmek VE
+   * baslikta denormalize edilmis BAYAT TEDARIKCI ADINI tazelemek. Ikincisi
+   * Stok'ta YOKTU (ad ayni satirdaydi), burada VAR.
+   */
+  SUPPLIERS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
