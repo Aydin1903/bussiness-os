@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { StockItemNoteTooLongError } from './inventory.error';
+import { NegativeMinQuantityError, StockItemNoteTooLongError } from './inventory.error';
 import {
   MAX_ITEM_NOTE_CHARS,
   StockItem,
@@ -74,6 +74,19 @@ describe('StockItem (ADR-0039 §1, §5)', () => {
       // ve biri digerinin yerine gecmez.
       expect(build({ minQuantity: null }).toState().minQuantity).toBeNull();
       expect(build({ minQuantity: '0' }).toState().minQuantity).toBe('0.000');
+    });
+
+    it('⚠️ NEGATIF ESIK REDDEDILIR — kapanis denetiminde bulundu (2026-08-19)', () => {
+      // Migration `0029`un CHECK'i bunu zaten reddediyordu ama uygulama
+      // katmaninda karsiligi YOKTU: kullanici 422 yerine HAM 500 aliyordu.
+      // Kisit calisiyordu, MESAJ calismiyordu.
+      expect(() => build({ minQuantity: '-1' })).toThrow(NegativeMinQuantityError);
+    });
+
+    it('SIFIR esik KABUL EDILIR — "tukendiginde haber ver" (§6.1)', () => {
+      // ⚠️ Kural `>= 0`, `> 0` DEGIL. Sifir esik mesrudur; negatif esik hicbir
+      // zaman tetiklenmeyen bir alarmdir.
+      expect(() => build({ minQuantity: '0' })).not.toThrow();
     });
 
     it('⚠️ NOT SINIRI ASILIRSA REDDEDILIR — SESSIZ KIRPMA YASAK (§5)', () => {

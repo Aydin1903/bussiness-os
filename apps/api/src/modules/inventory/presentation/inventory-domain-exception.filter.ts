@@ -71,6 +71,10 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   INVENTORY_TIMESTAMP_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   // ⚠️ SESSIZ KIRPMA YASAK (ADR-0039 §5): sinir asilirsa istek REDDEDILIR.
   STOCK_ITEM_NOTE_TOO_LONG: HttpStatus.UNPROCESSABLE_ENTITY,
+  // ⚠️ Kapanis denetiminde (2026-08-19) eklendi: bu kod ESLENMEDEN once negatif
+  // esik HAM 500 donuyordu — veritabani kisiti calisiyor ama mesaj kullaniciya
+  // ulasmiyordu.
+  STOCK_ITEM_MIN_QUANTITY_NEGATIVE: HttpStatus.UNPROCESSABLE_ENTITY,
   STOCK_ITEM_EMBEDDING_DIMENSIONS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
 
   // "Yok" ile "baska tenant'in" AYIRT EDILMEZ — ikisi de 404 (P2).

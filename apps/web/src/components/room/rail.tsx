@@ -11,6 +11,7 @@ import {
   CustomersIcon,
   DocumentsIcon,
   FinanceIcon,
+  InventoryIcon,
   OverviewIcon,
   ProjectsIcon,
 } from '@/components/icons';
@@ -89,6 +90,24 @@ const DOORS: readonly Door[] = [
     icon: DocumentsIcon,
     href: '/app/documents',
     module: 'documents',
+  },
+  /**
+   * YEDINCI KAPI — Faz 5'in ALTINCI is modulu (ADR-0039 §11.1).
+   *
+   * Anahtar `inventory`: sema, modul ve `data-module` UCU DE ayni kelime.
+   * Renk `module-colors.css`'te ZATEN olculmus (`#876b1c` / koyu `#c2a45a`) —
+   * terracottanin +-35 derecelik yasak koridoruna EN YAKIN komsu ve bilincli
+   * olarak sariya cekilmis.
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Stok',
+    short: 'Stok',
+    icon: InventoryIcon,
+    href: '/app/inventory',
+    module: 'inventory',
   },
 ];
 

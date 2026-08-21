@@ -3,9 +3,10 @@ import { EMBEDDING_DIMENSIONS } from '../../../shared/embedding.port';
 import {
   InvalidInventoryTimestampError,
   InvalidStockItemEmbeddingDimensionsError,
+  NegativeMinQuantityError,
   StockItemNoteTooLongError,
 } from './inventory.error';
-import { normalizeQuantity } from './quantity';
+import { isQuantityNegative, normalizeQuantity } from './quantity';
 
 /**
  * Kalem notunun SERT karakter siniri (ADR-0039 §5).
@@ -255,15 +256,30 @@ function normalize(fields: StockItemFields): StockItemFields {
     throw new StockItemNoteTooLongError(note.length, MAX_ITEM_NOTE_CHARS);
   }
 
+  // ⚠️ Esik KANONIKLESTIRILIR: `"5"` ve `"5.000"` ayni degerdir ama farkli
+  // dizelerdir, ve karsilastirmalar (`isQuantityAtMost`) her ikisini de dogru
+  // ele alsa bile API cevabinin veritabanindan okunanla AYNI gorunmesi gerekir
+  // (`normalizeAmount`in ayni gerekcesi).
+  const minQuantity = fields.minQuantity === null ? null : normalizeQuantity(fields.minQuantity);
+
+  // ⚠️ NEGATIF ESIK REDDEDILIR — kapanis denetiminde bulundu (2026-08-19).
+  //
+  // Migration `0029`un CHECK'i bunu zaten reddediyordu ama uygulama katmaninda
+  // karsiligi yoktu: kullanici 422 yerine HAM 500 aliyordu. Kisit calisiyordu,
+  // mesaj calismiyordu.
+  //
+  // ⚠️ `> 0` DEGIL `>= 0`: SIFIR ESIK MESRUDUR ve "tukendiginde haber ver"
+  // demektir (§6.1). Negatif bir esik ise hicbir zaman tetiklenmeyen bir
+  // alarmdir — yapilandirilmis gorunen bir hiclik.
+  if (minQuantity !== null && isQuantityNegative(minQuantity)) {
+    throw new NegativeMinQuantityError(minQuantity);
+  }
+
   return {
     name,
     sku,
     unit,
-    // ⚠️ Esik KANONIKLESTIRILIR: `"5"` ve `"5.000"` ayni degerdir ama farkli
-    // dizelerdir, ve karsilastirmalar (`isQuantityAtMost`) her ikisini de dogru
-    // ele alsa bile API cevabinin veritabanindan okunanla AYNI gorunmesi
-    // gerekir (`normalizeAmount`in ayni gerekcesi).
-    minQuantity: fields.minQuantity === null ? null : normalizeQuantity(fields.minQuantity),
+    minQuantity,
     note,
     archivedAt: fields.archivedAt,
   };

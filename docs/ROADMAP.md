@@ -204,7 +204,7 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 | **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                          | ✅ Bitti    |
 | **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))             | ✅ Bitti    |
 | **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md)) | ✅ Bitti    |
-| **6**  | **Stok / Envanter**                | Ürün · miktar · hareket                                                                                           | ⏳ Bekliyor |
+| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))              | ✅ Bitti    |
 | **7**  | **Tedarikçi Yönetimi**             | **CRM deseninin ucuz tekrarı** — aynı şekil, ters yön (satın alma)                                                | ⏳ Bekliyor |
 | **8**  | **Teklif / Fatura Oluşturma**      | **Finans uzantısı** — 3'e bağımlı, ondan önce gelemez                                                             | ⏳ Bekliyor |
 | **9**  | **İK / Personel (temel)**          | ⚠️ **Yalnızca** ekip listesi · rol · iletişim. **Maaş ve sağlık verisi YOK** — bkz. not                           | ⏳ Bekliyor |
@@ -406,7 +406,7 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: onbeş tablo, tek karar
+### 8.5 Retention borcu: onyedi tablo, tek karar
 
 Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, **Randevu Slice 3 ile (2026-08-13) ONÜÇE** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
@@ -427,6 +427,8 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 | `appointments.appointments`     | Her randevu + servis notu + vektör **aynı satırda** — chunk tablosu YOK                | **Faz 5 / 4. modül** ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md) §3)     |
 | `documents.documents`           | Her belge + metadata — ⚠️ **R2'de bir NESNE de var**                                   | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §1)        |
 | `documents.document_chunks`     | Belge başına N parça + vektör — **altıncı** vektör tablosu, satır başına en çok üreten | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §3)        |
+| `inventory.items`               | Kalem başına tek satır + vektör **aynı satırda** — **yedinci** vektör tablosu          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §1)           |
+| ⚠️ **`inventory.movements`**    | ⚠️ **Silmek GEÇMİŞİ değil BUGÜNKÜ MİKTARI değiştirir** — bkz. aşağıdaki uyarı          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §2)           |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
@@ -486,6 +488,33 @@ commentaries` `ON DELETE CASCADE` taşıdığı için **doğru retention kolu
 > temizlenecekler listesine yanlışlıkla girer. `crm.company_summaries`'in
 > listeye girmeme gerekçesi (satır sayısı sabit) ile karıştırılmamalı: orada
 > tablo büyümüyordu, burada büyüyor ama **silinemiyor**.
+
+> ### ⚠️ Stok borcu ONYEDİYE çıkardı (2026-08-21) — ve YİNE YENİ BİR SINIF ekledi
+>
+> [ADR-0039](adr/0039-stok-envanter-modulu.md)'un `inventory.items` /
+> `inventory.movements` tabloları. Vektör taşıyan tablo sayısı **altıdan
+> YEDİYE** çıktı (`items.embedding` satır içinde — `appointments.appointments`
+> ile aynı sınıf, chunk tablosu yok).
+>
+> ⚠️ **AMA `inventory.movements` BU LİSTEDEKİ DİĞERLERİNDEN YAPISAL OLARAK
+> FARKLIDIR ve bu fark kaydedilmezse gerçek bir veri kaybı üretir:**
+>
+> | Liste kalemi                    | Eski satırları silmek ne kaybettirir                  |
+> | ------------------------------- | ----------------------------------------------------- |
+> | `messages`, `login_attempts`, … | **Geçmişi** — bugünkü hiçbir sayı değişmez            |
+> | `documents.documents`           | Geçmişi **+ R2'de bir nesne** (Belge'nin yeni sınıfı) |
+> | ⚠️ **`inventory.movements`**    | ⚠️ **BUGÜNKÜ MİKTARI** — türetme kaynağını götürürdü  |
+>
+> Stok miktarı bir kolonda saklanmaz; `movements`tan **her okumada türetilir**
+> (ADR-0039 §2). Yani defteri kırpmak, "eski kayıtları temizlemek" değil
+> **bugünkü stoğu değiştirmektir**.
+>
+> **Bağlayıcı kural:** `inventory.movements` **kırpılamaz**, önce kırpılan
+> dönemin bakiyesini taşıyan bir **açılış hareketi** (`is_correction = true`)
+> yazılmadıkça. "Hepsine N gün" kuralı burada **sessizce yanlış stok** üretir.
+>
+> ⚠️ `finance.transactions` listeye _"silinmez"_ diye girmişti (TTK). Buradaki
+> gerekçe **hukuki değil aritmetiktir** ve ikisi karıştırılmamalıdır.
 
 > ### ⚠️ Belge Slice 2 borcu ONBEŞE çıkardı (2026-08-19) — ve YENİ BİR SINIF ekledi
 >

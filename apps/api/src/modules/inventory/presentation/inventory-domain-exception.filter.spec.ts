@@ -11,6 +11,7 @@ import {
   DuplicateSkuError,
   InventoryDomainError,
   InvalidQuantityError,
+  NegativeMinQuantityError,
   StockItemArchivedError,
   StockItemHasMovementsError,
   StockItemNotFoundError,
@@ -244,6 +245,16 @@ describe('InventoryDomainExceptionFilter — domain hatalari', () => {
     expect(run(new StockItemNoteTooLongError(2000, 1250)).status).toBe(
       HttpStatus.UNPROCESSABLE_ENTITY,
     );
+  });
+
+  it('⚠️ NEGATIF ESIK -> 422, HAM 500 DEGIL (kapanis denetimi bulgusu)', () => {
+    // Bu kod eslenmeden once veritabani CHECK'i ham bir hata firlatiyor ve
+    // filtre onu eslenmemis sayip 500 donduruyordu.
+    const { status, thrown } = run(new NegativeMinQuantityError('-1.000'));
+
+    expect(status).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    // Mesaj KURALI ogretir: `null` ile `0` bu modulde farkli seylerdir.
+    expect((thrown as HttpException).getResponse()).toMatch(/tukendiginde haber ver/);
   });
 
   it('gecersiz miktar -> 422', () => {

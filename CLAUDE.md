@@ -299,8 +299,9 @@ embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`) · **beş modülün ekranları** (`/app/crm` ·
-`/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents`). Riskli runtime akışları
+**onboarding** (`/app/onboarding`) · **altı modülün ekranları** (`/app/crm` ·
+`/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
+`/app/inventory`). Riskli runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
 Vitest + RTL **349 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
@@ -469,8 +470,8 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-yedi modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
-4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅ — sıradaki 6. Stok/Envanter) · **koyu tema UI anahtarı** (bugün yalnızca OS
+altı modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅ — sıradaki 7. Tedarikçi) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -1109,6 +1110,118 @@ Gerçekten yeni **dört** karar:
 > - **Versiyon geçmişi yok** · **değişiklik denetim izi yok** (8. modül) ·
 >   **bağlı kişi/proje adı vektörde yok** (ADR-0035'ten bilinçli sapma) ·
 >   **klasik metin araması yok** (ADR-0011, altıncı kez).
+
+### Faz 5 / 6. modül — Stok / Envanter (**bitti**)
+
+Karar: **ADR-0039** (kabul edildi, 2026-08-19; uygulandı ve kapandı
+2026-08-21). ROADMAP §3.5'in altıncı sırası. **Yedinci şema.** Üç slice: ADR →
+Backend (`0029`, **tek slice**) → Frontend + HAFİF kapanış denetimi.
+
+Gerçekten yeni **dört** karar:
+
+1. ⚠️ **MODÜLÜN MERKEZİ SAYISI BİR KOLONDA DEĞİL.** Mevcut miktar
+   `inventory.movements`tan **her okumada türetilir**; `items`te miktar kolonu
+   **yoktur**. Projede **dokuzuncu** kez aynı karar (`finance.balances`'ın
+   reddi, `ends_at`'in reddi …) — ama **ilk kez gerçek bir bedelle**: türetme
+   sınırsız büyüyen bir defteri tarar. ⚠️ **ÖLÇÜLDÜ**: 5000 hareketli defterde
+   **4–5 ms**; darboğaz `LLMPort.complete` (~4.5 s) yanında görünmez. Kararı
+   veren şey **hatanın şekli**: kolonda bozulma *sessiz ve makul görünen yanlış
+   bir sayı*, türetmede *ölçülebilir yavaşlık*.
+2. ⚠️ **"DÜZELTME" ÜÇÜNCÜ BİR YÖN DEĞİLDİR.** `direction` (in/out) aritmetik
+   eksen, `is_correction` sebep. Üç değerli bir `kind` ya **işaretli miktar**
+   (ADR-0034 §5'in açıkça reddettiği — işaret koymayı unutan yol çıkışı giriş
+   gibi toplar) ya da satır bazında anlam değiştiren nullable bir yön
+   gerektirirdi.
+3. ⚠️ **DEFTER DEĞİŞTİRİLEMEZ — ADR-0034'ten bilinçli sapma.** Finans işlemi
+   düzeltilebilir; envanter hareketi düzeltilemez. Ölçüt: *bugünkü gerçek
+   geçmiş kayıtlardan TÜRETİLİYOR mu?* Finans'ta hayır, Stok'ta evet — geçmişi
+   değiştirmek **bugünü sessizce yeniden yazar**. Koruma **üç katmanlı**:
+   `update` metodu yok · `stock_movement:delete` izni yok · `movements → items
+   ON DELETE RESTRICT`.
+4. ⚠️ **MİKTARLAR BİRİMLERİ YÜZÜNDEN TOPLANMAZ.** 3 kg un ile 12 adet vidanın
+   toplamı yoktur — ADR-0034'ün para birimi kuralının aynı şekli, ikinci kez.
+   Modülde **"toplam stok" diye bir rakam BULUNMAZ** ve odanın kahraman rakamı
+   bu yüzden **eşik altındaki kalem sayısıdır**.
+
+> **FİZİKSEL SAYIM:** kullanıcı **saydığını** yazar, farkı **sunucu** hesaplar
+> (`SELECT … FOR UPDATE` ile tek transaction). ⚠️ Delta'yı istemciye
+> hesaplatmak **yasak**: istemcinin okuduğu miktar ile isteğin vardığı an
+> arasında bir hareket girerse düzeltme **yanlış** olur ve hata **sessizdir**.
+> ⚠️ Kilit **dekoratif değil**: hareket yazan **her yol** önce kalem satırını
+> kilitler (`movements`a `INSERT`, `items` kilidini tek başına beklemez). Fark
+> sıfırsa **hiçbir satır yazılmaz** (`adjusted: false`).
+
+> **Renk:** Stok'un imza rengi **hardal**dır (`#876b1c` / koyu `#c2a45a`) ve
+> `module-colors.css`'te zaten ölçülüdür. ⚠️ Terracottanın ±35°'lik yasak
+> koridoruna **en yakın komşu** ve bilinçli olarak sarıya çekilmiş.
+> ⚠️ Anahtar **`inventory`**.
+
+> **İzin adları NİTELENMİŞ** (`stock_item`, `stock_movement`) — ADR-0037'nin
+> `finance_category` gerekçesi burada **tersine** çıktı: **8. modül
+> (Teklif/Fatura)** _line item_ kavramını getirecek ve `item:read` o gün ya
+> breaking change ile değişirdi ya da iki modül tek kelimeyi paylaşırdı.
+
+> ⚠️ **CRM'DEN BU YANA ÇIKAN KENARI OLMAYAN İLK İŞ MODÜLÜ** (ADR-0039 §9):
+> cross-modül referans v1'de **yok**, bağımlılık grafiği **altı kenarda** kaldı
+> ve Stok, CRM ile aynı katmanda bir kök düğüm. 7. modül (Tedarikçi) bir kaleme
+> işaret etmek istediği gün `inventory.public.ts`i **Stok yazar** — talip değil
+> **sahip** yazar.
+
+> ### ✅ HAFİF kapanış denetimi — **yapıldı, 2026-08-21**
+>
+> Sekiz maddenin sekizi de koşuldu. ⚠️ **Denetim BİR GERÇEK KUSUR buldu:**
+> negatif uyarı eşiği **422 yerine ham 500** dönüyordu — migration'ın CHECK'i
+> değeri reddediyor ama uygulama katmanında karşılığı yoktu. **Kısıt
+> çalışıyordu, MESAJ çalışmıyordu.** Düzeltildi (`NegativeMinQuantityError`) ve
+> üç test kilitliyor. ⚠️ Kusur yalnızca **gerçek bir HTTP isteğiyle** göründü —
+> ADR-0037'nin aynı dersi.
+>
+> ⚠️ **ADR-0036'NIN ZORUNLU ÖLÇÜMÜ YAPILDI — TABAN ÇALIŞIYOR.** On iki katkıcı
+> (7 anlamsal + 5 yapısal) doluyken üç farklı soruda dağılım **aynı** kaldı ve
+> her üçünde de tam **üç ayrı yapısal ses** cevapta: `crm-pipeline` ·
+> **`inventory-stock`** · `project-status` = `ceil(8/3) = 3`. Yeni modülün
+> yapısal katkıcısı **sistematik olarak dışlanmadı**. Dışarıda kalanlar
+> ADR-0036'nın yazılı beklentisi (`finance-cashflow`, `appointment-schedule` —
+> beş kaynak üç yuva; `documents`, `finance-commentaries` — anlamsal kaynaklar
+> arasında taban yoktur, eleme liyakattir).
+>
+> ⚠️ **Fan-out N=12 ÖLÇÜLDÜ**: ortalama toplam **5257 ms**, fan-out payı
+> **136 ms (%2)**, darboğaz değişmedi (`LLMPort.complete` 4510 ms) —
+> ADR-0037'nin N=10 ölçümüyle **aynı bantta**.
+>
+> Rol turu (üç gerçek kullanıcı): viewer okur ama **yazamaz (403)**, member
+> yazar ama **silemez (403)**. Oran sınırı 60. istekte **429** — ⚠️ aynı anda
+> **notsuz kalem 201** ve **hareket yazma 201**: sayaç kalem ya da hareket
+> değil **embedding** sayıyor. Renk turu açık **ve** koyu temada; kabuk ve
+> AI'ın sesi terracotta kaldı, `app-shell.tsx`e **altıncı kez dokunulmadı**.
+>
+> **Bilinçli yapılmayanlar:** sıfırdan kurulum ❌ · iki tenant'la tam RLS turu
+> ❌ · **prod doğrulaması ❌ — bu slice migration TAŞIMAZ**.
+
+> ### Stok kapanırken bilinen sınırlar (ADR-0039)
+>
+> - ⚠️ **Miktar sorgusu `movements` büyüdükçe yavaşlar** — bugün 5000 harekette
+>   4–5 ms; önbelleğe geçiş yolu açık ve **tek yönlü**.
+> - ⚠️ **"Sayım yapıldı ve tuttu" bilgisi hiçbir yerde kalmaz** — fark sıfırsa
+>   satır yazılmaz. Sayım günlüğü v2'dir.
+> - ⚠️ **Negatif stok mümkündür**: kayıt tutulur, engellenmez (engellemek
+>   işletmeyi yalan söylemeye iterdi); yapısal katkıda **0.95** ile raporlanır.
+> - ⚠️ **Parti/seri no ve son kullanma YAPISAL DEĞİL** — notta yazılabilir,
+>   **sorgulanamaz**. Product Owner'ın örnek notu (_"parti no X"_) serbest
+>   metindir.
+> - ⚠️ **Depo/lokasyon yok** · **birim varyantları oluşabilir** (`kg`/`Kg`) ·
+>   **"toplam stok" diye bir rakam yok**.
+> - ⚠️ **Kalemin adını/eşiğini kimin değiştirdiği sorulamaz** (`platform/audit`
+>   borcu, 8. modül). ⚠️ Hareket tarafında bu borç **YOK** — defter
+>   değiştirilemez.
+> - ⚠️ **ADR-0036'nın yeniden gözden geçirme eşiğine BİR KALDI** (yapısal
+>   kaynak **5**, eşik 6) — **7. modülün ADR'si bunu okumak zorundadır**.
+> - **`embedding`de model/sürüm bilgisi yok** · **arama yalnızca anlamsal**
+>   (ADR-0011, yedinci kez) · **iyimser eşzamanlılık yok** — ⚠️ ama **miktar
+>   için geçerli değil** (miktar o satırda yaşamıyor).
+> - ⚠️ **Retention ONBEŞTEN ONYEDİYE çıktı** ve **yeni bir şekil** getirdi:
+>   `inventory.movements` silinirse **geçmiş değil BUGÜNKÜ SAYI** değişir
+>   (ROADMAP §8.5'in bağlayıcı kuralı).
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 

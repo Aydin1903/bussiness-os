@@ -110,6 +110,27 @@ export function DocumentsIcon(props: IconProps) {
   );
 }
 
+/**
+ * Stok / Envanter — RAF ve KUTU.
+ *
+ * ⚠️ Bir kutu (paket) DEĞİL bir RAF seçildi: tek kutu "kargo/teslimat"
+ * okunur ve bu modül sevkiyat değil DEPO tutar. Raf metaforu miktar ve
+ * seviye fikrini de tasir — modulun kahraman rakami "esik altindaki kalem
+ * sayisi"dir (ADR-0039 §4.1).
+ */
+export function InventoryIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6.5h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17.5h16" />
+      <path d="M8 6.5v-2h4v2" />
+      <path d="M13 12v-2h4v2" />
+      <path d="M7 17.5v-2h4v2" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

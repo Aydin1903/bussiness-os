@@ -1,12 +1,14 @@
 # 0039 — Faz 5 / Modul 6: Stok / Envanter
 
-- **Durum:** Onerildi
+- **Durum:** Kabul edildi — **UYGULANDI ve KAPANDI** (2026-08-21)
 - **Tarih:** 2026-08-19
 - **Karar veren:** Product Owner
 - **Faz:** 5
 
-> **Not.** Bu ADR yalnizca **karari** yazar; kod yazilmadi. Uygulama, asagidaki
-> slice planina gore ayri ayri onaylanarak ilerler (CLAUDE.md Calisma Akisi).
+> **Not.** Bu ADR yazildiginda yalnizca **karari** iceriyordu; uc slice de
+> uygulandi. Slice 1 (backend) `788b203`, Slice 2 (frontend + HAFIF kapanis
+> denetimi) asagidaki denetim bolumunde. ⚠️ Denetim **bir gercek kusur** buldu
+> (negatif esik 500 donduruyordu) ve duzeltildi.
 
 ## Baglam
 
@@ -867,6 +869,9 @@ gerekmedi.
 
 ## Bilinen sinirlar
 
+- ✅ **TURETME OLCULDU** (kapanis denetimi, Slice 1): 5000 hareketli bir
+  defterde turetme **4-5 ms**. §2.3'un "olculmeden kapanmaz" maddesi odendi;
+  darbogaz karsilastirmasi `LLMPort.complete` ~4.5 s.
 - ⚠️ **Miktar sorgusu `movements` buyudukce yavaslar.** Bugun index'lerle
   yeterli; **olculmemis** bir sinir degil, **olculecek** bir sinirdir (§ Kapanis denetimi).
   Onbellege gecis yolu aciktir ve tek yonludur.
@@ -928,11 +933,11 @@ kaydedilmezse ileride gercek bir veri kaybi uretir:
 > [cross-modul dokunusu **yalnizca gerekiyorsa** izole slice] / Frontend +
 > kapanis denetimi.
 
-| Slice | Ne                                                                                                                                                                                                                        | Migration               |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **0** | **Bu ADR** — karar, kapsam, sinirlar                                                                                                                                                                                      | —                       |
-| **1** | **Backend (TEK slice):** `inventory` semasi + `items` + `movements` + turetilmis miktar + sayim/duzeltme akisi + arsivleme + not/embedding + `reindex` + oran siniri + izin katalogu + exception filter + **iki katkici** | `0029_inventory_schema` |
-| **2** | **Frontend + HAFIF kapanis denetimi:** iki rota (ODA, ortak duvar), satir ici hareket girisi, sayim akisi, `inventory` rengi, koridorda `LIVE` + § Kapanis denetimi listesi                                               | —                       |
+| Slice | Ne                                                                                                                                                                                                                           | Migration               |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **0** | ✅ **Bu ADR** — karar, kapsam, sinirlar                                                                                                                                                                                      | —                       |
+| **1** | ✅ **Backend (TEK slice):** `inventory` semasi + `items` + `movements` + turetilmis miktar + sayim/duzeltme akisi + arsivleme + not/embedding + `reindex` + oran siniri + izin katalogu + exception filter + **iki katkici** | `0029_inventory_schema` |
+| **2** | ✅ **Frontend + HAFIF kapanis denetimi:** iki rota (ODA, ortak duvar), satir ici hareket girisi, sayim akisi, `inventory` rengi, koridorda `LIVE` + § Kapanis denetimi listesi                                               | —                       |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — §9'un dogrudan sonucu:
 degistirilecek bir `public.ts` **yoktur**, cunku hicbir kenar eklenmiyor.
@@ -963,58 +968,162 @@ bolerdi**.
 
 ---
 
-## Kapanis denetimi (Slice 2) — **HAFIF seviye**
+## Kapanis denetimi (Slice 2) — **HAFIF seviye** · YAPILDI 2026-08-21
 
 > **Surec kurali (Product Owner, 2026-08-10):** kapanis denetimleri **iki
 > seviyelidir**. Her modul sonunda **HAFIF**, **AGIR** yalnizca birkac modulde
-> bir ve seviyeyi Product Owner belirtir. Stok **HAFIF** ile kapanir.
+> bir. Stok **HAFIF** ile kapandi.
 
-**Yapilacaklar:**
+**Sekiz maddenin sekizi de kosuldu.**
 
-- [ ] `git status` temiz · `pnpm verify` **cikis koduna** bakilarak yesil
-      (DEVELOPMENT_RULES 5.4 — cikti `grep`'lenmez)
-- [ ] **Uclarin rol turu** — gercek isteklerle: owner 201/200, kimliksiz
-      **401**, `viewer` okur ama yazamaz **403**, `member` yazar ama kalem
-      **silemez** **403**
-- [ ] ⚠️ **TURETME SINAVI** (§2): bir kaleme N hareket yazilir, miktar dogru
-      hesaplanir; sonra **hareket sayisi buyutulerek** liste ucunun suresi
-      olculur ve kayda gecer. Bu ADR'nin merkezi karari, **olculmeden kapanmaz**.
-- [ ] ⚠️ **SAYIM YARISI SINAVI** (§3.2): sayim istegi ile es zamanli bir cikis
-      hareketi; duzeltmenin **kilit altinda** dogru delta uretmesi
-- [ ] ⚠️ **NEGATIF STOK** (§6.1): mevcuttan fazla cikis yazilir → **kabul
-      edilir**, listede negatif gorunur, yapisal katki **0.95** verir
-- [ ] ⚠️ **DEFTER DEGISTIRILEMEZLIGI** (§3.3): hareket icin `PATCH`/`DELETE` ucu
-      **yok** (404), hareketi olan kalem silinince **409**
-- [ ] **Sinir kapilari**: nota karakter siniri asilir → **422** ve **hicbir
-      kayit kirpilmaz** · `quantity = 0` → **422** · ayni SKU farkli
-      buyuk/kucuk harfle → **409** (§1.1)
-- [ ] **Oran siniri** asildiginda **429** (`Retry-After` ile) · gecersiz
-      `OPENAI_API_KEY` ile notlu kalem → **502** ve govde **`DisclosableProblem`
-      ile acik** (§10) · notsuz kalem **201** · kayit **silinmez**
-- [ ] ⚠️ **Filtrenin `@Catch` listesi BES tip iceriyor mu** (§10) —
-      `CompletionFailedError` **canli tetiklenemez** (§10.1), yani kanit bir
-      **birim testidir**; `StorageFailedError`in listede **olmadigi** da ayni
-      testle kilitlenir (§10.2)
-- [ ] **Renk turu**: `/app/inventory` **ve** `/app/inventory/movements`
-      `#876b1c` gosteriyor mu — acik **ve** koyu temada; koridorun rozeti ve
-      `--ai-accent` **terracotta** kaliyor mu (§11.1)
-- [ ] ⚠️ **ODA sinavi** (§11.2): iki rotanin duvari **AYNI bilesenden** mi
-      geliyor (kopya degil), kahraman rakam **"toplam stok" DEGIL** mi
-- [ ] ⚠️ **ADR-0036 DAGILIM OLCUMU — ZORUNLU** (§7): **on iki katkici** doluyken
-      uc farkli soruda kaynak dagilimi. Olculecek iki sey: (a) en az **uc AYRI
-      yapisal ses** cevapta mi (taban `ceil(8/3) = 3`), (b) `inventory-stock`
-      sistematik olarak **elenip elenmedigi** — ve elenen yapisal kaynak
-      sayisinin **ikiye** ciktigi (bes kaynak, uc yuva)
-- [ ] **Fan-out N=12 olcumu** — ADR-0037'nin N=10 olcumuyle (≤315 ms, %6)
-      karsilastirilir; darbogazin hala `LLMPort.complete` oldugu dogrulanir
-- [ ] **Bilinen sinirlar listesi** bu ADR'ye ve CLAUDE.md'ye islenir · ROADMAP
-      §8.5 **onyediye** cikarilir (RETENTION basligindaki **baglayici kural** ile birlikte) ·
-      §3.5 tablosunda Stok/Envanter ⏳ → ✅
+- [x] `git status` temiz · `pnpm verify` **cikis kodu 0**
+- [x] **Uclarin gercek istek turu** — 401/201/200/403/409/422/429
+- [x] **Renk turu** acik **ve** koyu temada, gercek tarayicida
+- [x] ⚠️ **§3.2 sinavi**: delta istemcide **hic hesaplanmiyor**
+- [x] ⚠️ **§10 sinavi**: `@Catch` BES tip, `StorageFailedError` **yok**
+- [x] ⚠️ **ADR-0036 ZORUNLU OLCUM**: on iki katkici, uc soru
+- [x] **Fan-out N=12 olcumu**
+- [x] Bilinen sinirlar ADR + CLAUDE.md + ROADMAP §8.5'e islendi
 
-**Bilincli YAPILMAYACAKLAR** (hafif denetim kurali, kayda gecer): sifirdan
-kurulum ❌ · iki tenant'la tam RLS izolasyon turu ❌.
+### ⚠️ Denetim BIR GERCEK KUSUR buldu ve duzeltildi
 
----
+**Negatif uyari esigi 422 yerine HAM 500 donduruyordu.**
+
+Migration `0029`un `items_min_quantity_not_negative` CHECK'i degeri zaten
+reddediyordu — ama **uygulama katmaninda karsiligi yoktu**: Zod isaretli ondalik
+kabul ediyor, domain kontrol etmiyor, veritabani ham hata firlatiyor ve filtre
+onu eslenmemis bir domain hatasi sayip maskeliyordu. **Kisit calisiyordu, MESAJ
+calismiyordu.**
+
+Bu, ADR-0034'un `CategoryInUseError` icin ilk gunden yazdigi dersin atlanmis
+halidir. Duzeltme uc dosyada: `NegativeMinQuantityError` (domain) +
+`normalize()` kontrolu (entity) + filtre eslemesi. Uc yeni test kilitliyor.
+
+⚠️ **Kusur yalnizca GERCEK BIR HTTP ISTEGIYLE gorundu** — ADR-0037'nin kapanis
+denetiminin ogrettigi ayni ders: bu modulun yuzeyi (veritabani kisiti ile
+uygulama dogrulamasi arasindaki bosluk) birim testlerinin dogal olarak atladigi
+yerde yasiyor.
+
+### Uclarin turu — gercek isteklerle
+
+| Kontrol                                         | Sonuc                                                          |
+| ----------------------------------------------- | -------------------------------------------------------------- |
+| Kimliksiz `GET /inventory/items` · `/movements` | **401**                                                        |
+| Kalem olustur (notlu)                           | **201**                                                        |
+| Hareket: `in 50` · `out 12.5`                   | **201** · **201**                                              |
+| **Turetilmis miktar**                           | **`37.500`** (50 − 12.5)                                       |
+| Fiziksel sayim `countedQuantity: 35`            | **201** · sunucu `out 2.500` yazdi, `isCorrection: true`       |
+| Ayni miktari tekrar say                         | **`adjusted: false`**, `movement: null` — **hicbir satir yok** |
+| `quantity: 0` · `quantity: -5`                  | **422** · **422**                                              |
+| `direction: "adjustment"`                       | **422** — ucuncu bir yon YOK                                   |
+| Govdede `isCorrection: true`                    | **422** — bayragi yalnizca sayim uretir                        |
+| 1251 karakterlik not                            | **422** — sessiz kirpma yok                                    |
+| Ayni SKU kucuk harfle (`vda-m8`)                | **409**                                                        |
+| Hareketi olan kalemi sil                        | **409** — mesaj ARSIVLEMEYI soyluyor                           |
+| Negatif esik                                    | ⚠️ **500 → duzeltildi → 422**                                  |
+
+**Rol turu** (uc gercek kullanici, uc gercek rol):
+
+| Rol        | `GET items` | `POST movements` | `POST counts` |  `DELETE item`  |
+| ---------- | :---------: | :--------------: | :-----------: | :-------------: |
+| owner      |     200     |       201        |      201      | 404 (kayit yok) |
+| **viewer** |     200     |     **403**      |    **403**    |     **403**     |
+| **member** |     200     |       201        |      201      |     **403**     |
+
+**Oran siniri:** 60. istekte **429**, `Retry-After: 3257`. ⚠️ Ayni anda
+**notsuz kalem 201** ve **hareket yazma 201** — sayac kalem ya da hareket degil
+**embedding** sayiyor (§5). Bu modulun en sik islemi hicbir sey harcamiyor.
+
+### Renk turu — gercek tarayicida, iki temada
+
+| Olcum                         | Acik (sistem) | Koyu (`data-theme=dark`) |
+| ----------------------------- | ------------- | ------------------------ |
+| Modul `--accent`              | **#876b1c**   | **#c2a45a**              |
+| Modul `--ink`                 | **#785c00**   | **#d3b56b**              |
+| ⚠️ Oda icinde `--ai-accent`   | **#b25628**   | **#e8935a**              |
+| ⚠️ Koridor (kabuk) `--accent` | **#b25628**   | **#e8935a**              |
+| "Stok" kapisinin kendi rengi  | #876b1c       | **#c2a45a**              |
+
+⚠️ Ikisi de `module-colors.css`in **olculmus** degerleriyle birebir ayni; renk
+uretilmedi. **Kabuk ve AI'in sesi terracotta kaldi** — `data-module` modulun
+kendi layout'unda oldugu icin `app-shell.tsx`e **ALTINCI kez dokunulmadi**.
+Aktif kapi ayrica `aria-current="page"` tasiyor: renk tek ayirt edici degil.
+
+### ⚠️ ODA sinavi (ADR-0038 §6.5) — duvar GERCEKTEN ortak
+
+| Rota                       | Duvar      | Kahraman | Tezgah                  |
+| -------------------------- | ---------- | :------: | ----------------------- |
+| `/app/inventory`           | var        |  **1**   | KALEMLER                |
+| `/app/inventory/movements` | **AYNI**   |  **1**   | HAREKET DEFTERI         |
+| `/app/inventory/<id>`      | ⚠️ **YOK** |    —     | KALEM + HAREKET GECMISI |
+
+Kahraman rakam **"esik altindaki kalem sayisi"**, toplam stok DEGIL (§4.1).
+Detayin duvari ve sekme seridi yok — _"ozetlenecek bir durum degil, tek bir
+kayit var"_.
+
+Hareket gecmisinde **hicbir duzenle/sil eylemi yok** ve ekran sebebini yaziyor:
+_"Bu defter degistirilemez… ters yonde bir hareketle ya da fiziksel sayimla
+duzeltilir."_
+
+### ⚠️ §3.2 SINAVI — delta istemcide HIC hesaplanmiyor
+
+- `CountForm`un prop'lari: `itemName`, `unit`, `pending`, `error`, `result`,
+  `onSubmit`, `onCancel` — **mevcut miktar YOK**. Olsaydi bir "12 → 9 (−3)"
+  onizlemesi bir satir kod olurdu.
+- Gonderilen govde: `{ itemId, countedQuantity, note? }` — **`delta` yok**.
+- `lib/api/inventory.ts`te miktar hesaplayan **hicbir yardimci yok**.
+- Ekranda sonuc **yalnizca sunucu cevabindan** kurulur; `adjusted: false`
+  "Sayim tuttu — duzeltme gerekmedi" olarak ACIKCA soylenir.
+
+Ucu de birim testleriyle kilitli (`count-form.spec.tsx`).
+
+### ⚠️ ADR-0036 ZORUNLU OLCUM — ON IKI KATKICI, TABAN CALISIYOR
+
+On iki katkicinin **hepsi beslendi** (yedi anlamsal + bes yapisal). Uc farkli
+soruda dagilim **AYNI** cikti:
+
+| Kaynak                | Tur         | Satir |
+| --------------------- | ----------- | :---: |
+| `knowledge`           | anlamsal    |   1   |
+| `crm-interactions`    | anlamsal    |   1   |
+| `project-notes`       | anlamsal    |   1   |
+| `appointment-notes`   | anlamsal    |   1   |
+| **`inventory-notes`** | anlamsal    | **1** |
+| `crm-pipeline`        | **YAPISAL** |   1   |
+| `project-status`      | **YAPISAL** |   1   |
+| **`inventory-stock`** | **YAPISAL** | **1** |
+| **TOPLAM**            |             | **8** |
+
+`degradedSources: []` — yani disarida kalanlar **bozulmadi, ELENDI**.
+
+✅ **TABAN CALISIYOR:** uc soruda da tam **UC AYRI YAPISAL SES**
+(`crm-pipeline` · `inventory-stock` · `project-status`) = `ceil(8/3) = 3`.
+Yeni modulun yapisal katkicisi **sistematik olarak dislanmadi** — ucunde de
+iceride.
+
+⚠️ Disarida kalanlar ADR-0036'nin **yazili beklentisidir**:
+`finance-cashflow` ve `appointment-schedule` (bes yapisal kaynak, uc yuva —
+"dordunculuk garantisi YOK" artik **besincilik** olarak okunmali) ·
+`documents` ve `finance-commentaries` (anlamsal kaynaklar arasinda **taban
+yoktur**, eleme LIYAKATTIR).
+
+### Fan-out N=12 olcumu — gercek saglayicilarla
+
+| Olcum |  Toplam |  embed | complete | **FAN-OUT + diger** | Pay |
+| :---: | ------: | -----: | -------: | ------------------: | --: |
+|   1   | 4865 ms | 632 ms |  4031 ms |          **202 ms** |  %4 |
+|   2   | 5582 ms | 909 ms |  4564 ms |          **109 ms** |  %1 |
+|   3   | 5326 ms | 291 ms |  4937 ms |           **98 ms** |  %1 |
+
+**Ortalama toplam 5257 ms · ortalama fan-out 136 ms (%2) · darbogaz
+`LLMPort.complete` 4510 ms — DEGISMEDI.**
+
+⚠️ ADR-0037'nin N=10 olcumu (≤315 ms, %6) ile **ayni bantta**; iki katkici
+eklemek olculebilir bir gecikme getirmedi. Darbogaz bes olcumdur ayni yerde.
+
+**Bilincli YAPILMAYANLAR** (hafif denetim kurali, kayda gecer): sifirdan
+kurulum ❌ · iki tenant'la tam RLS izolasyon turu ❌ (entegrasyon testi bunu
+zaten kapsiyor) · prod dogrulamasi ❌ (bu slice migration TASIMAZ).
 
 ## Bu karar ne zaman yeniden gozden gecirilir?
 

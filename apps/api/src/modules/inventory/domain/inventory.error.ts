@@ -17,6 +17,34 @@ export class InvalidQuantityError extends InventoryDomainError {
 }
 
 /**
+ * Uyari esigi NEGATIF olamaz (ADR-0039 §6.1).
+ *
+ * ============================================================================
+ * ⚠️ BU HATA BIR KAPANIS DENETIMINDE BULUNDU (2026-08-19)
+ * ============================================================================
+ * Migration `0029`un `items_min_quantity_not_negative` CHECK'i bu degeri zaten
+ * reddediyordu — ama UYGULAMA KATMANINDA karsiligi YOKTU. Sonucu: ham
+ * PostgreSQL hatasi eslenmemis bir domain hatasi gibi davraniyor ve kullanici
+ * **422 yerine 500** aliyordu. Kisit calisiyordu, MESAJ calismiyordu.
+ *
+ * Bu, ADR-0034'un `CategoryInUseError` icin ilk gunden yazdigi dersin
+ * atlanmis halidir: _"bugun tetiklenemez diye ertelenen ceviri, tetiklendigi
+ * gun ham 500 dondurur."_ Burada tetiklenebilirdi ve tetiklendi.
+ *
+ * ⚠️ Mesaj yalnizca "gecersiz" demez, KURALI ogretir: `null` ile `0` bu
+ * modulde FARKLI seylerdir ve kullanicinin bunu bilmesi gerekir.
+ */
+export class NegativeMinQuantityError extends InventoryDomainError {
+  readonly code = 'STOCK_ITEM_MIN_QUANTITY_NEGATIVE';
+  constructor(value: string) {
+    super(
+      `Uyari esigi negatif olamaz: ${value}. Esigi BOS birakmak bu kalemi izlemez; ` +
+        `0 yazmak "tukendiginde haber ver" demektir.`,
+    );
+  }
+}
+
+/**
  * Kalem bulunamadi.
  *
  * ============================================================================

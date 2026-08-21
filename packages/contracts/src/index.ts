@@ -299,3 +299,52 @@ export type {
   UpdateDocumentRequest,
   ReindexDocumentsResponse,
 } from './documents/documents.contract';
+
+// --- Stok / Envanter (ADR-0039) ---
+// ⚠️ `quantity` bir DIZEDIR ve `number`a CEVRILMEZ (paranin ayni karari); ayrica
+// TURETILMISTIR — sunucudan gelir, istemcide hesaplanmaz (ADR-0039 §2).
+//
+// ⚠️ "Toplam stok" anlamina gelecek TEK BIR ALAN BILE yoktur: farkli kalemlerin
+// miktarlari TOPLANMAZ (§4.1 — `cashflowSummarySchema`nin para birimi icin
+// yaptigi tip seviyesindeki korumanin aynisi).
+//
+// ⚠️ `createCountRequestSchema`da `delta` alani YOKTUR ve olmayacaktir: sayim
+// farkini SUNUCU hesaplar (§3.2).
+export {
+  movementDirectionSchema,
+  stockItemSchema,
+  stockItemRowSchema,
+  stockItemListResponseSchema,
+  stockMovementSchema,
+  stockMovementListResponseSchema,
+  createStockItemRequestSchema,
+  updateStockItemRequestSchema,
+  createMovementRequestSchema,
+  createCountRequestSchema,
+  countResultSchema,
+  reindexInventoryResponseSchema,
+  stockLevelOf,
+  MOVEMENT_DIRECTION_LABELS,
+  STOCK_LEVEL_LABELS,
+  NEAR_THRESHOLD_RATIO,
+  MAX_ITEM_NOTE_CHARS,
+  MAX_ITEM_NAME_CHARS,
+  MAX_ITEM_SKU_CHARS,
+  MAX_ITEM_UNIT_CHARS,
+  MAX_MOVEMENT_NOTE_CHARS,
+} from './inventory/inventory.contract';
+export type {
+  MovementDirection,
+  StockItem,
+  StockItemRow,
+  StockItemListResponse,
+  StockMovement,
+  StockMovementListResponse,
+  CreateStockItemRequest,
+  UpdateStockItemRequest,
+  CreateMovementRequest,
+  CreateCountRequest,
+  CountResult,
+  ReindexInventoryResponse,
+  StockLevel,
+} from './inventory/inventory.contract';
