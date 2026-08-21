@@ -131,6 +131,31 @@ export function InventoryIcon(props: IconProps) {
   );
 }
 
+/**
+ * Tedarikci Yonetimi — EL SIKISMA / KARSILIKLI OK.
+ *
+ * ⚠️ Bir KAMYON ya da KUTU DEGIL: ikisi de "sevkiyat/kargo" okunur ve bu modul
+ * lojistik degil ILISKI tutar (firma · kisi · gorusme). Bir FABRIKA da degil:
+ * tedarikci uretici olmak zorunda degildir.
+ *
+ * Secilen sekil KARSILIKLI AKIS: iki yon, biri gelen biri giden. ROADMAP
+ * §3.5'in "ayni sekil, TERS YON (satin alma)" tanimini soyluyor — CRM'in
+ * musteri ikonuyla akraba ama zit yonlu.
+ *
+ * ⚠️ Renk gibi ikon da TEK ayirt edici degildir: kapi ayrica etiket ve
+ * `aria-label` tasir.
+ */
+export function SuppliersIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 8.5h11" />
+      <path d="M10.5 5 14 8.5 10.5 12" />
+      <path d="M21 15.5H10" />
+      <path d="M13.5 12 10 15.5 13.5 19" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

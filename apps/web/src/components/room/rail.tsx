@@ -14,6 +14,7 @@ import {
   InventoryIcon,
   OverviewIcon,
   ProjectsIcon,
+  SuppliersIcon,
 } from '@/components/icons';
 import { CompanySwitcher } from '@/components/app-shell/company-switcher';
 import { UserMenu } from '@/components/app-shell/user-menu';
@@ -108,6 +109,32 @@ const DOORS: readonly Door[] = [
     icon: InventoryIcon,
     href: '/app/inventory',
     module: 'inventory',
+  },
+  /**
+   * SEKIZINCI KAPI — Faz 5'in YEDINCI is modulu (ADR-0040 §8.1).
+   *
+   * Anahtar `suppliers`: sema, modul ve `data-module` UCU DE ayni kelime.
+   * Renk `module-colors.css`'te ZATEN olculmus (`#5c6cab` / koyu `#92a5e8`).
+   *
+   * ⚠️ Bu renk bir tercih DEGIL, dosyanin kendi secim kuralinin sonucudur:
+   * "AKRABA MODULLER KOMSU HUE ALIR. Tedarikci, CRM'in yaninda (ROADMAP §3.5:
+   * 'CRM deseninin ucuz tekrari')." Yani KORIDORDA yan yana duran iki kapi —
+   * Musteriler (civit) ve Tedarikci (mor-mavi) — akrabaliklarini RENKLE
+   * soyluyor.
+   *
+   * ⚠️ KOMSU HUE OLMASININ BEDELI: ikisi renk korlugu altinda yakinlasabilir.
+   * Bu yuzden kapilar ayrica FARKLI IKON, FARKLI ETIKET ve aktifken
+   * `aria-current` tasir — renk hicbir zaman tek ayirt edici degildir.
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Tedarikçiler',
+    short: 'Tedarik',
+    icon: SuppliersIcon,
+    href: '/app/suppliers',
+    module: 'suppliers',
   },
 ];
 

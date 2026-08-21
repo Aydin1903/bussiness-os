@@ -348,3 +348,52 @@ export type {
   ReindexInventoryResponse,
   StockLevel,
 } from './inventory/inventory.contract';
+
+// --- Tedarikci Yonetimi (ADR-0040) ---
+// ⚠️ BU BOLUMDE OLMAYAN UC SEY, ucu de birer KARAR:
+//
+//   1. AŞAMA / FIRSAT SEMASI YOK (§2.1) — CRM'in `opportunity`si kopyalanmadi.
+//      Belirsizlik tedarikcide degil SIPARISTEDIR ve siparis kapsam disi.
+//      ⚠️ Buraya bir `stage` eklemek ADR-0036'nin esigini de getirir.
+//   2. ODEME KOSULLARININ YAPISAL KARSILIGI YOK (§1.2) — `paymentTerms`
+//      SERBEST METINDIR. Dogrudan sonucu: vade SORGULANAMAZ.
+//   3. `updateInteraction` / `deleteInteraction` YOK — gunluk EKLEME-YALNIZ.
+//
+// ⚠️ `supplierUpdateResultSchema.staleAfterRename`: ad degisince o tedarikcinin
+// TUM gorusme vektorleri bayatlar (ad AYRI SATIRDA yasar) ve sunucu onlari
+// `PATCH`te YENILEMEZ. Stok'ta boyle bir alan YOKTU — orada ad ayni satirdaydi.
+export {
+  supplierSchema,
+  supplierListResponseSchema,
+  supplierUpdateResultSchema,
+  createSupplierRequestSchema,
+  updateSupplierRequestSchema,
+  supplierContactSchema,
+  supplierContactListResponseSchema,
+  createSupplierContactRequestSchema,
+  updateSupplierContactRequestSchema,
+  supplierInteractionSchema,
+  supplierInteractionListResponseSchema,
+  createSupplierInteractionRequestSchema,
+  reindexSuppliersResponseSchema,
+  MAX_INTERACTION_BODY_CHARS,
+  MAX_SUPPLIER_NAME_CHARS,
+  MAX_PAYMENT_TERMS_CHARS,
+  MAX_SUPPLIER_SHORT_TEXT_CHARS,
+  MAX_SUPPLIER_ADDRESS_CHARS,
+} from './suppliers/suppliers.contract';
+export type {
+  Supplier,
+  SupplierListResponse,
+  SupplierUpdateResult,
+  CreateSupplierRequest,
+  UpdateSupplierRequest,
+  SupplierContact,
+  SupplierContactListResponse,
+  CreateSupplierContactRequest,
+  UpdateSupplierContactRequest,
+  SupplierInteraction,
+  SupplierInteractionListResponse,
+  CreateSupplierInteractionRequest,
+  ReindexSuppliersResponse,
+} from './suppliers/suppliers.contract';

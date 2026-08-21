@@ -1,6 +1,6 @@
 # 0040 — Faz 5 / Modul 7: Tedarikci Yonetimi
 
-- **Durum:** Kabul edildi — **Slice 1 (Backend) UYGULANDI** (2026-08-21)
+- **Durum:** Kabul edildi — **UYGULANDI ve KAPANDI** (2026-08-22)
 - **Tarih:** 2026-08-21
 - **Karar veren:** Product Owner
 - **Faz:** 5
@@ -786,13 +786,21 @@ olcusudur.
 - **Iyimser es zamanlilik yok** — son yazan kazanir; **yedinci** kez ayni sinir.
 - **`embedding`de model/surum bilgisi yok** · **arama yalnizca anlamsal**
   (ADR-0011, **sekizinci** kez).
-- ⚠️ **Retention ONYEDIDEN YIRMIYE cikar**: `suppliers.suppliers` ·
-  `suppliers.contacts` · `suppliers.interactions`. Vektor tasiyan tablo sayisi
-  **yediden SEKIZE** cikar (`interactions.embedding` satir icinde —
-  `appointments.appointments` ve `inventory.items` ile ayni sinif).
-  ⚠️ **ADR-0039'un `movements` uyarisi burada GECERLI DEGILDIR**: bu tablolarin
-  eski satirlarini silmek **gecmisi** kaybettirir, **bugunku hicbir sayiyi**
-  degistirmez. Iki sekil karistirilmamalidir.
+- ⚠️ **Retention ONYEDIDEN ONSEKIZE cikar** — YALNIZCA
+  `suppliers.interactions`. Vektor tasiyan tablo sayisi **yediden SEKIZE**
+  cikar (`interactions.embedding` satir icinde — `appointments.appointments` ve
+  `inventory.items` ile ayni sinif).
+  > ⚠️ **BU SAYI KAPANIS DENETIMINDE DUZELTILDI.** ADR ilk yazildiginda
+  > "ONYEDIDEN YIRMIYE" diyordu ve UC tabloyu birden sayiyordu. Denetim
+  > ROADMAP §8.5'in KENDI OLCUTUNU okudu — _"borcu doguran sey satirin ZAMANLA
+  > COGALMASIDIR"_ — ve listede `crm.companies` ile `crm.contacts`in
+  > BULUNMADIGINI gordu. `suppliers.suppliers` ve `suppliers.contacts` onlarla
+  > ayni siniftir: isletmenin tedarikci sayisiyla sinirlidir, zamanla
+  > cogalmaz ve vektor tasimaz. Listeye girmeleri, borcu OLDUGUNDAN BUYUK
+  > gosterirdi.
+  > ⚠️ **ADR-0039'un `movements` uyarisi burada GECERLI DEGILDIR**: bu tablonun
+  > eski satirlarini silmek **gecmisi** kaybettirir, **bugunku hicbir sayiyi**
+  > degistirmez. Iki sekil karistirilmamalidir.
 
 ---
 
@@ -802,11 +810,11 @@ olcusudur.
 > [cross-modul dokunusu **yalnizca gerekiyorsa** izole slice] / Frontend +
 > kapanis denetimi.
 
-| Slice | Ne                                                                                                                                                                                                | Migration               |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **0** | **Bu ADR** — karar, kapsam, sinirlar                                                                                                                                                              | —                       |
-| **1** | **Backend (TEK slice):** `suppliers` semasi + uc tablo + tedarikci/kisi CRUD + gorusme (ekleme-yalniz) + embedding + `reindex` + oran siniri + izin katalogu + exception filter + **TEK katkici** | `0030_suppliers_schema` |
-| **2** | **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `suppliers` rengi, koridorda `LIVE` + § Kapanis denetimi listesi                                                      | —                       |
+| Slice | Ne                                                                                                                                                                                                   | Migration               |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **0** | ✅ **Bu ADR** — karar, kapsam, sinirlar                                                                                                                                                              | —                       |
+| **1** | ✅ **Backend (TEK slice):** `suppliers` semasi + uc tablo + tedarikci/kisi CRUD + gorusme (ekleme-yalniz) + embedding + `reindex` + oran siniri + izin katalogu + exception filter + **TEK katkici** | `0030_suppliers_schema` |
+| **2** | ✅ **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `suppliers` rengi, koridorda `LIVE` + § Kapanis denetimi listesi                                                      | —                       |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — §4'un dogrudan sonucu:
 degistirilecek bir `public.ts` **yoktur**, cunku hicbir kenar eklenmiyor.
@@ -893,3 +901,187 @@ Bu, Faz 5'in **en dusuk riskli** backend slice'idir.
   sorulur; yon tektir (`interaction_chunks` **eklenebilir**, tersi degil).
 - **Tedarikci portali / dis erisim gundeme gelirse** — tenant disi kimlik
   demektir ve Faz 5'in tamamen disindadir; ayri bir mimari karar.
+
+---
+
+## Kapanis denetimi (Slice 2) — **HAFIF seviye** · YAPILDI 2026-08-22
+
+> **Surec kurali (Product Owner, 2026-08-10):** kapanis denetimleri **iki
+> seviyelidir**. Her modul sonunda **HAFIF**, **AGIR** yalnizca birkac modulde
+> bir. Tedarikci **HAFIF** ile kapandi.
+
+**Sekiz maddenin sekizi de kosuldu.**
+
+- [x] `git status` temiz · `pnpm verify` **cikis kodu 0**
+- [x] **Uclarin gercek istek turu** — 401/201/200/403/409/422
+- [x] **Renk turu** acik **ve** koyu temada, gercek tarayicida
+- [x] ⚠️ **§5.1 sinavi**: CRM katalogu **tek satir degismedi**
+- [x] ⚠️ **Rota golgelemesi sinavi**: sabit yollar `:id` tarafindan golgelenmiyor
+- [x] ⚠️ **ADR-0036 gozlemi**: sekiz anlamsal kaynak bes serbest yuva icin
+      yarisiyor (taban olcumu bu modulde ZORUNLU DEGIL — yapisal katkici yok)
+- [x] **Fan-out N=13 olcumu**
+- [x] Bilinen sinirlar ADR + CLAUDE.md + ROADMAP §8.5'e islendi
+
+### ⚠️ Denetim BIR BELGE HATASI buldu ve duzeltildi
+
+**ADR'nin retention sayisi YANLISTI: "ONYEDIDEN YIRMIYE" diyordu, dogrusu
+ONSEKIZ.**
+
+ADR uc tabloyu birden sayiyordu. Denetim ROADMAP §8.5'in KENDI OLCUTUNU okudu —
+_"borcu doguran sey satirin ZAMANLA COGALMASIDIR"_ — ve listede `crm.companies`
+ile `crm.contacts`in **bulunmadigini** gordu. `suppliers.suppliers` ve
+`suppliers.contacts` onlarla ayni siniftir: isletmenin tedarikci sayisiyla
+sinirlidir, zamanla cogalmaz ve vektor tasimaz.
+
+⚠️ Bu bir kod kusuru degil, **borcu OLDUGUNDAN BUYUK gosteren bir belge
+hatasiydi** — ve tam olarak bu yuzden onemli: retention karari verilirken o
+liste tek dayanaktir.
+
+### Uclarin turu — gercek isteklerle
+
+| Kontrol                                      | Sonuc                                        |
+| -------------------------------------------- | -------------------------------------------- |
+| Kimliksiz `GET /suppliers` · `/interactions` | **401** · **401**                            |
+| Tedarikci olustur (owner)                    | **201**                                      |
+| ⚠️ Ayni vergi no KUCUK HARFLE                | **409** — mesaj harf duyarsizligini SOYLUYOR |
+| Kisi ekle · gorusme yaz                      | **201** · **201**                            |
+| Takvimde olmayan gun (`2026-02-31`)          | **422** — ham 500 DEGIL                      |
+| 1251 karakterlik gorusme metni               | **422** — sessiz kirpma yok                  |
+| Govdede `stage` alani                        | **422** — `.strict()`                        |
+| `GET /suppliers/not-a-uuid`                  | **422**                                      |
+
+**Rol turu** (uc gercek kullanici, uc gercek rol):
+
+| Rol        | `GET /suppliers` | `POST /suppliers` | `POST /interactions` | `DELETE /suppliers/:id` |
+| ---------- | :--------------: | :---------------: | :------------------: | :---------------------: |
+| owner      |       200        |        201        |         201          |           200           |
+| **member** |       200        |        201        |         201          |         **403**         |
+| **viewer** |       200        |      **403**      |       **403**        |         **403**         |
+
+⚠️ Dort rolun dordu de OKUR — katalog GENIS (§5.2) ve bu, Finans'in dar
+katalogunun bilincli karsitidir.
+
+### ⚠️ ROTA GOLGELEMESI SINAVI — bu modulun EN SESSIZ riski
+
+Golgelenseydi `contacts` bir UUID sanilir ve **422** donerdi: ekran calisir,
+hicbir test kirmizi yanmaz.
+
+| Istek                                 | Sonuc                               |
+| ------------------------------------- | ----------------------------------- |
+| `GET /suppliers/contacts?supplierId=` | **200** (1 kisi)                    |
+| `GET /suppliers/interactions`         | **200** (total: 1)                  |
+| `POST /suppliers/reindex`             | **200** `{"repaired":0,"failed":0}` |
+| `GET /suppliers/<UUID>`               | **200** — sabit yollar onu KIRMADI  |
+| `GET /suppliers/not-a-uuid`           | **422** — ayirt edici               |
+
+### ⚠️ §5.1 SINAVI — CRM KATALOGUNA DOKUNULMADI
+
+AYNI token iki modulu birden gezdi ve iki uc FARKLI izinlerden gecti:
+
+| Uc                        | Izin                    | Sonuc   |
+| ------------------------- | ----------------------- | ------- |
+| `GET /crm/contacts`       | `contact:read`          | **200** |
+| `GET /suppliers/contacts` | `supplier_contact:read` | **200** |
+| `GET /crm/companies`      | `company:read`          | **200** |
+
+Kod tarafi kanit: CRM `contact:{read,write,delete}`, Tedarikci
+`supplier_contact:{read,write,delete}` — **ayri kataloglar**.
+`git diff HEAD -- crm.permissions.ts` **BOS**.
+
+### ⚠️ ADR-0036 GOZLEMI — ON UC KATKICI, UC ANLAMSAL KAYNAK SIFIR ALDI
+
+⚠️ **Taban olcumu bu modulde ZORUNLU DEGILDI** (yapisal katkici eklenmedi), ama
+sekiz anlamsal kaynagin bes serbest yuva icin nasil yaristigi ADR'nin yazili
+sinirdir ve gozlendi.
+
+On uc katkicinin **hepsi beslendi**. Uc farkli soruda dagilim **AYNI** cikti:
+
+| Kaynak                      | Tur         | Satir |
+| --------------------------- | ----------- | :---: |
+| `knowledge`                 | anlamsal    |   1   |
+| `crm-interactions`          | anlamsal    |   1   |
+| `appointment-notes`         | anlamsal    |   1   |
+| `inventory-notes`           | anlamsal    |   1   |
+| **`supplier-interactions`** | anlamsal    | **1** |
+| `crm-pipeline`              | **YAPISAL** |   1   |
+| `finance-cashflow`          | **YAPISAL** |   1   |
+| `inventory-stock`           | **YAPISAL** |   1   |
+| **TOPLAM**                  |             | **8** |
+
+`degradedSources: []` — disarida kalanlar **bozulmadi, ELENDI**.
+
+✅ **TABAN CALISIYOR:** uc soruda da tam **UC AYRI YAPISAL SES** = `ceil(8/3)`.
+✅ **YENI MODUL ICERIDE:** `supplier-interactions` uc soruda da girdi.
+
+⚠️ **UC ANLAMSAL KAYNAK SIFIR ALDI** (`project-notes`, `finance-commentaries`,
+`documents`) — ve bu, ADR-0039 §7.2'nin **YAZILI BEKLENTISIDIR**: anlamsal
+kaynaklar arasinda TABAN YOKTUR, eleme LIYAKATTIR. Bir kusur degildir.
+
+⚠️ Yapisal tarafta da iki kaynak disarida kaldi (`project-status`,
+`appointment-schedule`) — ADR-0036'nin "besincilik garantisi yok" siniri.
+
+### Fan-out N=13 olcumu — gercek saglayicilarla
+
+| Olcum |  Toplam |  embed | complete | **FAN-OUT + diger** | Pay |
+| :---: | ------: | -----: | -------: | ------------------: | --: |
+|   1   | 5004 ms | 242 ms |  4657 ms |          **105 ms** |  %2 |
+|   2   | 5070 ms | 278 ms |  4712 ms |           **80 ms** |  %2 |
+|   3   | 6229 ms | 242 ms |  5928 ms |           **59 ms** |  %1 |
+
+**Ortalama toplam 5434 ms · ortalama fan-out 81 ms (%1-2) · darbogaz
+`LLMPort.complete` ~5099 ms — DEGISMEDI.**
+
+⚠️ ADR-0039'un N=12 olcumu (136 ms, %2) ve ADR-0037'nin N=10 olcumu (≤315 ms,
+%6) ile **ayni bantta**; bir katkici daha eklemek olculebilir bir gecikme
+getirmedi. Darbogaz **alti olcumdur** ayni yerde.
+
+### Renk turu — gercek tarayicida, iki temada
+
+| Olcum                         | Acik (sistem) | Koyu (`data-theme=dark`) |
+| ----------------------------- | ------------- | ------------------------ |
+| Modul `--accent`              | **#5c6cab**   | **#92a5e8**              |
+| Modul `--ink`                 | **#4c5b98**   | **#a3b6fa**              |
+| ⚠️ Oda icinde `--ai-accent`   | **#b25628**   | **#e8935a**              |
+| ⚠️ Koridor (kabuk) `--accent` | **#b25628**   | **#e8935a**              |
+| "Tedarikci" kapisinin rengi   | #5c6cab       | #92a5e8                  |
+| ⚠️ "Musteriler" kapisi (CRM)  | #3173af       | #6bacec                  |
+
+⚠️ Ikisi de `module-colors.css`in **olculmus** degerleriyle birebir ayni; renk
+uretilmedi. **Kabuk ve AI'in sesi terracotta kaldi** — `app-shell.tsx`e
+**YEDINCI kez dokunulmadi**.
+
+⚠️ **KOMSU HUE SINAVI:** Tedarikci (#5c6cab) ile CRM (#3173af) koridorda yan
+yana duruyor ve `module-colors.css`in secim kurali 2 bunu ISTIYOR ("akraba
+moduller komsu hue alir"). Bedeli renk korlugu altinda yakinlasmalaridir; bu
+yuzden iki kapi FARKLI IKON, FARKLI ETIKET tasiyor ve aktif kapi
+`aria-current="page"` tasiyor — ucu de dogrulandi.
+
+### ⚠️ ODA sinavi (ADR-0038 §6.5) — duvar GERCEKTEN ortak
+
+| Rota                          | Duvar      | Kahraman | Aktif sekme  | Tezgah          |
+| ----------------------------- | ---------- | :------: | ------------ | --------------- |
+| `/app/suppliers`              | var        |  **3**   | Tedarikciler | TEDARIKCILER    |
+| `/app/suppliers/interactions` | **AYNI**   |  **3**   | Gorusmeler   | GORUSMELER      |
+| `/app/suppliers/<id>`         | ⚠️ **YOK** |    —     | ⚠️ **YOK**   | FIRMA + KISILER |
+
+Kahraman rakam **toplam tedarikci sayisi**; ⚠️ **"durgun tedarikci" diye bir
+uydu YOK** (§3.2 ile celisirdi) ve bir birim testi bunu kilitliyor.
+
+Detayin duvari ve sekme seridi yok — _"ozetlenecek bir durum degil, tek bir
+kayit var"_.
+
+⚠️ **Gorusme kartlarinda SIFIR buton** (gercek tarayicida olculdu):
+ekleme-yalnizlik arayuzde de tutuyor. Ekran sebebini yaziyor: _"sonradan
+duzenlenemez ve silinemez — yanlis bir kayit varsa dogrusu yeni bir kayit
+olarak yazilir."_
+
+### ⚠️ Odeme kosullari AYRISTIRILMADI — gercek ekranda dogrulandi
+
+Detay sayfasinda `45 gun vadeli` **oldugu gibi** basildi: bir "45 gun" rozeti,
+bir vade tarihi ya da renklendirme YOK. §1.2'nin ve §3.2'nin arayuz tarafindaki
+karsiligi budur — sunucuda reddedilen yapisal alani arayuzden geri getirmek
+olurdu.
+
+**Bilincli YAPILMAYANLAR** (hafif denetim kurali, kayda gecer): sifirdan kurulum
+❌ · iki tenant'la tam RLS izolasyon turu ❌ (entegrasyon testi kapsiyor) ·
+**prod dogrulamasi ❌ — bu slice migration TASIMAZ**.

@@ -273,6 +273,15 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**7. modül Tedarikçi ✅ bitti** (ADR-0040; üç slice, HAFİF kapanış denetimi
+2026-08-22; Slice 1 prod'da doğrulandı 2026-08-21 — migration 30 → 31).
+⚠️ Üç şey kayda değer: **ADR-0036'nın eşiğine BİLİNÇLİ OLARAK DOKUNULMADI**
+(üç yapısal aday değerlendirildi, üçü de reddedildi — yapısal kaynak 5'te
+kaldı), **izin adı çakışması ilk kez GERÇEK oldu** (`contact`/`interaction`
+CRM'de zaten alınmıştı → `supplier_contact`/`supplier_interaction`, CRM
+kataloğuna tek satır dokunulmadı), ve **cross-modül kenarı bu sefer bir ADAY
+REDDEDİLEREK** boş kaldı (Stok'ta hedef şema yoktu; burada `inventory` canlı
+ve yine eklenmedi).
 **1. modül CRM ✅ bitti** ve **prod'da canlı** (ADR-0031 + ADR-0032; kapanış
 denetimi 2026-08-09). Aynı işte Context Engine platforma yükseldi.
 **2. modül Projeler ✅ bitti** (ADR-0033; altı slice, kapanış denetimi
@@ -299,9 +308,9 @@ embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`) · **altı modülün ekranları** (`/app/crm` ·
+**onboarding** (`/app/onboarding`) · **yedi modülün ekranları** (`/app/crm` ·
 `/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
-`/app/inventory`). Riskli runtime akışları
+`/app/inventory` · `/app/suppliers`). Riskli runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
 Vitest + RTL **349 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
@@ -471,7 +480,8 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
 altı modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
-4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅ — sıradaki 7. Tedarikçi) · **koyu tema UI anahtarı** (bugün yalnızca OS
+4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
+7. Tedarikçi ✅ — sıradaki **8. Teklif/Fatura**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -1222,6 +1232,161 @@ Gerçekten yeni **dört** karar:
 > - ⚠️ **Retention ONBEŞTEN ONYEDİYE çıktı** ve **yeni bir şekil** getirdi:
 >   `inventory.movements` silinirse **geçmiş değil BUGÜNKÜ SAYI** değişir
 >   (ROADMAP §8.5'in bağlayıcı kuralı).
+
+### Faz 5 / 7. modül — Tedarikçi Yönetimi (**bitti**)
+
+Karar: **ADR-0040** (kabul edildi ve kapandı 2026-08-22). ROADMAP §3.5'in
+yedinci sırası: _"CRM deseninin **ucuz tekrarı** — aynı şekil, ters yön (satın
+alma)"_. **Sekizinci şema.** Üç slice: ADR → Backend (`0030`, tek slice) →
+Frontend + HAFİF kapanış denetimi.
+
+Gerçekten yeni **dört** karar:
+
+1. ⚠️ **"UCUZ TEKRAR" KOD KOPYALAMAK DEĞİLDİR.** Ucuzluk, verilecek **karar
+   sayısının** az olmasıdır. İki somut sonucu var: (a) CRM'in
+   `interaction_chunks` tablosu **açılmadı** — o tablo bir **emsal değil**,
+   chunk ölçütü (ADR-0035 §3 + ADR-0037 §3) CRM'den **sonra** yazıldığı için
+   bir **MİRAS**tır; (b) **fırsat/pipeline yok** — bir satış hattının var olma
+   sebebi belirsiz bir gelirin ilerlemesidir, satın almada belirsizlik
+   tedarikçide değil **siparişte**dir.
+2. ⚠️ **YAPISAL KATKICI EKLENMEDİ — ve bu, ADR-0036'nın EŞİĞİNE DOKUNMAMA
+   KARARIDIR.** ADR-0039 §7.2 bu modüle açıkça soru bırakmıştı. Üç aday
+   değerlendirildi, üçü de reddedildi: _"performans/gecikme"_ (sipariş ve
+   teslimat v1'de yok → hesaplayacak bir şey yok, bir **sayım** olurdu),
+   _"durgun tedarikçi"_ (türetilebilir ama **haber değil**; yılda bir çalışılan
+   tedarikçi 364 gün durgun görünür ve bir **taban yuvası işgal ederdi**),
+   _"ödeme vadesi yaklaşan"_ (serbest metinden vade **çıkarılamaz**).
+   **Yapısal kaynak 5'te kaldı, eşik (6) aşılmadı, ADR-0036 açılmadı.**
+3. ⚠️ **CROSS-MODÜL KENARI YOK — ama bu sefer bir ADAY reddedildi.** Stok'ta
+   kenar yoktu çünkü **hedef şema mevcut değildi**; burada `inventory` **canlı**
+   ve ROADMAP §3.6 kenarı açıkça sayıyor (_"Tedarikçi → Stok"_). Yine de
+   eklenmedi: bağlantının bir **fiili** yok (katalog, olgu değil), şekil
+   bugüne kadarki desenin şekli değil (**N:N ara tablosu**) ve gerçek talep
+   8. modülden gelecek. Grafik **altı kenarda**, hâlâ DAG.
+4. ⚠️ **İZİN ADI ÇAKIŞMASI İLK KEZ GERÇEK.** ADR-0039 çakışmayı **öngörerek**
+   nitelemişti (`item` → `stock_item`); burada öngörüye gerek yok: `contact` ve
+   `interaction` **CRM tarafından zaten alınmış**. Paylaşmak **sessiz bir yetki
+   genişlemesi** (müşteri kişisini gören tedarikçi kişisini de görürdü), CRM'i
+   yeniden adlandırmak **breaking change** olurdu. → `supplier_contact`,
+   `supplier_interaction`.
+
+> **Renk:** Tedarikçi'nin imza rengi **#5c6cab** (koyu `#92a5e8`) ve bir tercih
+> değil, `module-colors.css`'in kendi seçim kuralının sonucu: _"AKRABA MODÜLLER
+> KOMŞU HUE ALIR. Tedarikçi, CRM'in yanında."_ Yani renk, ROADMAP'in
+> konumlandırmasını **görsel olarak** söylüyor. ⚠️ Bedeli: CRM'in çivit
+> mavisiyle (#3173af) renk körlüğü altında yakınlaşabilir — bu yüzden iki kapı
+> **farklı ikon, farklı etiket** taşır ve aktif kapı `aria-current` taşır.
+> ⚠️ Anahtar **`suppliers`**.
+
+> ⚠️ **GÖRÜŞME GÜNLÜĞÜ EKLEME-YALNIZDIR — ama ADR-0039'un DEĞİŞTİRİLEMEZ
+> DEFTERİ DEĞİLDİR.** İki durum karıştırılmamalı: `inventory.movements`
+> değiştirilemez çünkü **bugünkü miktar ondan türetilir** ve geçmişi
+> değiştirmek bugünü sessizce yeniden yazardı (koruma **üç katmanlı**: izin yok
+> + FK `RESTRICT` + entity metodu yok). Burada türetilen **hiçbir sayı yok**;
+> günlük yalnızca **güncellenmiyor**, çünkü bir görüşme olduktan sonra
+> "değişmiş" olmaz. `update` metodunun ve `supplier_interaction:write` izninin
+> olmaması **yeter**.
+
+> ⚠️ **BAYATLAMA PENCERESİ GERİ DÖNDÜ — ADR-0039'dan bilinçli sapma.** Stok'ta
+> ad kalemin **aynı satırındaydı** ve `PATCH` vektörü aynı işlemde yeniliyordu
+> ("bayatlama penceresi yok"). Burada ad `suppliers.suppliers`ta, vektör
+> `suppliers.interactions`ta — yani bir yeniden adlandırma o tedarikçinin
+> **tüm** görüşme vektörlerini bayatlatır ve `PATCH` onları **yenilemez**
+> (200 görüşme = 200 embedding çağrısı; oran sınırı isteği **ortasından**
+> keserdi — yarısı yeni, yarısı eski başlıklı bir vektör kümesi: en kötü hâl).
+> Bunun yerine cevap **`staleAfterRename`** bayrağı taşır ve arayüz onarımı
+> **açıkça önerir**. Sessizce bayat bırakmak, "arama neden bulmuyor" sorusunu
+> cevapsız bırakırdı.
+
+> ⚠️ **KATKICI TARAFINDA RANDEVU'NUN SINIRI YOK:** `AppointmentNotesContributor`
+> başlığa kişi adını **koyamıyordu** (ad başka şemadaydı, okuma izin kapılı bir
+> dizin isterdi, `ContributeInput` rol taşımaz). Burada ad **aynı şemada** —
+> `JOIN` meşru, izin kapısı gerekmez ve ad **okuma anında** çözülür. Somut
+> kazancı: **vektör bayat olsa bile modele giden metin taze adı taşır.**
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 0 | **ADR-0040** — karar, kapsam, sınırlar | ✅ |
+| 1 | **Backend (TEK slice):** `suppliers` şeması + üç tablo + CRUD + ekleme-yalnız günlük + embedding + `reindex` + oran sınırı + izin kataloğu + exception filter + **TEK katkıcı** (`0030`) | ✅ |
+| 2 | **Frontend + HAFİF kapanış denetimi:** iki rota + detay (ODA, ortak duvar), `suppliers` rengi, koridorda sekizinci kapı | ✅ |
+
+**Cross-modül slice'ı YOK ve bu bir atlama değil** — değiştirilecek bir
+`public.ts` yoktu.
+
+> ### ✅ HAFİF kapanış denetimi — **yapıldı, 2026-08-22**
+>
+> Sekiz maddenin sekizi de koşuldu. `pnpm verify` **çıkış kodu 0** ·
+> uçların rol turu (viewer okur **yazamaz 403**, member yazar **silemez 403**) ·
+> aynı vergi no küçük harfle **409** · takvimde olmayan gün **422** ·
+> 1251 karakter **422** (sessiz kırpma yok) · renk turu açık **ve** koyu temada.
+>
+> ⚠️ **Denetim BİR BELGE HATASI buldu:** ADR'nin retention sayısı
+> "onyediden **yirmiye**" diyordu; doğrusu **onsekiz**. Üç tablo açıldı ama
+> ROADMAP §8.5'in kendi ölçütü (_"borcu doğuran şey satırın ZAMANLA
+> ÇOĞALMASIDIR"_) yalnızca `suppliers.interactions`ı listeye sokar —
+> `crm.companies`/`crm.contacts` listede olmadığı gibi. **Kod kusuru değil,
+> borcu olduğundan büyük gösteren bir belge hatası**; retention kararında o
+> liste tek dayanaktır. Düzeltildi.
+>
+> ⚠️ **ROTA GÖLGELEMESİ SINAVI** — bu modülün en sessiz riski: `/suppliers/
+> contacts` bir UUID sanılsaydı **422** dönerdi ve hiçbir test kırmızı yanmazdı
+> (CRM'in üç controller'ı yerine **tek controller + sabit yollar `:id`'den
+> önce** seçilmesinin sebebi budur). Gerçek isteklerle doğrulandı: `contacts`
+> **200**, `interactions` **200**, `reindex` **200**, `<UUID>` **200**,
+> `not-a-uuid` **422**.
+>
+> ⚠️ **§5.1 SINAVI:** aynı token `/crm/contacts` **ve** `/suppliers/contacts`
+> uçlarını gezdi, ikisi de **200** ve ikisi **farklı izinlerden** geçti.
+> `git diff -- crm.permissions.ts` **boş** — CRM kataloğuna tek satır
+> dokunulmadı.
+>
+> ⚠️ **ADR-0036 GÖZLEMİ (taban ölçümü bu modülde ZORUNLU DEĞİLDİ — yapısal
+> katkıcı yok):** on üç katkıcı doluyken üç farklı soruda dağılım **aynı**
+> kaldı; tam **üç ayrı yapısal ses** (`crm-pipeline` · `finance-cashflow` ·
+> `inventory-stock`) = `ceil(8/3)` ve **`supplier-interactions` üçünde de
+> içeride**. ⚠️ **Üç anlamsal kaynak sıfır aldı** (`project-notes`,
+> `finance-commentaries`, `documents`) — ADR-0039 §7.2'nin **yazılı
+> beklentisi**: anlamsal kaynaklar arasında taban yoktur, eleme **liyakattir**.
+>
+> ⚠️ **Fan-out N=13 ÖLÇÜLDÜ**: ortalama toplam **5434 ms**, fan-out payı
+> **81 ms (%1–2)**, darboğaz değişmedi (`LLMPort.complete` ~5099 ms) —
+> ADR-0039'un N=12 (136 ms) ve ADR-0037'nin N=10 (≤315 ms) ölçümleriyle **aynı
+> bantta**. Darboğaz **altı ölçümdür** aynı yerde.
+>
+> **Bilinçli yapılmayanlar:** sıfırdan kurulum ❌ · iki tenant'la tam RLS turu
+> ❌ · **prod doğrulaması ❌ — bu slice migration TAŞIMAZ** (Slice 1'in `0030`
+> migration'ı 2026-08-21'de push edildi ve prod'da doğrulandı: health 200,
+> migration 30 → 31, üç tablo `RLS + FORCE`, üç dar rol **kör**,
+> `GET /api/v1/suppliers` 404 → **401**).
+
+> ### Tedarikçi kapanırken bilinen sınırlar (ADR-0040)
+>
+> - ⚠️ **YAPISAL KATKICI YOK** — bu modül `POST /ask` havuzunda yalnızca
+>   anlamsal yarışır ve ADR-0036'nın taban garantisinden **yararlanmaz**. Bir
+>   kusur değil, kararın sonucu. ⚠️ İstenirse sıra **değiştirilemez**: (1)
+>   sipariş/teslimat ayrı ADR, (2) **ADR-0036 yeniden açılır**, (3) ancak ondan
+>   sonra katkıcı.
+> - ⚠️ **Sekiz anlamsal kaynak beş serbest yuva için yarışıyor** — üç kaynağın
+>   sıfır alması **beklenen** sonuçtur ve denetimde **ölçüldü**.
+> - ⚠️ **Ödeme koşulları sorgulanamaz** — serbest metin; yalnızca anlamsal
+>   aramaya girer. Arayüz de **ayrıştırmaz** (denetimde doğrulandı).
+> - ⚠️ **Tedarikçi ↔ kalem bağlantısı YOK** — _"bu vidayı kimden alıyoruz"_
+>   sorusu v1'de **yapısal olarak** sorulamaz; yalnızca bir görüşme notunda
+>   yazıyorsa anlamsal aramayla bulunur.
+> - ⚠️ **Sipariş, teslimat, gecikme ve puan YOK** — _"hangi tedarikçi
+>   gecikiyor"_ sorusu **sorulamaz**. En çok istenecek eksik budur.
+> - ⚠️ **Yeniden adlandırma vektörleri bayatlatır** — telafi `staleAfterRename`
+>   bayrağı + `POST /suppliers/reindex { supplierId }`, ilk günden.
+> - ⚠️ **Uzun görüşme metni 422 döner** — sessiz kırpma yok; doğru yer Belge
+>   modülüdür.
+> - ⚠️ **Ödeme koşullarını kimin değiştirdiği sorulamaz** — `platform/audit`
+>   borcu (8. modül); ⚠️ ADR-0039'un aksine **kendiliğinden kapanmaz**.
+> - ⚠️ **`supplier:read` taşıyan herkes TÜM tedarikçileri ve ödeme koşullarını
+>   görür** — alan bazlı gizlilik ABAC'tir, backlog'ta.
+> - **İyimser eşzamanlılık yok** · **`embedding`de model/sürüm bilgisi yok** ·
+>   **arama yalnızca anlamsal** (ADR-0011, sekizinci kez).
+> - ⚠️ **Retention ONYEDİDEN ONSEKİZE çıktı** — yalnızca
+>   `suppliers.interactions`; vektör taşıyan tablo sayısı **yediden SEKİZE**.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 

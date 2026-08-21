@@ -197,20 +197,20 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 
 > **Karar tarihi:** 2026-08-08. Bu sıra Faz 5'in **kapsamını** tanımlar ve [§4](#4-faz-6--faturalama)'ün kapı koşulunu belirler.
 
-| #      | Modül                              | Kapsam notu                                                                                                       | Durum       |
-| ------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------- |
-| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))         | ✅ Bitti    |
-| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))               | ✅ Bitti    |
-| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                          | ✅ Bitti    |
-| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))             | ✅ Bitti    |
-| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md)) | ✅ Bitti    |
-| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))              | ✅ Bitti    |
-| **7**  | **Tedarikçi Yönetimi**             | **CRM deseninin ucuz tekrarı** — aynı şekil, ters yön (satın alma)                                                | ⏳ Bekliyor |
-| **8**  | **Teklif / Fatura Oluşturma**      | **Finans uzantısı** — 3'e bağımlı, ondan önce gelemez                                                             | ⏳ Bekliyor |
-| **9**  | **İK / Personel (temel)**          | ⚠️ **Yalnızca** ekip listesi · rol · iletişim. **Maaş ve sağlık verisi YOK** — bkz. not                           | ⏳ Bekliyor |
-| **10** | **Müşteri Geri Bildirimi / Anket** | Yanıt toplama                                                                                                     | ⏳ Bekliyor |
-| **11** | **Kampanya / Pazarlama Notları**   | Anlatısal veri — CRM'in embedding desenini yeniden kullanır                                                       | ⏳ Bekliyor |
-| **12** | **Sadakat Programı**               | Puan · kademe                                                                                                     | ⏳ Bekliyor |
+| #      | Modül                              | Kapsam notu                                                                                                                          | Durum       |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))                            | ✅ Bitti    |
+| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))                                  | ✅ Bitti    |
+| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                                             | ✅ Bitti    |
+| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))                                | ✅ Bitti    |
+| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                    | ✅ Bitti    |
+| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                 | ✅ Bitti    |
+| **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md)) | ✅ Bitti    |
+| **8**  | **Teklif / Fatura Oluşturma**      | **Finans uzantısı** — 3'e bağımlı, ondan önce gelemez                                                                                | ⏳ Bekliyor |
+| **9**  | **İK / Personel (temel)**          | ⚠️ **Yalnızca** ekip listesi · rol · iletişim. **Maaş ve sağlık verisi YOK** — bkz. not                                              | ⏳ Bekliyor |
+| **10** | **Müşteri Geri Bildirimi / Anket** | Yanıt toplama                                                                                                                        | ⏳ Bekliyor |
+| **11** | **Kampanya / Pazarlama Notları**   | Anlatısal veri — CRM'in embedding desenini yeniden kullanır                                                                          | ⏳ Bekliyor |
+| **12** | **Sadakat Programı**               | Puan · kademe                                                                                                                        | ⏳ Bekliyor |
 
 **Sıra keyfî değil, üç bağımlılık taşıyor:**
 
@@ -406,7 +406,7 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: onyedi tablo, tek karar
+### 8.5 Retention borcu: onsekiz tablo, tek karar
 
 Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, **Randevu Slice 3 ile (2026-08-13) ONÜÇE** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
@@ -429,6 +429,7 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 | `documents.document_chunks`     | Belge başına N parça + vektör — **altıncı** vektör tablosu, satır başına en çok üreten | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §3)        |
 | `inventory.items`               | Kalem başına tek satır + vektör **aynı satırda** — **yedinci** vektör tablosu          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §1)           |
 | ⚠️ **`inventory.movements`**    | ⚠️ **Silmek GEÇMİŞİ değil BUGÜNKÜ MİKTARI değiştirir** — bkz. aşağıdaki uyarı          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §2)           |
+| `suppliers.interactions`        | Her görüşme + vektör **aynı satırda** — **sekizinci** vektör tablosu                   | **Faz 5 / 7. modül** ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md) §1)      |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
@@ -573,6 +574,30 @@ commentaries` `ON DELETE CASCADE` taşıdığı için **doğru retention kolu
 ## 9. Uzlaştırılacak kayıtlar
 
 Bu doküman yazılırken, mevcut dokümanlarda **bu yol haritasıyla çelişen** faz atamaları bulundu.
+
+> ### Tedarikçi Slice 1 borcu ONSEKİZE çıkardı (2026-08-22)
+>
+> [ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md) §1'in
+> `suppliers.interactions` tablosu — **sekizinci** vektör taşıyan tablo
+> (`appointments.appointments` ve `inventory.items` ile aynı sınıf: chunk
+> tablosu YOK, vektör satırın kendi kolonunda).
+>
+> ⚠️ **ÜÇ TABLO AÇILDI AMA LİSTEYE YALNIZCA BİRİ GİRDİ** — ve bu, listenin
+> kendi ölçütünün ilk kez açıkça uygulanmasıdır. `suppliers.suppliers` ve
+> `suppliers.contacts` **girmez**, tıpkı `crm.companies` ve `crm.contacts`ın
+> girmediği gibi: ikisi de işletmenin tedarikçi sayısıyla sınırlıdır, **zamanla
+> çoğalmaz** ve vektör taşımaz. Bu listenin kuralı yukarıda yazılı — _"borcu
+> doğuran şey satırın ZAMANLA ÇOĞALMASIDIR"_.
+>
+> ⚠️ Kayıt bu yüzden düşüldü: ADR ilk yazıldığında "onyediden **yirmiye**"
+> diyordu ve üç tabloyu birden sayıyordu. **Kapanış denetimi bunu yakaladı ve
+> düzeltti.** Bir kod kusuru değildi — borcu **olduğundan büyük gösteren** bir
+> belge hatasıydı, ve retention kararı verilirken bu liste tek dayanaktır.
+>
+> ⚠️ `inventory.movements`in uyarısı burada **geçerli değildir**: bu tablonun
+> eski satırlarını silmek **geçmişi** kaybettirir, **bugünkü hiçbir sayıyı**
+> değiştirmez. İki şekil karıştırılmamalıdır — biri aritmetik bir kayıp, diğeri
+> anlatısal.
 
 ### 9.1 `ARCHITECTURE.md` §2 + ADR-0007 — ✅ **UZLAŞTIRILDI**
 
