@@ -630,6 +630,35 @@ const baseEnvSchema = z.object({
    * Stok'ta YOKTU (ad ayni satirdaydi), burada VAR.
    */
   SUPPLIERS_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+
+  /**
+   * Bir belgenin EN FAZLA satir sayisi (ADR-0041 §1).
+   *
+   * ⚠️ Bir GIRDI kuralidir, veri butunlugu kurali degil: uretilen PDF sayfa
+   * sayisiyla dogru orantili buyur ve tek istekte sinirsiz satir kabul etmek,
+   * bir istegin sunucu bellegini ve yanit suresini SINIRSIZ buyutmesine izin
+   * vermek olurdu. ADR-0037'nin `DOCUMENTS_MAX_CHUNKS` siniriyla ayni sinif.
+   *
+   * ⚠️ SESSIZ KIRPMA YASAK: fazlasi atilmaz, istek 422 ile REDDEDILIR.
+   *
+   * 200 satir, bir teklif/fatura icin cok genistir (tipik belge 5-20 satir) ama
+   * sinirsiz degildir.
+   */
+  INVOICING_MAX_LINES: z.coerce.number().int().min(1).max(1000).default(200),
+
+  /**
+   * Bir teklifin "cevapsiz bekliyor" sayilmasi icin gecmesi gereken GUN
+   * (ADR-0041 §4.1).
+   *
+   * ⚠️ WEB'DE AYNI ESIGI GOSTEREN BIR SABIT VARSA IKISI SENKRON KALMAK
+   * ZORUNDADIR — `CRM_STALE_STAGE_DAYS` / `STALE_STAGE_DAYS` ayrismasinin
+   * DORDUNCU tekrari. Ayrisirlarsa hata SESSIZDIR: ekran "bekliyor" der,
+   * yapisal katkici 0.75 (saglikli) verir.
+   *
+   * ⚠️ ORAN SINIRI DEGILDIR ve bu modulde oran siniri YOKTUR (§5): embedding
+   * uretilmiyor, yani sayilacak bir sey yok.
+   */
+  INVOICING_STALE_QUOTE_DAYS: z.coerce.number().int().min(1).max(365).default(14),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

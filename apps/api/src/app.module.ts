@@ -9,6 +9,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
@@ -111,6 +112,20 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     //      ROADMAP §3.6 kenari sayiyor) ve YINE DE eklenmiyor. Grafik alti
     //      kenarda ve DAG.
     SuppliersModule,
+    // Teklif / Fatura — Faz 5'in SEKIZINCI is modulu (ADR-0041). Uc sey kayda
+    // deger ve ucu de onceki modullerden AYRILIYOR:
+    //   1. ⚠️ TEK KATKICI VE O KATKICI YAPISAL (§4) — ADR-0040'in TAM AYNASI
+    //      (orada tek katkici ANLAMSALDI). Belge bir DURUMDUR, anlatisi yoktur.
+    //   2. ⚠️ ADR-0036'NIN ESIGI BU MODULLE ASILIYOR: yapisal kaynak 5 -> 6.
+    //      §4.3'un Product Owner sorusu onaylandi — katkici eklenir, ADR-0036
+    //      BU ISTE DEGISTIRILMEZ, revizyon kapanis denetimindeki CANLI OLCUMDEN
+    //      SONRA ayri bir ADR (0042 adayi) olur.
+    //   3. ⚠️ VEKTOR TASIMAYAN ILK IS MODULU (§5): embedding yok, chunk yok,
+    //      `reindex` yok, ORAN SINIRI YOK. Bir teklif kalemi ADR-0034 §6.1'in
+    //      tarif ettigi seydir — yuzlerce ozdes kisa vektor havuzu kirletir.
+    // ⚠️ TEK yeni kenar: `Teklif/Fatura -> CRM`. Grafik ALTIDAN YEDIYE cikar ve
+    // HALA DAG (hedef bir KOK DUGUM). `finance` ve `inventory` IMPORT EDILMEZ.
+    InvoicingModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

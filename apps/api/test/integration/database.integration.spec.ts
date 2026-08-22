@@ -113,6 +113,18 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0031, `invoicing` semasi + UC tablo + BIR TRIGGER + BIR FONKSIYON.
+      // ⚠️ Down dosyasi yalnizca tablolari dusurmuyor: `DROP TABLE` bir plpgsql
+      // fonksiyonunu GOTURMEZ ve semada yetim bir nesne kalirdi — `DROP SCHEMA`
+      // (CASCADE'siz) o durumda patlardi. Trigger tabloyla giderdi, fonksiyon
+      // GITMEZDI; ikisi de acikca dusuruluyor.
+      //
+      // ⚠️ `sales_documents` KENDINE FK tasir (`converted_from_id`) ve bu ek bir
+      // kademe GEREKTIRMEZ: `DROP TABLE` tablonun kendi ic referanslarini sorun
+      // etmez. Kayit, okuyanin soruyu bir kez sorup gecmesi icin.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0031_invoicing_schema.down.sql',
       // 0030, `suppliers` semasi + UC tablo. ⚠️ Down dosyasi KENDI ICINDE UC
       // KADEMELI: `interactions` -> `contacts` -> `suppliers`. Cocuklari once
       // dusurmek zorunludur (`interactions` HEM `contacts`a HEM `suppliers`a

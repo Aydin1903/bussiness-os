@@ -136,3 +136,28 @@ export { suppliersSchema } from './suppliers-schema.schema';
 export { supplierCompanies } from './suppliers.schema';
 export { supplierContacts } from './supplier-contacts.schema';
 export { supplierInteractions } from './supplier-interactions.schema';
+
+// --- Teklif / Fatura (ADR-0041 §1) ---
+// DOKUZUNCU sema. ⚠️ Tablo adi `sales_documents`, `documents` DEGIL:
+// sema-nitelenmis oldugu icin `invoicing.documents` yasaldi ama
+// `documents.documents` ile yan yana okundugunda iki farkli kavrami ayni
+// kelimeyle adlandirirdi. Ayni belirsizlik izin tarafinda da reddedildi —
+// `document:read` Belge modulunundur (§9.1).
+//
+// ⚠️ TEK BELGE TABLOSU + `kind` (§1.1): teklif ve fatura taslagi ayni tabloda
+// yasar. Emsal ADR-0034 §5 (`finance.transactions` + `direction`) ve risk
+// oradakinden ZAYIFTIR — `kind` unutulursa yanlis listede satir gorunur, bir
+// SAYI bozulmaz.
+//
+// ⚠️ BU SEMADA VEKTOR YOKTUR ve bu Faz 5'te BIR ILKTIR (§5): sekiz modulun
+// sekizi de bir `vector(1536)` tasiyordu. Bir teklif kalemi ADR-0034 §6.1'in
+// tarif ettigi seydir — yuzlerce neredeyse ozdes kisa vektor top-K havuzunu
+// kirletir. Bu modulun katkisi ANLAMSAL degil YAPISALDIR.
+//
+// ⚠️ `sales_document_lines` bir TRIGGER ile korunur (§2): ebeveyn belge `draft`
+// degilse yazma VERITABANI seviyesinde reddedilir. Ucuncu katman SART cunku
+// kalemler AYRI BIR TABLODADIR — baslik uzerindeki kontrol onlari kapsamaz.
+export { invoicingSchema } from './invoicing-schema.schema';
+export { salesDocuments } from './sales-documents.schema';
+export { salesDocumentLines } from './sales-document-lines.schema';
+export { invoicingNumberSequences } from './invoicing-number-sequences.schema';

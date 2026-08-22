@@ -1,6 +1,7 @@
 # 0041 — Faz 5 / Modul 8: Teklif / Fatura Olusturma
 
-- **Durum:** Onerildi — ⚠️ **IKI KALEM PRODUCT OWNER ONAYI BEKLIYOR** (§4.3 ve §8)
+- **Durum:** Kabul edildi — **Slice 1 (Backend) UYGULANDI** (2026-08-22)
+- **Onay:** §4.3 (ADR-0036 esigi) ve §8 (`platform/audit`) — ⚠️ **IKISI DE ONAYLANDI**
 - **Tarih:** 2026-08-22
 - **Karar veren:** Product Owner
 - **Faz:** 5
@@ -84,16 +85,17 @@ kisaligi tersinin olcusuydu). Gercekten yeni **yedi** soru var:
 
 ---
 
-## ⚠️ PRODUCT OWNER ONAYI BEKLEYEN IKI KALEM
+## ⚠️ PRODUCT OWNER ONAYINA SUNULAN IKI KALEM — ✅ IKISI DE ONAYLANDI (2026-08-22)
 
-Bu ADR'nin geri kalani mimari bir oneridir. Asagidaki ikisi **platform
-seviyesinde** karardir ve Claude bunlari tek basina veremez (CLAUDE.md
-"Danisilmasi Zorunlu Konular"):
+Asagidaki ikisi **platform seviyesinde** karardir ve Claude bunlari tek basina
+veremez (CLAUDE.md "Danisilmasi Zorunlu Konular"). ADR onerileriyle birlikte
+sunuldu; **Product Owner ikisini de bu ADR'nin onerdigi bicimde ONAYLADI** ve
+Slice 1 o onayla uygulandi.
 
-| #     | Kalem                                  | Bu ADR'nin onerisi                                                                                                                                                                                                                    | Neden PO karari                                                                                                                                          |
-| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | **ADR-0036'nin esigi asiliyor** (§4.3) | Yapisal katkici **eklensin**; ADR-0036 **bu iste degistirilmesin**; yeniden gozden gecirme, bu modulun kapanis denetimindeki **canli dagilim olcumunden SONRA** ayri bir ADR (**0042 adayi**) olarak yapilsin                          | ADR-0036 bir **platform** karari; esigi asmak, bir modul ADR'sinin tek basina alabilecegi karar degil (ADR-0039 §7.2 bunu acikca yazdi)                   |
-| **B** | **`platform/audit` acilsin mi** (§8)   | **ACILMASIN.** Borc, uc mekanizmayla **kucultulerek** ertelensin: (1) gonderilmis belge degistirilemez, (2) durum gecisleri **satir ici aktor damgasi** tasir, (3) faturaya donusturme yeni kayit uretir                               | `platform/audit` **tum modulleri** ilgilendiren yeni bir platform bilesenidir; ADR-0034 §8 tetikleyiciyi bu modul olarak yazdi, yani "sessizce erteleme" secenegi **yok** |
+| #     | Kalem                                  | Bu ADR'nin onerisi                                                                                                                                                                                            | Neden PO karari                                                                                                                                                           |
+| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | **ADR-0036'nin esigi asiliyor** (§4.3) | Yapisal katkici **eklensin**; ADR-0036 **bu iste degistirilmesin**; yeniden gozden gecirme, bu modulun kapanis denetimindeki **canli dagilim olcumunden SONRA** ayri bir ADR (**0042 adayi**) olarak yapilsin | ADR-0036 bir **platform** karari; esigi asmak, bir modul ADR'sinin tek basina alabilecegi karar degil (ADR-0039 §7.2 bunu acikca yazdi)                                   |
+| **B** | **`platform/audit` acilsin mi** (§8)   | **ACILMASIN.** Borc, uc mekanizmayla **kucultulerek** ertelensin: (1) gonderilmis belge degistirilemez, (2) durum gecisleri **satir ici aktor damgasi** tasir, (3) faturaya donusturme yeni kayit uretir      | `platform/audit` **tum modulleri** ilgilendiren yeni bir platform bilesenidir; ADR-0034 §8 tetikleyiciyi bu modul olarak yazdi, yani "sessizce erteleme" secenegi **yok** |
 
 ⚠️ **Ucuncu bir secenek yoktur:** ikisinin de yazili durup uygulanmamasi, en
 kotu haldir (ROADMAP §2.4'un kendi cumlesi: _"bir kapi kosulunun sessizce
@@ -109,11 +111,11 @@ asilmasi, kosulun hic yazilmamis olmasindan kotudur"_).
 `documents`, `inventory`, `suppliers`, `invoicing`). Mutlak Kural 5: her modul
 kendi semasina sahiptir.
 
-| Tablo                            | Ne tutar                                                          |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `invoicing.sales_documents`      | Teklif **ve** fatura taslagi — baslik, musteri, durum, tarihler   |
+| Tablo                            | Ne tutar                                                           |
+| -------------------------------- | ------------------------------------------------------------------ |
+| `invoicing.sales_documents`      | Teklif **ve** fatura taslagi — baslik, musteri, durum, tarihler    |
 | `invoicing.sales_document_lines` | Belgenin satir kalemleri — aciklama · miktar · birim fiyat · vergi |
-| `invoicing.number_sequences`     | Tenant + tur basina belge numarasi sayaci — **tek satir, ebedi**  |
+| `invoicing.number_sequences`     | Tenant + tur basina belge numarasi sayaci — **tek satir, ebedi**   |
 
 Ucu de `tenant_id` tasir, ucunde de `ENABLE ROW LEVEL SECURITY` +
 `FORCE ROW LEVEL SECURITY` (MT §12.2 sablonu, **sekizinci kez**). Tum FK'lar
@@ -185,10 +187,10 @@ bir seydir**: `kind` filtresini unutmanin imkansizligi.
 
 ⚠️ **O riskin sekli ADR-0034'unkinden ZAYIFTIR ve karari bu belirledi:**
 
-| Nerede                               | Ayirici kolonu unutmak ne uretir                                                                                                              |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `finance.transactions` (`direction`) | ⚠️ **Sessiz ve makul gorunen YANLIS BIR SAYI** — gider gelir gibi toplanir, ekran bir rakam gosterir, hicbir sey patlamaz                      |
-| `invoicing.sales_documents` (`kind`) | Fatura listesinde **teklifler gorunur** — ekranda **derhal** goze carpar, bir sayiyi bozmaz                                                    |
+| Nerede                               | Ayirici kolonu unutmak ne uretir                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `finance.transactions` (`direction`) | ⚠️ **Sessiz ve makul gorunen YANLIS BIR SAYI** — gider gelir gibi toplanir, ekran bir rakam gosterir, hicbir sey patlamaz |
+| `invoicing.sales_documents` (`kind`) | Fatura listesinde **teklifler gorunur** — ekranda **derhal** goze carpar, bir sayiyi bozmaz                               |
 
 Yani burada yanlisin bedeli **gorunurdur**, orada **gorunmezdi**. ADR-0034 tek
 tabloyu **daha tehlikeli** bir durumda secti; burada secmemek tutarsizlik
@@ -263,14 +265,14 @@ tekrarlayan sessiz hatasi.
 ROADMAP §3.5'in _"8 → 3"_ bagimliligi **burada** karsilanir ve karsiligi bir
 FK degil, **alinmis kararlarin devralinmasidir**:
 
-| Karar                                                | Kaynak         | Burada                                     |
-| ---------------------------------------------------- | -------------- | ------------------------------------------ |
-| Para `numeric`, `double precision` DEGIL             | ADR-0034 §2    | ✅ `numeric(14,2)`                         |
-| Para birimi **belge basinadir**, satir basina degil  | yeni           | ✅ `currency` baslikta                     |
-| **Kur cevrimi YOK** — farkli para birimleri toplanmaz | ADR-0034       | ✅ ozet **para birimi bazinda**            |
-| Para birimi **kod listesi dogrulanmaz**, yalnizca sekil | ADR-0034     | ✅ `^[A-Z]{3}$`                            |
-| Tarih **takvim gunudur** (`date`), an degil          | ADR-0034 §2    | ✅ `issued_on` · `valid_until` · `due_on`  |
-| ⚠️ Isaretli tutar **YASAK** — yon kolonda tasinir    | ADR-0034 §5    | ⚠️ §1.7 — burada **yon diye bir eksen yok** |
+| Karar                                                   | Kaynak      | Burada                                      |
+| ------------------------------------------------------- | ----------- | ------------------------------------------- |
+| Para `numeric`, `double precision` DEGIL                | ADR-0034 §2 | ✅ `numeric(14,2)`                          |
+| Para birimi **belge basinadir**, satir basina degil     | yeni        | ✅ `currency` baslikta                      |
+| **Kur cevrimi YOK** — farkli para birimleri toplanmaz   | ADR-0034    | ✅ ozet **para birimi bazinda**             |
+| Para birimi **kod listesi dogrulanmaz**, yalnizca sekil | ADR-0034    | ✅ `^[A-Z]{3}$`                             |
+| Tarih **takvim gunudur** (`date`), an degil             | ADR-0034 §2 | ✅ `issued_on` · `valid_until` · `due_on`   |
+| ⚠️ Isaretli tutar **YASAK** — yon kolonda tasinir       | ADR-0034 §5 | ⚠️ §1.7 — burada **yon diye bir eksen yok** |
 
 ⚠️ **Tek belgede tek para birimi** ve bu bir kisittir: iki para birimli bir
 belgenin toplami **yoktur** (ADR-0034'un ayni kurali). Zorlamak yerine
@@ -309,10 +311,10 @@ dersinin ucuncu tekrari olurdu.
 ⚠️ **Turetme burada REDDEDILDI ve bu, §1.3'un tam tersi bir karardir** — cunku
 olcut degil, **verinin sekli** farklidir:
 
-| Yaklasim                        | Neden                                                                                                                                                                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `max(number) + 1` (turetme)     | ⚠️ **Silinen bir taslaktan sonra numarayi YENIDEN KULLANIR.** Iki belge zaman icinde ayni numarayi tasir; musteri ikisini de elinde tutar ve hata **disarida**, bizim goremedigimiz yerde ortaya cikar.                   |
-| Sayac tablosu (**secilen**)     | Numara **bir kez** verilir ve geri alinmaz. Bosluk olusabilir (iptal edilen bir kesim) ve **bu dogrudur** — bosluk **gorunur**, tekrar **gorunmez**.                                                                      |
+| Yaklasim                    | Neden                                                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `max(number) + 1` (turetme) | ⚠️ **Silinen bir taslaktan sonra numarayi YENIDEN KULLANIR.** Iki belge zaman icinde ayni numarayi tasir; musteri ikisini de elinde tutar ve hata **disarida**, bizim goremedigimiz yerde ortaya cikar. |
+| Sayac tablosu (**secilen**) | Numara **bir kez** verilir ve geri alinmaz. Bosluk olusabilir (iptal edilen bir kesim) ve **bu dogrudur** — bosluk **gorunur**, tekrar **gorunmez**.                                                    |
 
 ⚠️ **Sayac `SELECT ... FOR UPDATE` ile okunur** — ADR-0039 §3.2'nin fiziksel
 sayim kilidinin **ikinci uygulamasi**. Iki es zamanli `issue` istegi ayni
@@ -361,11 +363,11 @@ degistirilemez.**
 
 Koruma **uc katmanlidir** — ADR-0039 §3.3'un sekli, ikinci kez:
 
-| Katman           | Ne                                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Domain**       | `SalesDocument.update()` `draft` disinda bir durumda cagrilirsa `DocumentNotEditableError` firlatir    |
-| **Uc**           | `PATCH` ve `DELETE` yalnizca `draft`ta 200/204 doner; aksi halde **409**                               |
-| **Veritabani**   | `sales_document_lines` uzerinde bir trigger: ebeveyn `draft` degilse `INSERT/UPDATE/DELETE` reddedilir |
+| Katman         | Ne                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **Domain**     | `SalesDocument.update()` `draft` disinda bir durumda cagrilirsa `DocumentNotEditableError` firlatir    |
+| **Uc**         | `PATCH` ve `DELETE` yalnizca `draft`ta 200/204 doner; aksi halde **409**                               |
+| **Veritabani** | `sales_document_lines` uzerinde bir trigger: ebeveyn `draft` degilse `INSERT/UPDATE/DELETE` reddedilir |
 
 ⚠️ **Ucuncu katman gereklidir ve gerekcesi ADR-0039'unkiyle aynidir:** kalemler
 ayri bir tablodadir, yani baslik uzerindeki bir kontrol onlari **kapsamaz**.
@@ -376,11 +378,11 @@ atlarsa hata **sessiz** olur: gonderilmis bir belgenin toplami degisir ve
 ⚠️ **BU BIR "DEGISTIRILEMEZ DEFTER" DEGILDIR** (ADR-0039 §3.3) ve iki durum
 karistirilmamalidir:
 
-|                      | `inventory.movements`                                                                            | `invoicing.sales_documents`                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Neden degistirilemez | **Bugunku miktar ondan TURETILIR**; gecmisi degistirmek bugunu sessizce yeniden yazar             | **Belge disari cikti**; degistirmek, musterideki kagitla sistemi ayristirir     |
-| Kapsam               | **Her zaman**                                                                                    | ⚠️ **Yalnizca `draft` sonrasi** — taslak serbestce duzenlenir                   |
-| Kaybin sekli         | Aritmetik                                                                                        | Anlatisal / ticari                                                             |
+|                      | `inventory.movements`                                                                 | `invoicing.sales_documents`                                                 |
+| -------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Neden degistirilemez | **Bugunku miktar ondan TURETILIR**; gecmisi degistirmek bugunu sessizce yeniden yazar | **Belge disari cikti**; degistirmek, musterideki kagitla sistemi ayristirir |
+| Kapsam               | **Her zaman**                                                                         | ⚠️ **Yalnizca `draft` sonrasi** — taslak serbestce duzenlenir               |
+| Kaybin sekli         | Aritmetik                                                                             | Anlatisal / ticari                                                          |
 
 **Yanlis bir gonderilmis belgenin dogrusu:** teklif icin `rejected` + yeni
 teklif; fatura icin `cancelled` + yeni fatura. Iptal edilen satir **durur**
@@ -424,12 +426,31 @@ tahsilat kapsam disidir (§12).
 
 #### 4.1 `invoicing-pipeline` — turetilmis, deterministik, HABER
 
-| Durum                                                                                     | Skor     | Neden                                                                                             |
-| ----------------------------------------------------------------------------------------- | :------: | ------------------------------------------------------------------------------------------------- |
+| Durum                                                                                        |   Skor   | Neden                                                                                                   |
+| -------------------------------------------------------------------------------------------- | :------: | ------------------------------------------------------------------------------------------------------- |
 | `accepted` ama **faturalanmamis** teklif (hicbir fatura `converted_from_id` ile gostermiyor) | **0.95** | ⚠️ **Para masada duruyor.** Musteri kabul etti, fatura kesilmedi — kaybedilen gelirin en dogrudan sekli |
-| `sent`, `valid_until` **gecmis** teklif                                                    | **0.95** | Belge oldu; cevap gelmedi ve **gelemez**                                                          |
-| `sent`, `INVOICING_STALE_QUOTE_DAYS` (14) gundur cevapsiz                                  | **0.90** | Takip gerekiyor                                                                                   |
-| Acik tekliflerin ozeti (sayi + para birimi bazinda tutar)                                  | **0.75** | Saglikli hat                                                                                      |
+| `sent`, `valid_until` **gecmis** teklif                                                      | **0.95** | Belge oldu; cevap gelmedi ve **gelemez**                                                                |
+| `sent`, `INVOICING_STALE_QUOTE_DAYS` (14) gundur cevapsiz                                    | **0.90** | Takip gerekiyor                                                                                         |
+| Acik tekliflerin ozeti (sayi + para birimi bazinda tutar)                                    | **0.75** | Saglikli hat                                                                                            |
+
+> ### ⚠️ UYGULAMADA BIR DARALTMA YAPILDI (Slice 1) — ozet SAYIM tasir, TUTAR DEGIL
+>
+> Yukaridaki 0.75 satirinin parantez ici ifadesi _"sayi + para birimi bazinda
+> tutar"_ diyordu; **uygulanan hali yalnizca SAYIMDIR.**
+>
+> Gerekce projenin kendi disiplinidir: acik teklifler **sinirsiz** bir kumedir,
+> yani satirlari yuklenip `computeDocumentTotals` ile toplanamaz. Tek alternatif
+> tutari **SQL'de** toplamakti — ve o, satir bazinda yuvarlama kuralinin
+> (`document-money.ts`, §1.3) **IKINCI BIR UYGULAMASI** demekti. Iki aritmetik
+> zamanla **AYRISIR** ve hata **SESSIZDIR**: belgede yazan toplam ile katkida
+> yazan toplam farkli olur, **ikisi de "dogru" gorunur**.
+>
+> ⚠️ Uc ALARM bandi (0.95 / 0.95 / 0.90) tutar **TASIR** cunku onlar
+> **SINIRLIDIR** (`BAND_LIMIT`): satirlari gercekten yuklenir ve toplam **AYNI**
+> domain fonksiyonuyla hesaplanir. Yani aritmetigin tek kaynagi korunur.
+>
+> Alternatif (SQL toplami + bir esdegerlik testi) degerlendirildi ve reddedildi:
+> esdegerlik testi ayrismayi **yakalar**, ama ayrismanin **olmasini engellemez**.
 
 Skor merdiveni ADR-0031 §5.4 / Projeler Slice 6'nin **hizalanmis
 politikasidir** (0.95 / 0.90 / 0.75) ve **duz skor verilmez**.
@@ -448,11 +469,11 @@ esigi gosteren bir sabit varsa IKISI SENKRON KALMALIDIR.** Bu, Projeler Slice
 ADR-0040 §3.2 uc yapisal adayi reddetti ve **olcutu yaziya dokme** isini de o
 yapti. Ayni olcut buraya uygulaniyor:
 
-| Olcut                       | Tedarikci'nin adaylari                                     | **`invoicing-pipeline`**                                                       |
-| --------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Turetilecek veri VAR MI?** | ❌ "performans" icin siparis/teslimat yoktu                | ✅ `status` · `valid_until` · `converted_from_id` — ucu de **kolon**            |
-| **HABER mi?**               | ❌ "durgun tedarikci" normaldir                            | ✅ Cevapsiz teklif ve faturalanmamis kabul **anormalligin ta kendisidir**       |
-| **Tahmin mi?**              | ❌ "vade" serbest metinden regex ile cikarilacakti         | ✅ Tarih aritmetigi; tahmin yok                                                |
+| Olcut                        | Tedarikci'nin adaylari                             | **`invoicing-pipeline`**                                                  |
+| ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Turetilecek veri VAR MI?** | ❌ "performans" icin siparis/teslimat yoktu        | ✅ `status` · `valid_until` · `converted_from_id` — ucu de **kolon**      |
+| **HABER mi?**                | ❌ "durgun tedarikci" normaldir                    | ✅ Cevapsiz teklif ve faturalanmamis kabul **anormalligin ta kendisidir** |
+| **Tahmin mi?**               | ❌ "vade" serbest metinden regex ile cikarilacakti | ✅ Tarih aritmetigi; tahmin yok                                           |
 
 Ucunden de gecen **ilk adaydir**. ⚠️ **Reddetmek, bu modulu AI'a hicbir sey
 katmayan bir modul yapardi** — CLAUDE.md'nin kurucu kisitina (_"moduller
@@ -461,14 +482,14 @@ _"ADR-0036'nin sayacini bozmamak icin"_ demek, **kuyrugun kopegi sallamasidir**.
 
 #### 4.3 ⚠️ ESIK ASILIYOR — PRODUCT OWNER ONAYI GEREKIR
 
-| Olcu                      | Tedarikci sonrasi | **Teklif/Fatura sonrasi**            |
-| ------------------------- | ----------------- | ------------------------------------ |
-| Anlamsal kaynak           | 8                 | **8 — DEGISMIYOR** (§5)              |
-| Yapisal kaynak            | 5                 | ⚠️ **6** (`invoicing-pipeline`)      |
-| Toplam katkici (fan-out)  | 13                | **14**                               |
-| Global top-K              | 8                 | **8 — degismiyor**                   |
-| Yapisal taban `ceil(K/3)` | 3                 | **3 — degismiyor**                   |
-| Serbest yuva              | 5 (8 kaynak icin) | **5 — hala 8 kaynak icin**           |
+| Olcu                      | Tedarikci sonrasi | **Teklif/Fatura sonrasi**       |
+| ------------------------- | ----------------- | ------------------------------- |
+| Anlamsal kaynak           | 8                 | **8 — DEGISMIYOR** (§5)         |
+| Yapisal kaynak            | 5                 | ⚠️ **6** (`invoicing-pipeline`) |
+| Toplam katkici (fan-out)  | 13                | **14**                          |
+| Global top-K              | 8                 | **8 — degismiyor**              |
+| Yapisal taban `ceil(K/3)` | 3                 | **3 — degismiyor**              |
+| Serbest yuva              | 5 (8 kaynak icin) | **5 — hala 8 kaynak icin**      |
 
 ADR-0036 kendi tetikleyicisini yazmisti:
 
@@ -534,11 +555,11 @@ eden bir sablon. Anlatisal degil, **matbudur**.
 ⚠️ **Bu modul, ADR-0040'in AYNASIDIR** ve ikisi birlikte okundugunda desen
 tamamlanir:
 
-|                  | Tedarikci (ADR-0040)                          | **Teklif/Fatura (bu ADR)**            |
-| ---------------- | --------------------------------------------- | ------------------------------------- |
-| Anlamsal katkici | ✅ TEK                                        | ❌ **YOK**                            |
-| Yapisal katkici  | ❌ YOK — turetilecek veri yoktu               | ✅ **TEK**                            |
-| Sebep            | Gorusme notu **anlatisaldir**, durumu yoktur  | Belge **durumdur**, anlatisi yoktur   |
+|                  | Tedarikci (ADR-0040)                         | **Teklif/Fatura (bu ADR)**          |
+| ---------------- | -------------------------------------------- | ----------------------------------- |
+| Anlamsal katkici | ✅ TEK                                       | ❌ **YOK**                          |
+| Yapisal katkici  | ❌ YOK — turetilecek veri yoktu              | ✅ **TEK**                          |
+| Sebep            | Gorusme notu **anlatisaldir**, durumu yoktur | Belge **durumdur**, anlatisi yoktur |
 
 **Somut sonuclari:**
 
@@ -589,11 +610,11 @@ bilesen kendi alanini bilmez ve bunu **bir birim testi kilitler**.
 
 #### 6.2 Kutuphane: `pdfkit` — tarayici REDDEDILDI
 
-| Aday                                       | Karar                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Headless Chrome** (puppeteer/playwright) | ⚠️ **REDDEDILDI.** API container'ina ~300 MB'lik bir tarayici koymak demektir; bellek profili istek basina yuz MB'larla olculur ve dagitim yuzeyi buyur. ADR-0035'in FullCalendar reddiyle **ayni sinif**: elde edilen sey (HTML/CSS ile dizgi) odenen bedeli tasimiyor                       |
-| **`pdf-lib`**                              | Mevcut PDF'leri **degistirmek** icin guclu, sifirdan **dizgi** icin zayif (metin akisi, tablo, sayfa kirilimi elle)                                                                                                                                                                          |
-| **`pdfkit`** (**secilen**)                 | Saf JS, tarayici yok, deterministik cikti, akis tabanli. Tablo/sayfa kirilimi elle yazilir — tek bir teklif sablonu icin kabul edilebilir bir istir                                                                                                                                          |
+| Aday                                       | Karar                                                                                                                                                                                                                                                                   |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Headless Chrome** (puppeteer/playwright) | ⚠️ **REDDEDILDI.** API container'ina ~300 MB'lik bir tarayici koymak demektir; bellek profili istek basina yuz MB'larla olculur ve dagitim yuzeyi buyur. ADR-0035'in FullCalendar reddiyle **ayni sinif**: elde edilen sey (HTML/CSS ile dizgi) odenen bedeli tasimiyor |
+| **`pdf-lib`**                              | Mevcut PDF'leri **degistirmek** icin guclu, sifirdan **dizgi** icin zayif (metin akisi, tablo, sayfa kirilimi elle)                                                                                                                                                     |
+| **`pdfkit`** (**secilen**)                 | Saf JS, tarayici yok, deterministik cikti, akis tabanli. Tablo/sayfa kirilimi elle yazilir — tek bir teklif sablonu icin kabul edilebilir bir istir                                                                                                                     |
 
 ⚠️ **TURKCE KARAKTER TUZAGI — ve bu SESSIZ bir hatadir.** `pdfkit`in gomulu
 standart yazi tipleri **WinAnsi (Latin-1)** kodlamasindadir ve Latin-1'de
@@ -619,10 +640,10 @@ degildir.** `shared/storage.port.ts` bugun sunu yaziyor:
 O cumle bir **beklentiydi**, karara baglanmis bir sey degil. Olcut yine
 **hatanin seklidir**:
 
-| Secim                      | Bedeli                                                                                                                                                                                                                          |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Saklamak**               | ⚠️ **Ikinci bir dogruluk kaynagi** (ADR-0037 §5'in atomiklik sorunu, bu kez gereksiz yere) + ⚠️ **yetim nesne temizligi** (ADR-0037'nin **hala acik** borcu) + her belge icin bir R2 nesnesi ve retention'a **yeni bir boyut**  |
-| **Uretmek** (**secilen**)  | ⚠️ **Sablon kaymasi**: sablon degisirse eski bir belge **bugunku sablonla** yeniden uretilir ve musterinin elindekine gore farkli **gorunur**                                                                                    |
+| Secim                     | Bedeli                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Saklamak**              | ⚠️ **Ikinci bir dogruluk kaynagi** (ADR-0037 §5'in atomiklik sorunu, bu kez gereksiz yere) + ⚠️ **yetim nesne temizligi** (ADR-0037'nin **hala acik** borcu) + her belge icin bir R2 nesnesi ve retention'a **yeni bir boyut** |
+| **Uretmek** (**secilen**) | ⚠️ **Sablon kaymasi**: sablon degisirse eski bir belge **bugunku sablonla** yeniden uretilir ve musterinin elindekine gore farkli **gorunur**                                                                                  |
 
 Uretmeyi guvenli kilan sey §2'dir: **gonderilmis belgenin verisi degismez**,
 yani icerik her zaman aynidir. Degisebilen tek sey **sablondur** ve bugun
@@ -763,11 +784,11 @@ olmayan bir soruya **platform capinda** cevap uretmek olurdu.
 Degistirilemezlikle kapanmayan sey **durum gecisleridir** — ve bunlar gercek
 ticari olaylardir. Cevap dort kolondur (§1):
 
-| Soru                                          | Cevap                                        |
-| --------------------------------------------- | -------------------------------------------- |
-| Bu belgeyi kim olusturdu                      | `created_by_user_id` (yedi modulde de var)   |
-| ⚠️ Bu teklifi kim gonderdi, ne zaman          | ⚠️ **`sent_by_user_id` · `sent_at`**         |
-| ⚠️ "Kabul edildi"yi kim isaretledi, ne zaman  | ⚠️ **`decided_by_user_id` · `decided_at`**   |
+| Soru                                         | Cevap                                      |
+| -------------------------------------------- | ------------------------------------------ |
+| Bu belgeyi kim olusturdu                     | `created_by_user_id` (yedi modulde de var) |
+| ⚠️ Bu teklifi kim gonderdi, ne zaman         | ⚠️ **`sent_by_user_id` · `sent_at`**       |
+| ⚠️ "Kabul edildi"yi kim isaretledi, ne zaman | ⚠️ **`decided_by_user_id` · `decided_at`** |
 
 ⚠️ **Bu bir denetim izi DEGILDIR ve oyle adlandirilmayacaktir.** Bir olay
 gunlugu degil, **satirin kendi uzerindeki dort damgadir**. Fark net olsun: bir
@@ -874,16 +895,16 @@ gercek tetikcisi **hala Finans**tir (`cashflow:read` / `commentary:read`) —
 **Karar: `InvoicingDomainExceptionFilter`in `@Catch(...)` listesi BASTAN
 yazilir.**
 
-| Hata                           | HTTP | `DisclosableProblem` | Ne zaman                                                                                          |
-| ------------------------------ | ---- | -------------------- | ------------------------------------------------------------------------------------------------- |
-| `EmbeddingFailedError`         | 502  | ✅ **EVET**          | ⚠️ **Bugun TETIKLENEMEZ** — modulde embedding yok (§5). **Yine de yazilir.**                      |
-| `CompletionFailedError`        | 502  | ✅ **EVET**          | ⚠️ **Bugun TETIKLENEMEZ** — modul ici AI yuzeyi yok. **Yine de yazilir.**                         |
-| `RateLimitExceededError`       | 429  | ❌ (4xx zaten gecer) | ⚠️ **Bugun TETIKLENEMEZ** — oran siniri deklarasyonu yok (§5). **Yine de yazilir.**               |
-| `PdfRenderFailedError`         | 502  | ✅ **EVET**          | PDF uretimi coker — kullanici **tekrar denemesi gerektigini** ogrenmeli                            |
-| `DocumentNotEditableError`     | 409  | ❌                   | Gonderilmis/kesilmis belgeye yazma denemesi (§2)                                                   |
-| `InvalidStatusTransitionError` | 409  | ❌                   | `draft`tan `accepted`e atlama gibi (§1.2)                                                          |
-| `QuoteNotAcceptedError`        | 409  | ❌                   | Kabul edilmemis teklifi donusturme denemesi (§3)                                                   |
-| `SalesDocumentNotFoundError`   | 404  | ❌                   | —                                                                                                  |
+| Hata                           | HTTP | `DisclosableProblem` | Ne zaman                                                                            |
+| ------------------------------ | ---- | -------------------- | ----------------------------------------------------------------------------------- |
+| `EmbeddingFailedError`         | 502  | ✅ **EVET**          | ⚠️ **Bugun TETIKLENEMEZ** — modulde embedding yok (§5). **Yine de yazilir.**        |
+| `CompletionFailedError`        | 502  | ✅ **EVET**          | ⚠️ **Bugun TETIKLENEMEZ** — modul ici AI yuzeyi yok. **Yine de yazilir.**           |
+| `RateLimitExceededError`       | 429  | ❌ (4xx zaten gecer) | ⚠️ **Bugun TETIKLENEMEZ** — oran siniri deklarasyonu yok (§5). **Yine de yazilir.** |
+| `PdfRenderFailedError`         | 502  | ✅ **EVET**          | PDF uretimi coker — kullanici **tekrar denemesi gerektigini** ogrenmeli             |
+| `DocumentNotEditableError`     | 409  | ❌                   | Gonderilmis/kesilmis belgeye yazma denemesi (§2)                                    |
+| `InvalidStatusTransitionError` | 409  | ❌                   | `draft`tan `accepted`e atlama gibi (§1.2)                                           |
+| `QuoteNotAcceptedError`        | 409  | ❌                   | Kabul edilmemis teklifi donusturme denemesi (§3)                                    |
+| `SalesDocumentNotFoundError`   | 404  | ❌                   | —                                                                                   |
 
 ⚠️ **UC AI HATA TIPININ UCU DE BUGUN TETIKLENEMEZ ve bu, kuralin ilk kez BU
 KADAR TAM sinanmasidir.** CLAUDE.md'nin kalici kurali acik:
@@ -941,11 +962,11 @@ kalir, lint yakalamaz. ⚠️ `app-shell.tsx`e **sekizinci kez dokunulmaz**.
 
 #### 11.2 Iki rota + detay, TEK duvar — ADR-0038 §6.5
 
-| Rota                      | Duvar (**ORTAK**)                      | Tezgah                                |
-| ------------------------- | -------------------------------------- | ------------------------------------- |
-| `/app/invoicing`          | Kahraman + uydular + asistanin cumlesi | **Teklif listesi**                    |
-| `/app/invoicing/invoices` | ⚠️ **AYNI DUVAR**                      | **Fatura listesi**                    |
-| `/app/invoicing/<id>`     | ⚠️ **YOK** (detayin duvari olmaz)      | Belge + kalemler + PDF + aksiyonlar   |
+| Rota                      | Duvar (**ORTAK**)                      | Tezgah                              |
+| ------------------------- | -------------------------------------- | ----------------------------------- |
+| `/app/invoicing`          | Kahraman + uydular + asistanin cumlesi | **Teklif listesi**                  |
+| `/app/invoicing/invoices` | ⚠️ **AYNI DUVAR**                      | **Fatura listesi**                  |
+| `/app/invoicing/<id>`     | ⚠️ **YOK** (detayin duvari olmaz)      | Belge + kalemler + PDF + aksiyonlar |
 
 Iki rota **ayni soruyu** cevapliyor: _"satis evrakimiz ne durumda"_. Duvar
 **kopyalanmaz, paylasilan bir bilesendir** (`invoicing-wall.tsx`).
@@ -1087,28 +1108,28 @@ ve o karari Product Owner verir.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                                              | Neden secilmedi                                                                                                                                                                                                                                        |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Iki ayri tablo** (`quotes` + `invoices`)                              | Iki satir tablosu, iki durum makinesi, iki degistirilemezlik zorlamasi ve tablolar arasi donusturme; karsiliginda onlenen risk **gorunur** bir risktir (yanlis listede satir), ADR-0034'un onledigi **sessiz yanlis sayi** degil (§1.1).               |
-| **`total` / `tax_total` kolonlari**                                     | Kalem degisip kolon guncellenmedigi anda **iki farkli dogru** dogar. Dondurma ihtiyaci bir kopyayla degil **bir kisitla** karsilandi (§1.3, §2).                                                                                                       |
-| **Tek "belge" kavrami** (teklif durum akisiyla faturaya donusur)        | ⚠️ Teklifin kendisini **degistirirdi**; kabul edilmis teklif geriye donuk **kaybolurdu**. Product Owner'in acik talebine de aykiri (§3).                                                                                                               |
-| **Musteri adini dizinden okumak** (§1.5'in reddi)                       | ⚠️ Gecmis belge **geriye donuk degisirdi**: musteri unvan degistirince arsivdeki teklif de degisir ve musterinin elindeki kagitla **ayrisir**. Hata sessizdir.                                                                                         |
-| **`max(number) + 1`**                                                   | ⚠️ Silinen bir taslaktan sonra numarayi **yeniden kullanir**; iki belge zaman icinde ayni numarayi tasir ve hata **disarida** ortaya cikar (§1.6).                                                                                                     |
-| **Belge numarasini taslakta uretmek**                                   | Silinen her taslak bir numara **yakar**; kullanici numaralar arasindaki bosluklari **hata sanardi**. Numara, belge disari ciktigi an anlam kazanir.                                                                                                    |
-| **`sent`ten `draft`a geri donus**                                       | Musteride duran bir kagidi yok saymaktir (§1.2). Cozum `rejected`/`cancelled` + yeni belge.                                                                                                                                                            |
-| **Teklif metnini / kalem aciklamalarini embed etmek**                   | ⚠️ ADR-0034 §6.1'in **birebir** ayni gerekcesi: yuzlerce neredeyse ozdes kisa vektor top-K havuzunu kirletir. Ustelik uc anlamsal kaynak zaten sifir aliyor (ADR-0040 olcumu) (§5).                                                                    |
-| **Yapisal katkiciyi ERTELEMEK** (ADR-0036'yi acmamak icin)              | ⚠️ Modulu AI'a hicbir sey katmayan bir modul yapardi (kurucu kisit). Gerekce mimari degil **bir sayacin rahat etmesi** olurdu (§4.2).                                                                                                                  |
-| **ADR-0036'yi BU ISTE revize etmek** (taban `ceil(K/2)` ya da buyuk `K`) | ⚠️ Alti yapisal kaynakli **tek bir olcum yok**. `K`yi buyutmeyi ADR-0036 zaten reddetmisti (_"sorunu cozmez, erteler; bedeli dogrudan tokendir"_). Once olcum, sonra karar (§4.3).                                                                     |
-| **`platform/audit`i BU ISTE acmak**                                     | Sorunun buyuk kismi §2 ile **ortadan kalkiyor**; genel bir denetim altyapisi, gercekten sorulmayan bir soruya **platform capinda** cevap uretirdi. ⚠️ Yine de bu bir **PO karari** olarak isaretlendi (§8).                                            |
-| **PDF'i R2'de saklamak**                                                | Ikinci dogruluk kaynagi + ADR-0037'nin **hala acik** yetim nesne borcu + retention'a yeni bir boyut. Uretmenin tek bedeli (sablon kaymasi) bilinen sinir olarak kaydedildi (§6.3).                                                                     |
-| **Headless Chrome ile PDF**                                             | ~300 MB'lik bir tarayiciyi API container'ina koymak; ADR-0035'in FullCalendar reddiyle ayni sinif (§6.2).                                                                                                                                              |
-| **Word / DOCX ciktisi**                                                 | ⚠️ Iki sablon = **ikinci dogruluk kaynagi**; bir alan eklenir, digeri unutulur ve hata **sessizdir**. Tek gercek gerekcesi (_"musteri degistirebilsin"_) §2 ile celisir (§12).                                                                         |
-| **Yasal e-fatura entegrasyonu**                                         | Ulkeye ozel **mevzuattir**, tasarim tercihi degil; global cekirdege konulamaz. Ayri modul + ulke basina adapter (§12).                                                                                                                                 |
-| **`lines.stock_item_id`** (Stok'a kenar)                                | Baglantinin dogal beklentisi **stok dusulmesidir** ve o, bu modulun envanterin dogrulugundan **sorumlu olmasi** demektir; fiyat zaten `inventory`de yok; zorunlu kilinsaydi **sahte kalem** uretirdi (§7.3).                                           |
-| **Kesilen faturanin `finance.transactions`a satir yazmasi**             | ⚠️ ADR-0034'un sinirini delerdi: o tablo **gerceklesmis nakit hareketidir**. Fatura kesmek para almak degildir; ustelik yon belirsiz ve **dongu riski** var (§7.2).                                                                                    |
-| **Tek `sales_document:*` izni**                                         | _"Teklif yazabilir ama fatura kesemez"_ mesru bir istektir ve bedeli **tek bir string**tir (§9).                                                                                                                                                       |
-| **Satir kalemi icin ayri izin** (`line_item:*`)                         | Satirin bagimsiz bir yasami, ucu ve yetkisi **yoktur**; ADR-0039'un ongordugu cakisma **bu yuzden** gerceklesmedi (§9.1).                                                                                                                              |
-| **Dar izin katalogu** (Finans gibi)                                     | Teklif yazmak satisin **gunluk isidir**; `member` tam olarak o kisidir (§9.2).                                                                                                                                                                         |
+| Alternatif                                                               | Neden secilmedi                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Iki ayri tablo** (`quotes` + `invoices`)                               | Iki satir tablosu, iki durum makinesi, iki degistirilemezlik zorlamasi ve tablolar arasi donusturme; karsiliginda onlenen risk **gorunur** bir risktir (yanlis listede satir), ADR-0034'un onledigi **sessiz yanlis sayi** degil (§1.1). |
+| **`total` / `tax_total` kolonlari**                                      | Kalem degisip kolon guncellenmedigi anda **iki farkli dogru** dogar. Dondurma ihtiyaci bir kopyayla degil **bir kisitla** karsilandi (§1.3, §2).                                                                                         |
+| **Tek "belge" kavrami** (teklif durum akisiyla faturaya donusur)         | ⚠️ Teklifin kendisini **degistirirdi**; kabul edilmis teklif geriye donuk **kaybolurdu**. Product Owner'in acik talebine de aykiri (§3).                                                                                                 |
+| **Musteri adini dizinden okumak** (§1.5'in reddi)                        | ⚠️ Gecmis belge **geriye donuk degisirdi**: musteri unvan degistirince arsivdeki teklif de degisir ve musterinin elindeki kagitla **ayrisir**. Hata sessizdir.                                                                           |
+| **`max(number) + 1`**                                                    | ⚠️ Silinen bir taslaktan sonra numarayi **yeniden kullanir**; iki belge zaman icinde ayni numarayi tasir ve hata **disarida** ortaya cikar (§1.6).                                                                                       |
+| **Belge numarasini taslakta uretmek**                                    | Silinen her taslak bir numara **yakar**; kullanici numaralar arasindaki bosluklari **hata sanardi**. Numara, belge disari ciktigi an anlam kazanir.                                                                                      |
+| **`sent`ten `draft`a geri donus**                                        | Musteride duran bir kagidi yok saymaktir (§1.2). Cozum `rejected`/`cancelled` + yeni belge.                                                                                                                                              |
+| **Teklif metnini / kalem aciklamalarini embed etmek**                    | ⚠️ ADR-0034 §6.1'in **birebir** ayni gerekcesi: yuzlerce neredeyse ozdes kisa vektor top-K havuzunu kirletir. Ustelik uc anlamsal kaynak zaten sifir aliyor (ADR-0040 olcumu) (§5).                                                      |
+| **Yapisal katkiciyi ERTELEMEK** (ADR-0036'yi acmamak icin)               | ⚠️ Modulu AI'a hicbir sey katmayan bir modul yapardi (kurucu kisit). Gerekce mimari degil **bir sayacin rahat etmesi** olurdu (§4.2).                                                                                                    |
+| **ADR-0036'yi BU ISTE revize etmek** (taban `ceil(K/2)` ya da buyuk `K`) | ⚠️ Alti yapisal kaynakli **tek bir olcum yok**. `K`yi buyutmeyi ADR-0036 zaten reddetmisti (_"sorunu cozmez, erteler; bedeli dogrudan tokendir"_). Once olcum, sonra karar (§4.3).                                                       |
+| **`platform/audit`i BU ISTE acmak**                                      | Sorunun buyuk kismi §2 ile **ortadan kalkiyor**; genel bir denetim altyapisi, gercekten sorulmayan bir soruya **platform capinda** cevap uretirdi. ⚠️ Yine de bu bir **PO karari** olarak isaretlendi (§8).                              |
+| **PDF'i R2'de saklamak**                                                 | Ikinci dogruluk kaynagi + ADR-0037'nin **hala acik** yetim nesne borcu + retention'a yeni bir boyut. Uretmenin tek bedeli (sablon kaymasi) bilinen sinir olarak kaydedildi (§6.3).                                                       |
+| **Headless Chrome ile PDF**                                              | ~300 MB'lik bir tarayiciyi API container'ina koymak; ADR-0035'in FullCalendar reddiyle ayni sinif (§6.2).                                                                                                                                |
+| **Word / DOCX ciktisi**                                                  | ⚠️ Iki sablon = **ikinci dogruluk kaynagi**; bir alan eklenir, digeri unutulur ve hata **sessizdir**. Tek gercek gerekcesi (_"musteri degistirebilsin"_) §2 ile celisir (§12).                                                           |
+| **Yasal e-fatura entegrasyonu**                                          | Ulkeye ozel **mevzuattir**, tasarim tercihi degil; global cekirdege konulamaz. Ayri modul + ulke basina adapter (§12).                                                                                                                   |
+| **`lines.stock_item_id`** (Stok'a kenar)                                 | Baglantinin dogal beklentisi **stok dusulmesidir** ve o, bu modulun envanterin dogrulugundan **sorumlu olmasi** demektir; fiyat zaten `inventory`de yok; zorunlu kilinsaydi **sahte kalem** uretirdi (§7.3).                             |
+| **Kesilen faturanin `finance.transactions`a satir yazmasi**              | ⚠️ ADR-0034'un sinirini delerdi: o tablo **gerceklesmis nakit hareketidir**. Fatura kesmek para almak degildir; ustelik yon belirsiz ve **dongu riski** var (§7.2).                                                                      |
+| **Tek `sales_document:*` izni**                                          | _"Teklif yazabilir ama fatura kesemez"_ mesru bir istektir ve bedeli **tek bir string**tir (§9).                                                                                                                                         |
+| **Satir kalemi icin ayri izin** (`line_item:*`)                          | Satirin bagimsiz bir yasami, ucu ve yetkisi **yoktur**; ADR-0039'un ongordugu cakisma **bu yuzden** gerceklesmedi (§9.1).                                                                                                                |
+| **Dar izin katalogu** (Finans gibi)                                      | Teklif yazmak satisin **gunluk isidir**; `member` tam olarak o kisidir (§9.2).                                                                                                                                                           |
 
 ---
 
@@ -1182,11 +1203,11 @@ ve o karari Product Owner verir.
 > [cross-modul dokunusu **yalnizca gerekiyorsa** izole slice] / Frontend +
 > kapanis denetimi.
 
-| Slice | Ne                                                                                                                                                                                                                                                                                                     | Migration               |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| **0** | **Bu ADR** — karar, kapsam, sinirlar; ⚠️ **iki PO onayi** (§4.3, §8)                                                                                                                                                                                                                                   | —                       |
-| **1** | **Backend (TEK slice):** `invoicing` semasi + uc tablo + teklif/fatura CRUD + durum gecisleri + §2'nin **uc katmanli** degistirilemezligi + belge numarasi (kilitli sayac) + "faturaya donustur" + `PdfPort` + `pdfkit` adapter + izin katalogu + exception filter + **TEK yapisal katkici**             | `0031_invoicing_schema` |
-| **2** | **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `invoicing` rengi, koridorda dokuzuncu kapi, PDF onizleme/indirme + § Kapanis denetimi listesi                                                                                                                              | —                       |
+| Slice | Ne                                                                                                                                                                                                                                                                                              | Migration               |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **0** | ✅ **Bu ADR** — karar, kapsam, sinirlar; ⚠️ **iki PO onayi** (§4.3, §8) — **ALINDI**                                                                                                                                                                                                            | —                       |
+| **1** | ✅ **Backend (TEK slice):** `invoicing` semasi + uc tablo + teklif/fatura CRUD + durum gecisleri + §2'nin **uc katmanli** degistirilemezligi + belge numarasi (kilitli sayac) + "faturaya donustur" + `PdfPort` + `pdfkit` adapter + izin katalogu + exception filter + **TEK yapisal katkici** | `0031_invoicing_schema` |
+| **2** | **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `invoicing` rengi, koridorda dokuzuncu kapi, PDF onizleme/indirme + § Kapanis denetimi listesi                                                                                                                      | —                       |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — §7.1'in dogrudan sonucu
 (iki dizin de hazir, `crm.public.ts` degismez) ve §7.3'un sonucu (yazilacak bir

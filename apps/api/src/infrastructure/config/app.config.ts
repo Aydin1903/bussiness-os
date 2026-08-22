@@ -158,6 +158,20 @@ export interface AppConfig {
   };
 
   /**
+   * Teklif / Fatura (ADR-0041).
+   *
+   * ⚠️ ORAN SINIRI YOKTUR ve bu Faz 5'te BIR ILKTIR (§5): modul embedding
+   * uretmez, yani sayilacak bir sey yoktur. Sekiz modulun sekizi de bir
+   * `embeddingRateLimit` tasiyordu.
+   */
+  readonly invoicing: {
+    /** ⚠️ Bir GIRDI kurali; asilirsa 422 — SESSIZ KIRPMA YOK. */
+    readonly maxLines: number;
+    /** ⚠️ Web'de karsiligi olursa IKISI SENKRON KALMALI (§4.1). */
+    readonly staleQuoteDays: number;
+  };
+
+  /**
    * Nesne deposu (ADR-0009 · ADR-0037 §5).
    *
    * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
@@ -263,6 +277,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     suppliers: {
       embeddingRateLimit: env.SUPPLIERS_EMBEDDING_RATE_LIMIT,
       reindexBatchSize: env.SUPPLIERS_REINDEX_BATCH_SIZE,
+    },
+    invoicing: {
+      maxLines: env.INVOICING_MAX_LINES,
+      staleQuoteDays: env.INVOICING_STALE_QUOTE_DAYS,
     },
     storage: toStorageConfig(env),
     documents: {
