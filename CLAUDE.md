@@ -273,6 +273,17 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**8. modül Teklif/Fatura ✅ bitti** (ADR-0041; üç slice, HAFİF kapanış denetimi
+2026-08-23; Slice 1 prod'da doğrulandı 2026-08-22 — migration 31 → 32).
+⚠️ Dört şey **ilk kez** oldu: **ADR-0036'nın eşiği AŞILDI** (yapısal kaynak
+5 → 6, PO onayıyla; ADR-0036 bu işte **değiştirilmedi**, revizyon ADR-0042'ye
+bırakıldı ve kapanış denetimi onun **tek veri girdisini** üretti), **vektör
+taşımayan ilk iş modülü** (embedding/chunk/reindex/oran sınırı YOK),
+`shared/`'a **ADR-0009'dan beri ilk yeni port** (`PdfPort`), ve bir ad ilk kez
+**kolonda saklandı** (`customer_name` — gönderilmiş belge bir SNAPSHOT'tır).
+⚠️ `platform/audit` borcu **açılmadı**: küçültülerek ertelendi (gönderilmiş
+belge değiştirilemez + satır içi aktör damgası) ve tetikleyici **9. modüle**
+taşındı — ⚠️ **üçüncü erteleme artık bir karar olur**.
 **7. modül Tedarikçi ✅ bitti** (ADR-0040; üç slice, HAFİF kapanış denetimi
 2026-08-22; Slice 1 prod'da doğrulandı 2026-08-21 — migration 30 → 31).
 ⚠️ Üç şey kayda değer: **ADR-0036'nın eşiğine BİLİNÇLİ OLARAK DOKUNULMADI**
@@ -481,7 +492,7 @@ Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engi
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
 altı modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
 4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
-7. Tedarikçi ✅ — sıradaki **8. Teklif/Fatura**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+7. Tedarikçi ✅, 8. Teklif/Fatura ✅ — sıradaki **9. İK/Personel**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -1387,6 +1398,169 @@ Gerçekten yeni **dört** karar:
 >   **arama yalnızca anlamsal** (ADR-0011, sekizinci kez).
 > - ⚠️ **Retention ONYEDİDEN ONSEKİZE çıktı** — yalnızca
 >   `suppliers.interactions`; vektör taşıyan tablo sayısı **yediden SEKİZE**.
+
+### Faz 5 / 8. modül — Teklif / Fatura Oluşturma (**bitti**)
+
+Karar: **ADR-0041** (kabul edildi 2026-08-22, kapandı 2026-08-23). ROADMAP
+§3.5'in sekizinci sırası: _"Finans uzantısı — 3'e bağımlı"_. **Dokuzuncu şema.**
+Üç slice: ADR → Backend (`0031`, tek slice) → Frontend + HAFİF kapanış denetimi.
+
+Gerçekten yeni **yedi** karar — ama üçü diğerlerinden ağır:
+
+1. ⚠️ **YASAL E-FATURA YOK ve bu bir aşama değil bir SINIRDIR.** Resmi e-fatura
+   ülkeye özel **mevzuattır** (mükellef sorgusu, mali mühür, zarf formatı,
+   saklama yükümlülüğü) ve ülke değişince baştan yazılır — global bir ürünün
+   çekirdeğine konulamaz. ⚠️ Üretilen "fatura" **bir PDF belgesidir**; uyarı
+   hem ekranda hem **kâğıtta** yazılı, çünkü kâğıt şirketten çıkar.
+2. ⚠️ **TEK TABLO + `kind`** (ADR-0034 §5'in geliri/gideri ayıran deseni, ikinci
+   kez). İki tablo reddedildi ve gerekçe **riskin şekli**: `direction` unutmak
+   *sessiz ve makul görünen yanlış bir sayı* üretir, `kind` unutmak yanlış
+   listede satır — ekranda **derhal** görünür. ADR-0034 tek tabloyu **daha
+   tehlikeli** bir durumda seçmişti.
+3. ⚠️ **GÖNDERİLDİKTEN SONRA DEĞİŞTİRİLEMEZ — ÜÇ KATMAN:** domain + uç (409) +
+   **VERİTABANI TRIGGER'I**. Üçüncüsü şart çünkü **kalemler ayrı tablodadır** ve
+   başlık üzerindeki kontrol onları kapsamaz; bir entegrasyon testi bunu **ham
+   SQL ile**, uygulama katmanı hiç devrede değilken kanıtlıyor.
+   ⚠️ Bu, ADR-0039'un *değiştirilemez defteri* DEĞİLDİR: orada koruma her zaman
+   geçerliydi (bugünkü miktar ondan türetiliyordu), burada **yalnızca `draft`
+   sonrası**.
+4. **"Faturaya dönüştür" YENİ KAYIT üretir**, teklife tek kolon yazılmaz (ok
+   fatura → teklif). Kalemler **kopyalanır** — kopyalanan şey bir *adres* değil
+   **bir belgenin içeriğidir**. İkinci kez dönüştürme engellenmez (kısmi
+   teslimat meşru); bedeli: _"bu teklifin ne kadarı faturalandı"_ sorulamaz.
+5. ⚠️ **BELGE NUMARASI: sayaç tablosu + `SELECT … FOR UPDATE`**, `max()+1`
+   REDDEDİLDİ — o, silinen bir taslaktan sonra numarayı **yeniden kullanır** ve
+   hata **müşterinin elinde** ortaya çıkar. Numara taslakta **YOK**; belge dışarı
+   çıktığı an üretilir. Boşluk oluşabilir ve **bu doğrudur**: boşluk görünür,
+   tekrar görünmez.
+6. ⚠️ **`customer_name` KOLONDA SAKLANIR** — projede beş kez verilmiş
+   "ad denormalize edilmez" kararından **bilinçli sapma** ve kuralın istisnası
+   değil **sınırı**: denormalizasyon yasağı *türetilebilir* bilgi içindir,
+   gönderilmiş bir belgedeki ad ise **o an dondurulmuştur**. Sonucu: aynı ekranda
+   iki ad görünebilir (belgeye basılan + bugünkü müşteri) ve bu ayrımın ta
+   kendisidir.
+7. ⚠️ **`tax_rate` bir SAYIDIR, bir KURAL DEĞİL** — sistem muafiyet, tevkifat,
+   ülke bazlı oran **bilmez**; yalnızca çarpar. ADR-0034'ün vergi sınırı korunur.
+
+> ### ⚠️ ADR-0036'NIN EŞİĞİ BU MODÜLLE AŞILDI — ve ölçüldü
+>
+> Yapısal kaynak **5 → 6**, fan-out **13 → 14**. ADR-0039 §7.2 eşiği ADR-0040'a
+> adreslemişti, ADR-0040 §3 **bilinçli olarak dokunmadı**; burada aşıldı.
+> **Product Owner onayı alındı** ve şekli önemli: katkıcı eklendi, **ADR-0036 bu
+> işte DEĞİŞTİRİLMEDİ**, revizyon kapanış denetimindeki **canlı ölçümden sonra**
+> ayrı bir ADR'ye (**0042 adayı**) bırakıldı — _"bir platform kararı, onu
+> değiştirmesi gereken veriye sahip olmadan revize edilmez."_
+>
+> **Ölçüm yapıldı ve ADR-0042'nin tek veri girdisidir** (14 katkıcı, 3 soru,
+> iki koşul): ✅ taban **tutuyor** — her koşulda tam `ceil(8/3) = 3` yapısal ses;
+> ⚠️ ama **altı yapısal kaynağın üçü her cevapta sessiz** (yarısı) ve bu,
+> ADR-0036'nın kendi eşik cümlesinin tarif ettiği noktadır. ⚠️ Eleme
+> **liyakatledir, rastgele değil**: `invoicing-pipeline` alarm bandında (0.95)
+> girdi ve `finance-cashflow` (0.75) düştü; sakin bandda tam tersi.
+
+> ⚠️ **VEKTÖR TAŞIMAYAN İLK İŞ MODÜLÜ** (ADR-0041 §5): embedding yok, chunk yok,
+> `reindex` yok, **oran sınırı yok**. Bir teklif kalemi ("M8 civata · 500 adet ·
+> 12,50") ADR-0034 §6.1'in tarif ettiği şeydir — yüzlerce neredeyse özdeş kısa
+> vektör K=8'lik havuzu kirletir. Katkı **anlamsal değil YAPISALDIR** ve bu,
+> ADR-0040'ın **tam aynasıdır** (orada tek katkıcı anlamsaldı).
+> ⚠️ Yine de **üç AI hata tipi filtreye baştan yazıldı** — CLAUDE.md'nin kalıcı
+> kuralının **ilk kez üçünün de tetiklenemez olduğu** modülde sınanması.
+
+> ⚠️ **`PdfPort` — ADR-0009'dan beri `shared/`'a eklenen İLK yeni port.**
+> Adapter `pdfkit` + **gömülü DejaVu TTF**: `pdfkit`in standart fontları WinAnsi
+> ve Latin-1'de `ğ ş ı İ` **yoktur** — font gömülmezse PDF üretilir, indirilir,
+> açılır ve yalnızca **müşterinin adı yanlış yazılır**. Hata SESSİZDİR; bir test
+> gömülü fontu ve Helvetica'ya düşülmediğini kilitliyor.
+> ⚠️ Font bir **npm paketinden** gelir, repoya konmuş bir binary'den değil:
+> `nest build` TypeScript dışı varlıkları `dist/`e kopyalamaz.
+> ⚠️ **PDF SAKLANMAZ**, her istekte üretilir (§6.3) — `storage.port.ts` bu modülü
+> adıyla öngörüyordu ama **öngörü bir karar değildir**. Güvenli kılan şey §2:
+> gönderilmiş belgenin verisi değişmez. Tek bedel **şablon kayması** ve
+> tetikleyicisi yazılı: ilk şablon değişikliğinde saklamaya geçilir, yol **tek
+> yönlüdür**.
+
+> ⚠️ **`platform/audit` AÇILMADI — küçültülerek ertelendi** (ADR-0041 §8, PO
+> onayı). Sorunun büyük kısmı §2 ile **ortadan kalkıyor**: gönderilmiş belgenin
+> tutarı değişmez, yani "kim değiştirdi" diye bir soru **yoktur**. Kalan durum
+> geçişleri **satır içi aktör damgasıyla** cevaplanıyor (`sent_by`/`decided_by`)
+> — ⚠️ bu bir **denetim izi değildir** ve öyle adlandırılmaz: olay günlüğü "ne
+> oldu"yu sırasıyla anlatır, damga yalnızca **son durumu** söyler.
+> ⚠️ Açıkta kalan: **taslak düzenlemeleri izlenmez**, ADR-0034/0039/0040'ın
+> borçları **açık kalır**. Tetikleyici **9. modüle (İK — KVKK)** ve
+> ödeme/tahsilat gününe taşındı; ⚠️ **üçüncü erteleme artık bir karar olur**.
+
+> **Renk:** Teklif/Fatura'nın imza rengi **#257c6c** (koyu `#64b6a4`) ve bir
+> tercih değil, `module-colors.css`'in kendi seçim kuralının sonucu: _"AKRABA
+> MODÜLLER KOMŞU HUE ALIR. Teklif/Fatura, Finans'ın yanında."_ ⚠️ Bedeli
+> koridorda **ikinci komşu-hue çifti**: Finans (#307d54) ile bu modül,
+> CRM/Tedarikçi çiftinden **daha yakın**. Bu yüzden kapılar farklı ikon, farklı
+> etiket ve `aria-current` taşır. ⚠️ Anahtar **`invoicing`**.
+
+> ⚠️ **CROSS-MODÜL: TEK yeni kenar (`Teklif/Fatura → CRM`)** ve `crm.public.ts`
+> **tek satır değişmedi** — iki dizin de hazırdı (ADR-0037 §4.1'in kuralı ikinci
+> kez **talip** tarafından doğrulandı). ⚠️ **Finans'a kenar YOK**: ROADMAP'in
+> _"8 → 3"_ bağımlılığı bir **SIRA** bağımlılığıdır, bir grafik kenarı değil —
+> devralınan şey kod değil **alınmış para kararlarıdır**; kesilen fatura
+> `finance.transactions`a satır **yazmaz** (o tablo gerçekleşmiş nakit
+> hareketidir). ⚠️ `inventory.public.ts` **adayı değerlendirildi ve REDDEDİLDİ**
+> (§7.3): bağlantının doğal beklentisi **stok düşülmesidir** ve o, bu modülün
+> envanterin doğruluğundan sorumlu olması demektir. Grafik **altıdan yediye**,
+> hâlâ **DAG** (hedef bir kök düğüm).
+
+> ⚠️ **İZİN ADI: `quote` / `invoice` — NİTELİKSİZ ve doğru.** ADR-0039 §8.2
+> `item` → `stock_item` nitelemesini **tam olarak bu modülün getireceği _line
+> item_** için yapmıştı; kavram geldi ama **çakışma gelmedi**: satır kalemi bir
+> **izin kaynağı değildir** (bağımsız yaşamı, ucu ve yetkisi yok). ⚠️ Gerçek
+> çakışma **başka kelimedeydi**: `document:*` Belge modülünündür — ve bu, tablo
+> adını da belirledi (`sales_documents`). Çakışma **üçüncü kez** gerçek oldu ve
+> üçünde de aynı şey yapıldı: **çalışan modülün kataloğu değiştirilmedi**.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 0 | **ADR-0041** — karar, kapsam, sınırlar; iki PO onayı | ✅ |
+| 1 | **Backend (TEK slice):** `invoicing` şeması + üç tablo + trigger + CRUD + durum geçişleri + numara sayacı + dönüştürme + `PdfPort` + izin kataloğu + exception filter + **TEK yapısal katkıcı** (`0031`) | ✅ |
+| 2 | **Frontend + HAFİF kapanış denetimi:** iki liste + iki detay (ODA, ortak duvar), `invoicing` rengi, koridorda dokuzuncu kapı | ✅ |
+
+> ### Teklif/Fatura kapanırken bilinen sınırlar (ADR-0041)
+>
+> - ⚠️ **YASAL E-FATURA YOK** — üretilen "fatura" bir PDF belgesidir, mali belge
+>   değildir. En çok yanlış anlaşılacak sınır budur ve **arayüzde de yazılıdır**.
+> - ⚠️ **WORD/DOCX ÇIKTISI YOK** — iki şablonu senkron tutmak **ikinci bir
+>   doğruluk kaynağı** demekti; tek gerçek gerekçesi (*müşteri değiştirsin*) §2
+>   ile çelişir.
+> - ⚠️ **Ödeme, tahsilat, kısmi ödeme ve vade takibi YOK** — _"bu fatura ödendi
+>   mi"_ sorulamaz. **En çok istenecek eksik budur.** Yönü belirsiz (Finans mı
+>   okur, bu modül mü yazar) ve ikisi aynı anda yazılırsa **döngü** olur.
+> - ⚠️ **"Bu teklifin ne kadarı faturalandı" sorulamaz** — ikinci kez dönüştürme
+>   serbesttir ama mutabakat yoktur.
+> - ⚠️ **ADR-0036'nın eşiği AŞILDI ve ölçüldü**: altı yapısal kaynak, üç taban
+>   yuvası — **her cevapta yarısı sessiz**. Bir kusur değil **kapasite sınırı**;
+>   revizyon ADR-0042'ye bırakıldı.
+> - ⚠️ **Şablon TEKTİR ve özelleştirilemez**; geçmiş belgeler **bugünkü şablonla**
+>   yeniden üretilir (içerik aynıdır, **görünüm** değişebilir).
+> - ⚠️ **Müşteri adı kolonda saklanır** — CRM'de yapılan bir yeniden adlandırma
+>   geçmiş belgelere **yansımaz** ve bu **kasıtlıdır**.
+> - ⚠️ **Belge numarasında BOŞLUK oluşabilir** — iptal edilen bir kesim numarasını
+>   geri vermez.
+> - ⚠️ **Taslak düzenlemeleri ve taslak silmeleri iz bırakmaz**; ADR-0034/0039/
+>   0040'ın `platform/audit` borçları **açık kalır**.
+> - ⚠️ **Satır kalemleri stok kalemlerine bağlı DEĞİLDİR** — fatura kesmek stoğu
+>   **düşmez**.
+> - ⚠️ **Tek belgede tek para birimi**; farklı para birimleri **toplanmaz** —
+>   kahraman rakam bu yüzden bir **sayıdır**.
+> - ⚠️ **İskonto ALANI yok** — negatif birim fiyatlı bir satır olarak yazılır.
+> - ⚠️ **E-posta ile gönderim yok** — `sent` kullanıcının **beyanıdır**.
+> - ⚠️ **Belge bazlı gizlilik yok**: `quote:read` taşıyan herkes tüm teklifleri ve
+>   **fiyatları** görür — ABAC, backlog'ta.
+> - ⚠️ **Arama YOK — ne anlamsal ne klasik**: belgeler yalnızca yapısal
+>   filtrelenir. ADR-0011'in FTS kalemi **dokuzuncu** kez açık ve bu modül onun
+>   **en doğal adayıdır**.
+> - **İyimser eşzamanlılık yok** — ⚠️ ama gönderilmiş belgede **geçersizdir**
+>   (yazma yolu kapalı).
+> - ⚠️ **Retention ONSEKİZDEN YİRMİYE çıktı** (`sales_documents` +
+>   `sales_document_lines`); ⚠️ **vektör taşıyan tablo sayısı SEKİZDE KALDI** —
+>   Faz 5'te bu sayıyı artırmayan **ilk** modül. `number_sequences` listeye
+>   **girmedi** (tenant + tür başına iki satır, zamanla çoğalmaz).
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 

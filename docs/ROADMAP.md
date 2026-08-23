@@ -206,7 +206,7 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 | **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                    | ✅ Bitti    |
 | **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                 | ✅ Bitti    |
 | **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md)) | ✅ Bitti    |
-| **8**  | **Teklif / Fatura Oluşturma**      | **Finans uzantısı** — 3'e bağımlı, ondan önce gelemez                                                                                | ⏳ Bekliyor |
+| **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md)) | ✅ Bitti    |
 | **9**  | **İK / Personel (temel)**          | ⚠️ **Yalnızca** ekip listesi · rol · iletişim. **Maaş ve sağlık verisi YOK** — bkz. not                                              | ⏳ Bekliyor |
 | **10** | **Müşteri Geri Bildirimi / Anket** | Yanıt toplama                                                                                                                        | ⏳ Bekliyor |
 | **11** | **Kampanya / Pazarlama Notları**   | Anlatısal veri — CRM'in embedding desenini yeniden kullanır                                                                          | ⏳ Bekliyor |
@@ -346,7 +346,7 @@ Bunlar bir faza ait değildir; ya süreklidir ya da belirtilen faza kadar netle�
 | **Yedekleme / felaket kurtarma**                                                                          | ❌ Yok                                                                                                | **Hosting kararıyla birlikte** (Faz 4 §2.4)  |
 | **KVKK / GDPR uyumluluğu**                                                                                | ❌ Ele alınmadı                                                                                       | **Faz 6 öncesi zorunlu kontrol noktası**     |
 | **Playwright e2e**                                                                                        | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)                                                | Belirsiz; bilinçli borç                      |
-| **Tablo retention politikası** — ayrıntı ve tam liste [§8.5](#85-retention-borcu-onüç-tablo-tek-karar)'te | ❌ Yok — **büyüyen borç**, artık **onüç tablo**                                                       | Faz 4                                        |
+| **Tablo retention politikası** — ayrıntı ve tam liste [§8.5](#85-retention-borcu-onüç-tablo-tek-karar)'te | ❌ Yok — **büyüyen borç**, artık **yirmi tablo**                                                      | Faz 4                                        |
 | **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                       | ❌ Yapılmadı                                                                                          | Faz 4                                        |
 | **Doküman sürüm numarası denetimi**                                                                       | 🟡 Bilinen tutarsızlık                                                                                | Faz 4                                        |
 
@@ -406,7 +406,7 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: onsekiz tablo, tek karar
+### 8.5 Retention borcu: yirmi tablo, tek karar
 
 Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, **Randevu Slice 3 ile (2026-08-13) ONÜÇE** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
@@ -598,6 +598,39 @@ Bu doküman yazılırken, mevcut dokümanlarda **bu yol haritasıyla çelişen**
 > eski satırlarını silmek **geçmişi** kaybettirir, **bugünkü hiçbir sayıyı**
 > değiştirmez. İki şekil karıştırılmamalıdır — biri aritmetik bir kayıp, diğeri
 > anlatısal.
+
+> ### ⚠️ Teklif/Fatura borcu ONSEKİZDEN YİRMİYE çıkardı (2026-08-23)
+>
+> [ADR-0041](adr/0041-teklif-fatura-modulu.md) §1'in `invoicing.sales_documents`
+> / `invoicing.sales_document_lines` tabloları. `conversations` dersi **yedinci
+> kez ilk günden** uygulandı: `sales_document_lines → sales_documents`
+> `ON DELETE CASCADE` taşıdığı için **doğru retention kolu ebeveyndir**.
+>
+> ⚠️ **VEKTÖR TAŞIYAN TABLO SAYISI SEKİZDE KALDI** ve bu, Faz 5'te **bir ilktir**:
+> sekiz modülün sekizi de bu sayıyı artırmıştı. Sebep ADR-0034 §6.1'dir — bir
+> teklif kalemi yüzlerce neredeyse özdeş kısa vektör üretir ve K=8'lik havuzu
+> kirletir. 2.0'da yazılan _"her anlatısal modül bir tane daha ekleyecek"_
+> öngörüsü ilk kez **kırıldı** ve kırılma sebebi şudur: **bu modül anlatısal
+> değildir.**
+>
+> ⚠️ **`invoicing.number_sequences` LİSTEYE GİRMEZ** — ve bu, listenin kendi
+> ölçütünün ADR-0040'tan sonra **ikinci kez** açıkça uygulanmasıdır: tenant + tür
+> başına **iki satır**, ebediyen. Yıl numaranın içinde **yoktur** (belgenin tarihi
+> `issued_on`dadır), yani sayaç **yıla göre de çoğalmaz**. Bu bir ayrıntı değil
+> bir **tasarım kararının sonucudur**: numara formatına yıl konsaydı liste her yıl
+> iki satır büyürdü.
+>
+> ⚠️ **`sales_documents` İÇİN DOĞRU CEVAP "SİL" OLMAYABİLİR** ve gerekçe
+> `finance.transactions`ınkiyle **kısmen** aynıdır: teklifler budanabilir, ama
+> **kesilmiş faturalar ticari kayıttır**. Ayrım **tablo başına değil BELGE TÜRÜ
+> başına**dır ve v1 bunu **ayırt etmez** — [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'nin
+> KVKK kontrol noktasına bir girdi. Belge modülünün _"tablo başına değil belge
+> başına"_ ayrımının **ikinci** örneği.
+>
+> ⚠️ `inventory.movements`in uyarısı burada **geçerli değildir**: bu tabloların
+> eski satırlarını silmek **geçmişi** kaybettirir, **bugünkü hiçbir sayıyı**
+> değiştirmez — toplamlar kalemlerden türetilir ve kalemler belgeyle **birlikte**
+> gider.
 
 ### 9.1 `ARCHITECTURE.md` §2 + ADR-0007 — ✅ **UZLAŞTIRILDI**
 

@@ -397,3 +397,49 @@ export type {
   CreateSupplierInteractionRequest,
   ReindexSuppliersResponse,
 } from './suppliers/suppliers.contract';
+
+/**
+ * Teklif / Fatura (ADR-0041) — Faz 5'in SEKİZİNCİ iş modülü.
+ *
+ * ⚠️ İKİ BELGE TÜRÜ, TEK ŞEKİL: sunucuda tek tablo + `kind`, burada tek şema
+ * + `kind`. Ama uçlar AYRIDIR (`/invoicing/quotes`, `/invoicing/invoices`) ve
+ * izinler de ayrıdır (`quote:*` / `invoice:*`).
+ *
+ * ⚠️ Toplamlar `totals` altında AYRI gelir ve hiçbir kolonda saklanmaz (§1.3);
+ * `total` diye bir belge alanı ARANMASIN.
+ */
+export {
+  salesDocumentKindSchema,
+  salesDocumentStatusSchema,
+  salesDocumentLineSchema,
+  salesDocumentSchema,
+  documentTotalsSchema,
+  salesDocumentViewSchema,
+  salesDocumentListResponseSchema,
+  salesDocumentLineInputSchema,
+  createQuoteRequestSchema,
+  createInvoiceRequestSchema,
+  updateQuoteRequestSchema,
+  updateInvoiceRequestSchema,
+  decideQuoteRequestSchema,
+  MAX_DOCUMENT_LINES,
+  MAX_DOCUMENT_NOTES_CHARS,
+  MAX_LINE_DESCRIPTION_CHARS,
+  MAX_LINE_UNIT_CHARS,
+  MAX_CUSTOMER_NAME_CHARS,
+} from './invoicing/invoicing.contract';
+export type {
+  SalesDocumentKind,
+  SalesDocumentStatus,
+  SalesDocumentLine,
+  SalesDocument,
+  DocumentTotals,
+  SalesDocumentView,
+  SalesDocumentListResponse,
+  SalesDocumentLineInput,
+  CreateQuoteRequest,
+  CreateInvoiceRequest,
+  UpdateQuoteRequest,
+  UpdateInvoiceRequest,
+  DecideQuoteRequest,
+} from './invoicing/invoicing.contract';

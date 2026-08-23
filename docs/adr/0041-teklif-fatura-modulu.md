@@ -1,6 +1,6 @@
 # 0041 — Faz 5 / Modul 8: Teklif / Fatura Olusturma
 
-- **Durum:** Kabul edildi — **Slice 1 (Backend) UYGULANDI** (2026-08-22)
+- **Durum:** Kabul edildi — **UYGULANDI ve KAPANDI** (2026-08-23)
 - **Onay:** §4.3 (ADR-0036 esigi) ve §8 (`platform/audit`) — ⚠️ **IKISI DE ONAYLANDI**
 - **Tarih:** 2026-08-22
 - **Karar veren:** Product Owner
@@ -1207,7 +1207,7 @@ ve o karari Product Owner verir.
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | **0** | ✅ **Bu ADR** — karar, kapsam, sinirlar; ⚠️ **iki PO onayi** (§4.3, §8) — **ALINDI**                                                                                                                                                                                                            | —                       |
 | **1** | ✅ **Backend (TEK slice):** `invoicing` semasi + uc tablo + teklif/fatura CRUD + durum gecisleri + §2'nin **uc katmanli** degistirilemezligi + belge numarasi (kilitli sayac) + "faturaya donustur" + `PdfPort` + `pdfkit` adapter + izin katalogu + exception filter + **TEK yapisal katkici** | `0031_invoicing_schema` |
-| **2** | **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `invoicing` rengi, koridorda dokuzuncu kapi, PDF onizleme/indirme + § Kapanis denetimi listesi                                                                                                                      | —                       |
+| **2** | ✅ **Frontend + HAFIF kapanis denetimi:** iki rota + detay (ODA, ortak duvar), `invoicing` rengi, koridorda dokuzuncu kapi, PDF onizleme/indirme + § Kapanis denetimi listesi                                                                                                                   | —                       |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — §7.1'in dogrudan sonucu
 (iki dizin de hazir, `crm.public.ts` degismez) ve §7.3'un sonucu (yazilacak bir
@@ -1294,6 +1294,238 @@ kapsiyor).
 ⚠️ **Prod dogrulamasi ZORUNLUDUR** — Slice 1 bir migration tasiyor (`0031`):
 health 200 · migration sayisi 31 → 32 · uc tablo `RLS + FORCE` · uc dar rol
 **kor** · `GET /api/v1/invoicing/quotes` **401**.
+
+---
+
+## Kapanis denetimi — **YAPILDI, 2026-08-23** (HAFIF seviye)
+
+Dokuz maddenin dokuzu da kosuldu. ⚠️ **Denetim BIR KUSUR BULMADI** — ama
+**ADR-0042 icin BELIRLEYICI bir olcum uretti** (madde 7).
+
+| #   | Madde                              | Sonuc                                                                     |
+| --- | ---------------------------------- | ------------------------------------------------------------------------- |
+| 1   | `git status` temiz · `pnpm verify` | ✅ **cikis kodu 0** (14/14 task · api **2024** + web **500** birim testi) |
+| 2   | Uclarin turu                       | ✅ 401 · 200 · 403 · 422 · 409 — asagida                                  |
+| 3   | Renk turu (acik + koyu)            | ✅ olculmus paletle **birebir**; kabuk ve AI terracotta kaldi             |
+| 4   | §2 sinavi (degistirilemezlik)      | ✅ **409** — baslik, kalem ve silme, ucu de                               |
+| 5   | §1.6 sinavi (es zamanlilik)        | ✅ **10 es zamanli gonderim, 10 TEKIL numara**                            |
+| 6   | §3 sinavi (donusturme)             | ✅ teklif **BIREBIR AYNI** (bayt duzeyinde)                               |
+| 7   | ⚠️ **ADR-0036 ZORUNLU OLCUM**      | ✅ yapildi — **taban tutuyor, ama alti kaynagin YARISI sessiz**           |
+| 8   | Fan-out N=14                       | ✅ ortalama **372 ms (%7)**                                               |
+| 9   | Bilinen sinirlar islendi           | ✅ ADR + CLAUDE.md + ROADMAP §8.5                                         |
+
+### Uclarin turu — gercek isteklerle (madde 2)
+
+| Istek                                              | Beklenen | Olculen                                                       |
+| -------------------------------------------------- | -------- | ------------------------------------------------------------- |
+| kimliksiz `GET /invoicing/quotes`                  | 401      | **401**                                                       |
+| owner `GET /invoicing/quotes` · `/invoices`        | 200      | **200** · **200**                                             |
+| `GET /invoicing/quotes/not-a-uuid`                 | 422      | **422**                                                       |
+| `POST /quotes` (takvimde olmayan gun `2026-02-31`) | 422      | **422**                                                       |
+| `POST /quotes` (gecerlilik belge tarihinden ONCE)  | 422      | **422** — _"Gecerlilik tarihi belge tarihinden once olamaz."_ |
+| `POST /quotes` (miktar `0`)                        | 422      | **422**                                                       |
+| ⚠️ `POST /invoices` + `validUntil` (`.strict()`)   | 422      | **422** — tur-disi alan istemciye OGRETILIYOR                 |
+| `POST /quotes/<kalemsiz>/send`                     | 409      | **409**                                                       |
+
+**Rol turu (viewer, gercek kullanici):** okur — `GET` liste **200**, tek belge
+**200**, ⚠️ **PDF 200**; yazamaz — `POST` teklif **403**, `POST` fatura **403**,
+`DELETE` **403**, `POST send` **403**.
+
+### ⚠️ §2 SINAVI — degistirilemezlik (madde 4)
+
+Gonderilmis bir teklifte (`TKF-000001`, `status=sent`):
+
+| Deneme           | Sonuc                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PATCH` baslik   | **409** — _"Bu belge artik duzenlenemez (durum: sent). Yanlis bir belge duzeltilmez; dogrusu YENI bir belge olarak yazilir."_ |
+| `PATCH` kalemler | **409**                                                                                                                       |
+| `DELETE`         | **409**                                                                                                                       |
+
+⚠️ **Ucuncu katman (veritabani trigger'i) AYRICA ve BAGIMSIZ olarak
+kanitlandi** — `invoicing-schema.integration.spec`te HAM SQL ile: uygulama
+katmani hic devrede degilken `INSERT`/`UPDATE`/`DELETE` reddediliyor. Buradaki
+409'lar ilk iki katmanin kanitidir.
+
+### ⚠️ §1.6 SINAVI — ES ZAMANLILIK (madde 5)
+
+**10 taslak, 10 ES ZAMANLI `POST /send` istegi** (arka planda paralel):
+
+```
+TKF-000003  TKF-000004  TKF-000005  TKF-000006  TKF-000007
+TKF-000008  TKF-000009  TKF-000010  TKF-000011  TKF-000012
+
+cevap: 10 · atanan numara: 10 · TEKIL: 10 · CAKISMA: YOK
+```
+
+⚠️ `SELECT ... FOR UPDATE` **dekoratif degil**: ADR-0039 §3.2'nin fiziksel
+sayim kilidinin ikinci uygulamasi, gercek es zamanlilikta **calisti**. Kilit
+olmasaydi iki belge ayni numarayi tasirdi ve hata **musterinin elinde**, bizim
+goremedigimiz yerde ortaya cikardi.
+
+### ⚠️ §3 SINAVI — DONUSTURME (madde 6)
+
+Kabul edilmis teklif donusturuldu ve **teklif yeniden okundu**:
+
+```
+diff <onceki tam govde> <sonraki tam govde>  ->  FARK YOK
+```
+
+⚠️ Karsilastirma **secili alanlar uzerinden degil, TAM GOVDE uzerinden**
+yapildi: `updatedAt` dahil **tek bayt** degismedi. Yeni fatura:
+`convertedFromId` teklifi gosteriyor · `status=draft` · `number=null` ·
+kalemler **YENI id'lerle** kopyalanmis · toplamlar birebir ayni
+(`6100.00 / 1250.00 / 7350.00`).
+
+⚠️ Ayrica **tarayicida** dogrulandi: "Faturaya donustur" yeni faturaya
+yonlendirdi ve teklif sayfasi oldugu gibi kaldi.
+
+### ⚠️⚠️ ADR-0036 ZORUNLU OLCUM (madde 7) — **ADR-0042'NIN VERI GIRDISI**
+
+**On dort katkici dolu** (8 anlamsal + 6 yapisal), gercek saglayicilarla, uc
+farkli soru — **iki ayri kosulda**.
+
+**A) `invoicing-pipeline` 0.75 bandindayken** (yalnizca acik teklif ozeti):
+
+| Kaynak                  | Tur         | s1    | s2    | s3    |
+| ----------------------- | ----------- | ----- | ----- | ----- |
+| `knowledge`             | anlamsal    | 1     | 1     | 1     |
+| `crm-interactions`      | anlamsal    | 1     | 1     | 1     |
+| `inventory-notes`       | anlamsal    | 1     | 1     | 1     |
+| `appointment-notes`     | anlamsal    | 1     | 1     | 1     |
+| `supplier-interactions` | anlamsal    | 1     | 1     | 1     |
+| `crm-pipeline`          | **YAPISAL** | 1     | 1     | 1     |
+| `finance-cashflow`      | **YAPISAL** | 1     | 1     | 1     |
+| `inventory-stock`       | **YAPISAL** | 1     | 1     | 1     |
+| **TOPLAM**              |             | **8** | **8** | **8** |
+
+⚠️ **`invoicing-pipeline` UC SORUDA DA GIREMEDI.** `degradedSources: []` —
+yani bozulmadi, **ELENDI**.
+
+**B) Ayni tenant, `invoicing-pipeline` ALARM bandindayken** (kabul edilip
+faturalanmamis + suresi dolmus + cevapsiz teklifler eklendi -> 0.95):
+
+| Kaynak                                                                                               | Tur         | s1    | s2    | s3    |
+| ---------------------------------------------------------------------------------------------------- | ----------- | ----- | ----- | ----- |
+| `knowledge` · `crm-interactions` · `inventory-notes` · `appointment-notes` · `supplier-interactions` | anlamsal    | 1     | 1     | 1     |
+| `crm-pipeline`                                                                                       | **YAPISAL** | 1     | 1     | 1     |
+| `inventory-stock`                                                                                    | **YAPISAL** | 1     | 1     | 1     |
+| ⚠️ `invoicing-pipeline`                                                                              | **YAPISAL** | **1** | **1** | **1** |
+| ⚠️ `finance-cashflow`                                                                                | **YAPISAL** | **0** | **0** | **0** |
+| **TOPLAM**                                                                                           |             | **8** | **8** | **8** |
+
+#### Bu olcumun soyledigi uc sey
+
+1. ✅ **TABAN CALISIYOR VE DEGISMEDI.** Her iki kosulda, uc soruda da tam
+   **UC AYRI YAPISAL SES** = `ceil(8/3)`. ADR-0036 bu isten **degistirilmeden**
+   cikti ve mekanizma alti kaynakla da tutarli.
+2. ⚠️ **ALTI YAPISAL KAYNAGIN UCU HER CEVAPTA SESSIZ** — yani **yarisi**. Bu,
+   ADR-0036'nin kendi esik cumlesinin (_"kaynaklarin yarisindan fazlasi garanti
+   disinda kalir ve 'genislik' vaadi anlamini yitirmeye baslar"_) **tam olarak
+   ongordugu noktadir. Esik artik teorik degil, OLCULMUS bir gercektir.**
+3. ⚠️ **ELEME LIYAKATLE OLUYOR, RASTGELE DEGIL.** B kosulunda
+   `invoicing-pipeline` (0.95) girdi ve `finance-cashflow` (0.75) dustu; A
+   kosulunda tam tersi. Yani taban icindeki yaris **skor merdiveniyle**
+   calisiyor — sabit skor verilseydi bu yer degistirme HIC olmaz ve giren
+   kaynak KAYIT SIRASINA gore sabitlenirdi.
+
+⚠️ **`project-status` ve `appointment-schedule` HER IKI KOSULDA DA disarida**
+kaldi. `documents`, `project-notes` ve `finance-commentaries` de sifir aldi —
+anlamsal kaynaklar arasinda taban YOKTUR, eleme **liyakattir** (ADR-0036
+§ Bilinen sinirlar; ADR-0040'ta ayni sey **uc** kaynak icin olculmustu).
+
+> ⚠️ **BU OLCUM ADR-0042'NIN TEK VERI GIRDISIDIR.** Karar artik veri olmadan
+> degil, **bu tabloyla** verilecek: taban `ceil(K/3)` mi kalsin, `ceil(K/2)`ye
+> mi ciksin, yoksa rerank mi acilsin. ⚠️ `K`yi buyutmek ADR-0036'da **zaten
+> reddedilmisti** ve bu olcum o reddi **guclendiriyor**: havuz dolu, bos yuva
+> yok — sorun kapasite degil **PAYLASIM**.
+
+### Fan-out N=14 olcumu (madde 8) — gercek saglayicilarla
+
+| Olcum |  Toplam |  embed | complete | **FAN-OUT + diger** | Pay |
+| :---: | ------: | -----: | -------: | ------------------: | --: |
+|   1   | 5710 ms | 438 ms |  4883 ms |          **389 ms** |  %7 |
+|   2   | 4180 ms | 466 ms |  3343 ms |          **371 ms** |  %9 |
+|   3   | 5123 ms | 369 ms |  4396 ms |          **358 ms** |  %7 |
+
+**Ortalama toplam 5004 ms · ortalama fan-out 372 ms (%7) · darbogaz
+`LLMPort.complete` ~4207 ms — DEGISMEDI.**
+
+⚠️ ADR-0040'in N=13 (81 ms, %1–2) ve ADR-0039'un N=12 (136 ms, %2)
+olcumlerinden **daha yuksek**; ADR-0037'nin N=10 (≤315 ms, %6) olcumune
+yakin. ⚠️ **Kayit durustlugu icin:** bu olcum **`pnpm dev` altinda** (derlenmis
+`dist` degil, izleyici modda) ve **ayni makinede kosan bir tarayici + Docker
+ile birlikte** alindi; onceki olcumlerin bir kismi daha sakin bir ortamdaydi.
+Darbogaz yine de **yedinci olcumdur** ayni yerde ve fan-out toplam surenin
+onda birinden azdir.
+
+### Renk turu (madde 3) — gercek tarayicida, iki temada
+
+| Olcum                       | Acik (`data-theme=light`) | Koyu (`data-theme=dark`) |
+| --------------------------- | ------------------------- | ------------------------ |
+| Oda `--accent`              | **#257c6c**               | **#64b6a4**              |
+| Oda `--ink`                 | **#076b5b**               | **#75c7b5**              |
+| ⚠️ Oda icinde `--ai-accent` | **#b25628**               | **#e8935a**              |
+| ⚠️ Kabuk `--accent`         | **#b25628**               | **#e8935a**              |
+
+⚠️ Ikisi de `module-colors.css`in **olculmus** degerleriyle birebir; renk
+uretilmedi. **Kabuk ve AI'in sesi terracotta kaldi** — `app-shell.tsx`e
+**SEKIZINCI kez dokunulmadi**.
+
+⚠️ **KOMSU HUE SINAVI (bu modulde IKINCI cift):** koridorda Finans (#307d54)
+ile Teklif/Fatura (#257c6c) yan yana. Ayrimin renk DISINDAKI tasiyicilari
+olculdu: **farkli ikon** (5 `path` / 3 `path`), **farkli etiket**, ve aktif
+kapida `aria-current="page"` — ucu de dogrulandi. Koridorda toplam **on kapi**
+(Panel + dokuz modul) ve her kapi **kendi** `--accent`ini tasiyor.
+
+### ODA sinavi (ADR-0038 §6.5) — duvar GERCEKTEN ortak
+
+| Rota                           | Duvar      | Kahraman | Aktif sekme | Tezgah           |
+| ------------------------------ | ---------- | :------: | ----------- | ---------------- |
+| `/app/invoicing`               | var        |  **23**  | Teklifler   | TEKLIFLER        |
+| `/app/invoicing/invoices`      | **AYNI**   |    —     | Faturalar   | FATURALAR        |
+| `/app/invoicing/quotes/<id>`   | ⚠️ **YOK** |    —     | ⚠️ **YOK**  | BELGE + KALEMLER |
+| `/app/invoicing/invoices/<id>` | ⚠️ **YOK** |    —     | ⚠️ **YOK**  | BELGE + KALEMLER |
+
+⚠️ **Kahraman rakam bir SAYI** (23 belge), bir tutar DEGIL — ve bunu bir birim
+testi kilitliyor (`invoicing-wall.spec.tsx`: duvarda hicbir para birimi
+etiketi gecmemeli).
+
+### ⚠️ §2'nin ARAYUZ karsiligi — gercek ekranda dogrulandi
+
+Gonderilmis ve kabul edilmis bir teklifte (`TKF-000013`):
+
+- **"Duzenle" dugmesi HIC YOK** ve **"Taslagi sil" YOK** — kullanici bir 409'a
+  **carpmadan once** anliyor,
+- salt-okunur kutusu sebebini yaziyor: _"Bu teklif musteriye iletildi; basligi
+  ve kalemleri artik degistirilemez. Yanlis bir belge duzeltilmez — dogrusu
+  yeni bir teklif olarak yazilir."_ (sunucudaki `DocumentNotEditableError`
+  mesajiyla **ayni seyi** soyluyor),
+- ⚠️ **AKTOR DAMGALARI gorunuyor**: _"kullanici 01a03040 tarafindan
+  gonderildi, 23 Agu 2026"_ ve _"... tarafindan kabul edildi, 23 Agu 2026"_,
+- ⚠️ **TASLAKTA HICBIR DAMGA YOK** — taslak duzenlemeleri izlenmez ve ekran
+  olmayan bir gunlugu VAR gibi gostermiyor.
+
+### ⚠️ §1.6'nin ARAYUZ karsiligi — dogrulandi
+
+- Taslakta numara **gosterilmiyor**; yerine ipucu var: teklifte _"Gonderilince
+  numara atanacak"_, faturada _"Kesilince numara atanacak"_,
+- gonderildikten sonra `TKF-000013` bicimiyle gorunuyor,
+- ⚠️ **sahte/onizleme numara HIC gosterilmiyor** — bir birim testi bunu
+  kilitliyor (`chrome.spec.tsx`: taslakta `TKF-` oneki gecmemeli).
+
+### PDF ucu — gercek istek
+
+`GET /invoicing/quotes/<id>/pdf` -> **200** · `content-type: application/pdf` ·
+`content-disposition: ...teklif-TKF-000001.pdf` · **19 642 bayt** · ilk baytlar
+`%PDF-1.3`. ⚠️ **Turkce karakter guvenligi:** ciktida `DejaVuSans` **6 kez**
+geciyor, `Helvetica` **SIFIR** kez — yani WinAnsi standart fontuna dusulmedi.
+
+**Bilincli YAPILMAYANLAR** (hafif denetim kurali, kayda gecer): sifirdan
+kurulum ❌ · iki tenant'la tam RLS izolasyon turu ❌ (entegrasyon testi
+kapsiyor) · **prod dogrulamasi ❌ — bu slice migration TASIMAZ** (Slice 1'in
+`0031`'i 2026-08-22'de push edildi ve prod'da dogrulandi: health 200,
+migration 31 -> 32, uc tablo `RLS + FORCE`, uc dar rol **kor**, trigger +
+fonksiyon mevcut, `GET /api/v1/invoicing/quotes` 404 -> **401**).
 
 ---
 

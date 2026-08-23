@@ -156,6 +156,31 @@ export function SuppliersIcon(props: IconProps) {
   );
 }
 
+/**
+ * TEKLIF / FATURA — dokuzuncu kapinin ikonu (ADR-0041 §11.1).
+ *
+ * Secilen sekil BIR KAGIT + UZERINDE SATIRLAR + BIR ONAY ISARETI: modulun
+ * urettigi sey bir BELGEDIR ("satir kalemleri") ve o belgenin bir SONUCU
+ * vardir (kabul / kesim). Belge modulunun ikonundan (arsivlenen dosya) bu
+ * ikinci parca ile ayrilir.
+ *
+ * ⚠️ Renk gibi ikon da TEK ayirt edici degildir: kapi ayrica etiket ve
+ * `aria-label` tasir. Bu modulde kural OZELLIKLE gecerli — imza rengi
+ * (#257c6c) Finans'in yesiliyle (#307d54) KOMSU HUE'dur ve bu cift,
+ * CRM/Tedarikci ciftinden DAHA YAKINDIR.
+ */
+export function InvoicingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 3h8l4 4v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M14 3v4h4" />
+      <path d="M8 11h6" />
+      <path d="M8 14.5h3" />
+      <path d="M13 19.5l2 2 4-4" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

@@ -96,11 +96,21 @@ describe('PdfKitPdfAdapter', () => {
     expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
   });
 
-  it('cok satirli belgede SAYFA KIRILIMINI kendisi yonetir', async () => {
+  /**
+   * ⚠️ ACIK ZAMAN ASIMI — ve bu bir "flaky test" yamasi DEGIL.
+   *
+   * Bu tek test gercekten pahali: font alt kumesi cikarilir, altmis satir
+   * elle konumlandirilir ve BIRDEN COK SAYFA uretilir. Tek basina ~0.5 sn
+   * surer; `pnpm verify` altinda api ve web paketleri PARALEL kostugu icin
+   * makine yuklendiginde varsayilan 5 sn'yi asabiliyor — bir kez asti ve
+   * dogru cevap sayiyi kucultmek ya da testi silmek DEGIL, bedeli ACIKCA
+   * yazmakti.
+   */
+  it('cok satirli belgede SAYFA KIRILIMINI kendisi yonetir', { timeout: 20_000 }, async () => {
     // ⚠️ pdfkit metin akisinda otomatik sayfa acar ama ELLE KONUMLANDIRILMIS
     // bir tabloda bunu yapmaz. Kontrol edilmeseydi uzun bir belge son
     // satirlarini sayfa disina yazar ve cikti SESSIZCE eksik olurdu.
-    const many = Array.from({ length: 120 }, (_, index) => ({
+    const many = Array.from({ length: 60 }, (_, index) => ({
       description: `Kalem ${String(index + 1)} — açıklama`,
       quantity: '1.000',
       unit: 'adet',

@@ -12,6 +12,7 @@ import {
   DocumentsIcon,
   FinanceIcon,
   InventoryIcon,
+  InvoicingIcon,
   OverviewIcon,
   ProjectsIcon,
   SuppliersIcon,
@@ -135,6 +136,35 @@ const DOORS: readonly Door[] = [
     icon: SuppliersIcon,
     href: '/app/suppliers',
     module: 'suppliers',
+  },
+  /**
+   * DOKUZUNCU KAPI — Faz 5'in SEKIZINCI is modulu (ADR-0041 §11.1).
+   *
+   * Anahtar `invoicing`: sema, modul ve `data-module` UCU DE ayni kelime.
+   * Renk `module-colors.css`'te ZATEN olculmus (`#257c6c` / koyu `#64b6a4`).
+   *
+   * ⚠️ Bu renk bir tercih DEGIL, dosyanin kendi secim kuralinin sonucudur:
+   * "AKRABA MODULLER KOMSU HUE ALIR. Teklif/Fatura, Finans'in yaninda
+   * ('Finans uzantisi')." Yani KORIDORDA renk, ROADMAP §3.5'in
+   * konumlandirmasini soyluyor.
+   *
+   * ⚠️ KOMSU HUE OLMASININ BEDELI VE BU CIFTIN OZEL DURUMU: Finans (#307d54)
+   * ile Teklif/Fatura (#257c6c) birbirine, CRM/Tedarikci ciftinden DAHA
+   * YAKINDIR. Bu yuzden kapilar ayrica FARKLI IKON, FARKLI ETIKET ve aktifken
+   * `aria-current` tasir — renk hicbir zaman tek ayirt edici degildir.
+   *
+   * ⚠️ Etiket "Teklif" (kisa) ama modul iki belge turu uretir; koridorda
+   * 54 px'e sigmasi gerekiyor. Tam etiket geniş halde "Teklif / Fatura".
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Teklif / Fatura',
+    short: 'Teklif',
+    icon: InvoicingIcon,
+    href: '/app/invoicing',
+    module: 'invoicing',
   },
 ];
 
