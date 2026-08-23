@@ -315,9 +315,19 @@ daha pahali hale gelir.
 
 - **`K` degistiginde** (`KNOWLEDGE_RETRIEVAL_LIMIT`): taban kendiliginden
   olceklenir ama `ceil(K/3)` oraninin hala dogru oldugu **tekrar sorulmalidir**.
-- **Yapisal kaynak sayisi tabanin iki katini gectiginde** (bugun 4, esik 6):
+- ~~**Yapisal kaynak sayisi tabanin iki katini gectiginde** (bugun 4, esik 6):
   o noktada kaynaklarin yarisindan fazlasi garanti disinda kalir ve "genislik"
-  vaadi anlamini yitirmeye baslar.
+  vaadi anlamini yitirmeye baslar.~~
+  > ⚠️ **BU TETIKLEYICI ATESLENDI VE TUKENDI — bkz.
+  > [ADR-0042](0042-retrieval-taban-revizyonu.md) §3.** ADR-0041 yapisal kaynak
+  > sayisini 5 → 6 yapti; olcum yapildi ve **taban DEGISMEDI**. Metin silinmedi
+  > ki tetikleyicinin gercekten calistigi gorunsun.
+  >
+  > ⚠️ Yerine **iki DAVRANISSAL tetikleyici** kondu (ADR-0042 §3): **T1** — bir
+  > yapisal kaynak ALARM bandinda (0.95) uc soruda da giremiyorsa; **T2** —
+  > SATIR DONDUREN yapisal kaynak sayisi `2K/3`'u gectiginde. ⚠️ T2'nin eskisinden
+  > farki, **dogru sayiyi** saymasidir: kayitli katkici degil, gercekten satir
+  > donduren kaynak (§2'nin `min(...)` kisiti zaten bunu soyluyordu).
 - **Olculmus bir KALITE verisi olustugunda**: o gun rerank tartismasi
   yeniden acilir ve bu ADR'nin yerini alabilir — bu kisit, rerank'in
   **yerine** degil, **once**sine konmustur.

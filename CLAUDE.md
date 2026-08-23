@@ -1635,6 +1635,46 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > veri dizininde** çalışır, yani sonradan eklenen roller mevcut volume'a hiç
 > gelmez.
 
+> ### ⚠️ Kalıcı ders: HER YENİ MODÜL ADR'Sİ ADR-0036 EŞİK KONTROLÜNÜ İÇERİR
+>
+> **Yeni bir iş modülünün ADR'si, `RetrievalContributor` ekleyip eklemediğine
+> bakmaksızın, ADR-0036'nın eşik kontrolünü SABİT ve ATLANMAYAN bir madde
+> olarak taşır.** Bu, modül modül yeniden tartışılmaz — `DisclosableProblem`
+> kuralıyla aynı sınıfta bir süreç kuralıdır.
+>
+> ⚠️ **Bu kural bir varsayımdan değil, ÜÇ KEZ YAŞANMIŞ bir atlamadan doğuyor:**
+> ADR-0039, ADR-0040 ve ADR-0041'in prompt'larında eşik kontrolü **istenmedi**;
+> üçünde de kontrolü ADR'yi yazan taraf kendi hatırlattı. Dördüncüsünde
+> hatırlanmayabilirdi — ve o gün eşik **sessizce** aşılırdı: yeni bir yapısal
+> katkıcı eklenir, hiçbir test kırmızı yanmaz, hiçbir lint uyarmaz ve taban
+> garantisi bir gün fark edilmeden anlamını yitirir.
+>
+> **Her modül ADR'sinde cevaplanacak dört soru:**
+>
+> 1. Bu modül **yapısal** bir katkıcı ekliyor mu? (Anlamsal olan bu kontrole
+>    girmez — taban yalnızca yapısal kaynaklar içindir.)
+> 2. Eklendiğinde **satır döndüren yapısal kaynak sayısı** kaça çıkıyor?
+> 3. Bu sayı [ADR-0042](docs/adr/0042-retrieval-taban-revizyonu.md) §3'ün **T2**
+>    eşiğini (`2K/3` — bugün `K=8` için **6**) geçiyor mu?
+> 4. Geçiyorsa: ⚠️ **bu bir PLATFORM kararıdır**, modül ADR'si tek başına
+>    veremez. ADR-0042'nin kendi deseni uygulanır: **katkıcı eklenir, taban
+>    DEĞİŞTİRİLMEZ, revizyon kapanış denetimindeki CANLI ÖLÇÜMDEN SONRA ayrı bir
+>    ADR'ye bırakılır.** Sıra tersine çevrilemez — _"bir platform kararı, onu
+>    değiştirmesi gereken veriye sahip olmadan revize edilmez."_
+>
+> ⚠️ **Cevap "hayır, yapısal katkıcı yok" olsa bile MADDE YAZILIR** (ADR-0040
+> §3 bunu örnek olarak yapmıştı: üç aday değerlendirildi, üçü de reddedildi ve
+> eşiğe dokunulmadığı **açıkça** kaydedildi). Sessizce atlanan bir kontrol ile
+> "bakıldı ve gerek yoktu" arasındaki fark, ADR-0040'ın kendi cümlesidir:
+> **"eklemedik" değil, "bakıldı ve yoktu".**
+>
+> ⚠️ **Kapanış denetimindeki ölçüm de bu kuralın parçasıdır** ve ADR-0042 §4
+> onu genişletti: ölçüm artık yalnızca "hangi kaynak girdi"yi değil, **her
+> yapısal kaynağın döndürdüğü SATIR SAYISINI** ve **giren/girmeyen parçaların
+> SKORUNU** da kaydeder. İlk ikisi olmadan T2 ölçülemez; üçüncüsü olmadan band
+> içi elemenin liyakatli mi yoksa kayıt sırasına mı bağlı olduğu bilinemez —
+> ADR-0042 bu iki soruyu **cevaplayamadan** kapandı.
+
 > ### ⚠️ Kalıcı ders: YENİ MIGRATION EKLEME KONTROL LİSTESİ (zorunlu)
 >
 > **SQL dosyası yazmak YETMEZ.** Drizzle yalnızca `drizzle/meta/_journal.json`'da
