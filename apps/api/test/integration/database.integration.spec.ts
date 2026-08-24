@@ -119,6 +119,16 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0035, `hr` semasi + IKI tablo (ADR-0043 §1, Slice 2). ⚠️ Down dosyasi
+      // KENDI ICINDE IKI KADEMELI: `compensation_records` ONCE duser cunku
+      // `employees`e `ON DELETE RESTRICT` ile baglidir — ebeveyni once
+      // dusurmek FK ihlali verirdi (`0029`un dersi, tek migration icinde).
+      //
+      // ⚠️ Trigger/fonksiyon YOK, yani `DROP SCHEMA` CASCADE'siz yeter
+      // (`0031`in dersi burada tetiklenmiyor).
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0035_hr_schema.down.sql',
       // 0034 ve 0033 — YETKI migration'lari (ADR-0043 Slice 1'in denetiminden
       // dogdu). ⚠️ Ikisi de YENI TABLO ACMAZ: mevcut tablolarin `businessos_app`
       // yetkisini daraltir (savunma derinligi, ADR-0039 §3.3'e DORDUNCU katman).

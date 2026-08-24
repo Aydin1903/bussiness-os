@@ -12,6 +12,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { HrModule } from './modules/hr/hr.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -144,6 +145,27 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // ⚠️ TEK yeni kenar: `Teklif/Fatura -> CRM`. Grafik ALTIDAN YEDIYE cikar ve
     // HALA DAG (hedef bir KOK DUGUM). `finance` ve `inventory` IMPORT EDILMEZ.
     InvoicingModule,
+    // IK / Personel — Faz 5'in DOKUZUNCU is modulu (ADR-0043). Uc sey bu
+    // modulu digerlerinden ayiriyor:
+    //   1. ⚠️ `POST /ask` HAVUZUNA HIC BAGLANMIYOR (§5): ne anlamsal ne yapisal
+    //      katkici var — sekiz is modulunun sekizi de en az bir tane
+    //      kaydediyordu. Uc gerekce ayni yere cikar: anlatisal icerik yok
+    //      (SERBEST NOT ALANI da yok, §1.1), bir ekip listesi KATALOGDUR
+    //      (olgu degil), ve katkici yoklugu §4.2'nin UCUNCU izolasyon
+    //      katmanidir. ⚠️ ADR-0042 tersini ongormustu ("IK bir yapisal katkici
+    //      eklerse T2 hemen atesler") — eklenmedi, T2 KAPALI KALDI.
+    //   2. ⚠️ MAAS VAR AMA AI'DAN MEKANIK OLARAK IZOLE (§4.2): ayri tablo +
+    //      ayri izin (`compensation:*`, owner/admin) + katkici yoklugu. Ucu de
+    //      testle kilitli. Maasa gore siralama/filtreleme de KAPALI — bir deger
+    //      donmese bile siralamanin kendisi sizdirir.
+    //   3. ⚠️ SAGLIK VERISI YOK ve bu bir asama degil SINIR (§3). Serbest not
+    //      alaninin YOKLUGU o sinirin tasiyicisidir: sinir konup yanina bos bir
+    //      metin kutusu birakilsaydi, KULLANICIYA IHLAL ETTIRILIRDI.
+    //
+    // ⚠️ `AuditModule`un ILK TUKETICISI (§6): calisanin mutable alanlari
+    // degisince AYNI TRANSACTION'da bir `platform.audit_log` satiri yazilir —
+    // yalnizca ALAN ADI, DEGER DEGIL.
+    HrModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

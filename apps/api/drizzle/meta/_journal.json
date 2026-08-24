@@ -246,6 +246,13 @@
       "when": 1784980000000,
       "tag": "0034_suppliers_interactions_revoke",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784990000000,
+      "tag": "0035_hr_schema",
+      "breakpoints": true
     }
   ]
 }

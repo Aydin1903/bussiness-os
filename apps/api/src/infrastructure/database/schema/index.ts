@@ -174,3 +174,26 @@ export { invoicingSchema } from './invoicing-schema.schema';
 export { salesDocuments } from './sales-documents.schema';
 export { salesDocumentLines } from './sales-document-lines.schema';
 export { invoicingNumberSequences } from './invoicing-number-sequences.schema';
+
+// --- IK / Personel (ADR-0043 §1) ---
+// ONUNCU sema. ⚠️ Sema adi ile tablo adlari CAKISMIYOR (`hr` vs `employees` /
+// `compensation_records`).
+//
+// ⚠️ BU SEMADA VEKTOR YOKTUR — Faz 5'te IKINCI kez (ADR-0041'den sonra) ve
+// ilk kez UST USTE. Modul `POST /ask` havuzuna HIC baglanmaz: ne anlamsal ne
+// yapisal katkicisi vardir (§5). Uc gerekce ayni yere cikar: anlatisal icerik
+// yok (serbest not alani da yok), bir ekip listesi KATALOGDUR (olgu degil,
+// ADR-0040 §3'un olcutu), ve katkici yoklugu §4.2'nin UCUNCU izolasyon
+// katmanidir.
+//
+// ⚠️ `employees` `platform.memberships`ten TURETILMEZ (§2): "kim calisiyor" ile
+// "kimin girisi var" iki ayri sorudur ve kumeler iki yonde de ayrisir.
+// Belirleyici dayanak koddadir: `identity.public.ts` ad/e-posta ACMAZ.
+//
+// ⚠️ MAAS AYRI TABLODADIR (`compensation_records`) ve bu, §4.2'nin BIRINCI
+// izolasyon katmanidir — `employees`te maas kolonu YOKTUR, yani bir `SELECT *`
+// onu yanlislikla tasiyamaz. Defter EKLEME-YALNIZDIR ve degistirilemezligi
+// §6.2'ye gore DENETIM IZININ KENDISIDIR.
+export { hrSchema } from './hr-schema.schema';
+export { hrEmployees } from './hr-employees.schema';
+export { hrCompensationRecords } from './hr-compensation-records.schema';
