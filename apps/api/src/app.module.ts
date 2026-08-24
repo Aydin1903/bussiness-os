@@ -15,6 +15,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TenantModule } from './modules/tenant/tenant.module';
+import { AuditModule } from './platform/audit/audit.module';
 import { AuthzModule } from './platform/authz/authz.module';
 import { HealthModule } from './platform/health/health.module';
 import { ContextModule } from './platform/context/context.module';
@@ -35,6 +36,23 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // Global: merkezi policy engine + permission guard (ADR-0025). Is
     // modullerinden ONCE gelir ki kataloglarini kaydedebilsinler.
     AuthzModule,
+    // ARCHITECTURE §6.2'nin platform zincirinin DORDUNCU halkasi
+    // (Tenant -> Identity -> Authorization -> AUDIT). ADR-0043 §6, kalem A.
+    //
+    // ⚠️ UC KEZ ERTELENMIS bir borcun kapanisi (ADR-0034 §8 -> ADR-0039/0040 ->
+    // ADR-0041 §8: _"ucuncu kez ertelenirse borc artik bir erteleme degil,
+    // BIR KARAR olur"_). IK modulunde borc yalnizca teknik degil HUKUKIDIR.
+    //
+    // ⚠️ `AuthzModule`den SONRA gelir: permission katalogunu ona kaydeder.
+    // Is modullerinden ONCE gelir: Slice 2'de IK, `AUDIT_RECORDER`i buradan
+    // tuketecek (`imports: [AuditModule]`) — sinif dagitilarak degil, cunku
+    // bu adapter BIR TABLONUN TEK YAZARIDIR.
+    //
+    // ⚠️ BU TABLODA "DEGER" KOLONU YOKTUR (§6.5): yalnizca hangi alanin, ne
+    // zaman, kim tarafindan degistirildigi saklanir. Ilk tuketici IK'dir ve
+    // orada degisen alanlardan biri MAAStir — eski degeri yazmak, maasi ikinci
+    // bir tabloya kopyalar ve §4.2'nin uc katmanli izolasyonunu delerdi.
+    AuditModule,
     HealthModule,
     TenantModule,
     IdentityModule,

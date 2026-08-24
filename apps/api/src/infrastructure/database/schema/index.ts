@@ -15,6 +15,19 @@ export { tenants } from './tenants.schema';
 export { memberships } from './memberships.schema';
 export { outbox } from './outbox.schema';
 
+// --- Audit (ADR-0043 §6, migration `0032`) ---
+// ⚠️ ARCHITECTURE §6.2'nin platform zincirinin DORDUNCU halkasi. Yeni bir sema
+// ACILMADI: bu bir is modulu degil, platform cekirdegidir.
+//
+// ⚠️ MT §12.4 bu tabloyu ZATEN yaziyordu ve satiri birebir uygulandi —
+// standart RLS + `UPDATE`/`DELETE` yetkisi hicbir role verilmez. Dokuman
+// guncellenmedi cunku guncellenecek bir sey yoktu; uc kez ertelenmis
+// (ADR-0034 §8 -> ADR-0039/0040 -> ADR-0041 §8) bir kararin uygulamasidir.
+//
+// ⚠️ BU TABLODA "DEGER" KOLONU YOKTUR (§6.5): yalnizca hangi alanin degistigi
+// saklanir. Ilk tuketici IK'dir ve orada degisen alanlardan biri MAAStir.
+export { auditLog } from './audit-log.schema';
+
 // Identity (Faz 3) — hepsi tenant-scoped DEGILDIR (MULTI_TENANT_ARCHITECTURE 12.4
 // istisna listesi); tenant RLS uygulanmaz, erisim Identity repository'sinden.
 export { users } from './users.schema';

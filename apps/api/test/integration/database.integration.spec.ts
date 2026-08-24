@@ -62,6 +62,12 @@ describe('veritabani migration hatti', () => {
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      // ⚠️ `audit_log` — ADR-0043 §6 / migration `0032`. Bu satir, migration'in
+      // GERCEKTEN uygulandiginin kanitidir: `_journal.json`a girmeyen bir
+      // migration "applied successfully" yazar, cikis kodu 0 verir ve HICBIR
+      // SEY UYGULAMAZ (CLAUDE.md kalici dersi). Geri alma listesi bunu
+      // yakalamaz — `DROP TABLE IF EXISTS` olmayan tablo icin de basarilidir.
+      'audit_log',
       'conversations',
       'credentials',
       'email_verification_codes',
@@ -113,6 +119,17 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0032, `platform.audit_log` + BIR TRIGGER + BIR FONKSIYON (ADR-0043 §6).
+      // ⚠️ YENI SEMA YOK — tablo mevcut `platform` semasina eklendi, yani
+      // `DROP SCHEMA` diye bir adim YOKTUR ve olmamalidir (`platform`
+      // semasini dusurmek butun sistemi gotururdu).
+      //
+      // ⚠️ `DROP TABLE` trigger'i goturur ama FONKSIYONU GOTURMEZ — `0031`in
+      // dersi burada TEK MIGRATION ICINDE gecerli; ikisi de acikca dusuruluyor
+      // ve fonksiyon TABLODAN SONRA (bagimlilik yonu).
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0032_platform_audit_log.down.sql',
       // 0031, `invoicing` semasi + UC tablo + BIR TRIGGER + BIR FONKSIYON.
       // ⚠️ Down dosyasi yalnizca tablolari dusurmuyor: `DROP TABLE` bir plpgsql
       // fonksiyonunu GOTURMEZ ve semada yetim bir nesne kalirdi — `DROP SCHEMA`
@@ -277,6 +294,10 @@ describe('veritabani migration hatti', () => {
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform' ORDER BY table_name",
     );
     expect(afterReapply.rows.map((row) => row.table_name)).toEqual([
+      // ⚠️ `audit_log` (0032) burada da sayilir: geri alma, ILERI YONUN
+      // yeniden uygulanabilir kaldigini kanitlar. Tablo listesinden dusseydi
+      // down dosyasinin bir seyi kalici olarak bozdugu anlasilirdi.
+      'audit_log',
       'conversations',
       'credentials',
       'email_verification_codes',
