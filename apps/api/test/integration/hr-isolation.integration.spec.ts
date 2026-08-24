@@ -62,18 +62,25 @@ describe('IK maas izolasyonu — uc katman (gercek PostgreSQL)', () => {
       const columns = result.rows.map((row) => row.column_name);
 
       expect(columns).toEqual([
+        // --- IK v2 (ADR-0044 §3) — bes yeni alan; ⚠️ HICBIRI PARA DEGILDIR.
+        'annual_leave_days',
+        'contract_ends_on',
         'created_at',
         'created_by_user_id',
+        'department',
         'employment_status',
+        'employment_type',
         'ended_on',
         'full_name',
         'id',
         'job_title',
+        'manager_employee_id',
         'platform_user_id',
         'started_on',
         'tenant_id',
         'updated_at',
         'work_email',
+        'work_mode',
         'work_phone',
       ]);
 
@@ -222,7 +229,7 @@ describe('IK maas izolasyonu — uc katman (gercek PostgreSQL)', () => {
   // SEMA — migration GERCEKTEN uygulandi
   // ==========================================================================
   describe('sema', () => {
-    it('iki tablo da GERCEKTEN olusturuldu', async () => {
+    it('UC tablo da GERCEKTEN olusturuldu', async () => {
       // CLAUDE.md kalici dersi: `_journal.json`a girmeyen bir migration
       // "applied successfully" yazar, cikis kodu 0 verir ve HICBIR SEY
       // UYGULAMAZ. Geri alma listesi bunu YAKALAMAZ.
@@ -231,13 +238,17 @@ describe('IK maas izolasyonu — uc katman (gercek PostgreSQL)', () => {
           WHERE table_schema = 'hr' ORDER BY table_name`,
       );
 
+      // ⚠️ Liste TAM esitlikle karsilastirilir, `toContain` ile DEGIL: yeni
+      // bir tablo sessizce eklenirse bu iddia kirmizi yanar ve izolasyon
+      // katmanlari (ozellikle ucret yuzeyi) yeniden gozden gecirilir.
       expect(result.rows.map((row) => row.table_name)).toEqual([
         'compensation_records',
         'employees',
+        'leave_requests',
       ]);
     });
 
-    it('iki tablo da RLS ENABLE + FORCE tasir (MT §12.2)', async () => {
+    it('UC tablo da RLS ENABLE + FORCE tasir (MT §12.2)', async () => {
       const result = await ownerPool.query<{
         relname: string;
         relrowsecurity: boolean;
@@ -252,6 +263,8 @@ describe('IK maas izolasyonu — uc katman (gercek PostgreSQL)', () => {
       expect(result.rows).toEqual([
         { relname: 'compensation_records', relrowsecurity: true, relforcerowsecurity: true },
         { relname: 'employees', relrowsecurity: true, relforcerowsecurity: true },
+        // ⚠️ IK v2 (ADR-0044) — standart sablon, SAPMA YOK.
+        { relname: 'leave_requests', relrowsecurity: true, relforcerowsecurity: true },
       ]);
     });
   });

@@ -16,11 +16,23 @@ import {
   type EmployeeState,
 } from '../domain/employee.entity';
 import {
+  EmployeeManagerSelfError,
   EmployeeNotFoundError,
   EmployeeUserAlreadyLinkedError,
   EmployeeUserNotMemberError,
+  LeaveRequestNotFoundError,
 } from '../domain/hr.error';
-import { type EmployeeListFilter, type HrRepository, type ListPage } from './hr.repository.port';
+import {
+  LeaveRequest,
+  type LeaveRequestFields,
+  type LeaveRequestState,
+} from '../domain/leave-request.entity';
+import {
+  type EmployeeListFilter,
+  type HrRepository,
+  type LeaveListFilter,
+  type ListPage,
+} from './hr.repository.port';
 
 /** ⚠️ Denetim kaydinda bu modulun kaynak adi. `<modul>.<kaynak>` bicimi. */
 export const EMPLOYEE_RESOURCE_TYPE = 'hr.employee';
@@ -76,6 +88,16 @@ export interface HrDependencies {
  * ve `getCurrentCompensation` uzerinden, KENDI izniyle (`compensation:read`,
  * owner + admin) okunur.
  */
+/**
+ * Ucret satiri + DUZELTILME damgasi (ADR-0044 §1.4).
+ *
+ * ⚠️ `supersededAt` bir KOLON DEGILDIR — `getCompensation` icinde siralamadan
+ * turetilir. Gerekce oradadir.
+ */
+export type SupersedableCompensationState = CompensationRecordState & {
+  readonly supersededAt: Date | null;
+};
+
 export class HrUseCases {
   constructor(private readonly deps: HrDependencies) {}
 
@@ -184,6 +206,12 @@ export class HrUseCases {
         await this.#assertUserNotAlreadyLinked(input.changes.platformUserId, input.id);
       }
 
+      // ⚠️ Dongunun EN KISA hali burada engellenir (ADR-0044 §3.1); daha uzun
+      // donguler VERITABANINDA engellenmez ve okuma tarafi dayanikli yazilir.
+      if (input.changes.managerEmployeeId === input.id) {
+        throw new EmployeeManagerSelfError();
+      }
+
       const updated = before.update(input.changes, this.deps.clock.now());
       await this.deps.repository.saveEmployee(updated);
 
@@ -285,9 +313,22 @@ export class HrUseCases {
    * arasinda en yenisi. Gelecek tarihli bir zam listede GORUNUR ama guncel
    * ucret olarak DONMEZ — ikisini karistirmak, bugunku maasi yanlis
    * gostermek olurdu.
+   *
+   * ==========================================================================
+   * ⚠️ `supersededAt` DE TURETILIR — KOLON YOKTUR (ADR-0044 §1.4)
+   * ==========================================================================
+   * v2 ayni yururluk tarihine ikinci bir kayit yazmayi SERBEST BIRAKTI
+   * (duzeltme). Bunun bedeli sudur: listede ayni tarihli IKI satir gorunur ve
+   * hangisinin gecerli oldugu SOYLENMEZSE kullanici yanlis rakami okur — ve
+   * hata SESSIZDIR.
+   *
+   * ⚠️ Kolon ACILMADI: projede onikinci kez ayni karar. Bir `superseded_at`
+   * kolonu, yeni bir kayit yazan HER yolun eski satiri isaretlemesini
+   * gerektirirdi; bir yol unutulunca iki satir birden "gecerli" gorunurdu.
+   * Turetmede boyle bir yol YOKTUR — siralamanin kendisi cevabi verir.
    */
   async getCompensation(employeeId: string): Promise<{
-    readonly items: readonly CompensationRecordState[];
+    readonly items: readonly SupersedableCompensationState[];
     readonly current: CompensationRecordState | null;
   }> {
     const today = toHrCalendarDay(this.deps.clock.now());
@@ -304,10 +345,179 @@ export class HrUseCases {
         this.deps.repository.findCurrentCompensation({ employeeId, today }),
       ]);
 
+      /*
+       * ⚠️ `items` repository'de (effectiveFrom DESC, recordedAt DESC) sirali
+       * gelir — yani ayni tarihli satirlarin ILKI en yenisidir. Bir satir,
+       * kendisinden ONCE ayni `effectiveFrom` ile gorulmus bir satir varsa
+       * DUZELTILMISTIR ve damgasi o satirin `recordedAt`idir.
+       */
+      const supersededBy = new Map<string, Date>();
+
+      const states = items.map((record) => {
+        const state = record.toState();
+        const newer = supersededBy.get(state.effectiveFrom);
+
+        if (newer === undefined) {
+          supersededBy.set(state.effectiveFrom, state.recordedAt);
+        }
+
+        return { ...state, supersededAt: newer ?? null };
+      });
+
       return {
-        items: items.map((record) => record.toState()),
+        items: states,
         current: current === null ? null : current.toState(),
       };
+    });
+  }
+
+  // ==========================================================================
+  // IK v2 — izin takibi (ADR-0044 §2)
+  // ==========================================================================
+
+  /**
+   * Izin talebi olusturur.
+   *
+   * ⚠️ `leave:request` GENIS bir izindir (dort rolden ucu) ve bu,
+   * `employee:write`in DAR olmasindan BILINCLI ayrilmadir: bir meslektasin
+   * kaydini degistirmek kimsenin gunluk isi degildir ama KENDI IZININI ISTEMEK
+   * tam olarak herkesin isidir.
+   *
+   * ⚠️ CAKISMA KONTROLU YOK (§5): ayni calisan icin ust uste binen iki izin
+   * yazilabilir. ADR-0035'in randevu carpismasi karariyla ayni sinif —
+   * gorunur kilinir, engellenmez.
+   */
+  async requestLeave(input: {
+    tenantId: string;
+    userId: string;
+    employeeId: string;
+    fields: LeaveRequestFields;
+  }): Promise<LeaveRequestState> {
+    const request = LeaveRequest.create({
+      id: this.deps.idGenerator.nextId(),
+      tenantId: input.tenantId,
+      employeeId: input.employeeId,
+      requestedByUserId: input.userId,
+      fields: input.fields,
+      now: this.deps.clock.now(),
+    });
+
+    await this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      const employee = await this.deps.repository.findEmployeeById(input.employeeId);
+
+      if (employee === null) {
+        throw new EmployeeNotFoundError();
+      }
+
+      await this.deps.repository.saveLeaveRequest(request);
+    });
+
+    return request.toState();
+  }
+
+  /**
+   * Onaylar ya da reddeder.
+   *
+   * ⚠️ KARAR SATIR ICI DAMGA ile kaydedilir (`decided_by_user_id` +
+   * `decided_at`) ve `platform.audit_log`a BAGLANMAZ (§2.4): cevaplanacak soru
+   * tektir — "bu izni kim onayladi" — ve cevabi zaten satirin uzerindedir.
+   *
+   * ⚠️ Karara baglanmis bir izin YENIDEN karara baglanamaz; domain reddeder.
+   */
+  async decideLeave(input: {
+    leaveId: string;
+    userId: string;
+    status: 'approved' | 'rejected';
+  }): Promise<LeaveRequestState> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      const request = await this.deps.repository.findLeaveRequestById(input.leaveId);
+
+      if (request === null) {
+        throw new LeaveRequestNotFoundError();
+      }
+
+      const decided = request.decide({
+        status: input.status,
+        userId: input.userId,
+        now: this.deps.clock.now(),
+      });
+
+      await this.deps.repository.saveLeaveRequest(decided);
+
+      return decided.toState();
+    });
+  }
+
+  async listLeave(filter: LeaveListFilter): Promise<ListPage<LeaveRequestState>> {
+    const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.listLeaveRequests(filter),
+    );
+
+    return { items: page.items.map((row) => row.toState()), total: page.total };
+  }
+
+  /**
+   * Bir calisanin izin gecmisi + BAKIYESI.
+   *
+   * ⚠️ BAKIYE TURETILIR, kolonda saklanmaz (§2.3) — projede ONBIRINCI kez ayni
+   * karar. Kolonda bozulma "3 gun izniniz kaldi" gibi SESSIZ ve MAKUL GORUNEN
+   * yanlis bir sayi uretirdi.
+   *
+   * ⚠️ Yalnizca ONAYLANMIS `annual` izin hak edisten duser: ucretsiz izin bir
+   * HAK ETIS TUKETMEZ, mazeret izni de oyle. Kural domain'dedir
+   * (`LeaveRequest.consumesEntitlement`), burada yalnizca toplanir.
+   */
+  async getEmployeeLeave(employeeId: string): Promise<{
+    readonly items: readonly LeaveRequestState[];
+    readonly entitlementDays: number;
+    readonly usedDays: number;
+    readonly remainingDays: number;
+  }> {
+    return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      const employee = await this.deps.repository.findEmployeeById(employeeId);
+
+      if (employee === null) {
+        throw new EmployeeNotFoundError();
+      }
+
+      const requests = await this.deps.repository.listLeaveRequestsForEmployee(employeeId);
+      const usedDays = requests
+        .filter((row) => row.consumesEntitlement)
+        .reduce((total, row) => total + row.days, 0);
+
+      const entitlementDays = employee.toState().annualLeaveDays;
+
+      return {
+        items: requests.map((row) => row.toState()),
+        entitlementDays,
+        usedDays,
+        // ⚠️ Negatif olabilir ve BU DOGRUDUR: hak edisinden fazla izin
+        // kullanmis bir calisan gercek bir durumdur ve gizlenmemelidir.
+        remainingDays: entitlementDays - usedDays,
+      };
+    });
+  }
+
+  /**
+   * Patronun duvari — ⚠️ HICBIRI BIR AI KATKISI DEGILDIR (§4.3).
+   *
+   * Bu sayilar EKRANA gider, `POST /ask` havuzuna GITMEZ. IK'nin katkicisi
+   * yoktur ve bu, ADR-0043 §4.2'nin UCUNCU izolasyon katmanidir.
+   */
+  async getOverview(): Promise<{
+    readonly onLeaveToday: number;
+    readonly contractsEndingSoon: number;
+  }> {
+    const today = toHrCalendarDay(this.deps.clock.now());
+    const soon = toHrCalendarDay(new Date(this.deps.clock.now().getTime() + 30 * 86_400_000));
+
+    return this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      const [onLeaveToday, contractsEndingSoon] = await Promise.all([
+        this.deps.repository.countOnLeave(today),
+        this.deps.repository.countContractsEndingBefore(soon),
+      ]);
+
+      return { onLeaveToday, contractsEndingSoon };
     });
   }
 

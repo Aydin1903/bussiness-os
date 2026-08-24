@@ -2,6 +2,7 @@ import { assertHrCalendarDay } from './compensation-money';
 import {
   BlankEmployeeNameError,
   HrFieldTooLongError,
+  InvalidAnnualLeaveDaysError,
   InconsistentEmploymentStatusError,
   InvalidEmploymentDatesError,
 } from './hr.error';
@@ -24,6 +25,16 @@ export const MAX_CONTACT_CHARS = 160;
 
 /** ⚠️ `role` DEGIL — bkz. `EmployeeFields.jobTitle`. */
 export type EmploymentStatus = 'active' | 'ended';
+
+/** IK v2 (ADR-0044 §3) — kadro gorunumu. */
+export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'intern';
+
+/** IK v2 — IK'nin en cok sorulan alani. */
+export type WorkMode = 'office' | 'remote' | 'hybrid';
+
+/** ⚠️ Hak edisin ust siniri — bir yilda 365 gunden fazla izin olamaz. */
+export const MAX_ANNUAL_LEAVE_DAYS = 365;
+export const MAX_DEPARTMENT_CHARS = 80;
 
 export interface EmployeeFields {
   readonly fullName: string;
@@ -64,6 +75,29 @@ export interface EmployeeFields {
    * OKUMADIR (`tenant.public.ts`) ve domain katmani I/O yapamaz.
    */
   readonly platformUserId: string | null;
+
+  // --- IK v2 (ADR-0044 §3) — bes alan, her biri §3.5'in olcutunden gecti ---
+
+  /** Ekip bazli filtre + patronun "hangi ekip ne kadar" sorusu. */
+  readonly department: string | null;
+  readonly employmentType: EmploymentType;
+  readonly workMode: WorkMode;
+  /** ⚠️ Patronun alarm kalemi: yaklasan sozlesme bitisleri. */
+  readonly contractEndsOn: string | null;
+  /**
+   * ⚠️ HAK EDIS BIR MEVZUAT KURALI DEGIL, BIR SAYIDIR (ADR-0044 §2.2).
+   *
+   * Turkiye'de kidemle degisir (14/20/26) ama bu ULKEYE OZEL MEVZUATTIR ve
+   * ulke degisince bastan yazilir. Sistem carpar ve cikarir, KURAL BILMEZ.
+   */
+  readonly annualLeaveDays: number;
+  /**
+   * ⚠️ KENDINE REFERANS — "kime bagli". Dongu (A -> B -> A) veritabaninda
+   * ENGELLENMEZ (ADR-0044 §3.1): kontrol ozyinelemeli sorgu ister ve her
+   * yazmada calisirdi. Yalnizca EN KISA dongu (kendisi = yoneticisi) hem
+   * burada hem CHECK ile engellenir.
+   */
+  readonly managerEmployeeId: string | null;
 }
 
 /**
@@ -112,6 +146,16 @@ export const AUDITED_EMPLOYEE_FIELDS: readonly AuditedField[] = [
   { key: 'startedOn', column: 'started_on' },
   { key: 'endedOn', column: 'ended_on' },
   { key: 'platformUserId', column: 'platform_user_id' },
+  // --- IK v2 (ADR-0044 §3) ---
+  // ⚠️ Bes yeni alan da DENETLENIR. Listeye eklenmeselerdi degisiklikleri
+  // SESSIZCE izlenmezdi; bir birim testi listeyi `EmployeeFields` ile
+  // karsilastirdigi icin bu satirlar unutulamaz.
+  { key: 'department', column: 'department' },
+  { key: 'employmentType', column: 'employment_type' },
+  { key: 'workMode', column: 'work_mode' },
+  { key: 'contractEndsOn', column: 'contract_ends_on' },
+  { key: 'annualLeaveDays', column: 'annual_leave_days' },
+  { key: 'managerEmployeeId', column: 'manager_employee_id' },
 ];
 
 export class Employee {
@@ -165,6 +209,15 @@ export class Employee {
       endedOn: pickDate(changes.endedOn, current.endedOn),
       platformUserId:
         changes.platformUserId === undefined ? current.platformUserId : changes.platformUserId,
+      department: pick(changes.department, current.department),
+      employmentType: changes.employmentType ?? current.employmentType,
+      workMode: changes.workMode ?? current.workMode,
+      contractEndsOn: pickDate(changes.contractEndsOn, current.contractEndsOn),
+      annualLeaveDays: changes.annualLeaveDays ?? current.annualLeaveDays,
+      managerEmployeeId:
+        changes.managerEmployeeId === undefined
+          ? current.managerEmployeeId
+          : changes.managerEmployeeId,
     };
 
     return new Employee({ ...current, ...normalize(merged), updatedAt: now });
@@ -237,6 +290,20 @@ function normalize(fields: EmployeeFields): EmployeeFields {
     throw new InvalidEmploymentDatesError();
   }
 
+  const department = blankToNull(fields.department);
+  if (department !== null) assertLength('Departman', department, MAX_DEPARTMENT_CHARS);
+
+  const contractEndsOn =
+    fields.contractEndsOn === null ? null : assertHrCalendarDay(fields.contractEndsOn);
+
+  if (
+    !Number.isInteger(fields.annualLeaveDays) ||
+    fields.annualLeaveDays < 0 ||
+    fields.annualLeaveDays > MAX_ANNUAL_LEAVE_DAYS
+  ) {
+    throw new InvalidAnnualLeaveDaysError(fields.annualLeaveDays);
+  }
+
   return {
     fullName,
     jobTitle,
@@ -246,6 +313,12 @@ function normalize(fields: EmployeeFields): EmployeeFields {
     startedOn,
     endedOn,
     platformUserId: fields.platformUserId,
+    department,
+    employmentType: fields.employmentType,
+    workMode: fields.workMode,
+    contractEndsOn,
+    annualLeaveDays: fields.annualLeaveDays,
+    managerEmployeeId: fields.managerEmployeeId,
   };
 }
 

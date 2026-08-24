@@ -30,6 +30,12 @@ function fields(overrides: Partial<EmployeeFields> = {}): EmployeeFields {
     startedOn: '2026-01-15',
     endedOn: null,
     platformUserId: null,
+    department: 'Muhasebe',
+    employmentType: 'full_time',
+    workMode: 'office',
+    contractEndsOn: null,
+    annualLeaveDays: 14,
+    managerEmployeeId: null,
     ...overrides,
   };
 }
@@ -58,18 +64,24 @@ describe('Employee', () => {
 
       expect(Object.keys(state).sort()).toEqual(
         [
+          'annualLeaveDays',
+          'contractEndsOn',
           'createdAt',
           'createdByUserId',
+          'department',
           'employmentStatus',
+          'employmentType',
           'endedOn',
           'fullName',
           'id',
           'jobTitle',
+          'managerEmployeeId',
           'platformUserId',
           'startedOn',
           'tenantId',
           'updatedAt',
           'workEmail',
+          'workMode',
           'workPhone',
         ].sort(),
       );

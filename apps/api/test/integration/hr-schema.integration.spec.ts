@@ -66,7 +66,9 @@ describe('hr semasi (gercek PostgreSQL)', () => {
   beforeEach(async () => {
     // ⚠️ SIRA: `compensation_records` ONCE — `employees`e `ON DELETE RESTRICT`
     // ile bagli. `CASCADE` zaten zinciri cozer ama sira niyeti gosterir.
-    await ownerPool.query('TRUNCATE hr.compensation_records, hr.employees CASCADE');
+    await ownerPool.query(
+      'TRUNCATE hr.leave_requests, hr.compensation_records, hr.employees CASCADE',
+    );
   });
 
   async function asTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -168,15 +170,39 @@ describe('hr semasi (gercek PostgreSQL)', () => {
       ).rejects.toThrow(/permission denied/i);
     });
 
-    it('ayni calisan + ayni yururluk tarihine IKINCI kayit REDDEDILIR', async () => {
-      // Olmasaydi "bugunku maas" sorusunun IKI CEVABI olurdu ve kazanani
-      // KARARLI SIRALAMA belirlerdi — hata SESSIZ.
+    /**
+     * ⚠️ ADR-0044 §1 — `compensation_effective_unique` KISITI DUSURULDU.
+     *
+     * v1'de ayni yururluk tarihine ikinci kayit veritabani seviyesinde
+     * reddediliyordu. Gerekce dogruydu ("bugunku maasin iki cevabi olmasin")
+     * ama bedeli agirdi: yanlis girilen bir maasi duzeltmenin hicbir yolu
+     * yoktu.
+     *
+     * ⚠️ Kisit kalkti, GARANTI KALKMADI: kazanan artik "kararli siralama"
+     * degil ANLAMLI siralamadir (`recorded_at DESC`) — yani EN SON YAZILAN.
+     * Bu, `movements`taki gibi bir DEFTER cozumudur, bir gevsetme degil.
+     */
+    it('⚠️ ayni yururluk tarihine IKINCI kayit ARTIK MESRUDUR (duzeltme)', async () => {
       const employeeId = await insertEmployee(TENANT_A);
       await insertCompensation(TENANT_A, employeeId, { effectiveFrom: '2026-01-01' });
 
       await expect(
-        insertCompensation(TENANT_A, employeeId, { effectiveFrom: '2026-01-01' }),
-      ).rejects.toThrow(/compensation_effective_unique/);
+        insertCompensation(TENANT_A, employeeId, {
+          effectiveFrom: '2026-01-01',
+          amount: '82000.00',
+        }),
+      ).resolves.toBeTypeOf('string');
+    });
+
+    it('⚠️ `compensation_effective_unique` kisiti ARTIK YOKTUR', async () => {
+      // ⚠️ Bu iddia dogrudan `0036`yi kilitler: kisit bir gun geri gelirse
+      // duzeltme yolu SESSIZCE kapanir ve kullanici yine uydurma tarih yazar.
+      const rows = await ownerPool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_constraint
+          WHERE conname = 'compensation_effective_unique'`,
+      );
+
+      expect(rows.rows[0]?.n).toBe(0);
     });
 
     it('FARKLI yururluk tarihi mesrudur (zam)', async () => {
@@ -427,5 +453,186 @@ describe('hr semasi (gercek PostgreSQL)', () => {
         expect(rows.rows[0]?.n).toBe(0);
       },
     );
+  });
+
+  // ==========================================================================
+  // ⚠️ IK v2 — IZIN TABLOSU (ADR-0044 §2)
+  // ==========================================================================
+  describe('⚠️ izin tablosu', () => {
+    async function insertLeave(
+      tenantId: string,
+      employeeId: string,
+      overrides: {
+        type?: string;
+        startsOn?: string;
+        endsOn?: string;
+        status?: string;
+        decidedByUserId?: string | null;
+        decidedAt?: string | null;
+      } = {},
+    ): Promise<string> {
+      const id = randomUUID();
+      await asTenant(tenantId, (client) =>
+        client.query(
+          `INSERT INTO hr.leave_requests
+             (id, tenant_id, employee_id, type, starts_on, ends_on, status,
+              requested_by_user_id, requested_at, decided_by_user_id, decided_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9, $10)`,
+          [
+            id,
+            tenantId,
+            employeeId,
+            overrides.type ?? 'annual',
+            overrides.startsOn ?? '2026-09-01',
+            overrides.endsOn ?? '2026-09-05',
+            overrides.status ?? 'pending',
+            USER_A,
+            overrides.decidedByUserId ?? null,
+            overrides.decidedAt ?? null,
+          ],
+        ),
+      );
+      return id;
+    }
+
+    it('tablo GERCEKTEN olusturuldu ve RLS + FORCE tasiyor', async () => {
+      // ⚠️ "Migration uygulandi" iddiasi SAYIYLA degil VARLIKLA kilitlenir —
+      // `_journal.json` atlanirsa sayac da ayni yalani soyler.
+      const rows = await ownerPool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+        `SELECT relrowsecurity, relforcerowsecurity
+           FROM pg_class WHERE oid = 'hr.leave_requests'::regclass`,
+      );
+
+      expect(rows.rows[0]).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
+    });
+
+    // ========================================================================
+    // ⚠️ SAGLIK VERISI SINIRI — VERITABANI SEVIYESINDE (ADR-0043 §3)
+    // ========================================================================
+
+    it('⚠️ `sick` izin turu VERITABANI SEVIYESINDE reddedilir', async () => {
+      // ⚠️ Uc katmanin UCUNCUSU: arayuz listesi ve Zod `.strict()` uygulama
+      // katmanindadir; bu, uygulama HIC DEVREDE DEGILKEN de durur.
+      const employeeId = await insertEmployee(TENANT_A);
+
+      await expect(insertLeave(TENANT_A, employeeId, { type: 'sick' })).rejects.toThrow(
+        /leave_type_valid/,
+      );
+    });
+
+    it('⚠️ tabloda SERBEST METIN bir sebep kolonu YOKTUR', async () => {
+      const rows = await ownerPool.query<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+          WHERE table_schema = 'hr' AND table_name = 'leave_requests'`,
+      );
+      const names = rows.rows.map((row) => row.column_name);
+
+      // ⚠️ Bir "sebep" alani, saglik verisi sinirinin ARKA KAPISIDIR: oraya
+      // ILK YAZILACAK SEY "raporlu"dur.
+      expect(names).not.toContain('reason');
+      expect(names).not.toContain('note');
+      expect(names).not.toContain('description');
+    });
+
+    it('bitis baslangictan onceyse REDDEDILIR', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+
+      await expect(
+        insertLeave(TENANT_A, employeeId, { startsOn: '2026-09-05', endsOn: '2026-09-01' }),
+      ).rejects.toThrow(/leave_dates_ordered/);
+    });
+
+    /**
+     * ⚠️ KARAR TUTARLILIGI: `pending` bir satirda aktor damgasi BULUNAMAZ,
+     * karara baglanmis bir satirda damga ZORUNLUDUR. Ikisi ayrisirsa "kim
+     * onayladi" sorusunun cevabi SESSIZCE kaybolur.
+     */
+    it('⚠️ `pending` satirda karar damgasi BULUNAMAZ', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+
+      await expect(
+        insertLeave(TENANT_A, employeeId, { status: 'pending', decidedByUserId: USER_A }),
+      ).rejects.toThrow(/leave_decision_consistency/);
+    });
+
+    it('⚠️ `approved` satirda karar damgasi ZORUNLUDUR', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+
+      await expect(insertLeave(TENANT_A, employeeId, { status: 'approved' })).rejects.toThrow(
+        /leave_decision_consistency/,
+      );
+    });
+
+    it('karara baglanmis satir damgasiyla birlikte mesrudur', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+
+      await expect(
+        insertLeave(TENANT_A, employeeId, {
+          status: 'approved',
+          decidedByUserId: USER_A,
+          decidedAt: '2026-08-24T09:00:00.000Z',
+        }),
+      ).resolves.toBeTypeOf('string');
+    });
+
+    it('baska tenant in izin kaydi GORUNMEZ', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+      await insertLeave(TENANT_A, employeeId);
+
+      const rows = await asTenant(TENANT_B, (client) =>
+        client.query('SELECT id FROM hr.leave_requests'),
+      );
+
+      expect(rows.rows).toHaveLength(0);
+    });
+
+    /**
+     * ⚠️ UCRET DEFTERINDEN FARK: izin kaydi GUNCELLENEBILIR.
+     *
+     * Onaylamak tanimi geregi bir GUNCELLEMEDIR (`pending -> approved`).
+     * Degistirilemezlik burada VERITABANINDA degil DOMAIN'de durur
+     * (`decide` ikinci kez cagrilamaz) — cunku maasin aksine burada
+     * turetilen bir "bugunku deger" yoktur, yalnizca bir DURUM vardir.
+     */
+    it('⚠️ izin kaydi GUNCELLENEBILIR (onay bir guncellemedir)', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+      const leaveId = await insertLeave(TENANT_A, employeeId);
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            `UPDATE hr.leave_requests
+                SET status = 'approved', decided_by_user_id = $2, decided_at = now()
+              WHERE id = $1`,
+            [leaveId, USER_A],
+          ),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    /**
+     * ⚠️ `ON DELETE CASCADE` — UCRET DEFTERINDEN BILINCLI SAPMA.
+     *
+     * Ucret gecmisi `RESTRICT`tir cunku silinmesi ADR-0043 §6.2'nin denetim
+     * cevabini yok eder. Bir izin kaydinin silinen bir calisandan sonra
+     * yasamasi ise ANLAMSIZDIR — kime ait oldugu sorulamaz.
+     *
+     * ⚠️ Pratikte izinler yine korunur: ucret kaydi olan calisan zaten
+     * silinemez.
+     */
+    it('⚠️ calisan silinince izin kayitlari da SILINIR (CASCADE)', async () => {
+      const employeeId = await insertEmployee(TENANT_A);
+      await insertLeave(TENANT_A, employeeId);
+
+      await asTenant(TENANT_A, (client) =>
+        client.query('DELETE FROM hr.employees WHERE id = $1', [employeeId]),
+      );
+
+      const rows = await asTenant(TENANT_A, (client) =>
+        client.query('SELECT id FROM hr.leave_requests'),
+      );
+
+      expect(rows.rows).toHaveLength(0);
+    });
   });
 });

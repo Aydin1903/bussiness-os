@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 import {
+  MAX_ANNUAL_LEAVE_DAYS,
   MAX_CONTACT_CHARS,
+  MAX_DEPARTMENT_CHARS,
   MAX_EMPLOYEE_NAME_CHARS,
   MAX_JOB_TITLE_CHARS,
 } from '../domain/employee.entity';
@@ -48,6 +50,20 @@ export const createEmployeeSchema = z
     endedOn: calendarDay.nullable().optional(),
     /** ⚠️ Opsiyonel bag; `resolveMemberAccess` ile dogrulanir (§2.5). */
     platformUserId: z.uuid().nullable().optional(),
+
+    // --- IK v2 (ADR-0044 §3) ---
+    department: z.string().trim().max(MAX_DEPARTMENT_CHARS).nullable().optional(),
+    employmentType: z.enum(['full_time', 'part_time', 'contract', 'intern']).default('full_time'),
+    workMode: z.enum(['office', 'remote', 'hybrid']).default('office'),
+    /** ⚠️ Patronun alarm kalemi: yaklasan sozlesme bitisleri. */
+    contractEndsOn: calendarDay.nullable().optional(),
+    /**
+     * ⚠️ HAK EDIS BIR SAYIDIR, BIR MEVZUAT KURALI DEGIL (§2.2). Sistem
+     * kidemden hak edis HESAPLAMAZ — ulkeye ozel mevzuat cekirdege girmez.
+     */
+    annualLeaveDays: z.coerce.number().int().min(0).max(MAX_ANNUAL_LEAVE_DAYS).default(0),
+    /** ⚠️ Kendine referans; dongu VERITABANINDA engellenmez (§3.1). */
+    managerEmployeeId: z.uuid().nullable().optional(),
   })
   .strict();
 
@@ -80,6 +96,8 @@ export type UpdateEmployeeDto = z.infer<typeof updateEmployeeSchema>;
 export const listEmployeesSchema = z
   .object({
     status: employmentStatus.optional(),
+    /** IK v2 — ekip bazli filtre. */
+    department: z.string().trim().min(1).max(MAX_DEPARTMENT_CHARS).optional(),
     search: z.string().trim().min(1).max(120).optional(),
     limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
     offset: z.coerce.number().int().min(0).default(0),
@@ -111,3 +129,46 @@ export type AddCompensationDto = z.infer<typeof addCompensationSchema>;
 
 /** Yol parametresi — rota golgelemesi riskine karsi (ADR-0040'in dersi). */
 export const employeeIdParamSchema = z.object({ employeeId: z.uuid() }).strict();
+
+// ============================================================================
+// IK v2 — izin takibi (ADR-0044 §2)
+// ============================================================================
+
+/**
+ * ⚠️ BU SEMADA "SEBEP" ALANI YOKTUR ve `type` icinde `sick`/`raporlu` YOKTUR.
+ *
+ * Ikisi de ADR-0043 §3'un saglik verisi sinirinin TASIYICISIDIR: bir izin
+ * kaydinin en dogal alani "sebep"tir ve oraya ILK YAZILACAK SEY "RAPORLU"DUR.
+ *
+ * ⚠️ `.strict()` bunu MEKANIK de korur: govdede `reason` gonderen bir istek
+ * 422 alir, SESSIZCE yok sayilmaz.
+ */
+export const createLeaveRequestSchema = z
+  .object({
+    type: z.enum(['annual', 'unpaid', 'excuse', 'administrative']),
+    startsOn: calendarDay,
+    endsOn: calendarDay,
+  })
+  .strict();
+
+export type CreateLeaveRequestDto = z.infer<typeof createLeaveRequestSchema>;
+
+/** ⚠️ `pending`e GERI DONULEMEZ: karara baglanmis izin yeniden karara baglanmaz. */
+export const decideLeaveRequestSchema = z
+  .object({ status: z.enum(['approved', 'rejected']) })
+  .strict();
+
+export type DecideLeaveRequestDto = z.infer<typeof decideLeaveRequestSchema>;
+
+export const listLeaveSchema = z
+  .object({
+    status: z.enum(['pending', 'approved', 'rejected']).optional(),
+    employeeId: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
+    offset: z.coerce.number().int().min(0).default(0),
+  })
+  .strict();
+
+export type ListLeaveQueryDto = z.infer<typeof listLeaveSchema>;
+
+export const leaveIdParamSchema = z.object({ leaveId: z.uuid() }).strict();

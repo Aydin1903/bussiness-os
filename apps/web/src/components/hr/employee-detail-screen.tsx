@@ -1,21 +1,44 @@
 'use client';
 
-import type { AuditEntry, Employee } from '@business-os/contracts';
+import type { AuditEntry, Employee, EmploymentType, WorkMode } from '@business-os/contracts';
 import { MAX_JOB_TITLE_CHARS } from '@business-os/contracts';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { PrimaryButton, SectionLabel } from '@/components/module-kit/chrome';
-import { FieldGrid, FormActions, GhostButton, TextField } from '@/components/module-kit/form-kit';
+import {
+  FieldGrid,
+  FormActions,
+  GhostButton,
+  SelectField,
+  TextField,
+} from '@/components/module-kit/form-kit';
 import { Room, RoomScroll, RoomTop } from '@/components/room/room';
 import { FormError } from '@/components/ui/form-error';
 import { listAuditEntries } from '@/lib/api/audit';
 import { errorMessage } from '@/lib/api/error-message';
 import { getEmployee, listEmployees, updateEmployee } from '@/lib/api/hr';
-import { canReadAudit, canReadCompensation, canWriteEmployee } from '@/lib/config/hr';
+import {
+  canDecideLeave,
+  canReadAudit,
+  canReadCompensation,
+  canRequestLeave,
+  canWriteEmployee,
+} from '@/lib/config/hr';
 import { useCurrentRole } from '@/lib/session/use-current-role';
-import { EmploymentMark, fieldLabel, formatDay, formatInstant } from './chrome';
+import {
+  EMPLOYMENT_TYPE_LABELS,
+  EmploymentMark,
+  WORK_MODE_LABELS,
+  fieldLabel,
+  formatDay,
+  formatInstant,
+  tenureLabel,
+  toEmploymentType,
+  toWorkMode,
+} from './chrome';
 import { CompensationSection } from './compensation-section';
+import { LeaveSection } from './leave-section';
 
 /**
  * ÇALIŞAN DETAYI (ADR-0043 §10).
@@ -40,6 +63,8 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
   const canWrite = canWriteEmployee(role);
   const showCompensation = canReadCompensation(role);
   const showAudit = canReadAudit(role);
+  const mayRequestLeave = canRequestLeave(role);
+  const mayDecideLeave = canDecideLeave(role);
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +75,11 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
   const [jobTitle, setJobTitle] = useState('');
   const [workEmail, setWorkEmail] = useState('');
   const [workPhone, setWorkPhone] = useState('');
+  const [department, setDepartment] = useState('');
+  const [employmentType, setEmploymentType] = useState<EmploymentType>('full_time');
+  const [workMode, setWorkMode] = useState<WorkMode>('office');
+  const [contractEndsOn, setContractEndsOn] = useState('');
+  const [annualLeaveDays, setAnnualLeaveDays] = useState('0');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -62,6 +92,11 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
         setJobTitle(row.jobTitle ?? '');
         setWorkEmail(row.workEmail ?? '');
         setWorkPhone(row.workPhone ?? '');
+        setDepartment(row.department ?? '');
+        setEmploymentType(row.employmentType);
+        setWorkMode(row.workMode);
+        setContractEndsOn(row.contractEndsOn ?? '');
+        setAnnualLeaveDays(String(row.annualLeaveDays));
         setError(null);
       })
       .catch((cause: unknown) => {
@@ -83,6 +118,11 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
       jobTitle: jobTitle.trim() === '' ? null : jobTitle.trim(),
       workEmail: workEmail.trim() === '' ? null : workEmail.trim(),
       workPhone: workPhone.trim() === '' ? null : workPhone.trim(),
+      department: department.trim() === '' ? null : department.trim(),
+      employmentType,
+      workMode,
+      contractEndsOn: contractEndsOn === '' ? null : contractEndsOn,
+      annualLeaveDays: Number(annualLeaveDays),
     })
       .then(() => {
         setEditing(false);
@@ -174,6 +214,58 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
                       onChange={setWorkPhone}
                       disabled={saving}
                     />
+                    <TextField
+                      id="hr-detail-department"
+                      label="Departman"
+                      value={department}
+                      onChange={setDepartment}
+                      disabled={saving}
+                      placeholder="Muhasebe"
+                    />
+                    <SelectField
+                      id="hr-detail-employment-type"
+                      label="Çalışma şekli"
+                      value={employmentType}
+                      onChange={(next) => {
+                        setEmploymentType(toEmploymentType(next));
+                      }}
+                      options={Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                      disabled={saving}
+                    />
+                    <SelectField
+                      id="hr-detail-work-mode"
+                      label="Çalışma yeri"
+                      value={workMode}
+                      onChange={(next) => {
+                        setWorkMode(toWorkMode(next));
+                      }}
+                      options={Object.entries(WORK_MODE_LABELS).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                      disabled={saving}
+                    />
+                    <TextField
+                      id="hr-detail-contract-end"
+                      label="Sözleşme bitişi"
+                      value={contractEndsOn}
+                      onChange={setContractEndsOn}
+                      type="date"
+                      disabled={saving}
+                      hint="süresiz ise boş bırakın"
+                    />
+                    <TextField
+                      id="hr-detail-leave-days"
+                      label="Yıllık izin hakkı (gün)"
+                      value={annualLeaveDays}
+                      onChange={setAnnualLeaveDays}
+                      type="number"
+                      disabled={saving}
+                      hint="⚠️ elle girilir — sistem kıdemden hesaplamaz"
+                    />
                   </FieldGrid>
 
                   <FormError message={formError} />
@@ -204,6 +296,27 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
                   {employee.endedOn === null ? null : (
                     <Field label="Ayrılma" value={formatDay(employee.endedOn)} />
                   )}
+                  <Field label="Departman" value={employee.department} />
+                  <Field
+                    label="Çalışma şekli"
+                    value={`${EMPLOYMENT_TYPE_LABELS[employee.employmentType]} · ${
+                      WORK_MODE_LABELS[employee.workMode]
+                    }`}
+                  />
+                  {/* ⚠️ KIDEM TÜRETİLİR — kolonda saklanmaz. */}
+                  <Field label="Kıdem" value={tenureLabel(employee.startedOn, new Date())} />
+                  {/* ⚠️ Patronun alarm kalemi. */}
+                  <Field
+                    label="Sözleşme bitişi"
+                    value={
+                      employee.contractEndsOn === null ? null : formatDay(employee.contractEndsOn)
+                    }
+                  />
+                  {/* ⚠️ Hak ediş İK tarafından GİRİLİR; sistem hesaplamaz. */}
+                  <Field
+                    label="Yıllık izin hakkı"
+                    value={`${String(employee.annualLeaveDays)} gün`}
+                  />
                   <Field
                     label="Platform hesabı"
                     value={employee.platformUserId === null ? null : 'bağlı'}
@@ -226,6 +339,18 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
               {showCompensation ? (
                 <CompensationSection employeeId={employeeId} canWrite={showCompensation} />
               ) : null}
+
+              {/*
+                ⚠️ İZİN BÖLÜMÜ ÜCRETTEN FARKLI: `leave:read` DÖRT ROLE de açık
+                (ADR-0044 §6), çünkü kendi izin bakiyesini görmek herkesin
+                işidir. Ücretin aksine burada koşullu mount YOKTUR — gizlenecek
+                bir şey yok.
+              */}
+              <LeaveSection
+                employeeId={employeeId}
+                canRequest={mayRequestLeave}
+                canDecide={mayDecideLeave}
+              />
             </>
           )}
         </div>

@@ -163,6 +163,19 @@ describe('IK uclari (uctan uca)', () => {
         auth(request(httpServer(app)).post(`/api/v1/hr/employees/${id}/compensation`), token).send(
           body as object,
         ),
+      // --- IK v2 (ADR-0044) ---
+      overview: () => auth(request(httpServer(app)).get('/api/v1/hr/overview'), token),
+      listLeave: () => auth(request(httpServer(app)).get('/api/v1/hr/leave'), token),
+      employeeLeave: (id: string) =>
+        auth(request(httpServer(app)).get(`/api/v1/hr/employees/${id}/leave`), token),
+      requestLeave: (id: string, body: unknown) =>
+        auth(request(httpServer(app)).post(`/api/v1/hr/employees/${id}/leave`), token).send(
+          body as object,
+        ),
+      decideLeave: (leaveId: string, body: unknown) =>
+        auth(request(httpServer(app)).patch(`/api/v1/hr/leave/${leaveId}`), token).send(
+          body as object,
+        ),
     };
   }
 
@@ -273,16 +286,23 @@ describe('IK uclari (uctan uca)', () => {
       const item = (list.body.items as Record<string, unknown>[])[0] ?? {};
 
       expect(Object.keys(item).sort()).toEqual([
+        // --- IK v2 (ADR-0044 §3) — ⚠️ BES YENI ALANIN HICBIRI PARA DEGILDIR.
+        'annualLeaveDays',
+        'contractEndsOn',
         'createdAt',
+        'department',
         'employmentStatus',
+        'employmentType',
         'endedOn',
         'fullName',
         'id',
         'jobTitle',
+        'managerEmployeeId',
         'platformUserId',
         'startedOn',
         'updatedAt',
         'workEmail',
+        'workMode',
         'workPhone',
       ]);
 
@@ -451,15 +471,101 @@ describe('IK uclari (uctan uca)', () => {
       expect((await api(token).deleteEmployee(String(created.body.id))).status).toBe(204);
     });
 
-    it('⚠️ ayni yururluk tarihine IKINCI ucret -> 409', async () => {
+    /**
+     * ⚠️ ADR-0044 §1 — v1'DEKI 409 KALDIRILDI VE BU BILINCLIDIR.
+     *
+     * v1 ayni yururluk tarihine ikinci kaydi reddediyordu. Sonucu sudur:
+     * yanlis girilen bir maasi duzeltmenin HICBIR yolu yoktu ve kullanici
+     * UYDURMA BIR TARIH yazmaya itiliyordu — yani gecmis bozuluyordu.
+     *
+     * ⚠️ Defter yine EKLEME-YALNIZDIR: eski satir SILINMEZ, uzerine YAZILMAZ.
+     * Duzeltme YENI BIR SATIRDIR; hangisinin gecerli oldugunu `recordedAt`
+     * sirasi soyler ve eski satir `supersededAt` ile ISARETLI kalir.
+     */
+    it('⚠️ ayni yururluk tarihine IKINCI ucret bir DUZELTMEDIR -> 201', async () => {
       const { token } = await withRole('owner');
       const created = await api(token).createEmployee(EMPLOYEE_BODY);
       const employeeId = String(created.body.id);
-      const body = { amount: '75000', currency: 'TRY', effectiveFrom: '2026-01-01' };
 
-      await api(token).addCompensation(employeeId, body);
+      await api(token).addCompensation(employeeId, {
+        amount: '75000',
+        currency: 'TRY',
+        effectiveFrom: '2020-01-01',
+      });
+      const correction = await api(token).addCompensation(employeeId, {
+        amount: '82000',
+        currency: 'TRY',
+        effectiveFrom: '2020-01-01',
+      });
 
-      expect((await api(token).addCompensation(employeeId, body)).status).toBe(409);
+      expect(correction.status).toBe(201);
+
+      const history = await api(token).getCompensation(employeeId);
+
+      // Guncel ucret DUZELTILMIS tutardir.
+      expect(history.body.current.amount).toBe('82000.00');
+      // ⚠️ ESKI SATIR SILINMEDI — defter ekleme-yalnizdir.
+      const amounts: { amount: string }[] = history.body.items;
+
+      expect(amounts).toHaveLength(2);
+      expect(amounts.map((row) => row.amount).sort()).toEqual(['75000.00', '82000.00']);
+    });
+
+    /**
+     * ⚠️ `supersededAt` TURETILIR, KOLON YOKTUR (§1.4).
+     *
+     * Bu iddia olmadan ekranda ayni tarihli iki satir gorunur ve hangisinin
+     * gecerli oldugu SOYLENMEZ — kullanici yanlis rakami okur, hata SESSIZ.
+     */
+    it('⚠️ duzeltilen satir `supersededAt` tasir, gecerli satir TASIMAZ', async () => {
+      const { token } = await withRole('owner');
+      const created = await api(token).createEmployee(EMPLOYEE_BODY);
+      const employeeId = String(created.body.id);
+
+      await api(token).addCompensation(employeeId, {
+        amount: '75000',
+        currency: 'TRY',
+        effectiveFrom: '2020-01-01',
+      });
+      await api(token).addCompensation(employeeId, {
+        amount: '82000',
+        currency: 'TRY',
+        effectiveFrom: '2020-01-01',
+      });
+
+      const items: { amount: string; supersededAt: string | null }[] = (
+        await api(token).getCompensation(employeeId)
+      ).body.items;
+
+      const stale = items.find((row) => row.amount === '75000.00');
+      const live = items.find((row) => row.amount === '82000.00');
+
+      expect(stale?.supersededAt).not.toBeNull();
+      expect(live?.supersededAt).toBeNull();
+    });
+
+    /** ⚠️ FARKLI tarihler duzeltme DEGILDIR — ikisi de gecerli gecmistir. */
+    it('farkli yururluk tarihlerinde HICBIRI duzeltilmis sayilmaz', async () => {
+      const { token } = await withRole('owner');
+      const created = await api(token).createEmployee(EMPLOYEE_BODY);
+      const employeeId = String(created.body.id);
+
+      await api(token).addCompensation(employeeId, {
+        amount: '75000',
+        currency: 'TRY',
+        effectiveFrom: '2020-01-01',
+      });
+      await api(token).addCompensation(employeeId, {
+        amount: '82000',
+        currency: 'TRY',
+        effectiveFrom: '2021-01-01',
+      });
+
+      const items: { supersededAt: string | null }[] = (
+        await api(token).getCompensation(employeeId)
+      ).body.items;
+
+      expect(items.every((row) => row.supersededAt === null)).toBe(true);
     });
 
     it('⚠️ uye OLMAYAN kullaniciya baglanamaz -> 422', async () => {
@@ -502,6 +608,282 @@ describe('IK uclari (uctan uca)', () => {
       const { token } = await withRole('owner');
 
       expect((await api(token).deleteEmployee('not-a-uuid')).status).toBe(422);
+    });
+  });
+
+  // ==========================================================================
+  // ⚠️ IK v2 — IZIN TAKIBI (ADR-0044 §2)
+  // ==========================================================================
+  describe('⚠️ izin takibi', () => {
+    async function employee(token: string): Promise<string> {
+      const created = await api(token).createEmployee({ ...EMPLOYEE_BODY, annualLeaveDays: 14 });
+      return String(created.body.id);
+    }
+
+    it('talep 201 doner ve gun sayisini TURETIR (bas ve son dahil)', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+
+      const response = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-05',
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.days).toBe(5);
+      expect(response.body.status).toBe('pending');
+    });
+
+    // ========================================================================
+    // ⚠️ SAGLIK VERISI SINIRI — UCUN KENDISINDE (ADR-0043 §3)
+    // ========================================================================
+    // Ikisi de arayuzde de yok, ama SINIR SUNUCUDA DURMALIDIR: arayuz bir gun
+    // degisebilir, uc degismez.
+
+    it('⚠️ govdede `reason` alani REDDEDILIR -> 422', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+
+      const response = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-05',
+        reason: 'raporlu',
+      });
+
+      expect(response.status).toBe(422);
+    });
+
+    it('⚠️ `sick` izin turu REDDEDILIR -> 422', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+
+      const response = await api(token).requestLeave(employeeId, {
+        type: 'sick',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-05',
+      });
+
+      expect(response.status).toBe(422);
+    });
+
+    it('bitis baslangictan onceyse -> 422', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+
+      expect(
+        (
+          await api(token).requestLeave(employeeId, {
+            type: 'annual',
+            startsOn: '2026-09-05',
+            endsOn: '2026-09-01',
+          })
+        ).status,
+      ).toBe(422);
+    });
+
+    // ========================================================================
+    // ⚠️ IZIN GENISLIKLERI: `leave:request` GENIS, `leave:decide` DAR
+    // ========================================================================
+
+    it('⚠️ member KENDI izin talebini yazabilir -> 201 (`employee:write`ten GENIS)', async () => {
+      const { token, ownerToken } = await withRole('member');
+      const employeeId = await employee(ownerToken);
+
+      expect(
+        (
+          await api(token).requestLeave(employeeId, {
+            type: 'annual',
+            startsOn: '2026-09-01',
+            endsOn: '2026-09-02',
+          })
+        ).status,
+      ).toBe(201);
+    });
+
+    it('⚠️ viewer izinleri GORUR ama TALEP EDEMEZ -> 200 / 403', async () => {
+      const { token, ownerToken } = await withRole('viewer');
+      const employeeId = await employee(ownerToken);
+
+      expect((await api(token).employeeLeave(employeeId)).status).toBe(200);
+      expect(
+        (
+          await api(token).requestLeave(employeeId, {
+            type: 'annual',
+            startsOn: '2026-09-01',
+            endsOn: '2026-09-02',
+          })
+        ).status,
+      ).toBe(403);
+    });
+
+    it('⚠️ member TALEP EDER ama KARAR VEREMEZ -> 403', async () => {
+      const { token, ownerToken } = await withRole('member');
+      const employeeId = await employee(ownerToken);
+      const created = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-02',
+      });
+
+      expect(
+        (await api(token).decideLeave(String(created.body.id), { status: 'approved' })).status,
+      ).toBe(403);
+    });
+
+    it('owner onaylar -> 200; IKINCI karar -> 409', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+      const created = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-02',
+      });
+      const leaveId = String(created.body.id);
+
+      const approved = await api(token).decideLeave(leaveId, { status: 'approved' });
+      expect(approved.status).toBe(200);
+      expect(approved.body.status).toBe('approved');
+      expect(approved.body.decidedByUserId).not.toBeNull();
+
+      expect((await api(token).decideLeave(leaveId, { status: 'rejected' })).status).toBe(409);
+    });
+
+    // ========================================================================
+    // ⚠️ BAKIYE TURETILIR — KOLON YOKTUR (§2.3)
+    // ========================================================================
+
+    it('⚠️ yalnizca ONAYLANMIS YILLIK izin hak edisten duser', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+
+      // (1) onaylanmis yillik: 2 gun -> DUSER
+      const annual = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-02',
+      });
+      await api(token).decideLeave(String(annual.body.id), { status: 'approved' });
+
+      // (2) BEKLEYEN yillik: dusmez — talep bir tuketim degildir
+      await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-10-01',
+        endsOn: '2026-10-10',
+      });
+
+      // (3) ONAYLANMIS UCRETSIZ: dusmez — ucretsiz izin yillik hakki tuketmez
+      const unpaid = await api(token).requestLeave(employeeId, {
+        type: 'unpaid',
+        startsOn: '2026-11-01',
+        endsOn: '2026-11-10',
+      });
+      await api(token).decideLeave(String(unpaid.body.id), { status: 'approved' });
+
+      const balance = await api(token).employeeLeave(employeeId);
+
+      expect(balance.body.entitlementDays).toBe(14);
+      expect(balance.body.usedDays).toBe(2);
+      expect(balance.body.remainingDays).toBe(12);
+    });
+
+    /**
+     * ⚠️ NEGATIF BAKIYE MESRUDUR VE GIZLENMEZ (§2.3).
+     *
+     * Hak edisinden fazla izin kullanmis bir calisan GERCEK bir durumdur;
+     * sifirda kirpmak IK'nin gormesi gereken seyi SAKLAMAK olurdu.
+     */
+    it('⚠️ hak edis asilirsa kalan NEGATIF doner — kirpilmaz', async () => {
+      const { token } = await withRole('owner');
+      const created = await api(token).createEmployee({ ...EMPLOYEE_BODY, annualLeaveDays: 0 });
+      const employeeId = String(created.body.id);
+
+      const annual = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-05',
+      });
+      await api(token).decideLeave(String(annual.body.id), { status: 'approved' });
+
+      const balance = await api(token).employeeLeave(employeeId);
+
+      expect(balance.body.usedDays).toBe(5);
+      expect(balance.body.remainingDays).toBe(-5);
+    });
+
+    it('⚠️ IZIN SILINEMEZ — DELETE ucu YOKTUR (404)', async () => {
+      const { token } = await withRole('owner');
+      const employeeId = await employee(token);
+      const created = await api(token).requestLeave(employeeId, {
+        type: 'annual',
+        startsOn: '2026-09-01',
+        endsOn: '2026-09-02',
+      });
+
+      const response = await auth(
+        request(httpServer(app)).delete(`/api/v1/hr/leave/${String(created.body.id)}`),
+        token,
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it('olmayan izin -> 404', async () => {
+      const { token } = await withRole('owner');
+
+      expect(
+        (
+          await api(token).decideLeave('018f3a2b-7c4d-7e1f-8a2b-0000000000ff', {
+            status: 'approved',
+          })
+        ).status,
+      ).toBe(404);
+    });
+  });
+
+  // ==========================================================================
+  // ⚠️ DUVARIN IKI UYDUSU — SUNUCUDAN, SAYFADAN DEGIL
+  // ==========================================================================
+  describe('⚠️ oda ozeti (`GET /hr/overview`)', () => {
+    it('bugun izinde olani ve yaklasan sozlesme bitisini SAYAR', async () => {
+      const { token } = await withRole('owner');
+      const today = new Date().toISOString().slice(0, 10);
+
+      const onLeave = await api(token).createEmployee({ ...EMPLOYEE_BODY, annualLeaveDays: 30 });
+      const leave = await api(token).requestLeave(String(onLeave.body.id), {
+        type: 'annual',
+        startsOn: today,
+        endsOn: today,
+      });
+      await api(token).decideLeave(String(leave.body.id), { status: 'approved' });
+
+      const soon = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+      await api(token).createEmployee({ fullName: 'Mehmet Kaya', contractEndsOn: soon });
+
+      const overview = await api(token).overview();
+
+      expect(overview.status).toBe(200);
+      expect(overview.body.onLeaveToday).toBe(1);
+      expect(overview.body.contractsEndingSoon).toBe(1);
+    });
+
+    /**
+     * ⚠️ BEKLEYEN izin "bugun izinde" SAYILMAZ: talep bir izin DEGILDIR.
+     * Sayilsaydi duvar, henuz onaylanmamis bir izni OLMUS gibi gosterirdi.
+     */
+    it('BEKLEYEN izin sayilmaz', async () => {
+      const { token } = await withRole('owner');
+      const today = new Date().toISOString().slice(0, 10);
+
+      const created = await api(token).createEmployee(EMPLOYEE_BODY);
+      await api(token).requestLeave(String(created.body.id), {
+        type: 'annual',
+        startsOn: today,
+        endsOn: today,
+      });
+
+      expect((await api(token).overview()).body.onLeaveToday).toBe(0);
     });
   });
 });

@@ -273,6 +273,14 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**9. modül İK/Personel ✅ bitti** (ADR-0043 + **ADR-0044**; beş iş, HAFİF
+kapanış denetimi 2026-08-24; v2 aynı gün eklendi — migration 31 → 37).
+⚠️ Bu modül Faz 5'te **birçok ilki** taşıyor: **`platform/audit` AÇILDI**
+(üç kez ertelenen borç; ADR-0041 §8'in üçüncü ertelemesi bir karar olacaktı),
+**maaş girdi ama AI'dan ÜÇ KATMANLA izole** (ayrı tablo · ayrı izin · **SIFIR
+katkıcı**), **`POST /ask` havuzuna HİÇ dokunmayan ilk iş modülü**, ve
+**sağlık verisi KESİN SINIR** — serbest not alanı yok, `sick` izin türü yok,
+üç katmanda birden korunuyor.
 **8. modül Teklif/Fatura ✅ bitti** (ADR-0041; üç slice, HAFİF kapanış denetimi
 2026-08-23; Slice 1 prod'da doğrulandı 2026-08-22 — migration 31 → 32).
 ⚠️ Dört şey **ilk kez** oldu: **ADR-0036'nın eşiği AŞILDI** (yapısal kaynak
@@ -319,11 +327,12 @@ embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`) · **yedi modülün ekranları** (`/app/crm` ·
+**onboarding** (`/app/onboarding`) · **dokuz modülün ekranları** (`/app/crm` ·
 `/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
-`/app/inventory` · `/app/suppliers`). Riskli runtime akışları
+`/app/inventory` · `/app/suppliers` · `/app/invoicing` · `/app/hr`). Riskli
+runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
-Vitest + RTL **349 test**; **kalan borç: Playwright e2e yok.**
+Vitest + RTL **523 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
@@ -490,21 +499,30 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-altı modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+üç modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
 4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
-7. Tedarikçi ✅, 8. Teklif/Fatura ✅ — sıradaki **9. İK/Personel**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+7. Tedarikçi ✅, 8. Teklif/Fatura ✅, 9. İK/Personel ✅ — sıradaki
+**10. Anket**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
-satırı değişmedi) · **finans denetim izi** (`platform/audit` ARCHITECTURE §6.2'de
-yazılı ama **kod olarak yok**; bir tutarın kim tarafından değiştirildiği
-sorulamaz — tetikleyici 8. modül)
+satırı değişmedi) · ~~**finans denetim izi**~~ ✅ **`platform/audit` AÇILDI**
+(2026-08-24, ADR-0043 §8 — üç kez ertelenmişti). ⚠️ **Ama borç TAM
+KAPANMADI ve bu ayrım önemlidir:** altyapı ve `AuditPort` var, **tek tüketicisi
+İK'dır**. Finans/Stok/Tedarikçi'nin _"bu tutarı kim değiştirdi"_ soruları hâlâ
+**cevapsızdır** — o modüllere bağlamak ayrı bir iştir (Mutlak Kural 1).
+⚠️ Denetim kaydı **DEĞER SAKLAMAZ**, yalnızca **alan adı**: "unvan değişti"
+der, "X'ten Y'ye değişti" **demez** — değer saklamak, izlemek istediğimiz
+veriyi ikinci bir yerde çoğaltmak olurdu
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: ONBEŞ tablo**
-(ROADMAP §8.5; Belge Slice 2 onüçten onbeşe çıkardı, vektör taşıyan tablo
-sayısı ALTIYA çıktı — ⚠️ **yeni bir boyut**: bu kalemde veritabanı dışında bir
-**R2 nesnesi** de var ve retention işi satırla birlikte onu da silmek
-zorundadır) · **`POST /ask` top-K havuzu DOLU** (dokuz
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: YİRMİ İKİ
+tablo** (ROADMAP §8.5; İK yirmiden yirmi ikiye çıkardı — ⚠️ eklenen kalemlerden
+biri bir iş modülünün tablosu **değil**: `platform.audit_log`, ve o **listenin
+en hızlı büyüyen kalemidir** — bir kullanıcı isteği değil, **HER ALAN
+DEĞİŞİKLİĞİ** bir satır yazar. ⚠️ Kararı en zor olan kalem de odur: denetim
+izini kısaltmak, onu var etme sebebini zayıflatır. Ayrıca Belge kaleminde
+veritabanı dışında bir **R2 nesnesi** var ve retention işi satırla birlikte onu
+da silmek zorundadır) · **`POST /ask` top-K havuzu DOLU** (dokuz
 katkıcı, sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
 kapandı** — `ceil(K/3)` yuvalık **yapısal taban kısıtı**; gerçek **rerank** hâlâ
 **açılmadı** ve kalibrasyon verisi beklemede) · **not detay ucu**
@@ -1561,6 +1579,183 @@ Gerçekten yeni **yedi** karar — ama üçü diğerlerinden ağır:
 >   `sales_document_lines`); ⚠️ **vektör taşıyan tablo sayısı SEKİZDE KALDI** —
 >   Faz 5'te bu sayıyı artırmayan **ilk** modül. `number_sequences` listeye
 >   **girmedi** (tenant + tür başına iki satır, zamanla çoğalmaz).
+
+### Faz 5 / 9. modül — İK / Personel (**bitti**)
+
+Kararlar: **ADR-0043** (kabul edildi 2026-08-23) + **ADR-0044** (İK v2, aynı
+işte 2026-08-24). ROADMAP §3.5'in dokuzuncu sırası. **Onuncu şema.** Beş iş:
+ADR → `platform/audit` (Slice 1) → yetki denetimi → dördüncü katman →
+HR şeması (Slice 2) → Frontend + HAFİF kapanış denetimi (Slice 3) → **v2**.
+
+Gerçekten yeni **altı** karar:
+
+1. ⚠️ **SAĞLIK VERİSİ KESİN SINIRDIR — bir aşama değil.** KVKK m.6 özel
+   nitelikli veri; dar istisna yalnızca **sağlık kuruluşlarına ve sır saklama
+   yükümlülüğü altındaki hekimlere** tanınmıştır ve genel bir İK modülü bu
+   tanıma **girmez**. Gereken şey her çalışandan **açık rıza** + Kurul'un
+   **2018/10** sayılı kararının zorunlu ek tedbirleridir (şifreleme, ayrı
+   erişim günlüğü, 2FA, ayrı politika). ⚠️ **Bu, "AI'dan izole etmekle"
+   çözülmez** — kendi başına ayrı bir iştir, v2'ye ve **ayrı bir ADR'ye**
+   ertelendi. ⚠️ Sınırın taşıyıcıları koda yazıldı, niyete bırakılmadı:
+   `hr.employees`te **serbest not alanı YOK** ve izin türlerinde
+   **`sick`/raporlu YOK** — üçer katmanda (şema CHECK'i · Zod `.strict()` ·
+   arayüz listesi). Sınır koyup yanına boş bir metin kutusu bırakmak, sınırı
+   **kullanıcıya ihlal ettirmek** olurdu.
+2. ⚠️ **MAAŞ GİRDİ — AMA AI'DAN ÜÇ KATMANLA İZOLE** (PO kararı). Maaş özel
+   nitelikli veri **değildir**; olmayınca modül işe yaramıyordu. İzolasyon:
+   **ayrı tablo** (`hr.compensation_records`) · **ayrı izin**
+   (`compensation:read`, yalnızca owner/admin) · **HİÇBİR
+   `RetrievalContributor`a bağlı DEĞİL**. ⚠️ Maaşa göre **sıralama/filtreleme
+   de KAPALI** (422): bir değer dönmese bile **sıralamanın kendisi** sızdırır —
+   iki istekle bütün ekibin ücret sıralaması çıkarılırdı. ⚠️ Maaş yüzeyi
+   **Faz 6'nın KVKK denetiminden geçmeden gerçek müşteri verisiyle
+   kullanılmamalıdır** ve bu ADR'de yazılıdır.
+3. ⚠️ **SIFIR KATKICI — `POST /ask` HAVUZUNA HİÇ DOKUNMAYAN İLK İŞ MODÜLÜ.**
+   Fan-out **14'te kaldı**, yapısal kaynak **6'da**. Bu bir eksik değil bir
+   **güvenlik özelliğidir**: bir maaş rakamının modele gitmesi için önce
+   şemanın, sonra API'nin, sonra iznin değişmesi gerekir. ⚠️ ADR-0044'te
+   **gerçek bir yapısal aday** çıktı (_"bugün izinde olanlar"_) ve yine
+   **eklenmedi** — ADR-0042'nin T2 eşiği tetiklenirdi ve **ölçüm aracı bugün
+   çalışmıyor** (aşağıda).
+4. ⚠️ **`platform/audit` AÇILDI — üç kez ertelenen borç kapandı.** Minimal ve
+   **DEĞİŞTİRİLEMEZ** bir `platform.audit_log`: tenant_id · actor_user_id ·
+   occurred_at · resource_type · resource_id · **field_name**. ⚠️ **DEĞER
+   SAKLANMAZ** (before/after yok) — değer saklamak, izlemek istediğimiz veriyi
+   **ikinci bir yerde çoğaltmak** olurdu ve maaş için bu, izolasyonun kendisini
+   delerdi. Yazma **aynı transaction'da**, kuyruk yok. Değiştirilemezlik **iki
+   katman**: rol yetkisi (`GRANT SELECT, INSERT` + açık `REVOKE`) + **tablo
+   sahibini de bağlayan trigger**.
+5. ⚠️ **ÇALIŞAN ≠ ÜYELİK — ve bu bir tercih değil, bir ZORUNLULUK.** Kanıt
+   kodda: `identity.public.ts` yalnızca `emailVerified` açar ve
+   `GET /memberships` **ad döndürmez** — yani platform bir çalışanın **adını
+   veremez**. Bağ `platform_user_id` ile **NULLABLE** kurulur ve `null`
+   **yaygındır**: depo görevlisinin, saha ekibinin hesabı yoktur. Zorunlu
+   olsaydı veri modeli şirketi **lisans satın almaya zorlardı**.
+6. ⚠️ **ÜCRET DÜZELTME: YERİNDE DÜZENLEME DEĞİL, DÜZELTME KAYDI** (ADR-0044
+   §1). v1 aynı yürürlük tarihine ikinci kaydı **409** ile reddediyordu ve
+   bedeli ağırdı: yanlış girilen bir maaşı düzeltmenin **hiçbir yolu yoktu**,
+   kullanıcı **uydurma bir tarih** yazmaya itiliyordu. Kısıt düşürüldü, garanti
+   **düşmedi**: kazanan artık "kararlı sıralama" değil **anlamlı** sıralamadır
+   (`recorded_at DESC`) ve düzeltilen satır **`supersededAt`** ile işaretli
+   kalır. ⚠️ Alan **TÜRETİLİR, kolon YOK** — onikinci kez aynı karar.
+
+> ⚠️ **`platform.audit_log` YAZILIRKEN GERÇEK BİR AÇIK BULUNDU** (Slice 1).
+> `GRANT SELECT, INSERT` yazılmıştı ama `businessos_app` yine de
+> `can_update: true` taşıyordu: `0000_init`in
+> `ALTER DEFAULT PRIVILEGES ... IN SCHEMA platform GRANT SELECT, INSERT,
+> UPDATE, DELETE` satırı **her yeni tabloya** sessizce uyguluyordu. ⚠️ MT
+> §12.4'ün yazılı kuralı **uygulanmış GÖRÜNÜYOR ama uygulanmıyordu** — ve
+> hatayı bulan şey bir okuma değil, **iddiayı sorgulayan bir testti**.
+> Product Owner bunun üzerine `platform` şemasının **tamamının** denetlenmesini
+> istedi: matris çıkarıldı, **başka açık BULUNMADI** ("kontrol edildi, temiz")
+> ve sonuç bir yoruma değil **dokuz testlik bir dosyaya** yazıldı
+> (`platform-grants.integration.spec.ts`) — bir denetim, tekrarlanabilir
+> değilse yalnızca o günün fotoğrafıdır.
+
+> ⚠️ **DÖRDÜNCÜ KATMAN** (PO talimatı): `inventory.movements` ve
+> `suppliers.interactions`a açık `REVOKE UPDATE, DELETE` eklendi — ADR-0039'un
+> üç katmanına **dokunulmadan**. ⚠️ Bu iş **prod'u bozabilecek bir tuzağı
+> yakaladı**: düz bir `REVOKE UPDATE`, `suppliers.interactions.embedding`
+> yazan yolu (`setInteractionEmbedding` + `POST /suppliers/reindex`)
+> **kırardı**. Çözüm kolon bazlı oldu: `GRANT UPDATE (embedding)` — yani
+> **tek meşru mutasyon türetilmiş vektördür**, içerik kolonları dışarıdadır.
+
+> ⚠️ **İZİN TAKİBİ GİRDİ — AMA "SEBEP" ALANI YOK** (ADR-0044 §2). Bir izin
+> kaydının en doğal alanı "sebep"tir ve oraya **ilk yazılacak şey
+> "RAPORLU"DUR** — yani §3'ün dışarıda tuttuğu sağlık verisi. Alan **hiç
+> açılmadı** ve tür listesinde **hastalık yok**; sunucu `.strict()` ile
+> `reason` gönderen isteği **422** reddeder. ⚠️ **Dürüst bedel:** bir işletme
+> raporlu günleri bu modülde **takip edemez**; doğru cevap "mazeret" diye
+> yazmak **değildir** — o da veriyi orada tutar.
+
+> ⚠️ **HAK EDİŞ BİR MEVZUAT KURALI DEĞİL, BİR SAYIDIR.** Sistem kıdemden izin
+> hakkı **hesaplamaz** (İş Kanunu'nun 5/10/15/20 yıl kademeleri **ülkeye
+> özeldir** — ADR-0041'in e-fatura gerekçesiyle aynı sınıf). İK sayıyı
+> **girer**. ⚠️ Gün sayısı **TAKVİM GÜNÜDÜR**, iş günü değil: resmi tatiller de
+> ülkeye özeldir. ⚠️ **Bakiye TÜRETİLİR** (onbirinci kez aynı karar) ve
+> **NEGATİF olabilir** — hak edişinden fazla izin kullanmış bir çalışan gerçek
+> bir durumdur; sıfırda kırpmak İK'nın **görmesi gereken şeyi saklamak**
+> olurdu.
+
+> **Renk:** İK'nın imza rengi **#896096** (koyu `#c39ccd`) ve
+> `module-colors.css`'te ölçülü. ⚠️ Anahtar **`hr`**.
+
+| Slice | Ne | Durum |
+|---|---|---|
+| 0 | **ADR-0043** — karar, sınırlar, üç PO onay kalemi | ✅ |
+| 1 | **`platform/audit`** — `platform.audit_log` (`0032`) + `AuditPort` + trigger | ✅ |
+| 1b | **Yetki denetimi** — `platform` şemasının tamamı; testle kilitlendi | ✅ |
+| 1c | **Dördüncü katman** — `inventory.movements` + `suppliers.interactions` REVOKE (`0033`, `0034`) | ✅ |
+| 2 | **HR şeması** — `hr.employees` + ekleme-yalnız `hr.compensation_records` + audit bağlantısı (`0035`) | ✅ |
+| 3 | **Frontend + HAFİF kapanış denetimi** — ODA, onuncu kapı | ✅ |
+| 4 | **v2 (ADR-0044)** — ücret düzeltme + izin takibi + beş yeni alan (`0036`) | ✅ |
+| 5 | **v2 frontend** — izin bölümü + **ikinci rota** (`/app/hr/leave`, onay kuyruğu) + sekme şeridi | ✅ |
+
+> ### ⚠️ HAFİF kapanış denetimi — **yapıldı, 2026-08-24**
+>
+> ⚠️ **EN KRİTİK SINAV GEÇİLDİ:** `compensation:read` taşımayan bir kullanıcı
+> için ücret bölümü **DOM'da hiç YOK** ve `/compensation` ucuna **hiç istek
+> atılmıyor** — gerçek tarayıcıda sayfa kaynağı ve ağ günlüğü ile doğrulandı.
+> ⚠️ İddia **"görünmüyor" değil "hiç yok"tur**: bileşen koşullu **MOUNT**
+> edilir, içinde bir "gizle" dalı yoktur. Bir 403 alıp yutmak bunu
+> sağlamazdı — istek ağ sekmesinde görünür ve **"burada bir maaş var"**
+> bilgisi kendini ele verirdi.
+>
+> ⚠️ **Maaşın yokluğu ÜÇ BAĞIMSIZ ÖLÇÜMLE** kanıtlandı: entity anahtar kümesi ·
+> veritabanı kolon kümesi · API gövde anahtar kümesi. Üçü de tam eşitlikle
+> karşılaştırılır — biri sessizce büyürse test **kırmızı yanar**.
+>
+> ⚠️ **ADR-0042 §4'ün YENİ ölçüm protokolü UYGULANAMADI ve bu bir PLATFORM
+> BORCUDUR.** Protokol her yapısal kaynağın **satır sayısını** ve giren/girmeyen
+> parçaların **skorunu** istiyor; bugün bunu üretecek bir günlük satırı **yok**
+> ve geçici enstrümantasyon `@nestjs/config`in Zod şemasının bilinmeyen env
+> anahtarlarını **eleyip atması** yüzünden çalıştırılamadı. ⚠️ Doğru çözüm
+> geçici bir yama değil, `retrieval.select` diye **kalıcı bir gözlemlenebilirlik
+> satırıdır** (Slice 0.5'in `ai.call` deseni). ⚠️ Bu, İK'nın kusuru **değildir**:
+> İK'nın **sıfır katkıcısı** var, yani ölçülecek bir değişikliği de yok.
+
+> ### İK kapanırken bilinen sınırlar (ADR-0043 + ADR-0044)
+>
+> - ⚠️ **SAĞLIK VERİSİ YOK** — raporlu/hastalık izni, sağlık raporu, engellilik
+>   durumu **hiçbiri tutulmaz**. En çok istenecek eksik budur ve **kasıtlıdır**.
+> - ⚠️ **BORDRO YOK** — SGK, vergi dilimi, kesinti, net/brüt hesabı yoktur.
+>   `compensation_records` bir **sözleşme ücretidir**, bir bordro değil.
+> - ⚠️ **`platform/audit`in TEK TÜKETİCİSİ İK'DIR** — Finans/Stok/Tedarikçi'nin
+>   _"bu tutarı kim değiştirdi"_ soruları hâlâ **cevapsızdır**.
+> - ⚠️ **Denetim kaydı DEĞER SAKLAMAZ** — "unvan değişti" der, "X'ten Y'ye"
+>   demez. ⚠️ **Taslak/serbest düzenlemeler de izlenmez**: yalnızca
+>   `AUDITED_EMPLOYEE_FIELDS`teki alanlar satır yazar.
+> - ⚠️ **Aktörün adı HER ZAMAN çözülemez** — platform ad vermez; ad yalnızca
+>   `employees.platformUserId` bağı üzerinden çözülür ve liste ilk 100 kaydı
+>   kapsar. Çözülemezse ad **gösterilmez, uydurulmaz**.
+> - ⚠️ **`POST /ask`e SIFIR katkı** — İK'nın hiçbir verisi kurumsal hafızaya
+>   girmez. _"Ekipte kaç kişi var"_ sorusu `/ask`ten **sorulamaz**.
+> - ⚠️ **İzin: iş günü hesabı YOK, resmi tatil YOK, yarım gün YOK** — takvim
+>   günü sayılır.
+> - ⚠️ **Hak ediş elle girilir** — kıdemden hesaplanmaz; devreden izin
+>   (yıldan yıla taşıma) da **yoktur**, bakiye tek bir sayıdan türetilir.
+> - ⚠️ **İzin çakışması ENGELLENMEZ** — aynı gün iki çalışan da, aynı çalışan
+>   için iki izin de yazılabilir (Randevu'nun aynı sınırı).
+> - ⚠️ **Vekâlet/onay zinciri yok** — `leave:decide` taşıyan herkes herkesin
+>   iznini onaylar; `managerEmployeeId` **bir yetki kaynağı değildir**.
+> - ⚠️ **İzin kuyruğunda ad çözümü ilk 100 çalışanla sınırlıdır** (denetim
+>   damgasının aynı sınırı); çözülemezse ad **gösterilmez, uydurulmaz**.
+> - ⚠️ **İzin kuyruğunda çalışana göre filtre YOK** — uç `employeeId`
+>   parametresini destekler ama ekran onu bugün kullanmıyor; kişi bazlı
+>   geçmişin yeri çalışanın **detay sayfasıdır**.
+> - ⚠️ **Yönetici zinciri DÖNGÜ oluşturabilir** — veritabanı yalnızca
+>   kendine referansı engeller (`employees_manager_not_self`).
+> - ⚠️ **Belge yok** — sözleşme/özlük dosyası bu modülde tutulmaz ve Belge
+>   modülüne de konulmamalıdır (`document:read` taşıyan **herkes** görür).
+> - ⚠️ **Organizasyon şeması ekranı yok** · **işe alım/aday takibi yok** ·
+>   **performans değerlendirme yok** · **puantaj/mesai yok**.
+> - **İyimser eşzamanlılık yok** · **arama yalnızca ad üzerinde `ilike`**
+>   (anlamsal arama **yok** — modülün vektörü yok).
+> - ⚠️ **Retention YİRMİDEN YİRMİ İKİYE çıktı** (`platform.audit_log` +
+>   `hr.leave_requests`); ⚠️ **vektör taşıyan tablo sayısı SEKİZDE KALDI** —
+>   Faz 5'te bu sayıyı artırmayan **ikinci** modül. ⚠️ `hr.employees` ve
+>   `hr.compensation_records` listeye **girmedi** ve gerekçeleri **farklıdır**
+>   (biri çoğalmaz, diğeri **silinemez**) — ROADMAP §8.5.
 
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 

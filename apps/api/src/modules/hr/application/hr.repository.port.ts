@@ -1,5 +1,6 @@
 import { type CompensationRecord } from '../domain/compensation-record.entity';
 import { type Employee, type EmploymentStatus } from '../domain/employee.entity';
+import { type LeaveRequest, type LeaveStatus } from '../domain/leave-request.entity';
 
 /** DI token'i. */
 export const HR_REPOSITORY = Symbol('HR_REPOSITORY');
@@ -26,7 +27,16 @@ export interface ListPage<T> {
  */
 export interface EmployeeListFilter {
   readonly status: EmploymentStatus | null;
+  /** IK v2 (ADR-0044 §3) — ekip bazli filtre. */
+  readonly department: string | null;
   readonly search: string | null;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+export interface LeaveListFilter {
+  readonly status: LeaveStatus | null;
+  readonly employeeId: string | null;
   readonly limit: number;
   readonly offset: number;
 }
@@ -90,4 +100,33 @@ export interface HrRepository {
     readonly employeeId: string;
     readonly today: string;
   }): Promise<CompensationRecord | null>;
+
+  // ==========================================================================
+  // IK v2 — izin takibi (ADR-0044 §2)
+  // ==========================================================================
+
+  saveLeaveRequest(request: LeaveRequest): Promise<void>;
+  findLeaveRequestById(id: string): Promise<LeaveRequest | null>;
+  listLeaveRequests(filter: LeaveListFilter): Promise<ListPage<LeaveRequest>>;
+
+  /**
+   * Bir calisanin TUM izin kayitlari — bakiye hesabinin girdisi.
+   *
+   * ⚠️ BAKIYE BURADA HESAPLANMAZ: repository VERI dondurur, KURAL uygulamaz
+   * (`ConversationRepository.findOwnerUserId` ile ayni disiplin). Hak edisten
+   * yalnizca ONAYLANMIS `annual` izinlerin dusecegi kurali domain'dedir
+   * (`LeaveRequest.consumesEntitlement`).
+   */
+  listLeaveRequestsForEmployee(employeeId: string): Promise<LeaveRequest[]>;
+
+  /**
+   * ⚠️ BUGUN IZINDE OLANLAR — patronun ve IK'nin gunluk sorusu.
+   *
+   * `today` disaridan gelir (`Clock`), `CURRENT_DATE` DEGIL: sabit bir saat
+   * altinda test edilebilmesi icin (DEVELOPMENT_RULES 3.2).
+   */
+  countOnLeave(today: string): Promise<number>;
+
+  /** ⚠️ Yaklasan sozlesme bitisleri — patronun alarm kalemi (§3). */
+  countContractsEndingBefore(day: string): Promise<number>;
 }

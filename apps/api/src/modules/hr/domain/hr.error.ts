@@ -150,17 +150,76 @@ export class InvalidCompensationCurrencyError extends HrDomainError {
   }
 }
 
-/**
- * ⚠️ Ayni calisan icin ayni yururluk tarihine ikinci kayit.
+/*
+ * ⚠️ `DuplicateCompensationDateError` KALDIRILDI (ADR-0044 §1).
  *
- * 409, 422 DEGIL: istek BICIMSEL olarak gecerlidir, KAYNAGIN DURUMU
- * elverissizdir (`DuplicateSkuError` / `SupplierTaxNumberDuplicateError` ile
- * ayni sinif).
+ * v1'de ayni yururluk tarihine ikinci bir ucret kaydi 409 ile reddediliyordu.
+ * v2 bunu SERBEST BIRAKTI: yanlis girilen bir maasi duzeltmenin baska yolu
+ * yoktu ve kullanici UYDURMA BIR TARIH yazmaya itiliyordu.
+ *
+ * ⚠️ Sinif SILINDI, "ihtiyac olur diye" birakilmadi: `compensation_effective_
+ * unique` kisiti migration `0036`da dusuruldugu icin ARTIK TETIKLENEMEZ ve
+ * duran bir sinif, okuyana "ayni tarih reddediliyor" der — yani KODUN KENDISI
+ * YANILTICI olurdu. (Bu, `DisclosableProblem` kuralinin "olu kod ucuz" mantigi
+ * DEGILDIR: orada eksiklik SESSIZ BIR 500 uretiyordu, burada fazlalik SESSIZ
+ * BIR YANLIS BILGI uretir.)
  */
-export class DuplicateCompensationDateError extends HrDomainError {
-  readonly code = 'COMPENSATION_DATE_DUPLICATE';
+
+// ============================================================================
+// IK v2 — izin takibi (ADR-0044)
+// ============================================================================
+
+export class LeaveRequestNotFoundError extends HrDomainError {
+  readonly code = 'LEAVE_REQUEST_NOT_FOUND';
 
   constructor() {
-    super('Bu calisan icin ayni yururluk tarihinde bir ucret kaydi zaten var.');
+    super('Izin talebi bulunamadi.');
+  }
+}
+
+export class InvalidLeaveDatesError extends HrDomainError {
+  readonly code = 'LEAVE_DATES_INVALID';
+
+  constructor() {
+    super('Izin bitis tarihi baslangictan once olamaz.');
+  }
+}
+
+/**
+ * ⚠️ Karara baglanmis bir izin YENIDEN karara baglanamaz (ADR-0044 §2.4).
+ *
+ * Aksi halde bir onay sessizce geri alinabilirdi ve "kim onayladi" sorusunun
+ * cevabi DEGISIRDI — satir ici damganin tek isi o soruyu cevaplamak. Fikir
+ * degisirse dogru yol YENI BIR TALEPTIR.
+ */
+export class LeaveAlreadyDecidedError extends HrDomainError {
+  readonly code = 'LEAVE_ALREADY_DECIDED';
+
+  constructor() {
+    super('Bu izin talebi zaten karara baglanmis; yeni bir talep olusturun.');
+  }
+}
+
+/**
+ * ⚠️ Hak edis GECERSIZ (ADR-0044 §2.2).
+ *
+ * Sistem hak edisi HESAPLAMAZ (mevzuat cekirdege girmez) ama girilen sayinin
+ * anlamli olmasini zorlar: negatif ya da bir yildan uzun bir izin hakki
+ * hicbir mevzuatta yoktur.
+ */
+export class InvalidAnnualLeaveDaysError extends HrDomainError {
+  readonly code = 'ANNUAL_LEAVE_DAYS_INVALID';
+
+  constructor(readonly value: number) {
+    super(`Gecersiz yillik izin hakki: ${String(value)}. 0 ile 365 arasinda bir tam sayi olmali.`);
+  }
+}
+
+/** ⚠️ Bir calisan KENDI yoneticisi olamaz — dongunun EN KISA hali. */
+export class EmployeeManagerSelfError extends HrDomainError {
+  readonly code = 'EMPLOYEE_MANAGER_SELF';
+
+  constructor() {
+    super('Bir calisan kendi yoneticisi olarak atanamaz.');
   }
 }

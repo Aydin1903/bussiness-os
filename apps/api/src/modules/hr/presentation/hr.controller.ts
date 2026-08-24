@@ -19,6 +19,7 @@ import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.p
 import { RequirePermission } from '../../../platform/authz/authz.public';
 import { HrUseCases } from '../application/hr.use-cases';
 import { type CompensationRecordState } from '../domain/compensation-record.entity';
+import { type LeaveRequestState } from '../domain/leave-request.entity';
 import { type EmployeePatch, type EmployeeState } from '../domain/employee.entity';
 import {
   COMPENSATION_READ,
@@ -26,17 +27,27 @@ import {
   EMPLOYEE_DELETE,
   EMPLOYEE_READ,
   EMPLOYEE_WRITE,
+  LEAVE_DECIDE,
+  LEAVE_READ,
+  LEAVE_REQUEST,
 } from '../hr.permissions';
 import { HrDomainExceptionFilter } from './hr-domain-exception.filter';
 import {
   addCompensationSchema,
   createEmployeeSchema,
+  createLeaveRequestSchema,
+  decideLeaveRequestSchema,
   employeeIdParamSchema,
+  leaveIdParamSchema,
   listEmployeesSchema,
+  listLeaveSchema,
   updateEmployeeSchema,
   type AddCompensationDto,
   type CreateEmployeeDto,
+  type CreateLeaveRequestDto,
+  type DecideLeaveRequestDto,
   type ListEmployeesQueryDto,
+  type ListLeaveQueryDto,
   type UpdateEmployeeDto,
 } from './hr.dto';
 
@@ -61,6 +72,13 @@ interface EmployeeResponse {
   readonly startedOn: string | null;
   readonly endedOn: string | null;
   readonly platformUserId: string | null;
+  readonly department: string | null;
+  readonly employmentType: string;
+  readonly workMode: string;
+  readonly contractEndsOn: string | null;
+  /** ⚠️ Hak edis — IK tarafindan GIRILIR, sistem hesaplamaz (ADR-0044 §2.2). */
+  readonly annualLeaveDays: number;
+  readonly managerEmployeeId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -88,9 +106,30 @@ function toEmployeeResponse(state: EmployeeState): EmployeeResponse {
     startedOn: state.startedOn,
     endedOn: state.endedOn,
     platformUserId: state.platformUserId,
+    department: state.department,
+    employmentType: state.employmentType,
+    workMode: state.workMode,
+    contractEndsOn: state.contractEndsOn,
+    annualLeaveDays: state.annualLeaveDays,
+    managerEmployeeId: state.managerEmployeeId,
     // Domain nesnesi ASLA serilestirilmez; Date -> ISO string sinirda cevrilir.
     createdAt: state.createdAt.toISOString(),
     updatedAt: state.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * ⚠️ Duzeltilmis satirin damgasi (ADR-0044 §1.4).
+ *
+ * `supersededAt` bir KOLON DEGILDIR, use case'te turetilir — bkz. oradaki
+ * gerekce. Sinirda `Date -> ISO string` cevrimi burada yapilir.
+ */
+function toSupersedableResponse(
+  state: CompensationRecordState & { readonly supersededAt: Date | null },
+): CompensationResponse & { readonly supersededAt: string | null } {
+  return {
+    ...toCompensationResponse(state),
+    supersededAt: state.supersededAt === null ? null : state.supersededAt.toISOString(),
   };
 }
 
@@ -104,6 +143,45 @@ function toCompensationResponse(state: CompensationRecordState): CompensationRes
     effectiveFrom: state.effectiveFrom,
     recordedByUserId: state.recordedByUserId,
     recordedAt: state.recordedAt.toISOString(),
+  };
+}
+
+interface LeaveResponse {
+  readonly id: string;
+  readonly employeeId: string;
+  /** ⚠️ `sick`/`raporlu` YOK — ADR-0043 §3'un sinirinin tasiyicisi. */
+  readonly type: string;
+  readonly startsOn: string;
+  readonly endsOn: string;
+  /** ⚠️ TURETILMIS takvim gunu — IS GUNU DEGIL (ADR-0044 §2.5). */
+  readonly days: number;
+  readonly status: string;
+  readonly requestedByUserId: string;
+  readonly requestedAt: string;
+  /** ⚠️ Satir ici aktor damgasi — bir denetim izi DEGILDIR (§2.4). */
+  readonly decidedByUserId: string | null;
+  readonly decidedAt: string | null;
+}
+
+function toLeaveResponse(state: LeaveRequestState): LeaveResponse {
+  const start = Date.parse(`${state.startsOn}T00:00:00.000Z`);
+  const end = Date.parse(`${state.endsOn}T00:00:00.000Z`);
+
+  return {
+    id: state.id,
+    employeeId: state.employeeId,
+    type: state.type,
+    startsOn: state.startsOn,
+    endsOn: state.endsOn,
+    // ⚠️ Gun sayisi KOLON DEGILDIR (§2.5): resmi tatiller ULKEYE OZEL
+    // MEVZUATTIR ve hafta sonu tanimi bile evrensel degildir. Sistem TAKVIM
+    // GUNU sayar; isletme "5 gun izin" derken ne kastettigini kendi bilir.
+    days: Math.round((end - start) / 86_400_000) + 1,
+    status: state.status,
+    requestedByUserId: state.requestedByUserId,
+    requestedAt: state.requestedAt.toISOString(),
+    decidedByUserId: state.decidedByUserId,
+    decidedAt: state.decidedAt === null ? null : state.decidedAt.toISOString(),
   };
 }
 
@@ -164,6 +242,12 @@ export class HrController {
         startedOn: body.startedOn ?? null,
         endedOn: body.endedOn ?? null,
         platformUserId: body.platformUserId ?? null,
+        department: body.department ?? null,
+        employmentType: body.employmentType,
+        workMode: body.workMode,
+        contractEndsOn: body.contractEndsOn ?? null,
+        annualLeaveDays: body.annualLeaveDays,
+        managerEmployeeId: body.managerEmployeeId ?? null,
       },
     });
 
@@ -191,6 +275,7 @@ export class HrController {
   }> {
     const page = await this.useCases.listEmployees({
       status: query.status ?? null,
+      department: query.department ?? null,
       search: query.search ?? null,
       limit: query.limit,
       offset: query.offset,
@@ -246,6 +331,14 @@ export class HrController {
       ...(body.startedOn === undefined ? {} : { startedOn: body.startedOn }),
       ...(body.endedOn === undefined ? {} : { endedOn: body.endedOn }),
       ...(body.platformUserId === undefined ? {} : { platformUserId: body.platformUserId }),
+      ...(body.department === undefined ? {} : { department: body.department }),
+      ...(body.employmentType === undefined ? {} : { employmentType: body.employmentType }),
+      ...(body.workMode === undefined ? {} : { workMode: body.workMode }),
+      ...(body.contractEndsOn === undefined ? {} : { contractEndsOn: body.contractEndsOn }),
+      ...(body.annualLeaveDays === undefined ? {} : { annualLeaveDays: body.annualLeaveDays }),
+      ...(body.managerEmployeeId === undefined
+        ? {}
+        : { managerEmployeeId: body.managerEmployeeId }),
     };
 
     return toEmployeeResponse(
@@ -291,13 +384,13 @@ export class HrController {
   async getCompensation(
     @Param(new ZodValidationPipe(employeeIdParamSchema)) params: { employeeId: string },
   ): Promise<{
-    readonly items: readonly CompensationResponse[];
+    readonly items: readonly (CompensationResponse & { readonly supersededAt: string | null })[];
     readonly current: CompensationResponse | null;
   }> {
     const result = await this.useCases.getCompensation(params.employeeId);
 
     return {
-      items: result.items.map(toCompensationResponse),
+      items: result.items.map(toSupersedableResponse),
       current: result.current === null ? null : toCompensationResponse(result.current),
     };
   }
@@ -310,10 +403,11 @@ export class HrController {
     description:
       'YETKI: `compensation:write` (owner + admin). ⚠️ Kayitlar GUNCELLENEMEZ ' +
       've SILINEMEZ: degistirilemezlik, "maasi kim ne zaman degistirdi" ' +
-      'sorusunun CEVABIDIR (§6.2). Ayni yururluk tarihine ikinci kayit -> 409.',
+      'sorusunun CEVABIDIR (§6.2). ⚠️ ADR-0044 §1: ayni yururluk tarihine ' +
+      'ikinci kayit ARTIK SERBESTTIR ve bir DUZELTMEDIR — eski satir SILINMEZ, ' +
+      'listede `supersededAt` ile isaretli kalir. En son yazilan gecerlidir.',
   })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Ucret kaydi eklendi.' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Ayni tarihte kayit var.' })
   async addCompensation(
     @Param(new ZodValidationPipe(employeeIdParamSchema)) params: { employeeId: string },
     @Body(new ZodValidationPipe(addCompensationSchema)) body: AddCompensationDto,
@@ -335,6 +429,141 @@ export class HrController {
     });
 
     return toCompensationResponse(state);
+  }
+
+  // ==========================================================================
+  // IK v2 — izin takibi (ADR-0044 §2, §6)
+  // ==========================================================================
+
+  @Get('overview')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(EMPLOYEE_READ)
+  @ApiOperation({
+    summary: 'Odanin duvari — bugun izinde olanlar + yaklasan sozlesme bitisleri',
+    description:
+      'YETKI: `employee:read`. ⚠️ Bu sayilar EKRANA gider, `POST /ask` havuzuna ' +
+      'GITMEZ: IK modulunun hicbir katkicisi yoktur (ADR-0044 §4.3) ve bu, maas ' +
+      'izolasyonunun UCUNCU katmanidir.',
+  })
+  async overview(): Promise<{
+    readonly onLeaveToday: number;
+    readonly contractsEndingSoon: number;
+  }> {
+    return this.useCases.getOverview();
+  }
+
+  @Get('leave')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(LEAVE_READ)
+  @ApiOperation({
+    summary: 'Izin talepleri (sayfali)',
+    description: 'YETKI: `leave:read` (dort rol de).',
+  })
+  async listLeave(
+    @Query(new ZodValidationPipe(listLeaveSchema)) query: ListLeaveQueryDto,
+  ): Promise<{
+    readonly items: readonly LeaveResponse[];
+    readonly total: number;
+    readonly limit: number;
+    readonly offset: number;
+  }> {
+    const page = await this.useCases.listLeave({
+      status: query.status ?? null,
+      employeeId: query.employeeId ?? null,
+      limit: query.limit,
+      offset: query.offset,
+    });
+
+    return {
+      items: page.items.map(toLeaveResponse),
+      total: page.total,
+      limit: query.limit,
+      offset: query.offset,
+    };
+  }
+
+  @Get('employees/:employeeId/leave')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(LEAVE_READ)
+  @ApiOperation({
+    summary: 'Bir calisanin izin gecmisi + BAKIYESI',
+    description:
+      'YETKI: `leave:read`. ⚠️ Bakiye TURETILIR (ADR-0044 §2.3): hak edis eksi ' +
+      'ONAYLANMIS `annual` izinlerin gun toplami. Ucretsiz ve mazeret izni hak ' +
+      'edis TUKETMEZ. ⚠️ Kalan NEGATIF olabilir ve bu dogrudur.',
+  })
+  async employeeLeave(
+    @Param(new ZodValidationPipe(employeeIdParamSchema)) params: { employeeId: string },
+  ): Promise<{
+    readonly items: readonly LeaveResponse[];
+    readonly entitlementDays: number;
+    readonly usedDays: number;
+    readonly remainingDays: number;
+  }> {
+    const result = await this.useCases.getEmployeeLeave(params.employeeId);
+
+    return {
+      items: result.items.map(toLeaveResponse),
+      entitlementDays: result.entitlementDays,
+      usedDays: result.usedDays,
+      remainingDays: result.remainingDays,
+    };
+  }
+
+  @Post('employees/:employeeId/leave')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(LEAVE_REQUEST)
+  @ApiOperation({
+    summary: 'Izin talebi olusturur',
+    description:
+      'YETKI: `leave:request` (owner + admin + member) — ⚠️ `employee:write`ten ' +
+      'BILINCLI olarak GENIS: bir meslektasin kaydini degistirmek kimsenin gunluk ' +
+      'isi degildir ama KENDI IZININI ISTEMEK herkesin isidir. ' +
+      '⚠️ Govdede SEBEP ALANI YOKTUR ve `sick`/`raporlu` turu YOKTUR — ikisi de ' +
+      'ADR-0043 §3 saglik verisi sinirinin TASIYICISIDIR.',
+  })
+  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Govde gecersiz.' })
+  async requestLeave(
+    @Param(new ZodValidationPipe(employeeIdParamSchema)) params: { employeeId: string },
+    @Body(new ZodValidationPipe(createLeaveRequestSchema)) body: CreateLeaveRequestDto,
+  ): Promise<LeaveResponse> {
+    const { tenantId, userId } = requireTenantPrincipal();
+
+    return toLeaveResponse(
+      await this.useCases.requestLeave({
+        tenantId,
+        userId,
+        employeeId: params.employeeId,
+        fields: { type: body.type, startsOn: body.startsOn, endsOn: body.endsOn },
+      }),
+    );
+  }
+
+  @Patch('leave/:leaveId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(LEAVE_DECIDE)
+  @ApiOperation({
+    summary: 'Izin talebini onaylar ya da reddeder',
+    description:
+      'YETKI: `leave:decide` (owner + admin) — onaylamak bir YONETIM islemidir. ' +
+      '⚠️ Karara baglanmis bir izin YENIDEN karara baglanamaz (409): bir onayin ' +
+      'sessizce geri alinmasi (kim onayladi) sorusunun cevabini DEGISTIRIRDI. ' +
+      'Fikir degisirse dogru yol YENI BIR TALEPTIR.',
+  })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Zaten karara baglanmis.' })
+  async decideLeave(
+    @Param(new ZodValidationPipe(leaveIdParamSchema)) params: { leaveId: string },
+    @Body(new ZodValidationPipe(decideLeaveRequestSchema)) body: DecideLeaveRequestDto,
+  ): Promise<LeaveResponse> {
+    const { userId } = requireTenantPrincipal();
+
+    return toLeaveResponse(
+      await this.useCases.decideLeave({
+        leaveId: params.leaveId,
+        userId,
+        status: body.status,
+      }),
+    );
   }
 }
 

@@ -67,7 +67,20 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   // elverissizdir (`CategoryInUseError` / `DuplicateSkuError` ile ayni sinif).
   EMPLOYEE_USER_ALREADY_LINKED: HttpStatus.CONFLICT,
   EMPLOYEE_HAS_COMPENSATION: HttpStatus.CONFLICT,
-  COMPENSATION_DATE_DUPLICATE: HttpStatus.CONFLICT,
+
+  // ⚠️ `COMPENSATION_DATE_DUPLICATE` KALDIRILDI (ADR-0044 §1): ayni yururluk
+  // tarihine ikinci kayit artik bir HATA degil, bir DUZELTMEDIR. Satir burada
+  // birakilsaydi haritaya bakan biri ucun hala 409 dondugunu sanardi.
+
+  // --- IK v2 (ADR-0044) ---
+  LEAVE_REQUEST_NOT_FOUND: HttpStatus.NOT_FOUND,
+  LEAVE_DATES_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  ANNUAL_LEAVE_DAYS_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  EMPLOYEE_MANAGER_SELF: HttpStatus.UNPROCESSABLE_ENTITY,
+
+  // ⚠️ 409, 422 DEGIL: istek bicimsel olarak GECERLIDIR, KAYNAGIN DURUMU
+  // elverissizdir — karara baglanmis bir izin yeniden karara baglanamaz.
+  LEAVE_ALREADY_DECIDED: HttpStatus.CONFLICT,
 };
 
 /** Bu modulde bugun URETILEMEZ; mesaj yine de anlamli olmali. */

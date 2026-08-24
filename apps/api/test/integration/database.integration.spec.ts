@@ -119,6 +119,15 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0036, IK v2 (ADR-0044): `hr.leave_requests` + BES kolon + tekillik
+      // kisitinin KALDIRILMASI. ⚠️ Geri alma sirasi TERSTIR ve son adim
+      // (tekillik kisitini geri koymak) GERCEK VERIYLE CELISEBILIR: ileri
+      // yonde ayni yururluk tarihine bir DUZELTME yazilmis olabilir. Testte
+      // veri yoktur, yani gecer; uretimde patlamasi DOGRUDUR (down dosyasinin
+      // kendi uyarisi).
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0036_hr_v2_leave_and_employee_details.down.sql',
       // 0035, `hr` semasi + IKI tablo (ADR-0043 §1, Slice 2). ⚠️ Down dosyasi
       // KENDI ICINDE IKI KADEMELI: `compensation_records` ONCE duser cunku
       // `employees`e `ON DELETE RESTRICT` ile baglidir — ebeveyni once

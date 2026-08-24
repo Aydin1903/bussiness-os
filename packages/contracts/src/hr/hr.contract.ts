@@ -55,6 +55,36 @@ export type EmploymentStatus = z.infer<typeof employmentStatusSchema>;
 export const compensationPeriodSchema = z.enum(['monthly', 'hourly', 'annual']);
 export type CompensationPeriod = z.infer<typeof compensationPeriodSchema>;
 
+// ============================================================================
+// IK v2 (ADR-0044)
+// ============================================================================
+
+export const employmentTypeSchema = z.enum(['full_time', 'part_time', 'contract', 'intern']);
+export type EmploymentType = z.infer<typeof employmentTypeSchema>;
+
+export const workModeSchema = z.enum(['office', 'remote', 'hybrid']);
+export type WorkMode = z.infer<typeof workModeSchema>;
+
+/**
+ * ⚠️ IZIN TURLERI — `sick` / `raporlu` YOKTUR VE EKLENMEYECEKTIR.
+ *
+ * Bu liste ADR-0043 §3'un saglik verisi sinirinin TASIYICISIDIR: bir izin turu
+ * olarak "hastalik" secmek, o satiri SERBEST METIN OLMASA BILE KVKK m.6
+ * kapsaminda bir SAGLIK VERISI yapardi.
+ *
+ * ⚠️ DURUST BEDEL: bir isletme raporlu gunleri bu modulde TAKIP EDEMEZ ve bu,
+ * arayuzde de YAZILIR. Dogru cevap "mazeret" diye yazmak DEGILDIR — o da
+ * veriyi orada tutar.
+ */
+export const leaveTypeSchema = z.enum(['annual', 'unpaid', 'excuse', 'administrative']);
+export type LeaveType = z.infer<typeof leaveTypeSchema>;
+
+export const leaveStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+export type LeaveStatus = z.infer<typeof leaveStatusSchema>;
+
+export const MAX_DEPARTMENT_CHARS = 80;
+export const MAX_ANNUAL_LEAVE_DAYS = 365;
+
 /**
  * Calisan.
  *
@@ -72,6 +102,16 @@ export const employeeSchema = z.object({
   startedOn: calendarDay.nullable(),
   endedOn: calendarDay.nullable(),
   platformUserId: z.uuid().nullable(),
+  // --- IK v2 (ADR-0044 §3) ---
+  department: z.string().nullable(),
+  employmentType: employmentTypeSchema,
+  workMode: workModeSchema,
+  /** ⚠️ Patronun alarm kalemi: yaklasan sozlesme bitisleri. */
+  contractEndsOn: calendarDay.nullable(),
+  /** ⚠️ Hak edis IK tarafindan GIRILIR; sistem kidemden HESAPLAMAZ (§2.2). */
+  annualLeaveDays: z.number().int().nonnegative(),
+  /** ⚠️ Kendine referans; dongu veritabaninda ENGELLENMEZ (§3.1). */
+  managerEmployeeId: z.uuid().nullable(),
   createdAt: instant,
   updatedAt: instant,
 });
@@ -94,6 +134,12 @@ export const createEmployeeRequestSchema = z.object({
   startedOn: calendarDay.nullable().optional(),
   endedOn: calendarDay.nullable().optional(),
   platformUserId: z.uuid().nullable().optional(),
+  department: z.string().trim().max(MAX_DEPARTMENT_CHARS).nullable().optional(),
+  employmentType: employmentTypeSchema.optional(),
+  workMode: workModeSchema.optional(),
+  contractEndsOn: calendarDay.nullable().optional(),
+  annualLeaveDays: z.number().int().min(0).max(MAX_ANNUAL_LEAVE_DAYS).optional(),
+  managerEmployeeId: z.uuid().nullable().optional(),
 });
 export type CreateEmployeeRequest = z.infer<typeof createEmployeeRequestSchema>;
 
@@ -121,6 +167,18 @@ export const compensationRecordSchema = z.object({
 export type CompensationRecord = z.infer<typeof compensationRecordSchema>;
 
 /**
+ * Ucret kaydi — ⚠️ `supersededAt` IK v2 ile geldi (ADR-0044 §1.4).
+ *
+ * `null` degilse o satir daha sonra yazilmis bir kayitla **DUZELTILMISTIR**.
+ * ⚠️ Alan TURETILIR (kolon YOK): ayni `effectiveFrom` icin daha yeni bir
+ * `recordedAt` varsa doludur.
+ */
+export const supersedableCompensationSchema = compensationRecordSchema.extend({
+  supersededAt: instant.nullable(),
+});
+export type SupersedableCompensation = z.infer<typeof supersedableCompensationSchema>;
+
+/**
  * Ucret gecmisi + GUNCEL ucret.
  *
  * ⚠️ `current` TURETILMISTIR (§1.5): `effectiveFrom <= bugun` olanlarin en
@@ -129,7 +187,8 @@ export type CompensationRecord = z.infer<typeof compensationRecordSchema>;
  * ACIKCA yazmak zorundadir.
  */
 export const compensationHistoryResponseSchema = z.object({
-  items: z.array(compensationRecordSchema),
+  /** ⚠️ `supersededAt` TASIR — duzeltilmis satir listede KALIR ama isaretlidir. */
+  items: z.array(supersedableCompensationSchema),
   current: compensationRecordSchema.nullable(),
 });
 export type CompensationHistoryResponse = z.infer<typeof compensationHistoryResponseSchema>;
@@ -141,3 +200,75 @@ export const addCompensationRequestSchema = z.object({
   effectiveFrom: calendarDay,
 });
 export type AddCompensationRequest = z.infer<typeof addCompensationRequestSchema>;
+
+// ============================================================================
+// IK v2 — izin takibi (ADR-0044 §2)
+// ============================================================================
+
+export const leaveRequestSchema = z.object({
+  id: z.uuid(),
+  employeeId: z.uuid(),
+  type: leaveTypeSchema,
+  startsOn: calendarDay,
+  endsOn: calendarDay,
+  /** ⚠️ TURETILMIS TAKVIM GUNU — IS GUNU DEGIL (§2.5). */
+  days: z.number().int().positive(),
+  status: leaveStatusSchema,
+  requestedByUserId: z.uuid(),
+  requestedAt: instant,
+  /** ⚠️ Satir ici aktor damgasi — bir denetim izi DEGILDIR (§2.4). */
+  decidedByUserId: z.uuid().nullable(),
+  decidedAt: instant.nullable(),
+});
+export type LeaveRequest = z.infer<typeof leaveRequestSchema>;
+
+export const leaveListResponseSchema = z.object({
+  items: z.array(leaveRequestSchema),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+});
+export type LeaveListResponse = z.infer<typeof leaveListResponseSchema>;
+
+/**
+ * Bir calisanin izin gecmisi + BAKIYESI.
+ *
+ * ⚠️ `remainingDays` NEGATIF olabilir ve bu DOGRUDUR: hak edisinden fazla izin
+ * kullanmis bir calisan gercek bir durumdur ve gizlenmemelidir.
+ *
+ * ⚠️ Yalnizca ONAYLANMIS `annual` izin hak edisten duser — ucretsiz ve mazeret
+ * izni TUKETMEZ (§2.3).
+ */
+export const employeeLeaveResponseSchema = z.object({
+  items: z.array(leaveRequestSchema),
+  entitlementDays: z.number().int().nonnegative(),
+  usedDays: z.number().int().nonnegative(),
+  remainingDays: z.number().int(),
+});
+export type EmployeeLeaveResponse = z.infer<typeof employeeLeaveResponseSchema>;
+
+/**
+ * ⚠️ BU SEMADA "SEBEP" ALANI YOKTUR — ADR-0043 §3'un sinirinin tasiyicisi.
+ *
+ * Bir izin kaydinin en dogal alani "sebep"tir ve oraya ILK YAZILACAK SEY
+ * "RAPORLU"DUR. Sunucu `.strict()` ile `reason` gonderen istegi 422 REDDEDER.
+ */
+export const createLeaveRequestSchema = z.object({
+  type: leaveTypeSchema,
+  startsOn: calendarDay,
+  endsOn: calendarDay,
+});
+export type CreateLeaveRequest = z.infer<typeof createLeaveRequestSchema>;
+
+/** ⚠️ `pending`e GERI DONULEMEZ: karara baglanmis izin yeniden karara baglanmaz. */
+export const decideLeaveRequestSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+});
+export type DecideLeaveRequest = z.infer<typeof decideLeaveRequestSchema>;
+
+/** Odanin duvari — ⚠️ bu sayilar EKRANA gider, `POST /ask` havuzuna GITMEZ. */
+export const hrOverviewSchema = z.object({
+  onLeaveToday: z.number().int().nonnegative(),
+  contractsEndingSoon: z.number().int().nonnegative(),
+});
+export type HrOverview = z.infer<typeof hrOverviewSchema>;

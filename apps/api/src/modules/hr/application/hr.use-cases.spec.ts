@@ -4,6 +4,7 @@ import { type AuditEntry, type AuditRecorder } from '../../../shared/audit.port'
 import { type TenantAccessQuery } from '../../tenant/tenant.public';
 import { type CompensationRecord } from '../domain/compensation-record.entity';
 import { Employee, type EmployeeFields } from '../domain/employee.entity';
+import { type LeaveRequest } from '../domain/leave-request.entity';
 import {
   EmployeeNotFoundError,
   EmployeeUserAlreadyLinkedError,
@@ -28,6 +29,12 @@ function employeeFields(overrides: Partial<EmployeeFields> = {}): EmployeeFields
     startedOn: null,
     endedOn: null,
     platformUserId: null,
+    department: 'Muhasebe',
+    employmentType: 'full_time',
+    workMode: 'office',
+    contractEndsOn: null,
+    annualLeaveDays: 14,
+    managerEmployeeId: null,
     ...overrides,
   };
 }
@@ -66,6 +73,13 @@ function makeHarness(
     appendCompensation: vi.fn(() => Promise.resolve()),
     listCompensation: vi.fn(() => Promise.resolve<CompensationRecord[]>([])),
     findCurrentCompensation: vi.fn(() => Promise.resolve<CompensationRecord | null>(null)),
+    // --- IK v2 (ADR-0044) ---
+    saveLeaveRequest: vi.fn(() => Promise.resolve()),
+    findLeaveRequestById: vi.fn(() => Promise.resolve<LeaveRequest | null>(null)),
+    listLeaveRequests: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+    listLeaveRequestsForEmployee: vi.fn(() => Promise.resolve<LeaveRequest[]>([])),
+    countOnLeave: vi.fn(() => Promise.resolve(0)),
+    countContractsEndingBefore: vi.fn(() => Promise.resolve(0)),
     ...overrides.repository,
   };
 

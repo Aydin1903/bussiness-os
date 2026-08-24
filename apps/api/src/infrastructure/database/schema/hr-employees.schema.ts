@@ -1,4 +1,4 @@
-import { date, index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { date, index, integer, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 import { hrSchema } from './hr-schema.schema';
@@ -62,6 +62,30 @@ export const hrEmployees = hrSchema.table(
      * EDILIR ve burada bir bozulma degil DOGRU DURUMDUR (§2.5).
      */
     platformUserId: uuid('platform_user_id'),
+
+    // --- IK v2 (ADR-0044 §3) — bes alan, her biri §3.5'in olcutunden gecti ---
+    /** Ekip bazli filtre + patronun "hangi ekip ne kadar" sorusu. */
+    department: text('department'),
+    /** `full_time` | `part_time` | `contract` | `intern`. */
+    employmentType: text('employment_type').notNull().default('full_time'),
+    /** `office` | `remote` | `hybrid` — IK'nin en cok sorulan alani. */
+    workMode: text('work_mode').notNull().default('office'),
+    /** ⚠️ Patronun alarm kalemi: yaklasan sozlesme bitisleri. */
+    contractEndsOn: date('contract_ends_on'),
+    /**
+     * ⚠️ HAK EDIS BIR MEVZUAT KURALI DEGIL, BIR SAYIDIR (§2.2). Turkiye'de
+     * kidemle degisir (14/20/26) ama bu ULKEYE OZEL MEVZUATTIR ve ulke
+     * degisince bastan yazilir — ADR-0041'in e-fatura ve ADR-0043'un bordro
+     * gerekcesiyle birebir ayni. Sistem carpar ve cikarir, KURAL BILMEZ.
+     */
+    annualLeaveDays: integer('annual_leave_days').notNull().default(0),
+    /**
+     * ⚠️ KENDINE REFERANS. Dongu (A -> B -> A) VERITABANINDA ENGELLENMEZ:
+     * kontrol ozyinelemeli sorgu ister ve HER YAZMADA calisirdi. Okuma tarafi
+     * dayanikli yazilir (derinlik siniri). Yalnizca EN KISA dongu
+     * (kendisi = yoneticisi) CHECK ile engellenir.
+     */
+    managerEmployeeId: uuid('manager_employee_id'),
 
     createdByUserId: uuid('created_by_user_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),

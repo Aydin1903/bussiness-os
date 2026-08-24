@@ -253,6 +253,13 @@
       "when": 1784990000000,
       "tag": "0035_hr_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785000000000,
+      "tag": "0036_hr_v2_leave_and_employee_details",
+      "breakpoints": true
     }
   ]
 }

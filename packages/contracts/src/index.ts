@@ -467,6 +467,20 @@ export {
   MAX_EMPLOYEE_NAME_CHARS,
   MAX_JOB_TITLE_CHARS,
   MAX_EMPLOYEE_CONTACT_CHARS,
+  // --- IK v2 (ADR-0044) ---
+  employmentTypeSchema,
+  workModeSchema,
+  leaveTypeSchema,
+  leaveStatusSchema,
+  leaveRequestSchema,
+  leaveListResponseSchema,
+  employeeLeaveResponseSchema,
+  createLeaveRequestSchema,
+  decideLeaveRequestSchema,
+  hrOverviewSchema,
+  supersedableCompensationSchema,
+  MAX_DEPARTMENT_CHARS,
+  MAX_ANNUAL_LEAVE_DAYS,
 } from './hr/hr.contract';
 export type {
   Employee,
@@ -478,6 +492,17 @@ export type {
   CompensationRecord,
   CompensationHistoryResponse,
   AddCompensationRequest,
+  EmploymentType,
+  WorkMode,
+  LeaveType,
+  LeaveStatus,
+  LeaveRequest,
+  LeaveListResponse,
+  EmployeeLeaveResponse,
+  CreateLeaveRequest,
+  DecideLeaveRequest,
+  HrOverview,
+  SupersedableCompensation,
 } from './hr/hr.contract';
 
 /**

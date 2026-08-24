@@ -1,6 +1,6 @@
 'use client';
 
-import type { Employee } from '@business-os/contracts';
+import type { Employee, HrOverview } from '@business-os/contracts';
 
 import { Rise } from '@/components/panel/stream';
 import { Hero, HeroFigure, ROOM_RISE, Satellite, Satellites, Wall } from '@/components/room/room';
@@ -40,14 +40,29 @@ import { Hero, HeroFigure, ROOM_RISE, Satellite, Satellites, Wall } from '@/comp
  * ⚠️ Bedeli açıkça: uydu sayımları YALNIZCA GÖRÜNEN SAYFAYI kapsar ve bu,
  * etiketlerde ("bu sayfada") yazılıdır. Kahraman rakam sunucudan gelen
  * `total`dır.
+ *
+ * ============================================================================
+ * ⚠️ İKİ UYDU BU KURALIN İSTİSNASIDIR — VE ETİKETİ FARKLIDIR
+ * ============================================================================
+ * "Bugün izinde" ve "Sözleşmesi bitiyor" (ADR-0044 §4) SAYFADAN TÜRETİLEMEZ:
+ * ikisi de TÜM EKİBİ tarayan bir sorudur ve görünen 20 kayıttan hesaplanırsa
+ * cevap SESSİZCE YANLIŞ olur — üçüncü sayfadaki izinli çalışan görünmez ve
+ * duvar "bugün kimse izinde değil" der. Bu yüzden `GET /hr/overview`ten
+ * SUNUCUDAN gelirler ve notları "tüm ekipte"dir.
+ *
+ * ⚠️ `overview` `null` olabilir (uç hata verdi ya da henüz gelmedi): o zaman
+ * iki uydu ÇİZİLMEZ. Sıfır göstermek, "bugün kimse izinde değil" diye
+ * OKUNACAK BİR YALAN olurdu.
  */
 export function HrWall({
   total,
   items,
+  overview,
   loading,
 }: {
   readonly total: number;
   readonly items: readonly Employee[];
+  readonly overview: HrOverview | null;
   readonly loading: boolean;
 }) {
   if (loading) {
@@ -111,6 +126,32 @@ export function HrWall({
           />
           <Satellite label="Platform hesabı yok" value={withoutAccount} note="bu sayfada" />
           <Satellite label="Ayrılmış" value={ended} note="bu sayfada" />
+
+          {/*
+            ⚠️ İKİSİ DE SUNUCUDAN — sayfadan türetilemez (yukarıdaki gerekçe).
+            `null` iken çizilmezler: sıfır göstermek bir YALAN olurdu.
+          */}
+          {overview === null ? null : (
+            <>
+              <Satellite
+                label="Bugün izinde"
+                value={overview.onLeaveToday}
+                note="tüm ekipte"
+                tone={overview.onLeaveToday > 0 ? 'accent' : 'plain'}
+              />
+              {/*
+                ⚠️ PATRONUN ALARM KALEMİ (ADR-0044 §4): 30 gün içinde biten
+                sözleşme. Kaçırılırsa bedeli bir arayüz hatası değil, SÜRESİ
+                DOLMUŞ BİR SÖZLEŞMEYLE ÇALIŞAN BİR İNSANDIR.
+              */}
+              <Satellite
+                label="Sözleşmesi bitiyor"
+                value={overview.contractsEndingSoon}
+                note="30 gün içinde"
+                tone={overview.contractsEndingSoon > 0 ? 'accent' : 'plain'}
+              />
+            </>
+          )}
         </Satellites>
       </Rise>
     </Wall>

@@ -86,3 +86,23 @@ export function canReadAudit(role: RoleState): boolean {
 export function canWriteEmployee(role: RoleState): boolean {
   return role === 'owner' || role === 'admin' || role === 'unknown';
 }
+
+/**
+ * `leave:request` — owner + admin + member (ADR-0044 §6).
+ *
+ * ⚠️ `employee:write`ten BILINCLI olarak GENIS: bir meslektasin kaydini
+ * degistirmek kimsenin gunluk isi degildir ama KENDI IZININI ISTEMEK tam
+ * olarak herkesin isidir. Dar olsaydi modul, izin sisteminin VAR OLMA SEBEBINI
+ * karsilamazdi.
+ *
+ * ⚠️ Burada FAIL-OPEN dogrudur (dugme kapisi, yuzey kapisi degil): `unknown`
+ * rol dugmeyi gorur ve sunucu gerekirse 403 doner.
+ */
+export function canRequestLeave(role: RoleState): boolean {
+  return role !== 'viewer';
+}
+
+/** `leave:decide` — owner + admin. Onaylamak bir YONETIM islemidir. */
+export function canDecideLeave(role: RoleState): boolean {
+  return role === 'owner' || role === 'admin' || role === 'unknown';
+}

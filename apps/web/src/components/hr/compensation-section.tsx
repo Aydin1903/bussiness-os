@@ -119,10 +119,13 @@ export function CompensationSection({
         bunu YAZMADAN ÖNCE bilmeli — sonradan "geri al" araması boşa çıkar.
       */}
       <p className="mt-2 max-w-[60ch] text-[12px] leading-[1.6] text-fg-3">
-        Ücret kayıtları <strong className="font-semibold text-fg-2">geri alınamaz</strong>: bir
-        kayıt eklendikten sonra düzeltilemez ve silinemez. Yanlış girilen bir tutar, doğru tutarla
-        yeni bir yürürlük tarihi yazılarak düzeltilir. Bu, “maaşı kim ne zaman değiştirdi” sorusunun
-        cevabının kaydın kendisi olmasındandır.
+        Ücret kayıtları <strong className="font-semibold text-fg-2">silinmez</strong>: bir kayıt
+        eklendikten sonra üzerine yazılamaz. Yanlış girilen bir tutarı düzeltmek için{' '}
+        <strong className="font-semibold text-fg-2">
+          aynı yürürlük tarihine doğru tutarı yazın
+        </strong>
+        — eski kayıt geçmişte “düzeltildi” damgasıyla kalır, bugünkü ücret son yazılan olur. Bu,
+        “maaşı kim ne zaman değiştirdi” sorusunun cevabının kaydın kendisi olmasındandır.
       </p>
 
       {formOpen ? (
@@ -154,7 +157,7 @@ export function CompensationSection({
               type="date"
               required
               disabled={saving}
-              hint="gelecek bir tarih yazılabilir; bugünkü ücret değişmez"
+              hint="aynı tarihi yazmak DÜZELTMEDİR; ileri tarih bugünkü ücreti değiştirmez"
             />
           </FieldGrid>
 
@@ -208,13 +211,30 @@ export function CompensationSection({
           <ul className="flex flex-col gap-1.5">
             {history.items.map((record) => {
               const future = record.effectiveFrom > today;
+              // ⚠️ Aynı yürürlük tarihine daha sonra yazılmış bir kayıt var:
+              // bu satır DÜZELTİLMİŞTİR ve geçerli değildir (ADR-0044 §1.4).
+              const corrected = record.supersededAt !== null;
 
               return (
                 <li
                   key={record.id}
                   className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-card border border-border bg-surface px-4 py-2.5"
                 >
-                  <span className="tabular text-[13px] font-semibold text-fg">
+                  {/*
+                    ⚠️ DÜZELTİLMİŞ TUTAR ÜSTÜ ÇİZİLİ GÖSTERİLİR ama SİLİNMEZ:
+                    defter ekleme-yalnızdır ve yanlış rakamın kendisi de
+                    kaydın parçasıdır. Gizlemek, "maaşı kim ne zaman
+                    değiştirdi" sorusunun cevabını yarım bırakırdı.
+
+                    ⚠️ Renk TEK BAŞINA bilgi taşımaz (FRONTEND §4.8): durum
+                    ayrıca YAZIYLA da söylenir.
+                  */}
+                  <span
+                    className={[
+                      'tabular text-[13px] font-semibold',
+                      corrected ? 'text-fg-3 line-through' : 'text-fg',
+                    ].join(' ')}
+                  >
                     {record.amount} {record.currency}
                   </span>
                   <span className="text-[11.5px] text-fg-3">
@@ -222,6 +242,7 @@ export function CompensationSection({
                     {/* ⚠️ Gelecek tarihli kayıt AÇIKÇA işaretlenir: listede
                         görünür ama bugünkü ücret DEĞİLDİR (§1.5). */}
                     {future ? ' · henüz yürürlükte değil' : ''}
+                    {corrected ? ' · düzeltildi' : ''}
                   </span>
                 </li>
               );

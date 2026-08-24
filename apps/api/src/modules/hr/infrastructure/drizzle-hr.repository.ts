@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, lte, sql, type SQL } from 'drizzle-orm';
 
-import { hrCompensationRecords, hrEmployees } from '../../../infrastructure/database/schema';
+import {
+  hrCompensationRecords,
+  hrEmployees,
+  hrLeaveRequests,
+} from '../../../infrastructure/database/schema';
 import {
   PG_FOREIGN_KEY_VIOLATION,
   PG_UNIQUE_VIOLATION,
@@ -9,15 +13,18 @@ import {
 } from '../../../infrastructure/database/pg-error';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import { CompensationRecord, type CompensationPeriod } from '../domain/compensation-record.entity';
-import { Employee, type EmploymentStatus } from '../domain/employee.entity';
 import {
-  DuplicateCompensationDateError,
-  EmployeeHasCompensationError,
-  EmployeeUserAlreadyLinkedError,
-} from '../domain/hr.error';
+  Employee,
+  type EmploymentStatus,
+  type EmploymentType,
+  type WorkMode,
+} from '../domain/employee.entity';
+import { EmployeeHasCompensationError, EmployeeUserAlreadyLinkedError } from '../domain/hr.error';
+import { LeaveRequest, type LeaveStatus, type LeaveType } from '../domain/leave-request.entity';
 import {
   type EmployeeListFilter,
   type HrRepository,
+  type LeaveListFilter,
   type ListPage,
 } from '../application/hr.repository.port';
 
@@ -39,6 +46,12 @@ const EMPLOYEE_COLUMNS = {
   startedOn: hrEmployees.startedOn,
   endedOn: hrEmployees.endedOn,
   platformUserId: hrEmployees.platformUserId,
+  department: hrEmployees.department,
+  employmentType: hrEmployees.employmentType,
+  workMode: hrEmployees.workMode,
+  contractEndsOn: hrEmployees.contractEndsOn,
+  annualLeaveDays: hrEmployees.annualLeaveDays,
+  managerEmployeeId: hrEmployees.managerEmployeeId,
   createdByUserId: hrEmployees.createdByUserId,
   createdAt: hrEmployees.createdAt,
   updatedAt: hrEmployees.updatedAt,
@@ -75,6 +88,12 @@ interface EmployeeRow {
   readonly startedOn: string | null;
   readonly endedOn: string | null;
   readonly platformUserId: string | null;
+  readonly department: string | null;
+  readonly employmentType: string;
+  readonly workMode: string;
+  readonly contractEndsOn: string | null;
+  readonly annualLeaveDays: number;
+  readonly managerEmployeeId: string | null;
   readonly createdByUserId: string;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -103,10 +122,22 @@ function toPeriod(value: string): CompensationPeriod {
   return value === 'hourly' || value === 'annual' ? value : 'monthly';
 }
 
+/** Kolon `text`; CHECK kisiti dort degerden birini garanti eder. */
+function toEmploymentType(value: string): EmploymentType {
+  return value === 'part_time' || value === 'contract' || value === 'intern' ? value : 'full_time';
+}
+
+/** Kolon `text`; CHECK kisiti uc degerden birini garanti eder. */
+function toWorkMode(value: string): WorkMode {
+  return value === 'remote' || value === 'hybrid' ? value : 'office';
+}
+
 function toEmployee(row: EmployeeRow): Employee {
   return Employee.fromPersistence({
     ...row,
     employmentStatus: toStatus(row.employmentStatus),
+    employmentType: toEmploymentType(row.employmentType),
+    workMode: toWorkMode(row.workMode),
   });
 }
 
@@ -116,6 +147,52 @@ function toCompensation(row: CompensationRow): CompensationRecord {
     // ⚠️ `char(3)` sabit genislikte doner; kanonik bicim icin kirpiliyor.
     currency: row.currency.trim(),
     period: toPeriod(row.period),
+  });
+}
+
+const LEAVE_COLUMNS = {
+  id: hrLeaveRequests.id,
+  tenantId: hrLeaveRequests.tenantId,
+  employeeId: hrLeaveRequests.employeeId,
+  type: hrLeaveRequests.type,
+  startsOn: hrLeaveRequests.startsOn,
+  endsOn: hrLeaveRequests.endsOn,
+  status: hrLeaveRequests.status,
+  requestedByUserId: hrLeaveRequests.requestedByUserId,
+  requestedAt: hrLeaveRequests.requestedAt,
+  decidedByUserId: hrLeaveRequests.decidedByUserId,
+  decidedAt: hrLeaveRequests.decidedAt,
+} as const;
+
+interface LeaveRow {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly employeeId: string;
+  readonly type: string;
+  readonly startsOn: string;
+  readonly endsOn: string;
+  readonly status: string;
+  readonly requestedByUserId: string;
+  readonly requestedAt: Date;
+  readonly decidedByUserId: string | null;
+  readonly decidedAt: Date | null;
+}
+
+/** Kolon `text`; CHECK kisiti dort degerden birini garanti eder. ⚠️ `sick` YOK. */
+function toLeaveType(value: string): LeaveType {
+  return value === 'unpaid' || value === 'excuse' || value === 'administrative' ? value : 'annual';
+}
+
+/** Kolon `text`; CHECK kisiti uc degerden birini garanti eder. */
+function toLeaveStatus(value: string): LeaveStatus {
+  return value === 'approved' || value === 'rejected' ? value : 'pending';
+}
+
+function toLeaveRequest(row: LeaveRow): LeaveRequest {
+  return LeaveRequest.fromPersistence({
+    ...row,
+    type: toLeaveType(row.type),
+    status: toLeaveStatus(row.status),
   });
 }
 
@@ -156,6 +233,12 @@ export class DrizzleHrRepository implements HrRepository {
             startedOn: state.startedOn,
             endedOn: state.endedOn,
             platformUserId: state.platformUserId,
+            department: state.department,
+            employmentType: state.employmentType,
+            workMode: state.workMode,
+            contractEndsOn: state.contractEndsOn,
+            annualLeaveDays: state.annualLeaveDays,
+            managerEmployeeId: state.managerEmployeeId,
             updatedAt: state.updatedAt,
           },
         });
@@ -190,6 +273,10 @@ export class DrizzleHrRepository implements HrRepository {
 
     if (filter.status !== null) {
       conditions.push(eq(hrEmployees.employmentStatus, filter.status));
+    }
+
+    if (filter.department !== null) {
+      conditions.push(eq(hrEmployees.department, filter.department));
     }
 
     if (filter.search !== null) {
@@ -258,18 +345,18 @@ export class DrizzleHrRepository implements HrRepository {
   async appendCompensation(record: CompensationRecord): Promise<void> {
     const { db } = requireTransaction();
 
-    try {
-      // ⚠️ `onConflictDoUpdate` YOK — ve bu bir eksik degil, ekleme-yalnizligin
-      // TASIYICISIDIR (`insertMovement` ve `saveInteraction`in ayni karari).
-      // UPSERT yazilsaydi ayni yururluk tarihine ikinci bir kayit SESSIZCE bir
-      // GECMIS SATIRINI degistirirdi — yani §6.2'nin denetim cevabini bozardi.
-      await db.insert(hrCompensationRecords).values(record.toState());
-    } catch (error) {
-      if (isPgError(error, PG_UNIQUE_VIOLATION, 'compensation_effective_unique')) {
-        throw new DuplicateCompensationDateError();
-      }
-      throw error;
-    }
+    // ⚠️ `onConflictDoUpdate` YOK — ve bu bir eksik degil, ekleme-yalnizligin
+    // TASIYICISIDIR (`insertMovement` ve `saveInteraction`in ayni karari).
+    // UPSERT yazilsaydi bir DUZELTME, SESSIZCE bir GECMIS SATIRINI degistirirdi
+    // — yani §6.2'nin denetim cevabini bozardi.
+    //
+    // ⚠️ AYNI YURURLUK TARIHINE IKINCI KAYIT ARTIK SERBESTTIR (ADR-0044 §1):
+    // `compensation_effective_unique` migration `0036`da DUSURULDU. Yanlis
+    // girilen bir maasi duzeltmenin baska yolu yoktu — kullanici ya yanlis
+    // rakamla yasar ya da UYDURMA BIR TARIH yazardi; ikincisi gecmisi bozardi.
+    // Hangi satirin gecerli oldugunu `recordedAt` sirasi soyler ve duzeltilen
+    // satir `supersededAt` ile ISARETLI kalir (§1.4).
+    await db.insert(hrCompensationRecords).values(record.toState());
   }
 
   async listCompensation(employeeId: string): Promise<CompensationRecord[]> {
@@ -282,7 +369,11 @@ export class DrizzleHrRepository implements HrRepository {
       // En yeni yururluk tarihi once. ⚠️ GELECEK TARIHLI kayitlar da GORUNUR —
       // liste gecmisin tamamidir; "bugunku" ayrimi `findCurrentCompensation`
       // yapar.
-      .orderBy(desc(hrCompensationRecords.effectiveFrom), desc(hrCompensationRecords.id));
+      .orderBy(
+        desc(hrCompensationRecords.effectiveFrom),
+        desc(hrCompensationRecords.recordedAt),
+        desc(hrCompensationRecords.id),
+      );
 
     return rows.map(toCompensation);
   }
@@ -304,10 +395,129 @@ export class DrizzleHrRepository implements HrRepository {
           lte(hrCompensationRecords.effectiveFrom, input.today),
         ),
       )
-      .orderBy(desc(hrCompensationRecords.effectiveFrom), desc(hrCompensationRecords.id))
+      // ⚠️ `recordedAt` IKINCI anahtar (ADR-0044 §1.3): tekillik kisiti
+      // kalktigi icin ayni yururluk tarihine bir DUZELTME yazilmis olabilir ve
+      // EN SON YAZILAN kazanir. Siralama artik kararli degil ANLAMLI.
+      .orderBy(
+        desc(hrCompensationRecords.effectiveFrom),
+        desc(hrCompensationRecords.recordedAt),
+        desc(hrCompensationRecords.id),
+      )
       .limit(1);
 
     const row = rows[0];
     return row === undefined ? null : toCompensation(row);
+  }
+
+  // ==========================================================================
+  // IK v2 — izin takibi (ADR-0044 §2)
+  // ==========================================================================
+
+  async saveLeaveRequest(request: LeaveRequest): Promise<void> {
+    const { db } = requireTransaction();
+    const state = request.toState();
+
+    // ⚠️ UPSERT MESRUDUR ve ucret defterinden BILINCLI SAPMADIR: bir izin
+    // talebi GUNCELLENIR (onaylanir/reddedilir), bir ucret kaydi GUNCELLENMEZ
+    // (ADR-0043 §6.2 — degistirilemezligi denetim izinin ta kendisidir).
+    await db
+      .insert(hrLeaveRequests)
+      .values(state)
+      .onConflictDoUpdate({
+        target: hrLeaveRequests.id,
+        set: {
+          status: state.status,
+          decidedByUserId: state.decidedByUserId,
+          decidedAt: state.decidedAt,
+        },
+      });
+  }
+
+  async findLeaveRequestById(id: string): Promise<LeaveRequest | null> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select(LEAVE_COLUMNS)
+      .from(hrLeaveRequests)
+      .where(eq(hrLeaveRequests.id, id))
+      .limit(1);
+
+    const row = rows[0];
+    return row === undefined ? null : toLeaveRequest(row);
+  }
+
+  async listLeaveRequests(filter: LeaveListFilter): Promise<ListPage<LeaveRequest>> {
+    const { db } = requireTransaction();
+
+    const conditions: SQL[] = [];
+
+    if (filter.status !== null) {
+      conditions.push(eq(hrLeaveRequests.status, filter.status));
+    }
+
+    if (filter.employeeId !== null) {
+      conditions.push(eq(hrLeaveRequests.employeeId, filter.employeeId));
+    }
+
+    const where = conditions.length === 0 ? undefined : and(...conditions);
+
+    const rows = await db
+      .select(LEAVE_COLUMNS)
+      .from(hrLeaveRequests)
+      .where(where)
+      .orderBy(desc(hrLeaveRequests.startsOn), desc(hrLeaveRequests.id))
+      .limit(filter.limit)
+      .offset(filter.offset);
+
+    const [counted] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(hrLeaveRequests)
+      .where(where);
+
+    return { items: rows.map(toLeaveRequest), total: counted?.total ?? 0 };
+  }
+
+  async listLeaveRequestsForEmployee(employeeId: string): Promise<LeaveRequest[]> {
+    const { db } = requireTransaction();
+
+    const rows = await db
+      .select(LEAVE_COLUMNS)
+      .from(hrLeaveRequests)
+      .where(eq(hrLeaveRequests.employeeId, employeeId))
+      .orderBy(desc(hrLeaveRequests.startsOn), desc(hrLeaveRequests.id));
+
+    return rows.map(toLeaveRequest);
+  }
+
+  async countOnLeave(today: string): Promise<number> {
+    const { db } = requireTransaction();
+
+    // ⚠️ Yalnizca ONAYLANMIS izinler sayilir: bekleyen bir talep bir izin
+    // DEGILDIR ve "bugun kim yok" sorusunu yanlis cevaplardi.
+    const [counted] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(hrLeaveRequests)
+      .where(
+        and(
+          eq(hrLeaveRequests.status, 'approved'),
+          lte(hrLeaveRequests.startsOn, today),
+          gte(hrLeaveRequests.endsOn, today),
+        ),
+      );
+
+    return counted?.total ?? 0;
+  }
+
+  async countContractsEndingBefore(day: string): Promise<number> {
+    const { db } = requireTransaction();
+
+    // ⚠️ Yalnizca AKTIF calisanlar: ayrilmis birinin sozlesme bitisi bir
+    // alarm degildir.
+    const [counted] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(hrEmployees)
+      .where(and(eq(hrEmployees.employmentStatus, 'active'), lte(hrEmployees.contractEndsOn, day)));
+
+    return counted?.total ?? 0;
   }
 }

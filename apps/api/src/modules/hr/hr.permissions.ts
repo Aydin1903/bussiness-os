@@ -87,6 +87,28 @@ export const EMPLOYEE_WRITE = 'employee:write';
  */
 export const EMPLOYEE_DELETE = 'employee:delete';
 
+/**
+ * IK v2 — izin takibi (ADR-0044 §6).
+ *
+ * ⚠️ `leave:request` GENIS ve bu, `employee:write`in DAR olmasindan BILINCLI
+ * ayrilmadir: bir meslektasin kaydini degistirmek kimsenin gunluk isi degildir
+ * ama KENDI IZININI ISTEMEK tam olarak herkesin isidir. Dar olsaydi modul,
+ * izin sisteminin VAR OLMA SEBEBINI karsilamazdi.
+ *
+ * ⚠️ `leave:decide` DAR: onaylamak bir YONETIM islemidir.
+ *
+ * ⚠️ `leave:delete` YOKTUR — reddedilen bir izin `rejected` olur, silinmez
+ * (ADR-0043 §1.4'un "ayrilan calisan silinmez, isaretlenir" karariyla ayni
+ * sekil). Var olmayan bir izin, unutulmus bir izin degildir: kataloga
+ * yazilmadigi icin guard deny-by-default calisir.
+ *
+ * ⚠️ Ad cakismasi kontrolu (BESINCI kez): `leave` hicbir modul tarafindan
+ * alinmamis.
+ */
+export const LEAVE_READ = 'leave:read';
+export const LEAVE_REQUEST = 'leave:request';
+export const LEAVE_DECIDE = 'leave:decide';
+
 export const COMPENSATION_READ = 'compensation:read';
 export const COMPENSATION_WRITE = 'compensation:write';
 
@@ -96,4 +118,7 @@ export const HR_PERMISSIONS: readonly PermissionRule[] = [
   { permission: EMPLOYEE_DELETE, roles: ['owner', 'admin'] },
   { permission: COMPENSATION_READ, roles: ['owner', 'admin'] },
   { permission: COMPENSATION_WRITE, roles: ['owner', 'admin'] },
+  { permission: LEAVE_READ, roles: ['owner', 'admin', 'member', 'viewer'] },
+  { permission: LEAVE_REQUEST, roles: ['owner', 'admin', 'member'] },
+  { permission: LEAVE_DECIDE, roles: ['owner', 'admin'] },
 ];

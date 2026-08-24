@@ -197,3 +197,12 @@ export { invoicingNumberSequences } from './invoicing-number-sequences.schema';
 export { hrSchema } from './hr-schema.schema';
 export { hrEmployees } from './hr-employees.schema';
 export { hrCompensationRecords } from './hr-compensation-records.schema';
+
+// --- IK v2 (ADR-0044) — izin takibi ---
+// ⚠️ BU TABLODA "SEBEP" ALANI YOKTUR ve `type` icinde `sick`/`raporlu` YOKTUR
+// (§2.1): ikisi de ADR-0043 §3'ün sağlık verisi sınırının TAŞIYICISIDIR. Bir
+// "sebep" alanı o sınırın ARKA KAPISIDIR — sınır yerinde görünür, kullanıcı
+// onu ihlal eder ve hata SESSİZDİR.
+//
+// ⚠️ `days` ve `bakiye` de kolon DEĞİLDİR: ikisi de TÜRETİLİR (§2.3, §2.5).
+export { hrLeaveRequests } from './hr-leave-requests.schema';

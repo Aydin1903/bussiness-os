@@ -1,4 +1,8 @@
 import {
+  employeeLeaveResponseSchema,
+  hrOverviewSchema,
+  leaveListResponseSchema,
+  leaveRequestSchema,
   compensationHistoryResponseSchema,
   compensationRecordSchema,
   employeeListResponseSchema,
@@ -10,6 +14,12 @@ import {
   type Employee,
   type EmployeeListResponse,
   type UpdateEmployeeRequest,
+  type CreateLeaveRequest,
+  type DecideLeaveRequest,
+  type EmployeeLeaveResponse,
+  type HrOverview,
+  type LeaveListResponse,
+  type LeaveRequest,
 } from '@business-os/contracts';
 
 import { apiFetch, apiSend } from './client';
@@ -48,6 +58,7 @@ export function listEmployees(params: {
   limit: number;
   offset: number;
   status?: 'active' | 'ended';
+  department?: string;
   search?: string;
 }): Promise<EmployeeListResponse> {
   return apiFetch(`/hr/employees?${query(params)}`, employeeListResponseSchema);
@@ -96,4 +107,55 @@ export function addCompensation(
   return apiFetch(`/hr/employees/${employeeId}/compensation`, compensationRecordSchema, {
     body,
   });
+}
+
+// ============================================================================
+// IK v2 — izin takibi (ADR-0044 §2)
+// ============================================================================
+//
+// ⚠️ BU BOLUMDE `deleteLeave` YOKTUR: reddedilen bir izin `rejected` olur,
+// silinmez (§6). Sunucuda uc yok, `leave:delete` izni yok; burada da fonksiyon
+// yok. Olmayan bir fonksiyon yanlislikla cagrilamaz.
+//
+// ⚠️ `createLeave` govdesinde SEBEP ALANI YOKTUR ve tur listesinde
+// `sick`/`raporlu` YOKTUR — ikisi de ADR-0043 §3'un saglik verisi sinirinin
+// TASIYICISIDIR. Sunucu `.strict()` ile `reason` gonderen istegi 422 reddeder.
+
+/** Odanin duvari — ⚠️ bu sayilar EKRANA gider, `POST /ask` havuzuna GITMEZ. */
+export function getHrOverview(): Promise<HrOverview> {
+  return apiFetch('/hr/overview', hrOverviewSchema);
+}
+
+export function listLeave(params: {
+  limit: number;
+  offset: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  employeeId?: string;
+}): Promise<LeaveListResponse> {
+  return apiFetch(`/hr/leave?${query(params)}`, leaveListResponseSchema);
+}
+
+/**
+ * Bir calisanin izin gecmisi + BAKIYESI.
+ *
+ * ⚠️ Bakiye TURETILMISTIR (§2.3) ve NEGATIF olabilir — hak edisinden fazla
+ * izin kullanmis bir calisan gercek bir durumdur ve gizlenmemelidir.
+ */
+export function getEmployeeLeave(employeeId: string): Promise<EmployeeLeaveResponse> {
+  return apiFetch(`/hr/employees/${employeeId}/leave`, employeeLeaveResponseSchema);
+}
+
+export function createLeave(employeeId: string, body: CreateLeaveRequest): Promise<LeaveRequest> {
+  return apiFetch(`/hr/employees/${employeeId}/leave`, leaveRequestSchema, { body });
+}
+
+/**
+ * Onaylar ya da reddeder.
+ *
+ * ⚠️ KARARA BAGLANMIS BIR IZIN YENIDEN KARARA BAGLANAMAZ (409): bir onayin
+ * sessizce geri alinmasi "kim onayladi" sorusunun cevabini DEGISTIRIRDI.
+ * Fikir degisirse dogru yol YENI BIR TALEPTIR.
+ */
+export function decideLeave(leaveId: string, body: DecideLeaveRequest): Promise<LeaveRequest> {
+  return apiFetch(`/hr/leave/${leaveId}`, leaveRequestSchema, { method: 'PATCH', body });
 }
