@@ -12,6 +12,7 @@ import {
   DocumentsIcon,
   FinanceIcon,
   InventoryIcon,
+  HrIcon,
   InvoicingIcon,
   OverviewIcon,
   ProjectsIcon,
@@ -165,6 +166,29 @@ const DOORS: readonly Door[] = [
     icon: InvoicingIcon,
     href: '/app/invoicing',
     module: 'invoicing',
+  },
+  /**
+   * ONUNCU KAPI — Faz 5'in DOKUZUNCU is modulu (ADR-0043 §10).
+   *
+   * Anahtar `hr`: sema, modul, rota ve `data-module` DORDU DE ayni kelime.
+   * Renk `module-colors.css`'te ZATEN olculmus (`#896096` / koyu `#c498d2`).
+   *
+   * ⚠️ UCUNCU KOMSU-HUE KUMESI VE ILKI UC RENKLI: `hr`, `marketing` (#7665a6)
+   * ve `loyalty` (#9a5a84) mor bantta BIRLIKTE duruyor — CRM/Tedarikci ve
+   * Finans/Teklif ciftlerinden bir renk daha kalabalik. Ikisi henuz yazilmadi;
+   * yazildiklari gun bu kume UC KAPIYA cikar ve "renk tek ayirt edici degildir"
+   * kurali burada EN COK sinanacak yerdir. Bu yuzden kapi ayrica FARKLI IKON,
+   * FARKLI ETIKET ve aktifken `aria-current` tasir.
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Ekip',
+    short: 'Ekip',
+    icon: HrIcon,
+    href: '/app/hr',
+    module: 'hr',
   },
 ];
 

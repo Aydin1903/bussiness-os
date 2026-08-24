@@ -181,6 +181,32 @@ export function InvoicingIcon(props: IconProps) {
   );
 }
 
+/**
+ * IK / PERSONEL — ONUNCU kapinin ikonu (ADR-0043 §10).
+ *
+ * Secilen sekil IKI FIGUR: biri onde biri arkada. Modulun cevapladigi soru
+ * "sirkette KIMLER var"dir — tekil bir kisi degil, BIR EKIP.
+ *
+ * ⚠️ CRM'in musteri ikonundan ayrilmasi ONEMLI: orada da insan var ama oradaki
+ * insan DISARIDANDIR (musteri), buradaki ICERIDEN. Fark ikonda iki figurun
+ * BIRLIKTE durmasiyla soyleniyor.
+ *
+ * ⚠️ Renk gibi ikon da TEK ayirt edici degildir: kapi ayrica etiket ve
+ * `aria-label` tasir. Bu modulde kural OZELLIKLE gecerli — imza rengi
+ * (#896096) `marketing` (#7665a6) ve `loyalty` (#9a5a84) ile UC RENKLI bir
+ * mor kume olusturuyor (ikisi henuz yazilmadi).
+ */
+export function HrIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M16 5.6a3.2 3.2 0 0 1 0 5.8" />
+      <path d="M17.5 14.9c1.9.6 3 2.4 3 4.6" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

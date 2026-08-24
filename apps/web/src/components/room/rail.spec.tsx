@@ -47,6 +47,8 @@ describe('Koridor — kapılar gerçek bağlantı', () => {
     ['Projeler', '/app/projects'],
     ['Finans', '/app/finance'],
     ['Randevular', '/app/appointments'],
+    // ⚠️ ONUNCU KAPI (ADR-0043 §10) — dogrudan CANLI eklendi.
+    ['Ekip', '/app/hr'],
   ])('%s → %s', (name, href) => {
     renderAt('/app');
 
@@ -105,6 +107,8 @@ describe('Koridor — modül renk kapsamı', () => {
     // ⚠️ `booking` DEĞİL (ADR-0035 §1.1): şema/modül/attribute üçü de aynı
     // kelime olmak zorunda. Yanlış anahtar hiçbir paletle eşleşmez.
     ['Randevular', 'appointments'],
+    // ⚠️ `hr` — sema, modul, rota ve attribute DORDU DE ayni kelime.
+    ['Ekip', 'hr'],
   ])('%s kapısı `%s` kapsamını deklare eder', (name, key) => {
     renderAt('/app');
 

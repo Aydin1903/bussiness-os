@@ -443,3 +443,52 @@ export type {
   UpdateInvoiceRequest,
   DecideQuoteRequest,
 } from './invoicing/invoicing.contract';
+
+/**
+ * IK / Personel (ADR-0043) — Faz 5'in DOKUZUNCU iş modülü.
+ *
+ * ⚠️ `Employee` tipi ÜCRET TAŞIMAZ ve taşıyamaz (§4.2 katman 1): ücret AYRI
+ * bir şemada, AYRI bir uçtan, AYRI bir izinle (`compensation:read`) gelir.
+ * Olmayan bir alan yanlışlıkla ekrana basılamaz.
+ *
+ * ⚠️ Serbest NOT alanı da yoktur (§1.1) — bir İK kaydındaki serbest metne ilk
+ * yazılacak şey SAĞLIK BİLGİSİDİR ve §3 onu KESİN OLARAK dışarıda tutar.
+ */
+export {
+  employeeSchema,
+  employeeListResponseSchema,
+  createEmployeeRequestSchema,
+  updateEmployeeRequestSchema,
+  employmentStatusSchema,
+  compensationPeriodSchema,
+  compensationRecordSchema,
+  compensationHistoryResponseSchema,
+  addCompensationRequestSchema,
+  MAX_EMPLOYEE_NAME_CHARS,
+  MAX_JOB_TITLE_CHARS,
+  MAX_EMPLOYEE_CONTACT_CHARS,
+} from './hr/hr.contract';
+export type {
+  Employee,
+  EmployeeListResponse,
+  CreateEmployeeRequest,
+  UpdateEmployeeRequest,
+  EmploymentStatus,
+  CompensationPeriod,
+  CompensationRecord,
+  CompensationHistoryResponse,
+  AddCompensationRequest,
+} from './hr/hr.contract';
+
+/**
+ * Denetim kaydı (ADR-0043 §6) — PLATFORM ucu, bir iş modülü değil.
+ *
+ * ⚠️ Şemada "değer" alanı YOKTUR: yalnızca hangi alanın, ne zaman, kim
+ * tarafından değiştirildiği (§6.5).
+ */
+export {
+  auditEntrySchema,
+  auditListResponseSchema,
+  auditActionSchema,
+} from './audit/audit.contract';
+export type { AuditEntry, AuditListResponse, AuditAction } from './audit/audit.contract';
