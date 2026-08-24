@@ -119,6 +119,18 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0034 ve 0033 — YETKI migration'lari (ADR-0043 Slice 1'in denetiminden
+      // dogdu). ⚠️ Ikisi de YENI TABLO ACMAZ: mevcut tablolarin `businessos_app`
+      // yetkisini daraltir (savunma derinligi, ADR-0039 §3.3'e DORDUNCU katman).
+      //
+      // ⚠️ Bu yuzden geri almalari da bir tablo DUSURMEZ, yetkiyi geri VERIR —
+      // ve bu, listedeki diger her satirdan farkli bir sekildir. Sirasi yine de
+      // en yeniden eskiye: yetki islemleri birbirinden bagimsiz oldugu icin
+      // teknik bir zorunluluk degil, KONVANSIYON geregi.
+      //
+      // ⚠️ BU IKI SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0034_suppliers_interactions_revoke.down.sql',
+      '0033_inventory_movements_revoke.down.sql',
       // 0032, `platform.audit_log` + BIR TRIGGER + BIR FONKSIYON (ADR-0043 §6).
       // ⚠️ YENI SEMA YOK — tablo mevcut `platform` semasina eklendi, yani
       // `DROP SCHEMA` diye bir adim YOKTUR ve olmamalidir (`platform`

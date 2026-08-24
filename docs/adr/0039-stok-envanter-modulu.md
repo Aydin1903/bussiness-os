@@ -300,6 +300,16 @@ yapar).
 hareketi yazmak zorundadir ve defterde **iki satir** kalir. Bu bir kusur degil,
 **muhasebe disiplinidir**: olan biteni gizlemek yerine gostermek.
 
+> ### ✅ DORDUNCU KATMAN EKLENDI (2026-08-24, migration `0033`)
+>
+> Yukaridaki uc katmanin **ucu de uygulama seviyesindeydi** — ucuncusu bile:
+> `RESTRICT` bir KALEMIN silinmesini engeller, bir HAREKETIN silinmesini
+> DEGIL. Yani `DELETE FROM inventory.movements` veritabani tarafindan hicbir
+> zaman reddedilmiyordu; yalnizca o SQL'i yazan bir kod yolu yoktu.
+> **`businessos_app`ten `UPDATE, DELETE` acikca geri alindi** (savunma
+> derinligi, PO karari). ⚠️ Uc katmanin hicbirine dokunulmadi; bu bir
+> DEGISTIRME degil EKLEMEDIR. Kaynagi ADR-0043 Slice 1'in yetki denetimidir.
+
 #### 3.4 Kalem SILINEMEZ, ARSIVLENIR — hareketi varsa
 
 `DELETE /inventory/items/:id` yalnizca **hic hareketi olmayan** bir kalemde

@@ -468,6 +468,20 @@ olurdu (§1'in `updated_at` karariyla ayni satirdan cikiyor).
 ⚠️ **`supplier_interaction:delete` YOKTUR.** Bir izni acmamak, sonradan
 kapatmaktan kolaydir (ADR-0039 §8.2).
 
+> ### ✅ DORDUNCU KATMAN EKLENDI (2026-08-24, migration `0034`)
+>
+> Ekleme-yalnizligin dayanagi buraya kadar tumuyle UYGULAMA seviyesindeydi
+> (`update` metodu yok + izin yok). **`businessos_app`ten `UPDATE, DELETE`
+> acikca geri alindi** (savunma derinligi, PO karari; ADR-0039 §3.3 ile ayni
+> is). ⚠️ Duz bir `REVOKE UPDATE` `setInteractionEmbedding`i — yani hem
+> olusturma sonrasi vektor yazimini hem `POST /suppliers/reindex`i — SESSIZCE
+> kirardi; bu yuzden yetki KOLON SEVIYESINDE verildi:
+> `GRANT UPDATE (embedding)`. Sonuc talep edilenden **gucludur**: gorusmenin
+> ICERIGI (`body`, `occurred_on`, `contact_id`) veritabani seviyesinde
+> degistirilemez, degisebilen tek sey TURETILMIS vektordur.
+> ⚠️ §1.3'un FK eylemleri (`CASCADE` / `SET NULL`) KIRILMADI — olculdu:
+> RI trigger'lari referencing tablonun sahibi olarak kosar.
+
 #### 5.1 ⚠️ Ad `contact` DEGIL `supplier_contact` — ve cakisma bu kez GERCEK
 
 ADR-0039 §8.2 `item` → `stock_item` nitelemesini **ongoruye** dayandirmisti:

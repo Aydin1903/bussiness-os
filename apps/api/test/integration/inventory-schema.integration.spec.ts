@@ -530,16 +530,68 @@ describe('inventory semasi (gercek PostgreSQL)', () => {
       ).rejects.toThrow(/row-level security/i);
     });
 
-    it('tenant A, B nin hareketini SILEMEZ', async () => {
+    it('⚠️ HICBIR TENANT hareket SILEMEZ — RLS DEGIL, YETKI reddediyor', async () => {
+      // ⚠️ BU TESTIN IDDIASI MIGRATION `0033` ILE DEGISTI ve bu bir gerileme
+      // DEGIL, guclenmedir. Eskiden `DELETE` calisiyordu ve RLS onu BOS bir
+      // sonuca indiriyordu (`rowCount === 0`) — yani baska tenant'in satiri
+      // korunuyordu ama KENDI tenant'inin satiri SILINEBILIRDI.
+      //
+      // ADR-0039 §3.3'un DORDUNCU katmani (yetki) bunu tumden kapatir: defter
+      // artik veritabani seviyesinde de degistirilemez. Cross-tenant izolasyon
+      // kaybolmadi — `SELECT`/`INSERT` testleri onu zaten kanitliyor.
       const itemB = await insertItem(TENANT_B);
       await insertMovement(TENANT_B, itemB);
 
-      const deleted = await asTenant(TENANT_A, async (client) => {
-        const result = await client.query('DELETE FROM inventory.movements');
-        return result.rowCount;
-      });
+      await expect(
+        asTenant(TENANT_A, (client) => client.query('DELETE FROM inventory.movements')),
+      ).rejects.toThrow(/permission denied/i);
 
-      expect(deleted).toBe(0);
+      // Kendi tenant'inin satiri da silinemez.
+      const itemA = await insertItem(TENANT_A);
+      await insertMovement(TENANT_A, itemA);
+
+      await expect(
+        asTenant(TENANT_A, (client) => client.query('DELETE FROM inventory.movements')),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it('⚠️ HICBIR TENANT hareketi GUNCELLEYEMEZ (ADR-0039 §3.3, dorduncu katman)', async () => {
+      const itemA = await insertItem(TENANT_A);
+      await insertMovement(TENANT_A, itemA);
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query('UPDATE inventory.movements SET quantity = 999'),
+        ),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it('⚠️ uygulama rolu `movements`ta YALNIZCA SELECT + INSERT tasir', async () => {
+      // ADR-0039 korumayi UC KATMAN saymisti (update metodu yok · izin yok ·
+      // FK RESTRICT) ve ucu de UYGULAMA seviyesindeydi — ucuncusu bile:
+      // `RESTRICT` bir KALEMIN silinmesini engeller, bir HAREKETIN silinmesini
+      // DEGIL. Bu satir dorduncu katmanin kaydidir.
+      const rows = await ownerPool.query<{ privs: string }>(
+        `SELECT string_agg(privilege_type, ',' ORDER BY privilege_type) AS privs
+           FROM information_schema.role_table_grants
+          WHERE table_schema = 'inventory' AND table_name = 'movements' AND grantee = $1`,
+        [APP_ROLE],
+      );
+
+      expect(rows.rows[0]?.privs).toBe('INSERT,SELECT');
+    });
+
+    it('kalemler (`items`) TAM CRUD tasimaya devam eder — daraltma YALNIZCA deftere', async () => {
+      // ⚠️ Kalem adi/esigi DEGISEBILIR (ADR-0039); daraltma yanlislikla
+      // genisletilirse bu test yakalar.
+      const rows = await ownerPool.query<{ privs: string }>(
+        `SELECT string_agg(privilege_type, ',' ORDER BY privilege_type) AS privs
+           FROM information_schema.role_table_grants
+          WHERE table_schema = 'inventory' AND table_name = 'items' AND grantee = $1`,
+        [APP_ROLE],
+      );
+
+      expect(rows.rows[0]?.privs).toBe('DELETE,INSERT,SELECT,UPDATE');
     });
 
     it('⚠️ TENANT CONTEXT YOKKEN sorgu SESSIZCE BOS DONMEZ, HATA VERIR', async () => {

@@ -232,6 +232,20 @@
       "when": 1784960000000,
       "tag": "0032_platform_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784970000000,
+      "tag": "0033_inventory_movements_revoke",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784980000000,
+      "tag": "0034_suppliers_interactions_revoke",
+      "breakpoints": true
     }
   ]
 }

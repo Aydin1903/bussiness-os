@@ -384,16 +384,116 @@ describe('suppliers semasi (gercek PostgreSQL)', () => {
       ).rejects.toThrow(/row-level security/i);
     });
 
-    it('tenant A, B nin gorusmesini SILEMEZ', async () => {
+    it('⚠️ HICBIR TENANT gorusme SILEMEZ — RLS DEGIL, YETKI reddediyor', async () => {
+      // ⚠️ BU TESTIN IDDIASI MIGRATION `0034` ILE DEGISTI ve bu bir gerileme
+      // DEGIL, guclenmedir. Eskiden `DELETE` calisiyordu ve RLS onu bos bir
+      // sonuca indiriyordu; yani baska tenant korunuyordu ama KENDI tenant'inin
+      // gorusmesi SILINEBILIRDI. Cross-tenant izolasyonu `SELECT`/`INSERT`
+      // testleri zaten kanitliyor.
       const supplierB = await insertSupplier(TENANT_B);
       await insertInteraction(TENANT_B, supplierB);
 
-      const deleted = await asTenant(TENANT_A, async (client) => {
-        const result = await client.query('DELETE FROM suppliers.interactions');
+      await expect(
+        asTenant(TENANT_A, (client) => client.query('DELETE FROM suppliers.interactions')),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it('⚠️ gorusmenin ICERIGI degistirilemez — `body` yazimi YETKIYLE reddedilir', async () => {
+      // ADR-0040: gunluk EKLEME-YALNIZDIR ve koruma "update metodu ve
+      // `supplier_interaction:write` izni yok"tu — ikisi de UYGULAMA
+      // seviyesinde. `0034` bunu veritabanina indirir.
+      const supplierA = await insertSupplier(TENANT_A);
+      await insertInteraction(TENANT_A, supplierA);
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query("UPDATE suppliers.interactions SET body = 'degistirildi'"),
+        ),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it('⚠️ AMA `embedding` YAZILABILIR — reindex yolu KIRILMADI (kolon seviyesi yetki)', async () => {
+      // ⚠️ BU TESTIN ISI BIR YETENEGI KORUMAKTIR. Duz bir `REVOKE UPDATE`
+      // `setInteractionEmbedding`i — yani hem olusturma sonrasi vektor yazimini
+      // hem `POST /suppliers/reindex`i — SESSIZCE kirardi: yeniden adlandirmadan
+      // sonra vektorler bayat kalir, arama bulmaz, kullanici nedenini
+      // ogrenemezdi (ADR-0040 `staleAfterRename`).
+      const supplierA = await insertSupplier(TENANT_A);
+      const interactionId = await insertInteraction(TENANT_A, supplierA);
+
+      const vector = `[${Array.from({ length: 1536 }, () => '0.1').join(',')}]`;
+
+      const updated = await asTenant(TENANT_A, async (client) => {
+        const result = await client.query(
+          'UPDATE suppliers.interactions SET embedding = $1::vector WHERE id = $2 RETURNING id',
+          [vector, interactionId],
+        );
         return result.rowCount;
       });
 
-      expect(deleted).toBe(0);
+      expect(updated).toBe(1);
+    });
+
+    it('⚠️ `embedding` ile ICERIK BIRLIKTE yazilamaz', async () => {
+      // Kolon seviyesi yetkinin en ince ayrimi: tek deyimde iki kolona yazmak
+      // TAMAMEN reddedilir. Aksi halde vektor yazimi, icerik degistirmenin
+      // arka kapisi olurdu.
+      const supplierA = await insertSupplier(TENANT_A);
+      const interactionId = await insertInteraction(TENANT_A, supplierA);
+
+      const vector = `[${Array.from({ length: 1536 }, () => '0.1').join(',')}]`;
+
+      await expect(
+        asTenant(TENANT_A, (client) =>
+          client.query(
+            "UPDATE suppliers.interactions SET embedding = $1::vector, body = 'x' WHERE id = $2",
+            [vector, interactionId],
+          ),
+        ),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it('⚠️ FK CASCADE hala calisir — tedarikci silmek KIRILMADI', async () => {
+      // ⚠️ OLCULDU, VARSAYILMADI. `DELETE` yetkisi alinmis bir tabloda
+      // `ON DELETE CASCADE` calisir mi? PostgreSQL'de RI trigger'lari
+      // REFERENCING tablonun SAHIBI olarak kosar; cagiranin yetkisine
+      // BAKILMAZ. Bu test o davranisi surekli kilitler — degisirse tedarikci
+      // silme uretimde patlardi.
+      const supplierA = await insertSupplier(TENANT_A);
+      await insertInteraction(TENANT_A, supplierA);
+
+      await asTenant(TENANT_A, (client) =>
+        client.query('DELETE FROM suppliers.suppliers WHERE id = $1', [supplierA]),
+      );
+
+      const left = await asTenant(TENANT_A, (client) =>
+        client
+          .query<{ n: string }>('SELECT count(*) AS n FROM suppliers.interactions')
+          .then((result) => result.rows[0]?.n),
+      );
+
+      expect(left).toBe('0');
+    });
+
+    it('⚠️ uygulama rolu `interactions`ta SELECT + INSERT + YALNIZCA `embedding` UPDATE tasir', async () => {
+      const table = await ownerPool.query<{ privs: string }>(
+        `SELECT string_agg(privilege_type, ',' ORDER BY privilege_type) AS privs
+           FROM information_schema.role_table_grants
+          WHERE table_schema = 'suppliers' AND table_name = 'interactions' AND grantee = $1`,
+        [APP_ROLE],
+      );
+
+      const columns = await ownerPool.query<{ column_name: string; privilege_type: string }>(
+        `SELECT column_name, privilege_type
+           FROM information_schema.column_privileges
+          WHERE table_schema = 'suppliers' AND table_name = 'interactions'
+            AND grantee = $1 AND privilege_type = 'UPDATE'
+          ORDER BY column_name`,
+        [APP_ROLE],
+      );
+
+      expect(table.rows[0]?.privs).toBe('INSERT,SELECT');
+      expect(columns.rows.map((row) => row.column_name)).toEqual(['embedding']);
     });
 
     it('⚠️ TENANT CONTEXT YOKKEN sorgu SESSIZCE BOS DONMEZ, HATA VERIR', async () => {
