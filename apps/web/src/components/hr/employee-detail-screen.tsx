@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { PrimaryButton, SectionLabel } from '@/components/module-kit/chrome';
+import { ConfirmDelete } from '@/components/module-kit/confirm-delete';
 import {
   FieldGrid,
   FormActions,
@@ -17,9 +18,10 @@ import { Room, RoomScroll, RoomTop } from '@/components/room/room';
 import { FormError } from '@/components/ui/form-error';
 import { listAuditEntries } from '@/lib/api/audit';
 import { errorMessage } from '@/lib/api/error-message';
-import { getEmployee, listEmployees, updateEmployee } from '@/lib/api/hr';
+import { deleteEmployee, getEmployee, listEmployees, updateEmployee } from '@/lib/api/hr';
 import {
   canDecideLeave,
+  canDeleteEmployee,
   canReadAudit,
   canReadCompensation,
   canRequestLeave,
@@ -65,6 +67,7 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
   const showAudit = canReadAudit(role);
   const mayRequestLeave = canRequestLeave(role);
   const mayDecideLeave = canDecideLeave(role);
+  const mayDelete = canDeleteEmployee(role);
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,7 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
   const [annualLeaveDays, setAnnualLeaveDays] = useState('0');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -136,6 +140,33 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
       });
   }
 
+  /**
+   * ⚠️ SILME — VE NEDEN "AYRILDI" ILE AYNI SEY DEGIL
+   *
+   * Isten ayrilan calisan SILINMEZ, `ended` olarak isaretlenir (ADR-0043 §1.4):
+   * gecmis bir gercektir. Silme, YANLIS ACILMIS bir kayit icindir — mukerrer
+   * kayit, hatali giris.
+   *
+   * ⚠️ Sunucu ucret kaydi olan calisani **409** ile REDDEDER ve bu bir arayuz
+   * kontrolu ile ONCEDEN gizlenmez: kosul "ucret kaydi var mi" bilgisini
+   * gerektirir ve o bilgi `compensation:read` TASIMAYAN kullanicida YOKTUR —
+   * dugmeyi gizlemek, maasin varligini gizlice sizdiran bir yan kanal olurdu
+   * (§4.2'nin tam tersi). Cevap kullanicilara HATA MESAJI olarak doner.
+   */
+  function remove(): void {
+    setDeleting(true);
+    setError(null);
+
+    deleteEmployee(employeeId)
+      .then(() => {
+        window.location.href = '/app/hr';
+      })
+      .catch((cause: unknown) => {
+        setError(errorMessage(cause));
+        setDeleting(false);
+      });
+  }
+
   return (
     <Room>
       <RoomScroll>
@@ -143,15 +174,39 @@ export function EmployeeDetailScreen({ employeeId }: { readonly employeeId: stri
           name="Çalışan"
           meta={employee?.fullName}
           action={
-            canWrite && employee !== null ? (
-              <PrimaryButton
-                onClick={() => {
-                  setEditing((open) => !open);
-                }}
-              >
-                {editing ? 'Vazgeç' : 'Düzenle'}
-              </PrimaryButton>
-            ) : undefined
+            employee === null ? undefined : (
+              <div className="flex flex-wrap items-center gap-2.5">
+                {canWrite ? (
+                  <PrimaryButton
+                    onClick={() => {
+                      setEditing((open) => !open);
+                    }}
+                  >
+                    {editing ? 'Vazgeç' : 'Düzenle'}
+                  </PrimaryButton>
+                ) : null}
+
+                {mayDelete ? (
+                  <ConfirmDelete
+                    /*
+                      ⚠️ SORU NE GİDECEĞİNİ AÇIKÇA SÖYLER: izin kayıtları
+                      CASCADE ile gider (`ON DELETE CASCADE`), ücret kaydı olan
+                      çalışan ise SİLİNEMEZ (409). "Emin misiniz" tek başına
+                      bilgi taşımaz.
+
+                      ⚠️ Ayrıca doğru alternatifi de söyler — işten ayrılan
+                      çalışan silinmez, "ayrıldı" olarak işaretlenir: geçmiş
+                      bir gerçektir ve silmek onu yok etmektir.
+                    */
+                    question="Bu çalışanın izin kayıtları da silinir. İşten ayrıldıysa silmeyin — durumunu “Ayrıldı” yapın; ücret kaydı olan bir çalışan zaten silinemez."
+                    confirmLabel="Evet, kaydı sil"
+                    ariaLabel={`${employee.fullName} kaydını sil`}
+                    pending={deleting}
+                    onConfirm={remove}
+                  />
+                ) : null}
+              </div>
+            )
           }
         />
 

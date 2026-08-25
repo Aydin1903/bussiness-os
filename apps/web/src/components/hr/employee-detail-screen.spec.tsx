@@ -6,6 +6,7 @@ const listEmployees = vi.fn();
 const getCompensation = vi.fn();
 const addCompensation = vi.fn();
 const updateEmployee = vi.fn();
+const deleteEmployee = vi.fn();
 const listAuditEntries = vi.fn();
 const useCurrentRole = vi.fn();
 // --- IK v2 (ADR-0044) ---
@@ -19,6 +20,7 @@ vi.mock('@/lib/api/hr', () => ({
   getCompensation,
   addCompensation,
   updateEmployee,
+  deleteEmployee,
   getEmployeeLeave,
   createLeave,
   decideLeave,
@@ -405,6 +407,100 @@ describe('EmployeeDetailScreen', () => {
       // 2026-01-15 -> bugün (2026 ortası/sonu) arası bir yıldan az olabilir;
       // ⚠️ iddia RAKAM DEĞİL, alanın TÜRETİLMİŞ bir metin üretmesidir.
       expect(screen.getByText(/aydır|yıldır|bu ay başladı/)).toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // ⚠️ SİLME — İKİ ADIMLI, VE "AYRILDI" İLE AYNI ŞEY DEĞİL
+  // ==========================================================================
+  describe('⚠️ çalışan silme', () => {
+    it.each(['owner', 'admin'])('%s rolünde Sil düğmesi çizilir', async (role) => {
+      useCurrentRole.mockReturnValue(role);
+
+      render(<EmployeeDetailScreen employeeId={EMPLOYEE_ID} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /kaydını sil/ })).toBeInTheDocument();
+      });
+    });
+
+    it.each(['member', 'viewer'])('%s rolünde Sil düğmesi ÇİZİLMEZ', async (role) => {
+      useCurrentRole.mockReturnValue(role);
+
+      render(<EmployeeDetailScreen employeeId={EMPLOYEE_ID} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'Ayşe Yılmaz' })).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: /kaydını sil/ })).not.toBeInTheDocument();
+    });
+
+    /**
+     * ⚠️ İLK TIKLAMA SİLMEZ — yalnızca onayı açar. Silme geri alınamaz ve
+     * izin kayıtları CASCADE ile gider; tek tıklık bir "Sil", yanlış karta
+     * basmayı kalıcı veri kaybına çevirirdi.
+     */
+    it('⚠️ ilk tıklama SİLMEZ — onay sorar ve NE gideceğini söyler', async () => {
+      useCurrentRole.mockReturnValue('owner');
+
+      render(<EmployeeDetailScreen employeeId={EMPLOYEE_ID} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /kaydını sil/ })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /kaydını sil/ }));
+
+      expect(deleteEmployee).not.toHaveBeenCalled();
+      // ⚠️ İzin kayıtlarının gideceği ve doğru alternatif ("Ayrıldı") YAZILI.
+      expect(screen.getByRole('alert').textContent).toMatch(/izin kayıtları da silinir/i);
+      expect(screen.getByRole('alert').textContent).toMatch(/Ayrıldı/);
+    });
+
+    it('onaydan sonra siler', async () => {
+      useCurrentRole.mockReturnValue('owner');
+      deleteEmployee.mockResolvedValue(undefined);
+
+      render(<EmployeeDetailScreen employeeId={EMPLOYEE_ID} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /kaydını sil/ })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /kaydını sil/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Evet, kaydı sil' }));
+
+      await waitFor(() => {
+        expect(deleteEmployee).toHaveBeenCalledWith(EMPLOYEE_ID);
+      });
+    });
+
+    /**
+     * ⚠️ ÜCRET KAYDI OLAN ÇALIŞAN SİLİNEMEZ (409) — ve düğme ÖNCEDEN
+     * GİZLENMEZ.
+     *
+     * Gizlemek "ücret kaydı var mı" bilgisini gerektirir ve o bilgi
+     * `compensation:read` taşımayan kullanıcıda YOKTUR — düğmenin yokluğu
+     * maaşın varlığını sızdıran bir yan kanal olurdu (§4.2'nin tam tersi).
+     * Cevap kullanıcıya HATA MESAJI olarak döner.
+     */
+    it('⚠️ sunucu reddederse (409) mesaj GÖSTERİLİR, düğme gizlenmez', async () => {
+      useCurrentRole.mockReturnValue('owner');
+      deleteEmployee.mockRejectedValue(new Error('Ucret kaydi olan bir calisan silinemez'));
+
+      render(<EmployeeDetailScreen employeeId={EMPLOYEE_ID} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /kaydını sil/ })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /kaydını sil/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Evet, kaydı sil' }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/silinemez/i)).toBeInTheDocument();
+      });
     });
   });
 });

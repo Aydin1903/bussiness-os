@@ -214,9 +214,38 @@ function Trend({ values }: { values: readonly number[] }) {
   );
 }
 
-/** Uydu sütunu — kahramanın yanındaki ikincil ölçümler. */
-export function Satellites({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-2">{children}</div>;
+/**
+ * Uydu sütunu — kahramanın yanındaki ikincil ölçümler.
+ *
+ * ============================================================================
+ * ⚠️ `layout="grid"` — DÖRT VE ÜZERİ UYDU İÇİN
+ * ============================================================================
+ * Varsayılan tek sütundur ve iki-üç uyduda doğrudur: kartlar kahramanın
+ * yüksekliğine yakın bir yığın oluşturur. ⚠️ Dördüncüden itibaren bu bozulur —
+ * sütun kahramanın iki katına çıkar, `items-end` hizası kahramanın ÜSTÜNDE
+ * büyük bir boşluk bırakır ve iki sütun **ayrı ayrı yüzer gibi** görünür.
+ * Duvarın tamamı da ekranı aşağı doğru gereksiz uzatır.
+ *
+ * `grid` iki sütuna açar: dört uydu iki satıra iner ve yükseklik yeniden
+ * kahramanla aynı bantta kalır.
+ *
+ * ⚠️ VARSAYILAN DEĞİŞMEDİ — mevcut on duvarın hiçbiri etkilenmez. Bu, bir
+ * modülün ihtiyacı yüzünden ortak bir bileşeni sessizce değiştirmemek içindir:
+ * mekanizmayı platform sahiplenir, ihtiyacı modül DEKLARE EDER (`data-module`
+ * ile aynı disiplin).
+ */
+export function Satellites({
+  children,
+  layout = 'column',
+}: {
+  children: ReactNode;
+  layout?: 'column' | 'grid';
+}) {
+  return (
+    <div className={layout === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}>
+      {children}
+    </div>
+  );
 }
 
 /**

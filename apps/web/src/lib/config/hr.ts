@@ -88,6 +88,21 @@ export function canWriteEmployee(role: RoleState): boolean {
 }
 
 /**
+ * `employee:delete` — owner + admin (§7.1).
+ *
+ * ⚠️ `canWriteEmployee`e BAGLANMADI: bugun ayni role kumesine cozuluyor ama
+ * AYRI BIR IZINDIR. Tek fonksiyona baglansaydi, biri degistiginde digeri
+ * sessizce onunla birlikte degisirdi (`canReadAudit`in ayni gerekcesi).
+ *
+ * ⚠️ Burada da fail-OPEN dogrudur (dugme kapisi): `unknown` rol dugmeyi gorur,
+ * sunucu gerekirse 403 doner. Ucretin fail-CLOSED kapisiyla karistirilmamali —
+ * orada bedel ATILMAMASI GEREKEN BIR ISTEKTI, burada calismayan bir dugme.
+ */
+export function canDeleteEmployee(role: RoleState): boolean {
+  return role === 'owner' || role === 'admin' || role === 'unknown';
+}
+
+/**
  * `leave:request` — owner + admin + member (ADR-0044 §6).
  *
  * ⚠️ `employee:write`ten BILINCLI olarak GENIS: bir meslektasin kaydini

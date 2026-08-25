@@ -11,6 +11,7 @@ import {
   RoomScroll,
   RoomTop,
   Satellite,
+  Satellites,
 } from './room';
 
 /**
@@ -141,6 +142,40 @@ describe('Oda — uydu', () => {
     expect(screen.getByText('Durgun')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('21 günden uzun')).toBeInTheDocument();
+  });
+});
+
+describe('Oda — uydu sütunu', () => {
+  /**
+   * ⚠️ VARSAYILAN DEĞİŞMEMELİ: on duvarın hepsi bu bileşeni kullanıyor ve
+   * dokuzu tek sütun bekliyor. Varsayılan sessizce ızgaraya dönerse hiçbir
+   * test kırmızı yanmaz, yalnızca dokuz ekranın düzeni bozulur.
+   */
+  it('varsayılan TEK SÜTUNDUR', () => {
+    const { container } = render(
+      <Satellites>
+        <Satellite label="A" value={1} />
+      </Satellites>,
+    );
+
+    expect(container.firstElementChild?.className).toContain('flex-col');
+    expect(container.firstElementChild?.className).not.toContain('grid-cols-2');
+  });
+
+  /**
+   * ⚠️ DÖRT VE ÜZERİ UYDU İÇİN: tek sütun kahramanın iki katına çıkar,
+   * `items-end` hizası kahramanın üstünde büyük bir boşluk bırakır ve duvar
+   * ekranı aşağı doğru gereksiz uzatır.
+   */
+  it('`layout="grid"` İKİ SÜTUNA açar', () => {
+    const { container } = render(
+      <Satellites layout="grid">
+        <Satellite label="A" value={1} />
+      </Satellites>,
+    );
+
+    expect(container.firstElementChild?.className).toContain('grid-cols-2');
+    expect(container.firstElementChild?.className).not.toContain('flex-col');
   });
 });
 

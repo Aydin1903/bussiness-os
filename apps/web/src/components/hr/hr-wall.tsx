@@ -117,13 +117,13 @@ export function HrWall({
       </Rise>
 
       <Rise delay={ROOM_RISE.ai}>
-        <Satellites>
-          <Satellite
-            label="Unvan girilmemiş"
-            value={withoutTitle}
-            note="bu sayfada"
-            tone={withoutTitle > 0 ? 'accent' : 'plain'}
-          />
+        <Satellites layout="grid">
+          {/*
+            ⚠️ "Unvan girilmemiş" BURADA BİR UYDU DEĞİL — aynı sayı kahramanın
+            `delta` satırında zaten yazılı ("N kayıtta unvan girilmemiş").
+            İkisini birden çizmek aynı olguyu duvarda İKİ KEZ söylemek ve
+            uydu sütununu bir satır daha uzatmaktı.
+          */}
           <Satellite label="Platform hesabı yok" value={withoutAccount} note="bu sayfada" />
           <Satellite label="Ayrılmış" value={ended} note="bu sayfada" />
 
