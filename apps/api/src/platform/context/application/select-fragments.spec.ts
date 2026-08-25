@@ -81,7 +81,7 @@ function sourcesOf(fragments: readonly { source: string }[]): string[] {
 }
 
 describe('selectFragments — ADR-0035 §6.3 dagilimi', () => {
-  const selected = selectFragments({ candidates: measuredPool(), limit: 8 });
+  const selected = selectFragments({ candidates: measuredPool(), limit: 8 }).fragments;
 
   it('havuz TAM DOLAR — taban yuva harcamaz', () => {
     expect(selected).toHaveLength(8);
@@ -136,7 +136,7 @@ describe('selectFragments — taban bir TAVAN degildir', () => {
         candidate('knowledge', 0.3, 'k-b'),
       ],
       limit: 4,
-    });
+    }).fragments;
 
     expect(sourcesOf(selected).filter((source) => source === 'project-status')).toHaveLength(2);
   });
@@ -155,7 +155,7 @@ describe('selectFragments — taban bir TAVAN degildir', () => {
         ),
       ],
       limit: 8,
-    });
+    }).fragments;
 
     expect(sourcesOf(selected)).toContain('appointment-schedule');
     expect(sourcesOf(selected)).not.toContain('finance-cashflow');
@@ -171,7 +171,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
         candidate('knowledge', 0.9 - index * 0.01, `k-${String(index)}`),
       ),
       limit: 8,
-    });
+    }).fragments;
 
     expect(selected).toHaveLength(8);
     expect(new Set(sourcesOf(selected))).toEqual(new Set(['knowledge']));
@@ -181,13 +181,13 @@ describe('selectFragments — bos ve sinir durumlar', () => {
     const selected = selectFragments({
       candidates: [candidate('crm-pipeline', 0.95), candidate('finance-cashflow', 0.75)],
       limit: 8,
-    });
+    }).fragments;
 
     expect(selected).toHaveLength(2);
   });
 
   it('limit 0 ise bos doner', () => {
-    expect(selectFragments({ candidates: measuredPool(), limit: 0 })).toEqual([]);
+    expect(selectFragments({ candidates: measuredPool(), limit: 0 }).fragments).toEqual([]);
   });
 
   it('⚠️ limit 1 ise GENEL BIRINCI korunur — taban devreye GIRMEZ', () => {
@@ -196,7 +196,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
     const selected = selectFragments({
       candidates: [candidate('knowledge', 0.99), candidate('crm-pipeline', 0.95)],
       limit: 1,
-    });
+    }).fragments;
 
     expect(sourcesOf(selected)).toEqual(['knowledge']);
   });
@@ -224,7 +224,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
         ),
       ],
       limit: 8,
-    });
+    }).fragments;
 
     expect(selected).toContainEqual(misLabelled.fragment);
   });
@@ -246,8 +246,8 @@ describe('selectFragments — bos ve sinir durumlar', () => {
       candidate('finance-cashflow', 0.95, 'd'),
     ];
 
-    const first = selectFragments({ candidates: input, limit: 8 });
-    const second = selectFragments({ candidates: input, limit: 8 });
+    const first = selectFragments({ candidates: input, limit: 8 }).fragments;
+    const second = selectFragments({ candidates: input, limit: 8 }).fragments;
 
     expect(first.map((item) => item.reference.id)).toEqual(second.map((item) => item.reference.id));
   });

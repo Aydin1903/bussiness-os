@@ -47,6 +47,50 @@ export interface SelectFragmentsInput {
 }
 
 /**
+ * Secimin SONUCU — parcalar VE nasil olustugu (ADR-0046 §5).
+ *
+ * ============================================================================
+ * ⚠️ FONKSIYON SAF KALDI — RECORDER ICERI GIRMEDI
+ * ============================================================================
+ * ADR-0036 bu fonksiyonu bilerek SAF yapti (_"karar burada degil
+ * `select-fragments.ts`te yasar — girdi/cikti olarak sinanabilir olmasi
+ * icin"_). ADR-0046 gozlemlenebilirlik eklerken o karari BOZMADI: bir logger
+ * iceri sokulmadi, bunun yerine CIKTI zenginlestirildi. Ayni girdi -> ayni
+ * cikti, sifir yan etki.
+ *
+ * ============================================================================
+ * ⚠️ `selected` NEDEN BURADAN DONUYOR — CAGIRAN TURETMIYOR
+ * ============================================================================
+ * Cagiranin secilenleri `new Set(fragments)` ile geri eslestirmesi
+ * DEGERLENDIRILDI VE REDDEDILDI (ADR-0046 §5): bugun calisirdi — ayni nesne
+ * referanslari geciyor — ama bu fonksiyonun icine bir gun tek bir `.map()`
+ * eklendiginde eslestirme SESSIZCE bozulurdu: her parca `selected: false`
+ * gorunur, testler yesil kalir ve KAYIT YALAN SOYLERDI.
+ *
+ * Secimi YAPAN taraf, kimi sectigini de SOYLER. Bu, turetilmis bir bilgi
+ * degil BIRINCIL bir ciktidir.
+ */
+export interface SelectFragmentsResult {
+  /** Modele gidecek parcalar — skor sirasinda. */
+  readonly fragments: ContextFragment[];
+  /**
+   * Secilen ADAYLAR (parcalar degil).
+   *
+   * ⚠️ Aday nesnesi cagiran tarafindan uretilir ve cagri boyunca kimligi
+   * SABITTIR; uyelik sorgusu bu yuzden guvenlidir.
+   */
+  readonly selected: ReadonlySet<RankedCandidate>;
+  /**
+   * O cagrida GERCEKTEN uygulanan yapisal taban (`ceil(K/3)`, `K-1` tavaniyla).
+   *
+   * ⚠️ Sabit `ceil(K/3)` DEGIL: `limit - 1` tavani kucuk `K` degerlerinde
+   * devreye girer ve `K = 1`'de tabani 0 yapar. Kayda GERCEKTEN UYGULANAN
+   * deger yazilmalidir, formulun teorik sonucu degil.
+   */
+  readonly structuralFloor: number;
+}
+
+/**
  * Modele gidecek parcalari secer — SAF fonksiyon (ADR-0036).
  *
  * ============================================================================
@@ -72,11 +116,11 @@ export interface SelectFragmentsInput {
  * onlar icin yuva ayirmak havuzu bos yuvalarla harcamak olurdu.
  * ============================================================================
  */
-export function selectFragments(input: SelectFragmentsInput): ContextFragment[] {
+export function selectFragments(input: SelectFragmentsInput): SelectFragmentsResult {
   const { candidates, limit } = input;
 
   if (limit <= 0) {
-    return [];
+    return { fragments: [], selected: new Set(), structuralFloor: 0 };
   }
 
   // ⚠️ `toSorted` DEGIL `[...].sort()`: girdi `readonly` ve kopya UZERINDE
@@ -85,7 +129,8 @@ export function selectFragments(input: SelectFragmentsInput): ContextFragment[] 
   // secim DETERMINISTIKTIR (ayni girdi, ayni cikti).
   const ranked = [...candidates].sort((a, b) => b.fragment.score - a.fragment.score);
 
-  const reserved = reserveStructuralSlots(ranked, limit);
+  const structuralFloor = structuralFloorFor(limit);
+  const reserved = reserveStructuralSlots(ranked, structuralFloor);
 
   const selected = [...reserved];
   const taken = new Set(reserved);
@@ -106,9 +151,29 @@ export function selectFragments(input: SelectFragmentsInput): ContextFragment[] 
   // `distinctSources` "alaka sirasi"na dayanir ve atif listesi bunun uzerinden
   // uretilir; rezerve edilmis bir satiri listenin basina zorlamak, kullaniciya
   // yanlis bir "en alakali kaynak" gosterirdi.
-  return selected
+  const fragments = selected
     .sort((a, b) => b.fragment.score - a.fragment.score)
     .map((candidate) => candidate.fragment);
+
+  // ⚠️ `taken` ZATEN secilen adaylarin kumesidir — ikinci bir kume kurmak
+  // gerekmiyor. Aday nesneleri cagiran tarafindan uretildigi icin kimlikleri
+  // cagri boyunca sabittir.
+  return { fragments, selected: taken, structuralFloor };
+}
+
+/**
+ * O cagrida GERCEKTEN uygulanacak taban.
+ *
+ * ⚠️ `limit - 1` TAVANI: taban hicbir kosulda havuzun GENEL BIRINCISINI disari
+ * itemez. `K = 8`'de devreye girmez (3 < 7); anlami kucuk K degerlerindedir —
+ * `K = 1`'de taban 0 olur ve davranis saf skora doner.
+ *
+ * ⚠️ AYRI BIR FONKSIYONA CIKARILDI (ADR-0046) cunku artik IKI tuketicisi var:
+ * rezervasyon ve KAYIT. Iki yerde ayri hesaplansaydi, formul degistiginde
+ * kayit eski degeri yazmaya devam edebilirdi — ve o sapma SESSIZ olurdu.
+ */
+function structuralFloorFor(limit: number): number {
+  return Math.max(0, Math.min(Math.ceil(limit / STRUCTURAL_FLOOR_DIVISOR), limit - 1));
 }
 
 /**
@@ -120,14 +185,8 @@ export function selectFragments(input: SelectFragmentsInput): ContextFragment[] 
  */
 function reserveStructuralSlots(
   ranked: readonly RankedCandidate[],
-  limit: number,
+  cap: number,
 ): RankedCandidate[] {
-  // ⚠️ `limit - 1` TAVANI: taban hicbir kosulda havuzun GENEL BIRINCISINI disari
-  // itemez. `K = 8`'de devreye girmez (3 < 7); anlami kucuk K degerlerindedir —
-  // `K = 1`'de taban 0 olur ve davranis saf skora doner. Bir config degeri
-  // yuzunden en alakali parcanin dusmesi, kisitın cozdugunden kotu olurdu.
-  const cap = Math.min(Math.ceil(limit / STRUCTURAL_FLOOR_DIVISOR), limit - 1);
-
   if (cap <= 0) {
     return [];
   }

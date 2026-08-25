@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { type Clock } from '../../../shared/clock.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
 import { AskUseCase, type AskDependencies } from './ask.use-case';
+import {
+  type RetrievalSelectionRecord,
+  type RetrievalSelectionRecorder,
+} from './retrieval-selection-recorder.port';
 import { type ConversationRepository, type NewMessage } from './conversation.repository.port';
 import { RateLimitExceededError } from '../../../shared/rate-limit.policy';
 import { ConversationAccessDeniedError } from '../domain/context.error';
@@ -267,6 +271,22 @@ interface Harness {
   readonly transactionManager: FakeTransactionManager;
   readonly calls: CallLog;
   readonly useCase: AskUseCase;
+  readonly selectionRecorder: FakeSelectionRecorder;
+}
+
+/**
+ * Secim kaydini TOPLAYAN sahte kayitci (ADR-0046).
+ *
+ * ⚠️ Gercek implementasyon bir LOG SATIRI yazar; burada kaydi bellekte
+ * tutuyoruz ki testler `empty` / `forbidden` / `degraded` ayrimini ICERIGE
+ * bakarak dogrulayabilsin.
+ */
+class FakeSelectionRecorder implements RetrievalSelectionRecorder {
+  readonly records: RetrievalSelectionRecord[] = [];
+
+  record(selection: RetrievalSelectionRecord): void {
+    this.records.push(selection);
+  }
 }
 
 function createHarness(
@@ -282,6 +302,7 @@ function createHarness(
   const embedding = new FakeEmbeddingPort(calls);
   const llm = new FakeLlmPort(calls);
   const transactionManager = new FakeTransactionManager(calls);
+  const selectionRecorder = new FakeSelectionRecorder();
 
   const deps: AskDependencies = {
     contributors,
@@ -296,6 +317,7 @@ function createHarness(
     retrievalLimit: overrides.retrievalLimit ?? 8,
     historyMessages: overrides.historyMessages ?? 8,
     rateLimit: overrides.rateLimit ?? 30,
+    selectionRecorder,
   };
 
   return {
@@ -308,6 +330,7 @@ function createHarness(
     llm,
     transactionManager,
     calls,
+    selectionRecorder,
     useCase: new AskUseCase(deps),
   };
 }
@@ -725,6 +748,7 @@ describe('AskUseCase — yapisal taban kisiti', () => {
       retrievalLimit: 8,
       historyMessages: 8,
       rateLimit: 30,
+      selectionRecorder: new FakeSelectionRecorder(),
     });
   }
 
@@ -1054,5 +1078,181 @@ describe('AskUseCase — IKI katkici, KISMI izin', () => {
 
     expect(result.degradedSources).toEqual(['knowledge']);
     expect(result.sources.map((source) => source.source)).toEqual(['crm-interactions']);
+  });
+});
+
+/**
+ * ⚠️ SECIM GOZLEMLENEBILIRLIGI — ADR-0046.
+ *
+ * ============================================================================
+ * BU BLOK, IKI KAPANIS DENETIMININ YAPAMADIGI SEYI KILITLER
+ * ============================================================================
+ * ADR-0042 §4 kapanis denetimlerinden UC veri istedi (giren kaynaklar · her
+ * yapisal kaynagin DONDURDUGU SATIR SAYISI · giren ve girmeyen parcalarin
+ * SKORU). ADR-0043 (IK) ve ADR-0045 (Geri Bildirim) denetimlerinin IKISI DE
+ * bunu uygulayamadi — kaydeden bir satir YOKTU.
+ *
+ * ⚠️ Asagidaki testlerin en onemlisi `empty` ile `returned` ayrimidir: ADR-0042
+ * tam olarak _"elendi mi yoksa bos mu dondu"_ sorusunu CEVAPLAYAMADAN kapandi
+ * ve T2 esigi (`2K/3`) o ayrim olmadan OLCULEMEZ.
+ */
+describe('AskUseCase — retrieval.select kaydi (ADR-0046)', () => {
+  it('her cagride TEK BIR kayit birakir — katkici basina DEGIL', () => {
+    // ⚠️ On bes ayri satir yazilsaydi her analiz `correlationId` uzerinden bir
+    // JOIN gerektirirdi ve es zamanli isteklerde yanlis join SESSIZ bir yanlis
+    // uretirdi (ADR-0046 §3).
+    const harness = createHarness();
+
+    return harness.useCase.execute(command()).then(() => {
+      expect(harness.selectionRecorder.records).toHaveLength(1);
+    });
+  });
+
+  it('⚠️ SATIR DONDUREN katkici `returned` — T2`ye SAYILIR', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    expect(entry?.status).toBe('returned');
+    expect(entry?.rowCount).toBe(1);
+    expect(entry?.selectedCount).toBe(1);
+  });
+
+  it('⚠️ SIFIR SATIR donduren katkici `empty` — ve `rowCount` 0 (T2`ye SAYILMAZ)', async () => {
+    // ⚠️ ADR-0042'nin CEVAPLAYAMADIGI SORU BUDUR. `empty`, "elendi" DEGIL
+    // "soyleyecek seyi yoktu" demektir; T2 yalnizca `returned` olanlari sayar.
+    const harness = createHarness();
+    harness.search.fragments = [];
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    expect(entry?.status).toBe('empty');
+    // ⚠️ `0`, `null` DEGIL: katkici cagrildi ve GERCEKTEN sifir satir dondurdu.
+    expect(entry?.rowCount).toBe(0);
+    expect(entry?.scores).toEqual([]);
+  });
+
+  it('⚠️ COKEN katkici `degraded` — ve `rowCount` `null` ("bilinmiyor")', async () => {
+    const harness = createHarness();
+    harness.search.failure = new Error('katkici coktu');
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    expect(entry?.status).toBe('degraded');
+    // ⚠️ `null` "sifir" DEGIL "bilinmiyor" demektir — coken bir katkici hic
+    // satir uretmedi, yani sayilacak bir sey YOK (`AiTokenUsage` disiplini).
+    expect(entry?.rowCount).toBeNull();
+  });
+
+  it('⚠️ IZIN YUZUNDEN ELENEN katkici `forbidden` — LOGA yazilir', async () => {
+    // ⚠️ ADR-0031 §5.3 bunu CAGIRANDAN gizler; operatorden DEGIL. Log satiri,
+    // "bu tenant'ta neden hic X sesi yok" sorusunun tek cevabidir.
+    const harness = createHarness();
+    harness.permissions.denied.add('note:read');
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    expect(entry?.status).toBe('forbidden');
+    expect(entry?.rowCount).toBeNull();
+  });
+
+  it('⚠️ `forbidden` API CEVABINA SIZMAZ — `degradedSources` bos kalir', async () => {
+    // ⚠️ BU TESTIN ISI BIR SIZINTIYI ONLEMEKTIR: elenen kaynak logda gorunur
+    // ama cevapta GORUNMEZ. Gorunseydi `member` rolundeki bir kullanici
+    // "gormedigin bir kaynak VAR" bilgisini elde ederdi.
+    const harness = createHarness();
+    harness.permissions.denied.add('note:read');
+
+    const result = await harness.useCase.execute(command());
+
+    expect(result.degradedSources).toEqual([]);
+    expect(result.sources).toEqual([]);
+    // Ama LOGDA var:
+    expect(
+      harness.selectionRecorder.records[0]?.sources.some((source) => source.status === 'forbidden'),
+    ).toBe(true);
+  });
+
+  it('⚠️ GIREN VE GIRMEYEN her parcanin SKORU kaydedilir (ADR-0042 §4 madde 3)', async () => {
+    // ⚠️ Band ici siralamanin LIYAKATLI mi yoksa KARARLI-SIRALAMA mi oldugu
+    // ancak HER parcanin skoru gorulunce anlasilir — sorunun kendisi zaten
+    // esitliklerdir.
+    const harness = createHarness({ retrievalLimit: 1 });
+    harness.search.fragments = [
+      fragment(NOTE_A, 'giren parca', 0.9),
+      fragment(NOTE_B, 'girmeyen parca', 0.4),
+    ];
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    expect(entry?.rowCount).toBe(2);
+    expect(entry?.scores).toEqual([
+      { score: 0.9, selected: true },
+      { score: 0.4, selected: false },
+    ]);
+  });
+
+  it('skorlar UC ONDALIGA yuvarlanir', async () => {
+    // ⚠️ `0.9500000000000001` gibi bir kayan nokta artigi, "beraberlik var mi"
+    // sorusunu gozle okunamaz hale getirir — verinin tek tuketicisi bir
+    // INSANDIR. Secim zaten yapilmis oldugu icin yuvarlama siralamayi
+    // DEGISTIREMEZ.
+    const harness = createHarness();
+    harness.search.fragments = [fragment(NOTE_A, 'parca', 0.123_456_789)];
+
+    await harness.useCase.execute(command());
+
+    expect(harness.selectionRecorder.records[0]?.sources[0]?.scores[0]?.score).toBe(0.123);
+  });
+
+  it('kayit; limit, taban ve aday sayisini tasir', async () => {
+    const harness = createHarness();
+
+    await harness.useCase.execute(command());
+
+    const record = harness.selectionRecorder.records[0];
+
+    expect(record?.limit).toBe(8);
+    // ⚠️ GERCEKTEN UYGULANAN taban: `ceil(8/3) = 3`.
+    expect(record?.structuralFloor).toBe(3);
+    expect(record?.candidateCount).toBe(1);
+    expect(record?.selectedCount).toBe(1);
+  });
+
+  it('⚠️ KAYITCI COKERSE `/ask` CALISMAYA DEVAM EDER', async () => {
+    // Kayit tutmak, kaydedilen isin BASARISINI etkilememelidir. Bu, port'un
+    // sozlesmesidir ve burada UCTAN UCA dogrulanir.
+    const harness = createHarness();
+    vi.spyOn(harness.selectionRecorder, 'record').mockImplementation(() => {
+      throw new Error('kayitci coktu');
+    });
+
+    // ⚠️ Sahte kayitci sozlesmeyi IHLAL EDEREK firlatiyor. Cevap YINE DE
+    // uretilmeli: bir teshis satiri ugruna kullanicinin sorusu cevapsiz
+    // kalamaz. Savunma `AskUseCase`in cagri yerindedir (adapter zaten kendi
+    // icinde de yutar).
+    const result = await harness.useCase.execute(command());
+
+    expect(result.answer).not.toBe('');
   });
 });

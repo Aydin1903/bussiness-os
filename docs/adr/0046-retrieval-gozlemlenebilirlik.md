@@ -1,6 +1,6 @@
 # 0046 — `POST /ask` secim gozlemlenebilirligi: `retrieval.select`
 
-- **Durum:** Onerildi — ⚠️ **PRODUCT OWNER ONAYI BEKLIYOR** (PLATFORM karari)
+- **Durum:** ⚠️ **KABUL EDILDI ve UYGULANDI** (2026-08-25; PLATFORM karari)
 - **Tarih:** 2026-08-25
 - **Karar veren:** Product Owner
 - **Faz:** 5 (platform karari — bir modul ADR'si DEGIL)
@@ -398,6 +398,47 @@ semasina dokunmaz.
 
 ⚠️ **KABUL OLCUTU:** ADR-0045'in kapanis denetiminde uygulanamayan olcum, bu
 slice'tan sonra **tek bir `grep` ile** yapilabilmelidir.
+
+---
+
+## ✅ Uygulandi — 2026-08-25
+
+Tek slice, migration YOK, hicbir modulun semasina dokunulmadi.
+`AskResult` sekli DEGISMEDI.
+
+⚠️ **KABUL OLCUTU KARSILANDI.** ADR-0045'in kapanis denetiminde uygulanamayan
+olcum, artik tek bir grep ile aliniyor:
+
+```
+$ grep retrieval.select api.log | tail -1     | jq '.retrieval.sources[] | select(.kind=="structural")'
+
+{"source":"crm-pipeline","kind":"structural","status":"empty","rowCount":0,...}
+{"source":"finance-cashflow","kind":"structural","status":"forbidden","rowCount":null,...}
+```
+
+Canli bir `/ask` cagrisinda **dort durumun ucu ayni satirda** gorundu:
+`returned` (3 kaynak) · `empty` (10 kaynak) · `forbidden` (2 kaynak — `member`
+rolu `cashflow:read` tasimiyor). ⚠️ **Ayni cagrinin API cevabinda
+`degradedSources: []`** idi — yani `forbidden` LOGA yazildi, CAGIRANA
+SIZMADI (§4.2 · ADR-0031 §5.3).
+
+⚠️ **T2'nin girdisi ILK KEZ OLCULDU:** kayitli yapisal kaynak **6**, satir
+donduren **0**, bos donen **6**. ADR-0042 tam olarak bu ayrimi
+(_"elendi mi yoksa bos mu dondu"_) yapamadigi icin kapanmisti.
+
+### ⚠️ Uygulamada ADR'ye EKLENEN tek karar
+
+ADR §6 port'un sozlesmesini yaziyordu (_"`record` ASLA FIRLATMAZ"_) ama
+`AskUseCase` tarafinda bir savunma ONGORMEMISTI. Uygulamada `#recordSelection`
+cagrisi bir `try/catch` icine alindi ve gerekce ADR'nin kendi cumlesinden
+turedi (_"kayit tutmak, kaydedilen isin BASARISINI etkilememelidir"_):
+
+- sozlesmeyi IHLAL EDEN bir kayitci (yanlis yazilmis bir adapter) ve
+- ⚠️ **`#recordSelection`in KENDI kodundaki bir hata** — ki o kod HER `/ask`
+  cagrisinda kosar
+
+ikisi de bir teshis satiri ugruna kullanicinin sorusunu cevapsiz birakamaz.
+⚠️ Bu, `ai.call` deseninden bir adim ileridir ve bilinclidir.
 
 ---
 

@@ -14,9 +14,20 @@ import { parseCompletion } from './follow-up-parser';
 import { CONTEXT_ASK_ACTION } from '../context.rate-limits';
 import {
   type ContextFragment,
+  type RetrievalContributor,
   type RetrievalContributorRegistry,
 } from './retrieval-contributor.port';
-import { selectFragments } from './select-fragments';
+import {
+  selectFragments,
+  type RankedCandidate,
+  type SelectFragmentsResult,
+} from './select-fragments';
+import {
+  type RetrievalScoreEntry,
+  type RetrievalSelectionRecorder,
+  type RetrievalSourceRecord,
+  type RetrievalSourceStatus,
+} from './retrieval-selection-recorder.port';
 
 export interface AskCommand {
   /** DOGRULANMIS token'dan gelir; govdeden ALINMAZ. */
@@ -82,6 +93,14 @@ export interface AskDependencies {
   readonly historyMessages: number;
   /** Saatlik soru payi (ADR-0029 §5). Config'ten gelir. */
   readonly rateLimit: number;
+  /**
+   * Secim kararinin gozlemlenebilirlik kaydi (ADR-0046).
+   *
+   * ⚠️ HICBIR KARARI ETKILEMEZ — yalnizca olan biteni kaydeder. Kaydin varligi
+   * ya da yoklugu, modele giden parcalari DEGISTIRMEZ; `record` `void` doner ve
+   * ASLA FIRLATMAZ.
+   */
+  readonly selectionRecorder: RetrievalSelectionRecorder;
 }
 
 /**
@@ -216,16 +235,24 @@ export class AskUseCase {
     embedding: number[],
     question: string,
   ): Promise<{ fragments: ContextFragment[]; degradedSources: string[] }> {
-    const allowed = this.deps.contributors
-      .all()
-      .filter((contributor) =>
-        this.deps.permissionChecker.can(command.role, contributor.permission),
-      );
+    const registered = this.deps.contributors.all();
+
+    // ⚠️ IZIN ELEMESI BURADA — ve elenenler ARTIK KAYBOLMUYOR (ADR-0046 §4.2).
+    // Once yalnizca `allowed` hesaplaniyordu; `forbidden` olanlar hicbir yerde
+    // gorunmuyordu ve _"bu tenant'ta neden hic finans sesi yok"_ sorusu
+    // cevapsiz kaliyordu.
+    const allowed = registered.filter((contributor) =>
+      this.deps.permissionChecker.can(command.role, contributor.permission),
+    );
+    const forbidden = registered.filter((contributor) => !allowed.includes(contributor));
 
     const degradedSources: string[] = [];
-
+    // ⚠️ `null` = katkici COKTU. Bos dizi ile KARISTIRILMAMALI: bos dizi
+    // "cagrildi, soyleyecek seyi yoktu" (`empty`), `null` "cagrildi ve coktu"
+    // (`degraded`) demektir — ve ADR-0042 tam olarak bu ayrimi yapamadigi icin
+    // kapandi.
     const results = await Promise.all(
-      allowed.map(async (contributor) => {
+      allowed.map(async (contributor): Promise<ContextFragment[] | null> => {
         try {
           return await contributor.contribute({
             question,
@@ -237,7 +264,7 @@ export class AskUseCase {
           // da bozuk sorgusu sistemin tamamini durdurmamalidir. Ama SESSIZCE
           // de atlanmaz — kullanici eksik ama kendinden emin bir cevap alirdi.
           degradedSources.push(contributor.source);
-          return [];
+          return null;
         }
       }),
     );
@@ -254,9 +281,87 @@ export class AskUseCase {
       })),
     );
 
-    const fragments = selectFragments({ candidates, limit: this.deps.retrievalLimit });
+    const selection = selectFragments({ candidates, limit: this.deps.retrievalLimit });
 
-    return { fragments, degradedSources };
+    // ⚠️ KAYIT SECIMDEN SONRA VE CEVAPTAN ONCE — ama hicbirini ETKILEMEZ
+    // (ADR-0046).
+    //
+    // ⚠️ `try/catch` `ai.call` DESENINDEN BIR ADIM DAHA ILERI ve bilincli:
+    // port'un sozlesmesi zaten "`record` ASLA FIRLATMAZ" diyor, ama buradaki
+    // savunma IKI seyi birden kapsiyor:
+    //
+    //   1. sozlesmeyi IHLAL EDEN bir kayitci (yanlis yazilmis bir adapter),
+    //   2. ⚠️ `#recordSelection`IN KENDI KODUNDAKI bir hata — ki o kod HER
+    //      `/ask` cagrisinda kosar ve bir teshis satiri ugruna kullanicinin
+    //      sorusunu cevapsiz birakmasi KABUL EDILEMEZ.
+    //
+    // ADR-0046'nin cumlesi: _"kayit tutmak, kaydedilen isin BASARISINI
+    // etkilememelidir."_ O soz burada, cagri yerinde de tutuluyor.
+    try {
+      this.#recordSelection({ allowed, forbidden, results, candidates, selection });
+    } catch {
+      // Kasitli olarak yutuluyor. Burada tekrar loglamak, log'un kendisinin
+      // bozuk oldugu bir durumda sonsuz donguye girebilirdi.
+    }
+
+    return { fragments: selection.fragments, degradedSources };
+  }
+
+  /**
+   * Secim kararini kaydeder (ADR-0046).
+   *
+   * ============================================================================
+   * ⚠️ DORT DURUM — VE `empty` ILE `returned` AYRIMI BU METODUN SEBEBIDIR
+   * ============================================================================
+   * ADR-0042 su soruyu cevaplayamadan kapandi: _"`project-status` ve
+   * `appointment-schedule` ELENDI Mi, yoksa BOS MU DONDU — BILINMIYOR."_
+   *
+   * Fark, T2 esiginin GIRDISIDIR: T2 _"SATIR DONDUREN yapisal kaynak
+   * sayisi"_ni sayar, kayitli olani degil.
+   *
+   *   `returned`  -> `rows.length >= 1`   (T2'ye SAYILIR)
+   *   `empty`     -> `rows.length === 0`  (T2'ye SAYILMAZ)
+   *   `forbidden` -> izin yok, HIC cagrilmadi
+   *   `degraded`  -> `null` dondu, yani COKTU
+   *
+   * ⚠️ `forbidden` LOGA yazilir ama API'ye SIZMAZ: `AskResult` sekli
+   * degismedi ve `degradedSources` yalnizca gercekten COKENLERI tasiyor
+   * (ADR-0031 §5.3 CAGIRAN icindir, OPERATOR icin degil).
+   */
+  #recordSelection(input: {
+    allowed: readonly RetrievalContributor[];
+    forbidden: readonly RetrievalContributor[];
+    results: readonly (ContextFragment[] | null)[];
+    candidates: readonly RankedCandidate[];
+    selection: SelectFragmentsResult;
+  }): void {
+    const called = input.allowed.map((contributor, index) =>
+      toSourceRecord({
+        contributor,
+        rows: input.results[index] ?? null,
+        candidates: input.candidates,
+        selected: input.selection.selected,
+      }),
+    );
+
+    // ⚠️ Izin yuzunden HIC CAGRILMAYANLAR: `rowCount` `null` cunku sayilacak
+    // bir sey yok. LOGA yazilir, API'ye SIZMAZ (§4.2).
+    const blocked: RetrievalSourceRecord[] = input.forbidden.map((contributor) => ({
+      source: contributor.source,
+      kind: contributor.contributionKind,
+      status: 'forbidden',
+      rowCount: null,
+      selectedCount: 0,
+      scores: [],
+    }));
+
+    this.deps.selectionRecorder.record({
+      limit: this.deps.retrievalLimit,
+      structuralFloor: input.selection.structuralFloor,
+      selectedCount: input.selection.fragments.length,
+      candidateCount: input.candidates.length,
+      sources: [...called, ...blocked],
+    });
   }
 
   /** Verilen konusmanin istegi yapan kullaniciya ait oldugunu dogrular. */
@@ -357,4 +462,61 @@ function assertUuid(value: string, field: string): void {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Cagrilan BIR katkicinin kaydini kurar (ADR-0046 §4.1).
+ *
+ * ⚠️ SAF FONKSIYON ve sinifin DISINDA: `#recordSelection` yalnizca
+ * birlestirir. Kayit kurma mantigi burada durunca hem okunur hem de
+ * `status` turetiminin tek yeri olur.
+ *
+ * ⚠️ `status` SATIR SAYISINDAN turetilir, katkicinin BEYANINDAN degil:
+ *
+ *   `rows === null`     -> `degraded` (COKTU; `rowCount` "bilinmiyor")
+ *   `rows.length === 0` -> ⚠️ `empty` (cagrildi, soyleyecek seyi YOKTU)
+ *   aksi halde          -> `returned` (T2'ye SAYILAN tek durum)
+ */
+function toSourceRecord(input: {
+  contributor: RetrievalContributor;
+  rows: ContextFragment[] | null;
+  candidates: readonly RankedCandidate[];
+  selected: ReadonlySet<RankedCandidate>;
+}): RetrievalSourceRecord {
+  const { contributor, rows } = input;
+
+  if (rows === null) {
+    return {
+      source: contributor.source,
+      kind: contributor.contributionKind,
+      status: 'degraded',
+      // ⚠️ `null`, "sifir" DEGIL "bilinmiyor" demektir: coken bir katkici hic
+      // satir uretmedi, yani sayilacak bir sey YOK (`AiTokenUsage` disiplini).
+      rowCount: null,
+      selectedCount: 0,
+      scores: [],
+    };
+  }
+
+  const scores: RetrievalScoreEntry[] = input.candidates
+    .filter((candidate) => candidate.source === contributor.source)
+    .map((candidate) => ({
+      // ⚠️ UC ONDALIGA yuvarlanir (ADR-0046 §4.4): `0.9500000000000001` gibi
+      // bir kayan nokta artigi, "band ici beraberlik var mi" sorusunu GOZLE
+      // OKUNAMAZ hale getirir — ve bu verinin tek tuketicisi bir INSANDIR.
+      // Secim ZATEN yapilmis oldugu icin yuvarlama siralamayi DEGISTIREMEZ.
+      score: Math.round(candidate.fragment.score * 1000) / 1000,
+      selected: input.selected.has(candidate),
+    }));
+
+  const status: RetrievalSourceStatus = rows.length === 0 ? 'empty' : 'returned';
+
+  return {
+    source: contributor.source,
+    kind: contributor.contributionKind,
+    status,
+    rowCount: rows.length,
+    selectedCount: scores.filter((entry) => entry.selected).length,
+    scores,
+  };
 }

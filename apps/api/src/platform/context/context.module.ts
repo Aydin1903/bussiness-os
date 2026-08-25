@@ -28,6 +28,11 @@ import {
 } from '../authz/authz.public';
 import { AskUseCase } from './application/ask.use-case';
 import {
+  RETRIEVAL_SELECTION_RECORDER,
+  type RetrievalSelectionRecorder,
+} from './application/retrieval-selection-recorder.port';
+import { LoggingRetrievalSelectionRecorder } from './infrastructure/logging-retrieval-selection-recorder';
+import {
   CONVERSATION_REPOSITORY,
   type ConversationRepository,
 } from './application/conversation.repository.port';
@@ -90,6 +95,20 @@ const CONTEXT_CALLER = 'context';
         createLlmPort(config, recorder, CONTEXT_CALLER),
     },
 
+    /**
+     * ⚠️ SECIM GOZLEMLENEBILIRLIGI (ADR-0046) — `event: "retrieval.select"`.
+     *
+     * Iki kapanis denetimi (ADR-0043 IK, ADR-0045 Geri Bildirim) ADR-0042
+     * §4'un olcum protokolunu UYGULAYAMADI cunku bu satir yoktu: her yapisal
+     * kaynagin DONDURDUGU SATIR SAYISI ve giren/girmeyen parcalarin SKORU
+     * hicbir yerde kaydedilmiyordu.
+     *
+     * ⚠️ TABLO DEGIL LOG — `ai.call` ile ayni sinif (ADR-0046 §2): bir tablo
+     * retention listesine YIRMI DORDUNCU ve EN HIZLI BUYUYEN kalemi eklerdi
+     * (her `/ask` × her katkici) ve cevap yoluna transaction sokardi.
+     */
+    { provide: RETRIEVAL_SELECTION_RECORDER, useClass: LoggingRetrievalSelectionRecorder },
+
     {
       provide: AskUseCase,
       inject: [
@@ -103,6 +122,7 @@ const CONTEXT_CALLER = 'context';
         ID_GENERATOR,
         CLOCK,
         APP_CONFIG,
+        RETRIEVAL_SELECTION_RECORDER,
       ],
       useFactory: (
         contributors: RetrievalContributorRegistry,
@@ -115,6 +135,7 @@ const CONTEXT_CALLER = 'context';
         idGenerator: IdGenerator,
         clock: Clock,
         config: AppConfig,
+        selectionRecorder: RetrievalSelectionRecorder,
       ): AskUseCase =>
         new AskUseCase({
           contributors,
@@ -129,6 +150,10 @@ const CONTEXT_CALLER = 'context';
           retrievalLimit: config.knowledge.retrievalLimit,
           historyMessages: config.knowledge.historyMessages,
           rateLimit: config.knowledge.askRateLimit,
+          // ⚠️ Gozlemlenebilirlik — ADR-0046. HICBIR KARARI ETKILEMEZ: secim
+          // `selectFragments`te yapilir ve BITER; bu yalnizca olan biteni
+          // kaydeder. `record` `void` doner ve asla firlatmaz.
+          selectionRecorder,
         }),
     },
   ],
