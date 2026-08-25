@@ -1,6 +1,6 @@
 # 0042 — `POST /ask` yapisal tabani: ADR-0036'nin OLCUMLE yeniden sinanmasi
 
-- **Durum:** Onerildi — ⚠️ **PRODUCT OWNER ONAYI BEKLIYOR**
+- **Durum:** ⚠️ **KABUL EDILDI** (baslik 2026-08-25'te duzeltildi — ADR-0047 §Baglam)
 - **Tarih:** 2026-08-24
 - **Karar veren:** Product Owner
 - **Faz:** 5 (platform karari — bir modul ADR'si DEGIL)

@@ -22,6 +22,7 @@
     "db:generate": "pnpm --filter @business-os/api run db:generate",
     "db:migrate": "pnpm --filter @business-os/api run db:migrate",
     "db:rollback": "pnpm --filter @business-os/api run db:rollback",
+    "seed:audit-tenant": "pnpm --filter @business-os/api run seed:audit-tenant",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:reset": "docker compose down -v && docker compose up -d"

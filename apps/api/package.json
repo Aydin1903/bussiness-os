@@ -17,6 +17,7 @@
     "db:preflight": "node scripts/db-preflight.mts",
     "db:migrate": "drizzle-kit migrate",
     "db:rollback": "node scripts/rollback.mts",
+    "seed:audit-tenant": "node scripts/seed-audit-tenant.mts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
