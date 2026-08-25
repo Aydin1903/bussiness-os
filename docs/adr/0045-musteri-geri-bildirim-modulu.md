@@ -1,6 +1,6 @@
 # 0045 — Faz 5 / Modul 10: Musteri Geri Bildirimi / Anket
 
-- **Durum:** Onerildi — ⚠️ **IKI KALEM PRODUCT OWNER ONAYI BEKLIYOR**
+- **Durum:** ⚠️ **KABUL EDILDI ve KAPANDI** (Slice 0-2 tamam; HAFIF kapanis denetimi 2026-08-25)
 - **Tarih:** 2026-08-25
 - **Karar veren:** Product Owner
 - **Faz:** 5
@@ -753,9 +753,9 @@ diye okutur.
 
 | Slice | Ne                                                                                                                                                                                                                                                                            | Migration              | Durum |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----- |
-| **0** | **ADR-0045** (bu belge) — ⚠️ **IKI PO ONAYI** (A: yapisal katkici askida · B: `retrieval.select` borcunun sirasi)                                                                                                                                                             | —                      | ⏳    |
-| **1** | **Backend (TEK slice):** `feedback` semasi + tek tablo + **FORCE RLS** + ekleme/okuma/silme + embedding + `reindex` + oran siniri + izin katalogu + exception filter + ⚠️ **REVOKE UPDATE / GRANT UPDATE (embedding)** + **TEK anlamsal katkici** + cross-modul (sifir satir) | `0037_feedback_schema` | ⏳    |
-| **2** | **Frontend + HAFIF kapanis denetimi:** liste + duvar (ODA, ortak duvar), `feedback` rengi, koridorda onbirinci kapi                                                                                                                                                           | —                      | ⏳    |
+| **0** | **ADR-0045** (bu belge) — ⚠️ **IKI PO ONAYI** (A: yapisal katkici askida · B: `retrieval.select` borcunun sirasi)                                                                                                                                                             | —                      | ✅    |
+| **1** | **Backend (TEK slice):** `feedback` semasi + tek tablo + **FORCE RLS** + ekleme/okuma/silme + embedding + `reindex` + oran siniri + izin katalogu + exception filter + ⚠️ **REVOKE UPDATE / GRANT UPDATE (embedding)** + **TEK anlamsal katkici** + cross-modul (sifir satir) | `0037_feedback_schema` | ✅    |
+| **2** | **Frontend + HAFIF kapanis denetimi:** liste + duvar (ODA, ortak duvar), `feedback` rengi, koridorda onbirinci kapi + ⚠️ `GET /feedback/summary`                                                                                                                              | —                      | ✅    |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — degistirilecek bir
 `public.ts` yok (§6.1).
@@ -804,6 +804,135 @@ health **200** · uygulanmis migration **37 → 38** · `feedback.responses`
 **RLS + FORCE** · ⚠️ `businessos_app` rolunde `can_update` **kolon bazli**
 (yalnizca `embedding`) · uc dar rol `feedback` semasina **kor** ·
 `GET /api/v1/feedback` **401**.
+
+---
+
+## ⚠️ HAFIF kapanis denetimi — **yapildi, 2026-08-25**
+
+Sekiz maddenin sekizi de kosuldu. ⚠️ **Denetim BIR GERCEK KUSUR BULMADI** — ama
+UC KAYDA DEGER BULGU uretti ve ucu de asagida.
+
+| #   | Madde                                                          | Sonuc                                                                                                          |
+| --- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | `git status` temiz · `pnpm verify` **cikis kodu 0**            | ✅ api **2161** birim · web **571** birim                                                                      |
+| 2   | Uclarin rol turu (ozet ucu dahil)                              | ✅ owner 200 · kimliksiz **401** · viewer okur **200** yazamaz **403** · member silemez **403** · 422 kapilari |
+| 3   | Renk turu — acik **ve** koyu tema, kabuk terracotta kaliyor mu | ✅ gercek tarayicida OLCULDU (asagida)                                                                         |
+| 4   | ⚠️ §3.5 sinavi — yorumsuz puanlarin `/ask`te HIC SESI OLMADIGI | ✅ entegrasyon testiyle KILITLENDI                                                                             |
+| 5   | Silme sinavi — DB satiri + vektor gercekten gidiyor mu         | ✅ canli istekle kanitlandi (asagida)                                                                          |
+| 6   | ADR-0036/0042 durumu — yapisal katkici yok, T2 tetiklenmedi    | ✅ **testle kilitlendi** (yapisal **6**, anlamsal **9**, fan-out **15**)                                       |
+| 7   | Fan-out olcumu (N=15)                                          | ⚠️ **KISMEN** — sure olculdu, DAGILIM olculemedi (asagida)                                                     |
+| 8   | Bilinen sinirlar guncellendi (ADR + CLAUDE.md + ROADMAP §8.5)  | ✅                                                                                                             |
+
+### ✅ Madde 3 — renk turu GERCEK TARAYICIDA olculdu
+
+`data-module` IKI dugume birden duser (koridor kapisi + oda sarmalayici); ikisi
+de ayni paleti tasiyor ve **kabuk her iki temada da terracotta kaldi**:
+
+| Token                             | Acik tema             | Koyu tema             |
+| --------------------------------- | --------------------- | --------------------- |
+| Modul `--accent` / `--ink`        | `#56793e` / `#45672d` | `#8cb274` / `#9dc385` |
+| **Kabuk** `--accent`              | `#b25628`             | `#e8935a`             |
+| ⚠️ **`--ai-accent`** (oda ICINDE) | `#b25628`             | `#e8935a`             |
+
+⚠️ **Ucuncu satir kritiktir:** oda sarmalayicisinin ICINDE olculdu ve modulun
+rengiyle DEGISMEDI — yani modul AI'in sesini EZMIYOR. Odadaki gercek ogeler
+(oda basligi, puan rozeti, aktif band dugmesi, dusuk puan uydusu) `#45672d`e
+cozuluyor. `app-shell.tsx` `git diff` **BOS** (sekizinci kez dokunulmadi);
+`module-colors.css` `git diff` de **BOS** — palet ilk gunden dogru adla yaziliydi.
+
+⚠️ **DORT YESIL KAPI SINAVI:** `projects` · `finance` · `invoicing` ·
+`feedback` kapilarinin dordu de FARKLI ETIKET ve FARKLI IKON tasiyor (ikon yol
+sayilari 3 / 3 / 5 / 2), aktif kapi `aria-current="page"` aliyor. Renk hicbir
+yerde tek ayirt edici degil.
+
+### ✅ Madde 5 — silme sinavi CANLI kanitlandi
+
+Vektoru OLAN bir kayit (`vector_dims = 1536`) silindi:
+
+- `member DELETE` -> **403** · `owner DELETE` -> **204** · tekrar **404**
+  (⚠️ sessiz basari YOK — KVKK talebi baglaminda "silindi sandim" demektir)
+- Satir gitti (`count = 0`) **ve** tablodaki toplam vektor sayisi **5 -> 4**
+- ⚠️ **Ikinci bir temizlik yolu GEREKMEDI**: vektor satirin kendi kolonunda
+  yasar (§1.2). Chunk tablosu baska bir semada olsaydi bu cascade YAZILAMAZDI.
+- ⚠️ **R2 / nesne deposu YOK** — bu modulun depolama yuzeyi hic olmadi, yani
+  temizlenecek ikinci bir varlik da yok.
+- Ozet KENDILIGINDEN tazelendi: `count` 6 -> 4, `average` `"3.3"` -> `"3.0"`.
+
+### ⚠️ Madde 7 — fan-out KISMEN olculdu, eksik kalan kisim BIR PLATFORM BORCU
+
+**Olculen:** N=15 katkici kayitli, uc soru, gercek saglayicilar (OpenAI
+embedding + DeepSeek completion). Sureler **2,70 s · 3,91 s · 3,43 s**
+(ortalama ~3,35 s), `degradedSources` UCUNDE DE **bos**.
+
+⚠️ **OLCULEMEYEN — ve bu, ADR-0043'un biraktigi AYNI BORC:**
+
+1. **DAGILIM olculemedi.** Denetim tenant'inda YALNIZCA geri bildirim verisi
+   vardi, yani uc soruda da dagilim `feedback-comments: 4` cikti. Bu, katkicinin
+   CALISTIGINI kanitlar ama ADR-0036'nin taban davranisini **sinamaz** — bunun
+   icin on bir modulun hepsinde veri olan bir tenant gerekir.
+2. ⚠️ **ADR-0042 §4'un protokolu YINE UYGULANAMADI**: her yapisal kaynagin
+   DONDURDUGU SATIR SAYISI ve giren/girmeyen parcalarin SKORU hicbir yerde
+   kaydedilmiyor. `retrieval.select` gozlemlenebilirlik satiri HALA YOK.
+
+⚠️ **Bu, Geri Bildirim'in kusuru DEGILDIR** — ADR-0043'te de ayni sekilde
+kaydedildi ve bu modul yapisal kaynak sayisini DEGISTIRMEDI. Ama artik **iki
+kapanis denetimi ust uste** ayni borca takildi: **kalem B (`retrieval.select`)
+bir sonraki platform isi olmalidir.**
+
+### ⚠️ Denetimin UC KAYDA DEGER BULGUSU
+
+1. ⚠️ **BU MODULDE 409 DIYE BIR CEVAP YOKTUR** — ve bu bir eksik degil, §1'in
+   dogrudan sonucudur. Onceki uc modulde 409 vardi (`tax_number`, `sku`, ayni
+   gune ikinci ucret kaydi) cunku hepsinde bir TEKILLIK KISITI vardi. Burada yok
+   ve olmamali: **ayni musteri ayni gun iki kez geri bildirim verebilir** ve
+   ikisi de gercektir. Bir tekillik kisiti, gercek bir olguyu REDDEDERDI.
+2. ⚠️ **DUVARIN PENCERESI TEK — ADR §9'un "bu ay" ifadesinden BILINCLI SAPMA.**
+   ADR uydular icin "bu ay", kahraman rakam icin "son 30 gun" yaziyordu.
+   Uygulamada DORDU DE ayni 30 gunluk penceredir ve pencere SUNUCUDAN doner
+   (`windowDays`). Iki farkli pencere, ayin 2'sinde "ortalama 4,2 (son 30 gun)"
+   ile "3 dusuk puan (bu ay)" yan yana gosterir ve kullanici ikisinin AYNI
+   kumeden geldigini sanardi — hata SESSIZ olurdu.
+3. ⚠️ **`GET /feedback/summary` BIR KATKICI DEGILDIR** ve bu ayrim UC YERDE
+   birden yaziliya gecti (port · use case · controller). Ayni sayilari uretiyor
+   gorunur ama yalnizca EKRANA gider: havuza girmez, taban yuvasi tuketmez,
+   T2'yi etkilemez. ⚠️ Kaydedilmeseydi ileride birisi _"zaten ozet var"_ diye
+   yapisal katkiciyi BEDAVA sanabilirdi.
+
+---
+
+## Geri Bildirim kapanirken bilinen sinirlar — **Slice 2 EKLERI**
+
+Asagidaki liste yukaridaki § Bilinen sinirlar'i **degistirmez, GENISLETIR**:
+uygulama ve denetim sirasinda ortaya cikan kalemler.
+
+- ⚠️ **DAGILIM OLCUMU YAPILAMADI** (madde 7) ve `retrieval.select` borcu
+  **ikinci kez** bir kapanis denetimini eksik birakti. Kalem B artik bir SIRA
+  sorusu degil, **bir sonraki platform isi**dir.
+- ⚠️ **DUVAR ILE LISTE AYRI ISTEKLERDIR** — bir kayit silindiginde ikisi kisa
+  bir an ayrisabilir. Telafi, silme sonrasi IKISININ DE tazelenmesidir ve bir
+  bilesen testi bunu kilitler. ⚠️ Ama BASKA BIR KULLANICI ayni anda kayit
+  girerse duvar bir sonraki tazelemeye kadar eskidir (canli guncelleme YOK).
+- ⚠️ **OZET HATASI SESSIZDIR** — `GET /feedback/summary` cokerse duvar iskelet
+  olarak kalir ve kullanici bir hata mesaji GORMEZ (liste calismaya devam eder).
+  Bilincli: calisan bir listeyi bir toplama sorgusu yuzunden gizlemek daha
+  kotuydu. Bedeli: _"ortalama neden gorunmuyor"_ sorusu cevapsiz kalabilir.
+- ⚠️ **PUAN BANDI FILTRESI OZETI ETKILEMEZ** — duvar TUM pencereyi ozetler.
+  Kullanici "≤2" filtresindeyken duvarda yine genel ortalamayi gorur; bu
+  KASITLIDIR (aksi halde filtre ortalamayi dusurur ve isletme gercekten oyle
+  sanilirdi) ama ilk bakista sasirtabilir.
+- ⚠️ **`datetime-local` GIRDISI SAAT DILIMI TASIMAZ** — tarayicinin YEREL
+  saatinde okunur ve gonderirken ofsetli ana cevrilir. Cok bolgeli bir tenant'ta
+  iki kullanici ayni ani FARKLI yerel saatlerde girer (ADR-0035'in "tenant bazli
+  saat dilimi yok" siniri, ikinci kez).
+- ⚠️ **DETAY ROTASI YOKTUR** — kart kaydin tamamini tasir. Cok uzun bir yorum
+  kartta TAMAMEN gosterilir (kirpma yok); 1250 karakterlik bir yorum karti
+  buyutur.
+- ⚠️ **KANAL ONERI LISTESI YOKTUR** — `inventory.items.unit`in telafisi
+  (arayuzde oneri listesi) burada UYGULANMADI. `"google"` / `"Google"` ayrimi
+  kullanicinin dikkatine kaldi; ipucu metni bunu SOYLER ama ENGELLEMEZ.
+- ⚠️ **CANLI GUNCELLEME / BILDIRIM YOK** — dusuk puan geldiginde kimse
+  uyarilmaz. Bu, yapisal katkicinin (askida, §3.4) ve bir bildirim altyapisinin
+  (Queue karari) ORTAK bekleyenidir.
 
 ---
 

@@ -207,6 +207,32 @@ export function HrIcon(props: IconProps) {
   );
 }
 
+/**
+ * MUSTERI GERI BILDIRIMI — ONBIRINCI kapinin ikonu (ADR-0045 §9).
+ *
+ * Secilen sekil BIR KONUSMA BALONU + ICINDE BIR YILDIZ: modulun tasidigi sey
+ * bir SOZ (musterinin kendi cumlesi) ve bir PUANDIR. Ikisi birden, cunku
+ * modulun tamami bu ikisidir.
+ *
+ * ⚠️ CRM'in musteri ikonundan (insan silueti) ve Tedarikci'nin akis okundan
+ * BILINCLI olarak uzak: burada tasinan sey bir KISI ya da bir ILISKI degil,
+ * DISARIDAN GELEN BIR SESTIR (§3.1 — havuza disaridan gelen ilk ses).
+ *
+ * ⚠️ Renk gibi ikon da TEK ayirt edici degildir ve BU MODULDE KURAL EN COK
+ * BURADA GECERLI: imza rengi (#56793e adacayi) `projects` (#717325),
+ * `finance` (#307d54) ve `invoicing` (#257c6c) ile YESIL BANTTA DORT KAPILIK
+ * bir kume olusturuyor — setin EN KALABALIGI. Kapi ayrica farkli etiket ve
+ * `aria-label` tasir.
+ */
+export function FeedbackIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M20 12.5a7.5 7.5 0 0 1-7.5 7.5H8l-4 3v-4.2A7.5 7.5 0 0 1 12.5 5 7.5 7.5 0 0 1 20 12.5Z" />
+      <path d="M12.5 8.8l1.1 2.3 2.5.35-1.8 1.75.43 2.5-2.24-1.18-2.23 1.18.42-2.5-1.8-1.75 2.5-.35Z" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

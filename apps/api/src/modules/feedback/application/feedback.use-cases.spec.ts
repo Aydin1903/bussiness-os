@@ -1,3 +1,4 @@
+import { LOW_RATING_MAX } from '@business-os/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { type ContactDirectory } from '../../crm/crm.public';
@@ -12,8 +13,12 @@ import {
   FeedbackContactNotFoundError,
   FeedbackResponseNotFoundError,
 } from '../domain/feedback.error';
-import { type FeedbackRepository, type UnindexedResponse } from './feedback.repository.port';
-import { FeedbackUseCases } from './feedback.use-cases';
+import {
+  type FeedbackRepository,
+  type FeedbackSummaryRow,
+  type UnindexedResponse,
+} from './feedback.repository.port';
+import { FeedbackUseCases, SUMMARY_WINDOW_DAYS } from './feedback.use-cases';
 
 /**
  * `FeedbackUseCases`.
@@ -58,6 +63,7 @@ function build(
     rateLimitCount?: number;
     embedFails?: boolean;
     found?: FeedbackResponse | null;
+    summary?: FeedbackSummaryRow;
   } = {},
 ) {
   const insertResponse = vi.fn<FeedbackRepository['insertResponse']>().mockResolvedValue(undefined);
@@ -73,6 +79,14 @@ function build(
   const findResponseById = vi
     .fn<FeedbackRepository['findResponseById']>()
     .mockResolvedValue(overrides.found ?? null);
+  const summarize = vi.fn<FeedbackRepository['summarize']>().mockResolvedValue(
+    overrides.summary ?? {
+      average: '4.2',
+      count: 12,
+      lowRatingCount: 3,
+      withoutCommentCount: 5,
+    },
+  );
 
   const repository = {
     insertResponse,
@@ -80,6 +94,7 @@ function build(
     findUnindexedResponses,
     deleteResponseById,
     findResponseById,
+    summarize,
     listResponses: vi.fn(),
     findSimilarResponses: vi.fn(),
   } as unknown as FeedbackRepository;
@@ -115,6 +130,7 @@ function build(
     clock,
     rateLimit: RATE_LIMIT,
     reindexBatchSize: 25,
+    lowRatingMax: LOW_RATING_MAX,
   });
 
   return {
@@ -126,6 +142,7 @@ function build(
     registerRequest,
     embed,
     findNames,
+    summarize,
   };
 }
 
@@ -264,6 +281,72 @@ describe('FeedbackUseCases (ADR-0045)', () => {
     const { useCases } = build({ deleted: 0 });
 
     await expect(useCases.deleteResponse(ID)).rejects.toThrow(FeedbackResponseNotFoundError);
+  });
+
+  // ==========================================================================
+  // ⚠️ DUVARIN OZETI (§9) — ve YAPISAL KATKICI OLMADIGININ kaniti
+  // ==========================================================================
+
+  describe('getSummary (§9)', () => {
+    it('ozeti dondurur ve pencereyi/esigi SUNUCUDAN bildirir', async () => {
+      // ⚠️ `windowDays` ve `lowRatingMax` cevapta DONER: arayuz "son 30 gunde"
+      // ve "≤2" metinlerini KENDI YAZMAZ. Yazsaydi sunucudaki degerler
+      // degistiginde ekran eski sayiyi gostermeye devam ederdi.
+      const { useCases } = build();
+
+      await expect(useCases.getSummary()).resolves.toEqual({
+        average: '4.2',
+        count: 12,
+        lowRatingCount: 3,
+        withoutCommentCount: 5,
+        windowDays: SUMMARY_WINDOW_DAYS,
+        lowRatingMax: LOW_RATING_MAX,
+      });
+    });
+
+    it('⚠️ N = 0 iken ortalama `null` DONER — "0" DEGIL (§9.1)', async () => {
+      // ⚠️ `0` donseydi arayuz "0,0" basar ve "cok kotu" ile "hic veri yok"
+      // AYNI GORUNURDU. Tip (`string | null`) o hatayi IMKANSIZ kilar.
+      const { useCases } = build({
+        summary: { average: null, count: 0, lowRatingCount: 0, withoutCommentCount: 0 },
+      });
+
+      const summary = await useCases.getSummary();
+
+      expect(summary.average).toBeNull();
+      expect(summary.count).toBe(0);
+    });
+
+    it('⚠️ PENCERE SUNUCUDA hesaplanir — `Clock`tan, istemciden DEGIL', async () => {
+      // Istemciye birakilsaydi saat sapmasi olan bir tarayici FARKLI bir
+      // pencere isteyebilirdi (DEVELOPMENT_RULES 3.2: zaman disaridan gelir).
+      const { useCases, summarize } = build();
+
+      await useCases.getSummary();
+
+      const expected = new Date(NOW.getTime() - SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+      expect(summarize).toHaveBeenCalledWith({
+        since: expected,
+        lowRatingMax: LOW_RATING_MAX,
+      });
+    });
+
+    it('⚠️ ESIK CONTRACTS`TAN gelir — sunucu ve arayuz AYNI sabiti okur', () => {
+      // Iki tarafta ayri yazilsaydi ekran "≤2 puan" der, sunucu baska bir sayi
+      // sayardi ve fark SESSIZ olurdu (`STALE_STAGE_DAYS` ayrismasinin besinci
+      // tekrari).
+      expect(LOW_RATING_MAX).toBe(2);
+    });
+
+    it('⚠️ OZET BIR KATKICI DEGILDIR — `contribute` DIYE BIR SEY YOK', () => {
+      // Ayni sayilari uretiyor gibi gorunur ama yalnizca EKRANA gider:
+      // `POST /ask` havuzuna girmez, taban yuvasi tuketmez, ADR-0042'nin T2
+      // esigini ETKILEMEZ. Modulun havuza katkisi HALA TEK ve ANLAMSALDIR.
+      const surface = Object.getOwnPropertyNames(FeedbackUseCases.prototype);
+
+      expect(surface).toContain('getSummary');
+      expect(surface).not.toContain('contribute');
+    });
   });
 
   // ==========================================================================

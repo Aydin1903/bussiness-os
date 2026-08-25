@@ -208,7 +208,7 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 | **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md))                                                                                           | ✅ Bitti    |
 | **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md))                                                                                           | ✅ Bitti    |
 | **9**  | **İK / Personel**                  | Çalışan · **maaş (AI'dan izole)** · **izin**; ⚠️ **sağlık verisi YOK** · **SIFIR** `RetrievalContributor` ([ADR-0043](adr/0043-ik-personel-modulu.md) · [ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md)) | ✅ Bitti    |
-| **10** | **Müşteri Geri Bildirimi / Anket** | Yanıt toplama                                                                                                                                                                                                                  | ⏳ Bekliyor |
+| **10** | **Müşteri Geri Bildirimi / Anket** | Puan + opsiyonel yorum; **TEK** `RetrievalContributor` (ANLAMSAL) — ⚠️ yapısal aday **liyakatli ama ASKIDA** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md))                                                            | ✅ Bitti    |
 | **11** | **Kampanya / Pazarlama Notları**   | Anlatısal veri — CRM'in embedding desenini yeniden kullanır                                                                                                                                                                    | ⏳ Bekliyor |
 | **12** | **Sadakat Programı**               | Puan · kademe                                                                                                                                                                                                                  | ⏳ Bekliyor |
 
@@ -443,9 +443,9 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: yirmi iki tablo, tek karar
+### 8.5 Retention borcu: yirmi üç tablo, tek karar
 
-Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, Randevu Slice 3 ile (2026-08-13) onüçe, ve **İK ile (2026-08-25) YİRMİ İKİYE** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
+Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, Randevu Slice 3 ile (2026-08-13) onüçe, İK ile (2026-08-25) yirmi ikiye, ve **Müşteri Geri Bildirimi ile (2026-08-25) YİRMİ ÜÇE** çıktı. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
 | Tablo                            | Neyi biriktiriyor                                                                      | Kaynak                                                                                          |
 | -------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -471,6 +471,7 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 | `invoicing.sales_document_lines` | Belge başına N satır kalemi — belgesiyle birlikte gider (cascade)                      | **Faz 5 / 8. modül** ([ADR-0041](adr/0041-teklif-fatura-modulu.md) §2)                          |
 | ⚠️ **`platform.audit_log`**      | ⚠️ **HER alan değişikliğine bir satır** — listedeki **en hızlı büyüyen** kalem         | **Faz 5 / 9. modül** ([ADR-0043](adr/0043-ik-personel-modulu.md) §8)                            |
 | `hr.leave_requests`              | Her izin talebi — ⚠️ **KVKK: kişisel veri**, süresi hukuki bir karardır                | **Faz 5 / 9. modül** ([ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md) §2) |
+| ⚠️ **`feedback.responses`**      | Her geri bildirim + vektör **aynı satırda** — **dokuzuncu** vektör tablosu             | **Faz 5 / 10. modül** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md) §1)                 |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
@@ -481,6 +482,28 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 > konuşmaları silmek mesajlarını da götürür. Ters yön çalışmaz — sadece
 > `messages` silen bir iş, sonsuza kadar biriken **yetim `conversations`**
 > satırları bırakır. Denetim anında ölçüm: 4 konuşma / 12 mesaj.
+
+> ### ⚠️ `feedback.responses` listeye GİRDİ — ama SİLME YOLU ZATEN VAR (2026-08-25)
+>
+> Tablo **zamanla çoğalır** (her geri bildirim bir satır) ve **vektör taşır**
+> (`vector(1536)`, aynı satırda) — yani §8.5'in kendi ölçütünü iki koldan da
+> karşılar.
+>
+> ⚠️ **Ama bu kalem diğerlerinden bir yönüyle AYRILIYOR ve bu ayrım işi
+> KOLAYLAŞTIRIR:** silme yolu ZATEN AÇIKTIR
+> ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md) §2.2). Diğer yirmi iki
+> kalemde retention işi önce _"silinebilir mi"_ sorusunu çözmek zorundadır;
+> burada `DELETE` hem izin (`feedback:delete`), hem uç, hem de veritabanı
+> yetkisi olarak mevcut — çünkü **KVKK silme talebi** onu zaten zorunlu kıldı.
+>
+> ⚠️ Retention bu tabloda yeni bir **mekanizma** değil, bir **politika** ister:
+> _"kaç ay sonra"_. Ve o soru teknik değil **hukukidir** — satır kişisel veri
+> içerebilir (`hr.leave_requests` ile aynı sınıf), yani
+> [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'nin KVKK kontrol noktasının girdisidir.
+>
+> ⚠️ **Silinen satır AI hafızasından da düşer** — vektör aynı satırda yaşar,
+> ikinci bir temizlik yolu gerekmez. Belge modülünün R2 nesnesi gibi bir
+> "veritabanı dışı artık" bu modülde YOKTUR.
 
 > ### ⚠️ İK'nın İKİ tablosu listeye GİRMEDİ — ve gerekçeleri FARKLI (2026-08-25)
 >

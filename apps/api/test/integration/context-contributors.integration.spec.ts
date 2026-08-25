@@ -7,6 +7,10 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../../src/app.module';
+import {
+  RETRIEVAL_CONTRIBUTOR_REGISTRY,
+  type RetrievalContributorRegistry,
+} from '../../src/platform/context/context.public';
 import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter';
 import { correlationIdMiddleware } from '../../src/infrastructure/logging/correlation-id.middleware';
 import { APP_PASSWORD, APP_ROLE } from './support/database-roles';
@@ -116,6 +120,7 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
       'TRUNCATE projects.progress_note_chunks, projects.progress_notes, projects.tasks, projects.projects CASCADE',
     );
     await database.ownerPool.query('TRUNCATE appointments.appointments CASCADE');
+    await database.ownerPool.query('TRUNCATE feedback.responses CASCADE');
     await database.ownerPool.query('TRUNCATE platform.rate_limits');
     await truncateTenantTables(database.ownerPool);
     await truncateIdentityTables(database.ownerPool);
@@ -436,6 +441,107 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
     // Elenen katkici buraya GIRMEZ: "alamadik" ile "goremezsin" ayri
     // seylerdir ve ikincisi bir kaynagin VARLIGINI sizdirirdi.
     expect(degraded(response.body)).toEqual([]);
+  });
+
+  // ==========================================================================
+  // ⚠️ ADR-0045 §3.5 + §3.4 — KAPANIS DENETIMININ IKI SABIT MADDESI
+  // ==========================================================================
+
+  describe('⚠️ Geri Bildirim (ADR-0045) — havuzdaki yeri', () => {
+    async function addFeedback(
+      token: string,
+      body: { rating: number; comment?: string | null },
+    ): Promise<void> {
+      await api()
+        .post('/api/v1/feedback')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          rating: body.rating,
+          ...(body.comment == null ? {} : { comment: body.comment }),
+          receivedAt: new Date().toISOString(),
+        });
+    }
+
+    it('⚠️ YORUMLU geri bildirim `/ask` cevabina KAYNAK OLUR (§3.1)', async () => {
+      // Havuza DISARIDAN GELEN ILK SES: bugune kadar her anlatiyi SIRKET
+      // kendisi yazmisti (gorusme notu, ilerleme notu, servis notu). Burada
+      // gomulen metin MUSTERININ KENDI CUMLESIDIR.
+      const token = await tokenFor('owner');
+      await addFeedback(token, { rating: 2, comment: 'siparisim iki hafta gecikti' });
+
+      const response = await api()
+        .post('/api/v1/ask')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ question: 'musteriler neden memnun degil' });
+
+      expect(response.status).toBe(200);
+      const sources = response.body.sources as readonly { source: string }[];
+      expect(sources.map((entry) => entry.source)).toContain('feedback-comments');
+    });
+
+    it('⚠️ §3.5 SINAVI: YORUMSUZ puanin `/ask`te HICBIR SESI YOKTUR', async () => {
+      // ============================================================
+      // ⚠️ BU, MODULUN YAZILI BILINEN SINIRIDIR — BIR KUSUR DEGIL
+      // ============================================================
+      // Yorumsuz bir kaydin gomulecek metni yoktur (§1.4), dolayisiyla vektoru
+      // KALICI OLARAK `NULL`dur ve anlamsal katkici `embedding IS NOT NULL`
+      // suzer.
+      //
+      // ⚠️ BU TESTIN ISI SINIRIN SESSIZCE DEGISMEDIGINI kanitlamaktir. Biri
+      // iyi niyetle "yorumsuz kayitlari da gomelim" derse (ornegin yalnizca
+      // baslikla), havuza ICERIKSIZ vektorler girer ve BASKA MODULLERIN
+      // parcalarini disari iter — hata SESSIZ olurdu.
+      const token = await tokenFor('owner');
+      await addFeedback(token, { rating: 1, comment: null });
+
+      const response = await api()
+        .post('/api/v1/ask')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ question: 'musteriler neden memnun degil' });
+
+      expect(response.status).toBe(200);
+      const sources = response.body.sources as readonly { source: string }[];
+      expect(sources.map((entry) => entry.source)).not.toContain('feedback-comments');
+      // ⚠️ ELENDI DEGIL, HIC YOKTU: bozulan bir katkici `degradedSources`ta
+      // gorunurdu. Bos olmasi, kaydin sessizce YOK SAYILDIGINI degil
+      // SOYLEYECEK SEYI OLMADIGINI gosterir.
+      expect(response.body.degradedSources).toEqual([]);
+    });
+  });
+
+  describe('⚠️ ADR-0036 / ADR-0042 esik durumu — KAPANIS DENETIMI MADDESI', () => {
+    it('⚠️ YAPISAL kaynak sayisi 6`DA — T2 (2K/3 = 6) TETIKLENMEDI', () => {
+      // ============================================================
+      // ⚠️ BU TEST BIR ESIGI KILITLER, BIR DAVRANISI DEGIL
+      // ============================================================
+      // ADR-0042 §3'un T2 esigi: "satir donduren yapisal kaynak sayisi 2K/3'u
+      // GECTIGINDE". `K = 8` icin esik 6'dir ve gecmek 7 gerektirir.
+      //
+      // ⚠️ Geri Bildirim ANLAMSAL bir katkici ekledi (9. anlamsal kaynak);
+      // YAPISAL sayi DEGISMEDI. Biri `feedback-satisfaction`i eklerse bu test
+      // KIRMIZI YANAR — ve kirmizi yanmasi DOGRUDUR: o gun once
+      // `retrieval.select` gozlemlenebilirlik satiri, sonra olcum, sonra AYRI
+      // BIR PLATFORM ADR'si gerekir. Sira TERSINE CEVRILEMEZ.
+      const registry = app.get<RetrievalContributorRegistry>(RETRIEVAL_CONTRIBUTOR_REGISTRY);
+      const all = registry.all();
+
+      const structural = all.filter((c) => c.contributionKind === 'structural');
+      const semantic = all.filter((c) => c.contributionKind === 'semantic');
+
+      expect(structural).toHaveLength(6);
+      expect(semantic).toHaveLength(9);
+      // Fan-out: toplam kayitli katkici sayisi.
+      expect(all).toHaveLength(15);
+    });
+
+    it('⚠️ `feedback-comments` ANLAMSAL kaydedildi — yapisal DEGIL', () => {
+      const registry = app.get<RetrievalContributorRegistry>(RETRIEVAL_CONTRIBUTOR_REGISTRY);
+      const feedback = registry.all().find((c) => c.source === 'feedback-comments');
+
+      expect(feedback).toBeDefined();
+      expect(feedback?.contributionKind).toBe('semantic');
+      expect(feedback?.permission).toBe('feedback:read');
+    });
   });
 
   it('BOZULAN katkici istegi cokertmez, degradedSources ta RAPORLANIR', async () => {

@@ -120,6 +120,38 @@ export interface FeedbackRepository {
   findUnindexedResponses(limit: number): Promise<UnindexedResponse[]>;
 
   /**
+   * Duvarin ozeti — TEK SORGUDA, SQL'de TOPLANIR (ADR-0045 §9).
+   *
+   * ============================================================================
+   * ⚠️ BU BIR YAPISAL KATKICI DEGILDIR — VE AYRIM ONEMLIDIR
+   * ============================================================================
+   * Ayni sayilari uretiyor gibi gorunur ama BASKA BIR SEYDIR:
+   *
+   *   `RetrievalContributor` -> `POST /ask` HAVUZUNA girer, taban yuvasi
+   *                             tuketir, ADR-0042'nin T2 esigini SAYAR.
+   *   ⚠️ BU METOT          -> yalnizca EKRANA gider. Havuza girmez, kayit
+   *                             defterinde yeri yoktur, T2'yi ETKILEMEZ.
+   *
+   * Yani modulun `POST /ask`e katkisi HALA TEK ve ANLAMSALDIR (§3.4). Bir gun
+   * `feedback-satisfaction` yazilirsa bu metodu YENIDEN KULLANABILIR — ama o
+   * gun once ADR-0036/0042 yeniden acilmak zorundadir. ⚠️ Bu metodun var olmasi
+   * o karari VERMEZ ve kolaylastirmaz.
+   *
+   * ============================================================================
+   * ⚠️ TOPLAMA SQL'DE — ISTEMCIDE DEGIL, UYGULAMADA DA DEGIL
+   * ============================================================================
+   * Projede besinci kez ayni disiplin (`cashflow`, `inventory` miktari,
+   * `invoicing` ozeti). Satirlari cekip JS'te toplamak, sayfa sinirina takilan
+   * ve SESSIZCE YANLIS bir ortalama uretirdi: kullanici 20 kayitlik sayfayi
+   * gorur, ortalama 200 kaydin degil O 20'NIN ortalamasi olurdu.
+   *
+   * @param since Pencerenin baslangici — cagiran hesaplar (`Clock`), repository
+   *   `now()` CAGIRMAZ (DEVELOPMENT_RULES 3.2: zaman disaridan gelir).
+   * @param lowRatingMax Bu degere KADAR (dahil) olan puanlar "dusuk" sayilir.
+   */
+  summarize(input: { since: Date; lowRatingMax: number }): Promise<FeedbackSummaryRow>;
+
+  /**
    * ANLAMSAL arama (ADR-0045 §3.1 — `feedback-comments` katkicisi).
    *
    * ⚠️ `embedding IS NOT NULL` SUZULUR: vektoru olmayan satirlar (yorumsuz
@@ -174,4 +206,23 @@ export interface SimilarResponse {
   readonly channel: string | null;
   readonly receivedAt: Date;
   readonly comment: string;
+}
+
+/**
+ * Duvarin ham ozeti (ADR-0045 §9).
+ *
+ * ⚠️ `average` bir `string | null` — VE IKISI DE KASITLI:
+ *
+ *   `string` -> ortalama SUNUCUDA yuvarlanir (`round(avg, 1)`) ve KANONIK
+ *     DIZE olarak gelir. JS'te `4.166666...` uretip istemcide bicimlendirmek,
+ *     iki yerde iki farkli yuvarlama demekti.
+ *   ⚠️ `null` -> `N = 0` iken ortalama YOKTUR ve TIP SEVIYESINDE gosterilemez
+ *     (§9.1). `0` donseydi arayuz "0,0" basar ve "cok kotu" ile "hic veri yok"
+ *     AYNI GORUNURDU — hata SESSIZ olurdu. Tip, o hatayi IMKANSIZ kilar.
+ */
+export interface FeedbackSummaryRow {
+  readonly average: string | null;
+  readonly count: number;
+  readonly lowRatingCount: number;
+  readonly withoutCommentCount: number;
 }

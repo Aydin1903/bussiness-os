@@ -5,6 +5,7 @@ import { feedbackResponses } from '../../../infrastructure/database/schema';
 import { requireTransaction } from '../../../infrastructure/database/transaction-context';
 import {
   type FeedbackRepository,
+  type FeedbackSummaryRow,
   type ListPage,
   type SimilarResponse,
   type UnindexedResponse,
@@ -182,6 +183,43 @@ export class DrizzleFeedbackRepository implements FeedbackRepository {
         .orderBy(asc(feedbackResponses.receivedAt), asc(feedbackResponses.id))
         .limit(limit)
     );
+  }
+
+  async summarize(input: { since: Date; lowRatingMax: number }): Promise<FeedbackSummaryRow> {
+    const { db } = requireTransaction();
+
+    // ⚠️ TEK SORGU, DORT SAYI — ve toplama TAMAMEN SQL'DE.
+    //
+    // Satirlari cekip JS'te toplamak sayfa sinirina takilirdi: kullanici 20
+    // kayitlik sayfayi gorur, ortalama 200 kaydin degil O 20'NIN ortalamasi
+    // olurdu ve hata SESSIZ kalirdi (`cashflow` ve `inventory` miktarinin ayni
+    // disiplini, besinci kez).
+    //
+    // ⚠️ `round(avg(rating), 1)::text` — YUVARLAMA SUNUCUDA. `avg` bir
+    // `numeric` doner; onu JS `number`ina cevirip istemcide bicimlendirmek IKI
+    // YERDE IKI FARKLI yuvarlama demekti. Kanonik dize tek yerde uretilir.
+    //
+    // ⚠️ `count(*) = 0` iken `avg` zaten `NULL` doner — yani "N=0'da ortalama
+    // YOKTUR" kurali (§9.1) BURADA DA dogal olarak saglanir; ek bir dal
+    // yazmak gerekmiyor.
+    //
+    // ⚠️ `FILTER (WHERE ...)` kullaniliyor, `CASE WHEN` toplami DEGIL: ikisi de
+    // ayni sonucu verir ama `FILTER` NIYETI okunur kilar — "bu kosulu saglayan
+    // satirlari say", "1 ve 0 topla" degil.
+    const [row] = await db
+      .select({
+        average: sql<string | null>`round(avg(${feedbackResponses.rating}), 1)::text`,
+        count: sql<number>`count(*)::int`,
+        lowRatingCount: sql<number>`count(*) FILTER (WHERE ${feedbackResponses.rating} <= ${input.lowRatingMax})::int`,
+        withoutCommentCount: sql<number>`count(*) FILTER (WHERE ${feedbackResponses.comment} IS NULL)::int`,
+      })
+      .from(feedbackResponses)
+      .where(gte(feedbackResponses.receivedAt, input.since));
+
+    // ⚠️ Toplama sorgusu HER ZAMAN tek satir doner (gruplama yok), ama tip
+    // `undefined` ihtimalini tasir. Savunma katmani: bos pencerenin dogru
+    // cevabi `average: null`dir — `'0'` DEGIL (§9.1).
+    return row ?? { average: null, count: 0, lowRatingCount: 0, withoutCommentCount: 0 };
   }
 
   async findSimilarResponses(input: {

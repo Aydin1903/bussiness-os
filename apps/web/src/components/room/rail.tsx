@@ -12,6 +12,7 @@ import {
   DocumentsIcon,
   FinanceIcon,
   InventoryIcon,
+  FeedbackIcon,
   HrIcon,
   InvoicingIcon,
   OverviewIcon,
@@ -189,6 +190,29 @@ const DOORS: readonly Door[] = [
     icon: HrIcon,
     href: '/app/hr',
     module: 'hr',
+  },
+  /**
+   * ONBIRINCI KAPI — Musteri Geri Bildirimi / Anket (ADR-0045 §9).
+   *
+   * ⚠️ DORDUNCU KOMSU-HUE KUMESI VE SETIN EN KALABALIGI: `projects` (#717325
+   * zeytin), `finance` (#307d54 yesil), `invoicing` (#257c6c yesil-teal) ve
+   * `feedback` (#56793e adacayi) YESIL BANTTA DORT KAPI. Onceki kumeler cift
+   * (CRM/Tedarikci, Finans/Teklif) ya da uclu (IK/Kampanya/Sadakat) idi.
+   *
+   * ⚠️ "Renk tek ayirt edici degildir" kurali EN COK BURADA sinaniyor: dort
+   * kapinin dordu de FARKLI IKON, FARKLI ETIKET tasiyor ve aktif olan
+   * `aria-current` aliyor. Renk koru bir kullanici icin bu bolge koridorun EN
+   * RISKLI yeridir.
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Geri bildirim',
+    short: 'Geri bld.',
+    icon: FeedbackIcon,
+    href: '/app/feedback',
+    module: 'feedback',
   },
 ];
 

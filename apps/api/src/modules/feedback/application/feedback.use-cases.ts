@@ -18,6 +18,7 @@ import {
 import { FEEDBACK_EMBEDDING_ACTION } from '../feedback.rate-limits';
 import {
   type FeedbackRepository,
+  type FeedbackSummaryRow,
   type ListPage,
   type UnindexedResponse,
 } from './feedback.repository.port';
@@ -36,6 +37,63 @@ import {
 export interface FeedbackResponseRow extends FeedbackResponseState {
   /** `null` = anonim, kisi silinmis YA DA cagiranda `contact:read` yok. */
   readonly contactName: string | null;
+}
+
+/**
+ * Duvarin penceresi — GUN (ADR-0045 §9).
+ *
+ * ⚠️ ADR §9 uydulari icin "bu ay" yaziyordu; UYGULAMADA DORT SAYI DA AYNI 30
+ * GUNLUK PENCEREYI kullaniyor ve sapma BILINCLIDIR: kahraman rakam "son 30
+ * gun" iken uydularin "bu ay" olmasi, ayni duvarda IKI FARKLI PENCERE demekti.
+ * Kullanici ayin 2'sinde "ortalama 4,2 (son 30 gun)" ile "3 dusuk puan (bu ay)"
+ * yan yana gorur ve ikisinin AYNI kumeden geldigini sanardi — hata SESSIZ
+ * olurdu.
+ *
+ * ⚠️ Pencere SUNUCUDAN doner (`windowDays`), arayuzde SABITLENMEZ: etiket
+ * ("son 30 gunde") o sayidan uretilir, yoksa burasi degistiginde ekran eski
+ * sayiyi yazmaya devam ederdi.
+ */
+export const SUMMARY_WINDOW_DAYS = 30;
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Duvarin ozeti — ekrana giden sekil.
+ *
+ * ⚠️ `average` `string | null` ve IKISI DE KASITLI (bkz.
+ * `FeedbackSummaryRow`): `null`, "N=0 iken ortalama GOSTERILMEZ" kuralini
+ * (§9.1) TIP SEVIYESINDE zorlar. `0` donseydi arayuz "0,0" basar ve "cok kotu"
+ * ile "hic veri yok" AYNI GORUNURDU.
+ */
+export interface FeedbackSummary extends FeedbackSummaryRow {
+  readonly windowDays: number;
+  /** ⚠️ Esik de sunucudan doner: arayuz "≤2" metnini KENDI YAZMAZ. */
+  readonly lowRatingMax: number;
+}
+
+export interface FeedbackDependencies {
+  readonly repository: FeedbackRepository;
+  readonly rateLimitRepository: RateLimitRepository;
+  readonly embeddingPort: EmbeddingPort;
+  readonly contactDirectory: ContactDirectory;
+  readonly transactionManager: TransactionManager;
+  readonly idGenerator: IdGenerator;
+  readonly clock: Clock;
+  /** Saatlik EMBEDDING payi — geri bildirim payi DEGIL (§8). */
+  readonly rateLimit: number;
+  /** Tek onarim cagrisinda islenecek EN FAZLA kayit. */
+  readonly reindexBatchSize: number;
+  /**
+   * "Dusuk puan" esigi — bu degere KADAR (dahil).
+   *
+   * ⚠️ BIR RISK MERDIVENI DEGILDIR ve `INVENTORY_NEAR_THRESHOLD_RATIO` gibi
+   * env'e ACILMAZ: olcek SABITTIR (1..5, §1.3), dolayisiyla "dusuk = 1 veya 2"
+   * olcegin bir OZELLIGIDIR, ayarlanabilir bir tercih degil. Deger
+   * `@business-os/contracts`ta TEK YERDE yasar ve arayuz de ayni sabiti okur —
+   * iki tarafta ayri yazilsaydi ekran "≤2" der, sunucu baska bir sayi sayardi
+   * ve fark SESSIZ olurdu.
+   */
+  readonly lowRatingMax: number;
 }
 
 /**
@@ -77,20 +135,6 @@ export interface FeedbackResponseRow extends FeedbackResponseState {
  * gozlemlenebilirlik satiri, (2) olcum, (3) ADR-0036/0042 revizyonu (AYRI bir
  * platform ADR'si), (4) ancak ondan sonra katkici.
  */
-export interface FeedbackDependencies {
-  readonly repository: FeedbackRepository;
-  readonly rateLimitRepository: RateLimitRepository;
-  readonly embeddingPort: EmbeddingPort;
-  readonly contactDirectory: ContactDirectory;
-  readonly transactionManager: TransactionManager;
-  readonly idGenerator: IdGenerator;
-  readonly clock: Clock;
-  /** Saatlik EMBEDDING payi — geri bildirim payi DEGIL (§8). */
-  readonly rateLimit: number;
-  /** Tek onarim cagrisinda islenecek EN FAZLA kayit. */
-  readonly reindexBatchSize: number;
-}
-
 export class FeedbackUseCases {
   constructor(private readonly deps: FeedbackDependencies) {}
 
@@ -181,6 +225,36 @@ export class FeedbackUseCases {
       ...state,
       contactName: state.crmContactId === null ? null : (names.get(state.crmContactId) ?? null),
     };
+  }
+
+  /**
+   * Duvarin ozeti (ADR-0045 §9).
+   *
+   * ============================================================================
+   * ⚠️ BU BIR YAPISAL KATKICI DEGILDIR (§3.4)
+   * ============================================================================
+   * Ayni sayilari uretiyor gibi gorunur ama yalnizca EKRANA gider:
+   * `POST /ask` havuzuna girmez, taban yuvasi tuketmez ve ADR-0042'nin T2
+   * esigini ETKILEMEZ. Modulun havuza katkisi HALA TEK ve ANLAMSALDIR.
+   *
+   * ⚠️ Bu ayrim kaydedilmezse, ileride birisi "zaten ozet var" diye katkiciyi
+   * BEDAVA sanabilir — oysa bedeli bir metot degil, BIR PLATFORM KARARIDIR
+   * (once `retrieval.select`, sonra olcum, sonra ayri bir ADR).
+   *
+   * ⚠️ PENCERE SUNUCUDA HESAPLANIR: `Clock`tan okunur, repository `now()`
+   * cagirmaz (DEVELOPMENT_RULES 3.2). Istemciye birakilsaydi saat sapmasi olan
+   * bir tarayici FARKLI bir pencere isteyebilirdi.
+   */
+  async getSummary(): Promise<FeedbackSummary> {
+    const since = new Date(
+      this.deps.clock.now().getTime() - SUMMARY_WINDOW_DAYS * MILLISECONDS_PER_DAY,
+    );
+
+    const row = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.summarize({ since, lowRatingMax: this.deps.lowRatingMax }),
+    );
+
+    return { ...row, windowDays: SUMMARY_WINDOW_DAYS, lowRatingMax: this.deps.lowRatingMax };
   }
 
   async listResponses(input: {

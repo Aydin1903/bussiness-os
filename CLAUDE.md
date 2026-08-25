@@ -273,6 +273,28 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**10. modül Müşteri Geri Bildirimi ✅ bitti** (ADR-0045; üç slice, HAFİF
+kapanış denetimi 2026-08-25 — migration 37 → 38, prod'da doğrulandı).
+⚠️ Bu modül **üç ilk** taşıyor: **havuza DIŞARIDAN gelen ilk ses** (bugüne
+kadar her anlatıyı şirket kendisi yazmıştı — görüşme notu, ilerleme notu,
+servis notu; burada gömülen metin **müşterinin kendi cümlesi**), **bayatlama
+penceresi olmayan ilk anlamsal modül** (başlığın üç bileşeni de —
+tarih · puan · kanal — değiştirilemez, yani `staleAfterRename` türü bir borç
+**hiç doğmadı**), ve **kahraman rakamı bir ORTALAMA olan ilk oda** (ölçek sabit
+1–5 olduğu için ADR-0034'ün para birimi / ADR-0039'un birim kuralı burada
+tetiklenmiyor).
+⚠️ **YAPISAL KATKICI EKLENMEDİ — ama ADR-0040/0043'teki gibi "bakıldı ve
+yoktu" DEĞİL:** aday (`feedback-satisfaction`) dört testten **üçünü geçiyor**,
+yani **liyakatli**. Eklenmemesinin sebebi USULDÜR: eklemek ADR-0042 §3'ün
+**T2** eşiğini tetikler ve ⚠️ **T2'nin girdisi bugün ÖLÇÜLEMİYOR**
+(`retrieval.select` gözlemlenebilirlik satırı yok). Yapısal kaynak **6'da
+kaldı**, T2 **kapalı** — ve bu artık **bir testle kilitli**.
+⚠️ **DEĞİŞTİRİLEMEZ AMA SİLİNEBİLİR — projede ÜÇÜNCÜ şekil.** Güncelleme yok
+çünkü kayıt **bizim sözümüz değil**, bir üçüncü kişinin beyanıdır; silme **var**
+çünkü yorum **kişisel veri içerebilir** (KVKK m.7/m.11) — yani silme bir
+kolaylık değil bir **yükümlülüktür**. Koruma üç katmanlı (`feedback:write`
+diye bir izin YOK · entity/repository'de `update` YOK · veritabanında `UPDATE`
+**yalnızca `embedding` kolonunda**) ve üçü de testle kilitli.
 **9. modül İK/Personel ✅ bitti** (ADR-0043 + **ADR-0044**; beş iş, HAFİF
 kapanış denetimi 2026-08-24; v2 aynı gün eklendi — migration 31 → 37).
 ⚠️ Bu modül Faz 5'te **birçok ilki** taşıyor: **`platform/audit` AÇILDI**
@@ -327,12 +349,13 @@ embed edildi (chunk tablosu yok) ve `POST /ask`in **top-K havuzu ilk kez doldu**
 **Frontend (`apps/web`) çalışıyor** — auth ekranları (register · verify-email ·
 login+routing · create-tenant · select-tenant · forgot/reset-password · logout ·
 change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
-**onboarding** (`/app/onboarding`) · **dokuz modülün ekranları** (`/app/crm` ·
+**onboarding** (`/app/onboarding`) · **on modülün ekranları** (`/app/crm` ·
 `/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
-`/app/inventory` · `/app/suppliers` · `/app/invoicing` · `/app/hr`). Riskli
+`/app/inventory` · `/app/suppliers` · `/app/invoicing` · `/app/hr` ·
+`/app/feedback`). Riskli
 runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
-Vitest + RTL **523 test**; **kalan borç: Playwright e2e yok.**
+Vitest + RTL **571 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ### Faz 1 — altyapı
@@ -499,10 +522,10 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-üç modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+iki modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
 4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
-7. Tedarikçi ✅, 8. Teklif/Fatura ✅, 9. İK/Personel ✅ — sıradaki
-**10. Anket**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+7. Tedarikçi ✅, 8. Teklif/Fatura ✅, 9. İK/Personel ✅,
+10. Müşteri Geri Bildirimi ✅ — sıradaki **11. Kampanya**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -515,17 +538,23 @@ KAPANMADI ve bu ayrım önemlidir:** altyapı ve `AuditPort` var, **tek tüketic
 der, "X'ten Y'ye değişti" **demez** — değer saklamak, izlemek istediğimiz
 veriyi ikinci bir yerde çoğaltmak olurdu
 · Storage/Cache/Search adapter'ları · **MT §8.2 adım 3** (host ipucu ↔ claim
-çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: YİRMİ İKİ
+çapraz kontrolü — subdomain altyapısı kurulunca) · **retention: YİRMİ ÜÇ
 tablo** (ROADMAP §8.5; İK yirmiden yirmi ikiye çıkardı — ⚠️ eklenen kalemlerden
 biri bir iş modülünün tablosu **değil**: `platform.audit_log`, ve o **listenin
 en hızlı büyüyen kalemidir** — bir kullanıcı isteği değil, **HER ALAN
 DEĞİŞİKLİĞİ** bir satır yazar. ⚠️ Kararı en zor olan kalem de odur: denetim
 izini kısaltmak, onu var etme sebebini zayıflatır. Ayrıca Belge kaleminde
 veritabanı dışında bir **R2 nesnesi** var ve retention işi satırla birlikte onu
-da silmek zorundadır) · **`POST /ask` top-K havuzu DOLU** (dokuz
-katkıcı, sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
+da silmek zorundadır) · **`POST /ask` top-K havuzu DOLU** (⚠️ artık **on beş**
+katkıcı — dokuz anlamsal + altı yapısal — sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
 kapandı** — `ceil(K/3)` yuvalık **yapısal taban kısıtı**; gerçek **rerank** hâlâ
-**açılmadı** ve kalibrasyon verisi beklemede) · **not detay ucu**
+**açılmadı** ve kalibrasyon verisi beklemede) · ⚠️ **`retrieval.select` gözlemlenebilirlik satırı**
+(ADR-0042 §4'ün ölçüm protokolü — her yapısal kaynağın **döndürdüğü satır
+sayısı** ve giren/girmeyen parçaların **skoru**). ⚠️ **İKİ kapanış denetimi
+üst üste** buna takıldı (İK ve Müşteri Geri Bildirimi), yani artık bir sıra
+sorusu değil **bir sonraki platform işidir**: onsuz ADR-0042'nin T2 eşiği
+**ölçülemez** ve Geri Bildirim'in askıdaki yapısal katkıcısı hakkında karar
+verilemez · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·

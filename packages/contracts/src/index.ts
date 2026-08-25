@@ -517,3 +517,35 @@ export {
   auditActionSchema,
 } from './audit/audit.contract';
 export type { AuditEntry, AuditListResponse, AuditAction } from './audit/audit.contract';
+
+/**
+ * Müşteri Geri Bildirimi / Anket (ADR-0045) — Faz 5'in ONUNCU iş modülü.
+ *
+ * ⚠️ BİR `updateFeedbackRequestSchema` ARANMASIN: kayıt GÜNCELLENMEZ (§2).
+ * Bir geri bildirim BİZİM SÖZÜMÜZ DEĞİL, bir ÜÇÜNCÜ KİŞİNİN beyanıdır;
+ * "düzeltmek" kurumsal hafızaya bir YALAN yazmak olurdu. ⚠️ Ama SİLİNEBİLİR
+ * ve gerekçesi kolaylık değil KVKK'dır (§2.2) — yorum kişisel veri içerebilir.
+ *
+ * ⚠️ `LOW_RATING_MAX` BURADA yaşar ve İKİ TARAF DA onu okur: sunucu bu sayıyı
+ * sayar, arayüz onunla etiket yazar. İki tarafta ayrı yazılsaydı ekran "≤2"
+ * der, sunucu başka bir sayı sayardı ve fark SESSİZ olurdu.
+ */
+export {
+  feedbackResponseSchema,
+  feedbackListResponseSchema,
+  createFeedbackRequestSchema,
+  feedbackSummarySchema,
+  reindexFeedbackResponseSchema,
+  MAX_FEEDBACK_COMMENT_CHARS,
+  MAX_FEEDBACK_CHANNEL_CHARS,
+  MIN_RATING,
+  MAX_RATING,
+  LOW_RATING_MAX,
+} from './feedback/feedback.contract';
+export type {
+  FeedbackResponse,
+  FeedbackListResponse,
+  CreateFeedbackRequest,
+  FeedbackSummary,
+  ReindexFeedbackResponse,
+} from './feedback/feedback.contract';

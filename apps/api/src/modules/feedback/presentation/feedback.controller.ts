@@ -17,7 +17,11 @@ import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { RequirePermission } from '../../../platform/authz/authz.public';
-import { FeedbackUseCases, type FeedbackResponseRow } from '../application/feedback.use-cases';
+import {
+  FeedbackUseCases,
+  type FeedbackResponseRow,
+  type FeedbackSummary,
+} from '../application/feedback.use-cases';
 import { FEEDBACK_CREATE, FEEDBACK_DELETE, FEEDBACK_READ } from '../feedback.permissions';
 import { FeedbackDomainExceptionFilter } from './feedback-domain-exception.filter';
 import {
@@ -112,6 +116,45 @@ export class FeedbackController {
       tenantId: principal.tenantId,
       userId: principal.userId,
     });
+  }
+
+  /**
+   * Duvarin ozeti (ADR-0045 §9).
+   *
+   * ============================================================================
+   * ⚠️ BU UC BIR YAPISAL KATKICI DEGILDIR — VE AYRIM ONEMLIDIR (§3.4)
+   * ============================================================================
+   * Ayni sayilari uretiyor gibi gorunur ama yalnizca EKRANA gider:
+   * `POST /ask` havuzuna GIRMEZ, taban yuvasi TUKETMEZ ve ADR-0042'nin T2
+   * esigini ETKILEMEZ. Modulun havuza katkisi HALA TEK ve ANLAMSALDIR
+   * (`feedback-comments`).
+   *
+   * ⚠️ Bu satir kaydedilmezse, ileride birisi "zaten ozet var" diye yapisal
+   * katkiciyi BEDAVA sanabilir. Degildir: sira TERSINE CEVRILEMEZ — once
+   * `retrieval.select`, sonra olcum, sonra AYRI BIR PLATFORM ADR'si.
+   *
+   * ⚠️ SABIT YOL — `:id` GRUBUNDAN ONCE. Sonra gelseydi `summary` bir UUID
+   * sanilir ve **422** donerdi: ekran bos bir duvar gosterir, hicbir test
+   * kirmizi yanmazdi (ADR-0040'in dersi).
+   *
+   * ⚠️ IZIN `feedback:read` — dort rol de tasir. Ozet, listenin gosterdigi
+   * ayni kayitlarin toplamidir; ayri bir izin, ayni veriyi iki farkli kapiya
+   * baglamak olurdu.
+   */
+  @Get('summary')
+  @RequirePermission(FEEDBACK_READ)
+  @ApiOperation({
+    summary: 'Duvarin ozeti — son N gunun ortalamasi, dusuk puan ve yorumsuz kayit sayisi',
+    description:
+      'Toplama SQL"de yapilir; istemci satirlari toplamaz. ⚠️ `average` `null` DONEBILIR ve bu bir ' +
+      'hata DEGILDIR: `count = 0` iken ortalama YOKTUR. `0` donseydi arayuz "0,0" basar ve ' +
+      '"cok kotu" ile "hic veri yok" AYNI GORUNURDU. ⚠️ `windowDays` ve `lowRatingMax` ' +
+      'SUNUCUDAN doner — arayuz "son 30 gunde" ve "≤2" metinlerini kendi yazmaz.',
+  })
+  async summary(): Promise<FeedbackSummary> {
+    requireTenantPrincipal();
+
+    return this.useCases.getSummary();
   }
 
   // ==========================================================================

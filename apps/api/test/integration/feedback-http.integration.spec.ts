@@ -193,6 +193,20 @@ describe('Geri bildirim uclari (uctan uca)', () => {
       expect(response.body).toEqual({ repaired: 0, failed: 0 });
     });
 
+    it('⚠️ `GET /feedback/summary` bir UUID sanilmiyor', async () => {
+      // ⚠️ Golgelenseydi `summary` `idParamSchema`ya duser ve 422 donerdi:
+      // DUVAR BOS KALIR, hicbir test kirmizi yanmazdi. Bu, bu modulun EN
+      // SESSIZ riskidir (ADR-0040'in dersi).
+      const token = await tokenFor('owner');
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ windowDays: 30, lowRatingMax: 2 });
+    });
+
     it('`GET /feedback/<UUID>` 404, `not-a-uuid` 422 — AYIRT EDICI', async () => {
       const token = await tokenFor('owner');
 
@@ -403,6 +417,93 @@ describe('Geri bildirim uclari (uctan uca)', () => {
         .send({});
 
       expect(response.body).toEqual({ repaired: 0, failed: 0 });
+    });
+  });
+
+  // --- ⚠️ DUVARIN OZETI (§9) ----------------------------------------------
+
+  describe('⚠️ GET /feedback/summary (§9)', () => {
+    it('⚠️ KAYIT YOKKEN `average` NULL DONER — "0" DEGIL (§9.1)', async () => {
+      // ⚠️ `0` donseydi arayuz "0,0" basar ve "cok kotu" ile "hic veri yok"
+      // AYNI GORUNURDU. Kural TIP SEVIYESINDE zorlanir.
+      const token = await tokenFor('owner');
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.average).toBeNull();
+      expect(response.body.count).toBe(0);
+    });
+
+    it('⚠️ ORTALAMA SQL`DE TOPLANIR ve YUVARLANMIS DIZE doner', async () => {
+      // ⚠️ Istemcide toplansaydi sayfa sinirina takilirdi: kullanici 20
+      // kayitlik sayfayi gorur, ortalama 200 kaydin degil O 20'NIN ortalamasi
+      // olurdu ve hata SESSIZ kalirdi.
+      const token = await tokenFor('owner');
+      await createFeedback(token, { rating: 5, comment: null });
+      await createFeedback(token, { rating: 4, comment: null });
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      // (5 + 4) / 2 = 4.5 — ve DIZE olarak doner, `number` DEGIL.
+      expect(response.body.average).toBe('4.5');
+      expect(typeof response.body.average).toBe('string');
+      expect(response.body.count).toBe(2);
+    });
+
+    it('⚠️ DUSUK PUAN ve YORUMSUZ sayilari AYRI AYRI dogru', async () => {
+      const token = await tokenFor('owner');
+      await createFeedback(token, { rating: 1, comment: 'berbat' });
+      await createFeedback(token, { rating: 2, comment: null });
+      await createFeedback(token, { rating: 5, comment: null });
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body.count).toBe(3);
+      // ⚠️ Esik `LOW_RATING_MAX` (2) — 1 ve 2 dusuk, 5 degil.
+      expect(response.body.lowRatingCount).toBe(2);
+      // ⚠️ Bu sayi MODULUN KENDI SINIRIDIR (§3.5): bu iki kayit `POST /ask`
+      // havuzunda HICBIR SES cikarmaz.
+      expect(response.body.withoutCommentCount).toBe(2);
+    });
+
+    it('⚠️ PENCERE DISINDAKI kayit sayilmaz', async () => {
+      // ⚠️ Pencere SUNUCUDA hesaplanir (`Clock`), istemciden gelmez.
+      const token = await tokenFor('owner');
+      await createFeedback(token, { rating: 5, comment: null, receivedAt: RECEIVED });
+      await createFeedback(token, {
+        rating: 1,
+        comment: null,
+        // 30 gunluk pencerenin cok disinda
+        receivedAt: '2025-01-01T10:00:00.000Z',
+      });
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body.count).toBe(1);
+      expect(response.body.average).toBe('5.0');
+    });
+
+    it('viewer da ozeti OKUR — katalog GENIS (§5)', async () => {
+      const token = await tokenFor('viewer');
+
+      const response = await api()
+        .get('/api/v1/feedback/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('kimliksiz istek 401', async () => {
+      expect((await api().get('/api/v1/feedback/summary')).status).toBe(401);
     });
   });
 

@@ -1,4 +1,5 @@
 import { Inject, Module } from '@nestjs/common';
+import { LOW_RATING_MAX } from '@business-os/contracts';
 
 import { AiObservabilityModule } from '../../infrastructure/ai/ai-observability.module';
 import { createEmbeddingPort } from '../../infrastructure/ai/ai-provider.factory';
@@ -170,6 +171,15 @@ const FEEDBACK_CALLER = 'feedback';
           clock,
           rateLimit: config.feedback.embeddingRateLimit,
           reindexBatchSize: config.feedback.reindexBatchSize,
+          // ⚠️ ESIK CONFIG'DEN DEGIL CONTRACTS'TAN GELIR — ve bu bilincli
+          // (§9): olcek SABITTIR (1..5), dolayisiyla "dusuk = 1 veya 2" bir
+          // TERCIH degil OLCEGIN OZELLIGIDIR. Env'e acmak, ayarlanabilir bir
+          // risk merdiveni oldugunu IMA ederdi — oysa o merdiven (0.95/0.90/
+          // 0.75) yapisal katkiciya aittir ve HALA YOKTUR.
+          //
+          // ⚠️ Ayni sabiti ARAYUZ DE okur; iki tarafta ayri yazilsaydi ekran
+          // "≤2 puan" der, sunucu baska bir sayi sayardi ve fark SESSIZ olurdu.
+          lowRatingMax: LOW_RATING_MAX,
         }),
     },
 
