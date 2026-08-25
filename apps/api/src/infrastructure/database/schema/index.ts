@@ -206,3 +206,23 @@ export { hrCompensationRecords } from './hr-compensation-records.schema';
 //
 // ⚠️ `days` ve `bakiye` de kolon DEĞİLDİR: ikisi de TÜRETİLİR (§2.3, §2.5).
 export { hrLeaveRequests } from './hr-leave-requests.schema';
+
+// --- Musteri Geri Bildirimi / Anket (ADR-0045 §1) ---
+// ONBIRINCI sema. ⚠️ Sema adi ile tablo adi CAKISMIYOR (`feedback` vs
+// `responses`) — `inventory` ve `hr` ile ayni sinif.
+//
+// ⚠️ TEK TABLO: chunk tablosu YOK (§1.2, ust siniri BIZ koyuyoruz) ve anket
+// TANIMI tablosu da YOK — "anket" v1'de bir VARLIK DEGILDIR (§10).
+//
+// ⚠️ DOKUZUNCU VEKTOR TABLOSU ve havuzdaki DOKUZUNCU anlamsal kaynak. Yapisal
+// katkici EKLENMEDI — ama ADR-0040/0043'teki gibi "bakildi ve yoktu" DEGIL,
+// ⚠️ "bakildi, VAR, ve tek basina eklenemez" (§3.4): eklemek ADR-0042 §3'un T2
+// esigini tetikler ve T2'nin girdisi (satir donduren yapisal kaynak sayisi)
+// BUGUN OLCULEMIYOR.
+//
+// ⚠️ SATIR GUNCELLENMEZ AMA SILINEBILIR — projede UCUNCU degistirilebilirlik
+// sekli (§2). Guncelleme yok cunku kayit BIZIM SOZUMUZ DEGIL, bir ucuncu
+// kisinin beyanidir; silme VAR cunku yorum KISISEL VERI ICEREBILIR ve veri
+// sahibinin silme talebi hakki vardir (KVKK m.7 / m.11).
+export { feedbackSchema } from './feedback-schema.schema';
+export { feedbackResponses } from './feedback-responses.schema';

@@ -119,6 +119,14 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // 0037, `feedback` semasi + TEK tablo (ADR-0045 §1, Slice 1). ⚠️ Down
+      // dosyasi TEK KADEMELI: bu semada sema ici FK YOKTUR (`crm_contact_id`
+      // bir FK DEGILDIR — cross-schema FK yasak), yani `0035`in iki kademeli
+      // sirasi burada GEREKMIYOR. Trigger/fonksiyon da yok, `DROP SCHEMA`
+      // CASCADE'siz yeter (`0031`in dersi burada tetiklenmiyor).
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0037_feedback_schema.down.sql',
       // 0036, IK v2 (ADR-0044): `hr.leave_requests` + BES kolon + tekillik
       // kisitinin KALDIRILMASI. ⚠️ Geri alma sirasi TERSTIR ve son adim
       // (tekillik kisitini geri koymak) GERCEK VERIYLE CELISEBILIR: ileri

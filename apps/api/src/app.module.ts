@@ -11,6 +11,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { HrModule } from './modules/hr/hr.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
@@ -166,6 +167,27 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // degisince AYNI TRANSACTION'da bir `platform.audit_log` satiri yazilir —
     // yalnizca ALAN ADI, DEGER DEGIL.
     HrModule,
+    // Musteri Geri Bildirimi / Anket — Faz 5'in ONUNCU is modulu (ADR-0045).
+    // Uc sey kayda deger:
+    //   1. ⚠️ HAVUZA DISARIDAN GELEN ILK SES (§3.1): bugune kadar `POST /ask`
+    //      havuzundaki her anlatiyi SIRKET KENDISI yazmisti (gorusme notu,
+    //      ilerleme notu, servis notu). Burada gomulen metin MUSTERININ KENDI
+    //      CUMLESIDIR.
+    //   2. ⚠️ YAPISAL KATKICI YOK — ama ADR-0040/0043'teki gibi "bakildi ve
+    //      yoktu" DEGIL, "bakildi, VAR, ve TEK BASINA EKLENEMEZ" (§3.4). Aday
+    //      (`feedback-satisfaction`) dort testten UCUNU geciyor; eklemek
+    //      ADR-0042 §3'un T2 esigini tetikler ve ⚠️ T2'NIN GIRDISI (satir
+    //      donduren yapisal kaynak sayisi) BUGUN OLCULEMIYOR — `retrieval.select`
+    //      gozlemlenebilirlik satiri yok. _"Bir esik, onu olcecek arac yokken
+    //      GECILMEZ."_ Yapisal kaynak 6'DA KALDI, T2 KAPALI.
+    //   3. ⚠️ SATIR GUNCELLENMEZ AMA SILINEBILIR — projede UCUNCU
+    //      degistirilebilirlik sekli (§2). Guncelleme yok cunku kayit BIZIM
+    //      SOZUMUZ DEGIL; silme VAR cunku yorum KISISEL VERI ICEREBILIR ve veri
+    //      sahibinin silme talebi hakki vardir (KVKK m.7 / m.11).
+    //
+    // ⚠️ TEK yeni kenar: `Geri Bildirim -> CRM`. Grafik YEDIDEN SEKIZE cikar ve
+    // HALA DAG — modul bir YAPRAKTIR (`feedback.public.ts` ACILMADI, talip yok).
+    FeedbackModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

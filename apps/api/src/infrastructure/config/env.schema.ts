@@ -659,6 +659,45 @@ const baseEnvSchema = z.object({
    * uretilmiyor, yani sayilacak bir sey yok.
    */
   INVOICING_STALE_QUOTE_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+
+  /**
+   * Geri bildirim YORUMU icin saatlik EMBEDDING payi (ADR-0045 §8).
+   *
+   * ⚠️ Ad `FEEDBACK_EMBEDDING_...`, `FEEDBACK_RESPONSE_...` DEGIL: sayac GERI
+   * BILDIRIM degil EMBEDDING sayar. Kural, ADR-0035'ten beri ayni:
+   * **cagri para harciyorsa sayilir, harcamiyorsa sayilmaz.**
+   *
+   * ⚠️ SAYAC KOSULLU — VE BU, TEDARIKCI'DEN AYRILDIGIMIZ YER:
+   * `SUPPLIERS_EMBEDDING_RATE_LIMIT` kosulsuzdu cunku gorusme metni
+   * ZORUNLUYDU. Burada yorum OPSIYONELDIR (§1.4) ve YORUMSUZ bir kayit
+   * saglayiciya HIC GITMEZ — payi da DUSMEZ.
+   *
+   * ⚠️ Kosulsuz olsaydi bedel bu modulde DAHA AGIR olurdu: QR kodla YALNIZCA
+   * PUAN toplayan bir isletme HICBIR embedding uretmedigi halde saatte 60
+   * kayitla SINIRLANIRDI — ve sebebini HIC ogrenemezdi.
+   *
+   * Varsayilan RANDEVU/STOK/TEDARIKCI SINIFINDA (60), Belge sinifinda (10)
+   * DEGIL: chunking yok (§1.2), yani kayit basina EN FAZLA BIR embedding
+   * cagrisi var.
+   *
+   * Yeniden indeksleme bu kovayi PAYLASIR — ayri bir kova, onarimi BUTCESIZ
+   * BIR YAN KAPIYA cevirirdi (ADR-0029'un gerekcesi, YEDINCI kez).
+   */
+  FEEDBACK_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /feedback/reindex` cagrisinda islenecek EN FAZLA kayit.
+   *
+   * ⚠️ ASIL FRENDIR. Oran siniri istek SAYISINI baglar, TOKEN harcamasini
+   * degil. Randevu, Stok ve Tedarikci ile ayni deger (25) ve ayni gerekce:
+   * kayit basina en fazla bir cagri.
+   *
+   * ⚠️ BU MODULDE ONARIMIN TEK ISI VAR (ADR-0045 §8) — Tedarikci'de IKI isi
+   * vardi. Ikincisi (BAYAT baslik tazeleme) burada YOKTUR cunku basligin uc
+   * bileseni de (tarih · puan · kanal) DEGISTIRILEMEZ (§2): bu modulde
+   * BAYATLAMA PENCERESI YOK.
+   */
+  FEEDBACK_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

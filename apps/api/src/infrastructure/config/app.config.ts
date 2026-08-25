@@ -172,6 +172,24 @@ export interface AppConfig {
   };
 
   /**
+   * Musteri Geri Bildirimi / Anket (ADR-0045 §8).
+   *
+   * ⚠️ `nearThresholdRatio` / `staleQuoteDays` benzeri bir ESIK alani YOKTUR ve
+   * bu bir eksik degil, §3'un dogrudan sonucudur: bu modulun YAPISAL KATKICISI
+   * YOK, yani ayarlanacak bir RISK MERDIVENI de yok.
+   *
+   * ⚠️ Aday LIYAKATLIYDI ama ADR-0042 §3'un T2 esigini tetikleyecegi ve o
+   * esigin GIRDISI BUGUN OLCULEMEDIGI icin askiya alindi. Eklendigi gun buraya
+   * bir `lowRatingThreshold` gelir — ONCE degil.
+   */
+  readonly feedback: {
+    /** ⚠️ Geri bildirim degil, EMBEDDING sayar — yorumsuz kayit paydan DUSMEZ. */
+    readonly embeddingRateLimit: number;
+    /** ⚠️ Onarimin TEK isi var: eksik vektor (BAYAT baslik diye bir sey yok). */
+    readonly reindexBatchSize: number;
+  };
+
+  /**
    * Nesne deposu (ADR-0009 · ADR-0037 §5).
    *
    * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
@@ -281,6 +299,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     invoicing: {
       maxLines: env.INVOICING_MAX_LINES,
       staleQuoteDays: env.INVOICING_STALE_QUOTE_DAYS,
+    },
+    feedback: {
+      embeddingRateLimit: env.FEEDBACK_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.FEEDBACK_REINDEX_BATCH_SIZE,
     },
     storage: toStorageConfig(env),
     documents: {
