@@ -1224,11 +1224,25 @@ Asagidaki liste yukaridaki § Bilinen sinirlar'i **degistirmez, GENISLETIR**:
 - ⚠️ **DURUM FILTRESI OZETI ETKILEMEZ** — duvar TUM tenant'i ozetler. Kullanici
   "Taslak" filtresindeyken duvarda yine genel sayilari gorur; bu KASITLIDIR ama
   ilk bakista sasirtabilir (ADR-0045'in puan bandi filtresiyle ayni sinif).
-- ⚠️ **BOSLUK TANIMI IKI YERDE YAZILI** — sunucuda `gapSnapshot`, arayuzde
-  `hasResultGap`. Ikisi SENKRON kalmak zorundadir; ayrisirsa ekran bir sey der,
-  `/ask` baska bir sey sayar ve fark SESSIZ olur (`CRM_STALE_STAGE_DAYS` /
-  `STALE_STAGE_DAYS` ayrismasinin ucuncu tekrari). ⚠️ Bugun bir test ekran
-  tarafini kilitliyor ama **iki tarafi birlikte** sinayan bir test YOKTUR.
+- ~~⚠️ **BOSLUK TANIMI IKI YERDE YAZILI**~~ ✅ **KAPANDI (2026-08-26).**
+  Denetimde su sinir kaydedilmisti: _"sunucuda `gapSnapshot`, arayuzde
+  `hasResultGap`; ikisi senkron kalmak zorundadir, ayrisirsa ekran bir sey
+  der `/ask` baska bir sey sayar ve fark SESSIZ olur."_
+  ⚠️ Risk bir testle degil, **tanimi TEKILLESTIREREK** kapatildi:
+  - Arayuzdeki `hasResultGap` **SILINDI**; ekran artik sunucunun turettigi
+    `resultGap` bayragini okuyor (`Campaign` sozlesmesinde).
+  - Sunucuda tek bir SQL ifadesi (`resultGapExpression`) var ve **UC
+    tuketici** onu paylasiyor: `campaign-gap` katkicisi · duvarin
+    `missingResultCount`u · satir bayragi.
+  - ⚠️ Bayrak `RETURNING` ile **ayni islemde** doner — ikinci bir `SELECT`
+    yok ve istemci tarafinda hicbir hesap yok.
+  - ⚠️ `resultGap` `CampaignState`e **girmedi**: saklanan degil TURETILEN bir
+    degerdir (`companyName` ile ayni sinif) ve entity'nin onu tasidigini ima
+    etmek yanlis olurdu.
+  - Bir entegrasyon testi (`marketing-gap-definition.integration.spec.ts`) uc
+    tuketiciyi AYNI VERIYLE kosturup **sayilarin ve KIMLIKLERIN** esit
+    oldugunu dogruluyor; yuklem bilerek ayristirildiginda **uc test kirmizi
+    yaniyor**.
 - ⚠️ **TARIH GIRDISI `<input type="date">`** — tarayicinin yerel takvimini
   kullanir. Kampanyanin saati olmadigi icin (§1.5) saat dilimi sorunu DOGMAZ,
   ama tarih BICIMI tarayici diline gore degisir.

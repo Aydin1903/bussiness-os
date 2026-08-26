@@ -120,7 +120,17 @@ export function Channel({ value }: { readonly value: string | null }) {
  * metni yoktur, yani asistanın aramasına GİRMEZLER.
  */
 export function GapMark({ campaign }: { readonly campaign: Campaign }) {
-  if (!hasResultGap(campaign)) {
+  // ⚠️ ARAYÜZ ARTIK KENDİ HESABINI YAPMIYOR — bayrak SUNUCUDAN gelir.
+  //
+  // Önce burada bir `hasResultGap(campaign)` vardı ve tanım sunucudaki
+  // `gapSnapshot` SQL'iyle SENKRON kalmak zorundaydı. ADR-0047'nin kapanış
+  // denetimi bunu bir SINIR olarak kaydetmişti: ayrışırlarsa ekran bir şey
+  // der, `/ask` başka bir şey sayar ve fark SESSİZDİR.
+  //
+  // ⚠️ Risk bir testle değil, TANIMI TEKİLLEŞTİREREK kapatıldı: `resultGap`
+  // sunucuda `resultGapExpression` ile türetilir ve `campaign-gap`
+  // katkıcısıyla duvarın `missingResultCount`u AYNI ifadeyi kullanır.
+  if (!campaign.resultGap) {
     return null;
   }
 
@@ -136,30 +146,6 @@ export function GapMark({ campaign }: { readonly campaign: Campaign }) {
 }
 
 /**
- * Kampanya "bitmiş ama sonucu yazılmamış" mı?
- *
- * ⚠️ İKİ DAL VAR ve ikincisi bilinçli: `done` olanlar VE takvimde süresi
- * dolmuş ama hâlâ `active` görünenler. Kullanıcı kampanyayı kapatmayı da
- * unutmuş olabilir ve o da tam olarak bu göstergenin söylemesi gereken şeydir.
- *
- * ⚠️ SUNUCUNUN `gapSnapshot` SORGUSUYLA AYNI TANIMDIR ve senkron kalmak
- * zorundadır; ayrışırsa ekran bir şey der, `/ask` başka bir şey sayar ve fark
- * SESSİZ olur (`CRM_STALE_STAGE_DAYS` / `STALE_STAGE_DAYS` ayrışmasının aynı
- * sınıfı).
- */
-export function hasResultGap(campaign: Campaign): boolean {
-  if (campaign.resultNote !== null) {
-    return false;
-  }
-
-  if (campaign.status === 'done') {
-    return true;
-  }
-
-  return campaign.status === 'active' && campaign.endsOn !== null && campaign.endsOn < today();
-}
-
-/**
  * ⚠️ ELLE BİÇİMLENDİRİLİR — `new Date(...)` KULLANILMAZ.
  *
  * `new Date('2026-09-01')` UTC gece yarısı olarak okunur; negatif ofsetli bir
@@ -171,22 +157,15 @@ function formatDay(day: string): string {
   return `${date ?? ''}.${month ?? ''}.${year ?? ''}`;
 }
 
-function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const date = String(now.getDate()).padStart(2, '0');
-  return `${String(now.getFullYear())}-${month}-${date}`;
-}
-
 /**
  * `<select>`ten gelen dizeyi `CampaignStatus`a DARALTIR.
  *
- * ⚠️ `as CampaignStatus` KULLANILMAZ: bir tip iddiasi, degerin gercekten o
- * kumede oldugunu DOGRULAMAZ — yalnizca derleyiciyi susturur. `<select>`in
- * secenekleri bugun dogru olsa bile, bir gun listeye yanlis bir deger
- * eklendiginde iddia SESSIZCE yanlis olurdu ve sunucu 422 donerdi.
+ * ⚠️ `as CampaignStatus` KULLANILMAZ: bir tip iddiası, değerin gerçekten o
+ * kümede olduğunu DOĞRULAMAZ — yalnızca derleyiciyi susturur. `<select>`in
+ * seçenekleri bugün doğru olsa bile, bir gün listeye yanlış bir değer
+ * eklendiğinde iddia SESSİZCE yanlış olurdu ve sunucu 422 dönerdi.
  *
- * Bilinmeyen bir deger `null` doner ve cagiran "filtre yok" olarak okur.
+ * Bilinmeyen bir değer `null` döner ve çağıran "filtre yok" olarak okur.
  */
 export function toCampaignStatus(value: string): CampaignStatus | null {
   return CAMPAIGN_STATUSES.find((status) => status === value) ?? null;

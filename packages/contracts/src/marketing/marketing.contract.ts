@@ -45,6 +45,17 @@ export const campaignSchema = z.object({
   createdByUserId: z.uuid(),
   createdAt: instant,
   updatedAt: instant,
+  /**
+   * ⚠️ SUNUCUDA TURETILEN "bosluk" bayragi — bitmis ama sonucu yazilmamis.
+   *
+   * ⚠️ ARAYUZ BUNU KENDI HESAPLAMAZ ve hesaplamamalidir. Tanim sunucudaki
+   * `resultGapExpression` SQL ifadesidir ve UC tuketiciyle paylasilir:
+   * `campaign-gap` katkicisi (`POST /ask`), duvarin `missingResultCount`u ve
+   * bu bayrak. ⚠️ Arayuzde ikinci bir hesap, ADR-0047'nin kapanis
+   * denetiminin kaydettigi riski geri getirirdi: ekran bir sey der, `/ask`
+   * baska bir sey sayar ve fark SESSIZ olur.
+   */
+  resultGap: z.boolean(),
 });
 export type Campaign = z.infer<typeof campaignSchema>;
 

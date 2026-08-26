@@ -2,7 +2,7 @@ import type { Campaign } from '@business-os/contracts';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { DateRange, GapMark, StatusBadge, hasResultGap } from './chrome';
+import { DateRange, GapMark, StatusBadge } from './chrome';
 
 /**
  * Kampanya odasının gösterim kuralları (ADR-0047 §9).
@@ -28,34 +28,11 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
     createdByUserId: '01994800-0000-7000-8000-000000000003',
     createdAt: '2026-08-01T10:00:00.000Z',
     updatedAt: '2026-08-01T10:00:00.000Z',
+    // ⚠️ SUNUCUDAN gelen türetilmiş bayrak — ekran onu HESAPLAMAZ.
+    resultGap: true,
     ...overrides,
   };
 }
-
-describe('hasResultGap — ⚠️ sunucunun `gapSnapshot` tanımıyla SENKRON', () => {
-  it('bitmiş ve sonucu YAZILMAMIŞ kampanya bir boşluktur', () => {
-    expect(hasResultGap(campaign({ status: 'done', resultNote: null }))).toBe(true);
-  });
-
-  it('sonucu YAZILMIŞ kampanya boşluk DEĞİLDİR', () => {
-    expect(hasResultGap(campaign({ status: 'done', resultNote: '40 form geldi' }))).toBe(false);
-  });
-
-  it('taslak kampanya boşluk DEĞİLDİR — henüz bitmedi', () => {
-    expect(hasResultGap(campaign({ status: 'draft', resultNote: null }))).toBe(false);
-  });
-
-  it('⚠️ takvimde SÜRESİ DOLMUŞ ama hâlâ `active` olan da boşluktur', () => {
-    // ⚠️ İKİNCİ DAL BİLİNÇLİ: kullanıcı kampanyayı kapatmayı da unutmuş
-    // olabilir ve o da tam olarak bu göstergenin söylemesi gereken şeydir.
-    expect(hasResultGap(campaign({ status: 'active', endsOn: '2000-01-01' }))).toBe(true);
-  });
-
-  it('süresiz (`endsOn: null`) bir `active` kampanya boşluk DEĞİLDİR', () => {
-    // Bitişi olmayan bir kampanya "gecikmiş" olamaz.
-    expect(hasResultGap(campaign({ status: 'active', endsOn: null }))).toBe(false);
-  });
-});
 
 describe('GapMark', () => {
   it('boşluk varsa GÖRÜNÜR ve sınırı AÇIKÇA söyler', () => {
@@ -67,9 +44,29 @@ describe('GapMark', () => {
   });
 
   it('boşluk yoksa HİÇ RENDER EDİLMEZ', () => {
-    const { container } = render(<GapMark campaign={campaign({ resultNote: 'Sonuç yazıldı' })} />);
+    const { container } = render(<GapMark campaign={campaign({ resultGap: false })} />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('⚠️ YALNIZCA sunucunun bayrağına bakar — kendi hesabını YAPMAZ', () => {
+    // ⚠️ BU TEST TEK KAYNAK KARARINI KİLİTLER. Alanlar "boşluk" gibi görünüyor
+    // (`done` + `resultNote: null`) ama sunucu `resultGap: false` demiş.
+    // Ekran KENDİ hesabını yapsaydı rozeti gösterirdi; yapmıyor.
+    //
+    // Tanım tek yerdedir: sunucudaki `resultGapExpression` — `campaign-gap`
+    // katkıcısı ve duvarın `missingResultCount`u ile AYNI ifade.
+    const { container } = render(
+      <GapMark campaign={campaign({ status: 'done', resultNote: null, resultGap: false })} />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('⚠️ tersi de doğru: alanlar "boşluk değil" derken bile bayrak KAZANIR', () => {
+    render(<GapMark campaign={campaign({ status: 'draft', resultGap: true })} />);
+
+    expect(screen.getByText('Sonucu yazılmadı')).toBeInTheDocument();
   });
 });
 

@@ -17,6 +17,7 @@ import {
 import { CampaignCompanyNotFoundError, CampaignNotFoundError } from '../domain/marketing.error';
 import { MARKETING_EMBEDDING_ACTION } from '../marketing.rate-limits';
 import {
+  type CampaignRecord,
   type CampaignSummaryRow,
   type ListPage,
   type MarketingRepository,
@@ -33,6 +34,14 @@ import {
  */
 export interface CampaignRow extends CampaignState {
   readonly companyName: string | null;
+  /**
+   * ⚠️ SUNUCUDA TURETILEN "bosluk" bayragi — arayuz onu KENDI hesaplamaz.
+   *
+   * `companyName` ile ayni sinif: saklanmaz, her okumada turetilir. Tanim
+   * `resultGapExpression`dadir ve `campaign-gap` katkicisiyle duvarin
+   * `missingResultCount`u ile **AYNI ifadedir**.
+   */
+  readonly resultGap: boolean;
 }
 
 /** Duvarin baktigi pencere — ekranin "son N gun" metni SUNUCUDAN gelir. */
@@ -94,8 +103,8 @@ export class MarketingUseCases {
       await this.#enforceEmbeddingBudget(input.tenantId, input.userId);
     }
 
-    await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
-      this.deps.repository.insertCampaign(campaign),
+    const record = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.insertCampaign(campaign, this.#today()),
     );
 
     // ⚠️ Embedding transaction'in DISINDA: saglayici cokerse KAYIT SILINMEZ
@@ -104,7 +113,7 @@ export class MarketingUseCases {
       await this.#embed(state.id, content);
     }
 
-    return this.#withCompanyName(state, input.role);
+    return this.#withCompanyName(record, input.role);
   }
 
   /**
@@ -132,27 +141,34 @@ export class MarketingUseCases {
   }): Promise<CampaignRow> {
     await this.#assertCompanyVisible(input.changes.crmCompanyId ?? null, input.role);
 
+    const today = this.#today();
+
     const updated = await this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
-      const found = await this.deps.repository.findCampaignById(input.id);
+      const found = await this.deps.repository.findCampaignById(input.id, today);
       if (found === null) {
         throw new CampaignNotFoundError();
       }
 
-      const next = found.update(input.changes, this.deps.clock.now());
-      const changed = await this.deps.repository.updateCampaign(next);
-      if (changed === 0) {
+      const next = found.campaign.update(input.changes, this.deps.clock.now());
+      const saved = await this.deps.repository.updateCampaign(next, today);
+      if (saved === null) {
         throw new CampaignNotFoundError();
       }
-      return next;
+      return saved;
     });
 
-    const state = updated.toState();
+    const state = updated.campaign.toState();
 
     if (touchesEmbeddedFields(input.changes)) {
-      await this.#reembed(input.tenantId, input.userId, state.id, updated.embeddableContent());
+      await this.#reembed(
+        input.tenantId,
+        input.userId,
+        state.id,
+        updated.campaign.embeddableContent(),
+      );
     }
 
-    return this.#withCompanyName(state, input.role);
+    return this.#withCompanyName(updated, input.role);
   }
 
   /**
@@ -186,23 +202,22 @@ export class MarketingUseCases {
     const { role, ...query } = input;
 
     const page = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
-      this.deps.repository.listCampaigns(query),
+      this.deps.repository.listCampaigns({ ...query, today: this.#today() }),
     );
 
-    const states = page.items.map((item) => item.toState());
-    return { items: await this.#withCompanyNames(states, role), total: page.total };
+    return { items: await this.#withCompanyNames(page.items, role), total: page.total };
   }
 
   async getCampaign(input: { id: string; role: string }): Promise<CampaignRow> {
-    const state = await this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
-      const found = await this.deps.repository.findCampaignById(input.id);
+    const record = await this.deps.transactionManager.runInCurrentTenantTransaction(async () => {
+      const found = await this.deps.repository.findCampaignById(input.id, this.#today());
       if (found === null) {
         throw new CampaignNotFoundError();
       }
-      return found.toState();
+      return found;
     });
 
-    return this.#withCompanyName(state, input.role);
+    return this.#withCompanyName(record, input.role);
   }
 
   async deleteCampaign(id: string): Promise<void> {
@@ -319,12 +334,30 @@ export class MarketingUseCases {
     }
   }
 
-  async #withCompanyName(state: CampaignState, role: string): Promise<CampaignRow> {
-    const [row] = await this.#withCompanyNames([state], role);
-    return row ?? { ...state, companyName: null };
+  /** Gunun takvim gunu — `resultGapExpression`in girdisi. */
+  #today(): string {
+    return this.deps.clock.now().toISOString().slice(0, 10);
   }
 
-  async #withCompanyNames(states: readonly CampaignState[], role: string): Promise<CampaignRow[]> {
+  async #withCompanyName(record: CampaignRecord, role: string): Promise<CampaignRow> {
+    const [row] = await this.#withCompanyNames([record], role);
+    return row ?? { ...record.campaign.toState(), companyName: null, resultGap: record.resultGap };
+  }
+
+  /**
+   * Kayitlari API satirina cevirir — sirket adini TOPLU cozerek.
+   *
+   * ⚠️ `resultGap` BURADA HESAPLANMAZ, kayittan OLDUGU GIBI tasinir: tanim
+   * SQL'dedir (`resultGapExpression`) ve `campaign-gap` katkicisiyle
+   * PAYLASILIR. Burada yeniden hesaplamak, tam olarak kapatilmak istenen
+   * "iki yerde bagimsiz hesap" riskini geri getirirdi.
+   */
+  async #withCompanyNames(
+    records: readonly CampaignRecord[],
+    role: string,
+  ): Promise<CampaignRow[]> {
+    const states = records.map((record) => record.campaign.toState());
+
     const ids = [
       ...new Set(
         states.map((state) => state.crmCompanyId).filter((id): id is string => id !== null),
@@ -335,11 +368,11 @@ export class MarketingUseCases {
     const names =
       ids.length === 0 ? new Map<string, string>() : await this.#resolveNames(ids, role);
 
-    return states.map((state) => ({
+    return states.map((state, index) => ({
       ...state,
+      resultGap: records[index]?.resultGap ?? false,
       // ⚠️ Sarkan `crm_company_id` TOLERE EDILIR (BESINCI sarkan isaretci):
-      // silinen sirketin id'si satirda kalir ve ad `null` doner — ekran
-      // patlamaz.
+      // silinen sirketin id'si satirda kalir ve ad `null` doner.
       companyName: state.crmCompanyId === null ? null : (names.get(state.crmCompanyId) ?? null),
     }));
   }

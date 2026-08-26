@@ -78,15 +78,38 @@ export interface CampaignSummaryRow {
   readonly totalCount: number;
 }
 
+/**
+ * Bir kampanya + ⚠️ SUNUCUDA TURETILMIS "bosluk" bayragi.
+ *
+ * ============================================================================
+ * ⚠️ `resultGap` NEDEN `CampaignState`IN ICINDE DEGIL
+ * ============================================================================
+ * Cunku SAKLANAN bir alan degil, her okumada TURETILEN bir degerdir —
+ * `companyName` ile birebir ayni sinif. `CampaignState`e koymak, entity'nin
+ * onu tasidigini ve `Campaign.create` ile uretilebilecegini IMA ederdi.
+ *
+ * ⚠️ Turetme SQL'de yapilir (`resultGapExpression`) ve tanim UC tuketiciyle
+ * PAYLASILIR: bu bayrak, `campaign-gap` katkicisinin ve duvarin
+ * `missingResultCount`unun kullandigi AYNI ifadedir. ⚠️ Arayuz artik kendi
+ * hesabini YAPMAZ — ADR-0047'nin kapanis denetiminin kaydettigi "iki yerde
+ * bagimsiz hesap" riski boylece kapandi.
+ */
+export interface CampaignRecord {
+  readonly campaign: Campaign;
+  readonly resultGap: boolean;
+}
+
 export interface MarketingRepository {
-  insertCampaign(campaign: Campaign): Promise<void>;
-  updateCampaign(campaign: Campaign): Promise<number>;
-  findCampaignById(id: string): Promise<Campaign | null>;
+  /** ⚠️ Turetilmis bayragi da doner — cagiran onu KENDI hesaplamaz. */
+  insertCampaign(campaign: Campaign, today: string): Promise<CampaignRecord>;
+  updateCampaign(campaign: Campaign, today: string): Promise<CampaignRecord | null>;
+  findCampaignById(id: string, today: string): Promise<CampaignRecord | null>;
   listCampaigns(input: {
     limit: number;
     offset: number;
     status: CampaignStatus | null;
-  }): Promise<ListPage<Campaign>>;
+    today: string;
+  }): Promise<ListPage<CampaignRecord>>;
   deleteCampaignById(id: string): Promise<number>;
 
   setCampaignEmbedding(input: { id: string; embedding: readonly number[] }): Promise<number>;
