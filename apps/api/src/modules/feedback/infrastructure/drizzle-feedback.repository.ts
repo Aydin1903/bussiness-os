@@ -7,6 +7,7 @@ import {
   type FeedbackRepository,
   type FeedbackSummaryRow,
   type ListPage,
+  type SatisfactionSnapshot,
   type SimilarResponse,
   type UnindexedResponse,
 } from '../application/feedback.repository.port';
@@ -222,6 +223,63 @@ export class DrizzleFeedbackRepository implements FeedbackRepository {
     return row ?? { average: null, count: 0, lowRatingCount: 0, withoutCommentCount: 0 };
   }
 
+  /**
+   * Yapisal katkicinin iki pencereli anlik goruntusu (ADR-0045 §3.2).
+   *
+   * ⚠️ TEK SORGU: iki pencere de `FILTER` ile ayni taramadan cikarilir. Iki
+   * ayri sorgu, ayni tabloyu iki kez tarar ve ikisinin ARASINDA yazilan bir
+   * satir yuzunden tutarsiz bir cift uretebilirdi (`finance-cashflow` iki ayri
+   * ozet cagirir cunku orada pencereler AYRI TABLOLARDAN degil ayri
+   * TARIHLERDEN gelir; burada tek tablo var, tek tarama yeter).
+   */
+  async satisfactionSnapshot(input: {
+    from: Date;
+    to: Date;
+    previousFrom: Date;
+    lowRatingMax: number;
+  }): Promise<SatisfactionSnapshot> {
+    const { db } = requireTransaction();
+
+    const current = sql`${feedbackResponses.receivedAt} >= ${input.from}`;
+    const previous = sql`${feedbackResponses.receivedAt} >= ${input.previousFrom} AND ${feedbackResponses.receivedAt} < ${input.from}`;
+    const low = sql`${current} AND ${feedbackResponses.rating} <= ${input.lowRatingMax}`;
+
+    const [row] = await db
+      .select({
+        average: sql<
+          string | null
+        >`round(avg(${feedbackResponses.rating}) FILTER (WHERE ${current}), 1)::text`,
+        count: sql<number>`count(*) FILTER (WHERE ${current})::int`,
+        lowRatingCount: sql<number>`count(*) FILTER (WHERE ${low})::int`,
+        // ⚠️ `sql<...>` BIR IDDIADIR, BIR DONUSUM DEGIL: drizzle yalnizca
+        // TANIMLI KOLONLARI esler; ham bir toplama ifadesi surucuden NE
+        // GELIYORSA o gelir — `timestamptz` icin bir DIZE. Tip parametresini
+        // `Date` yazmak derleyiciyi susturur ama calisma zamaninda
+        // `moment.getTime is not a function` verir.
+        // ⚠️ Bu yuzden asagida ACIKCA `Date`e cevriliyor (§ toDate).
+        lastLowRatingAt: sql<
+          string | null
+        >`max(${feedbackResponses.receivedAt}) FILTER (WHERE ${low})`,
+        previousAverage: sql<
+          string | null
+        >`round(avg(${feedbackResponses.rating}) FILTER (WHERE ${previous}), 1)::text`,
+      })
+      .from(feedbackResponses)
+      .where(gte(feedbackResponses.receivedAt, input.previousFrom));
+
+    if (row === undefined) {
+      return {
+        average: null,
+        count: 0,
+        lowRatingCount: 0,
+        lastLowRatingAt: null,
+        previousAverage: null,
+      };
+    }
+
+    return { ...row, lastLowRatingAt: toDate(row.lastLowRatingAt) };
+  }
+
   async findSimilarResponses(input: {
     embedding: readonly number[];
     limit: number;
@@ -256,4 +314,19 @@ export class DrizzleFeedbackRepository implements FeedbackRepository {
       .orderBy(asc(cosineDistance(feedbackResponses.embedding, [...input.embedding])))
       .limit(input.limit);
   }
+}
+
+/**
+ * Ham SQL toplamasindan gelen zaman degerini `Date`e cevirir.
+ *
+ * ⚠️ Drizzle yalnizca TANIMLI KOLONLARI esler; `max(...)` gibi bir ifade
+ * surucunun dondurdugu sekilde gelir (`timestamptz` -> dize). `sql<Date>`
+ * yazmak yalnizca DERLEYICIYE bir iddiadir ve calisma zamaninda hicbir sey
+ * yapmaz — bu fonksiyon o bosluu kapatir.
+ */
+function toDate(value: string | Date | null): Date | null {
+  if (value === null) {
+    return null;
+  }
+  return value instanceof Date ? value : new Date(value);
 }

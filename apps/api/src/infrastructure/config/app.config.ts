@@ -190,6 +190,18 @@ export interface AppConfig {
   };
 
   /**
+   * Kampanya / Pazarlama Notlari (ADR-0047).
+   *
+   * ⚠️ Onarimin IKI isi var — Geri Bildirim'de TEK isi vardi: eksik vektor
+   * (a) ilk gommede cokenler, (b) GUNCELLEMEDE `NULL`'a cekilenler (§4.2.1).
+   */
+  readonly marketing: {
+    /** ⚠️ Kampanya degil, EMBEDDING sayar — ⚠️ gomulen alani degistiren `PATCH` DE sayar. */
+    readonly embeddingRateLimit: number;
+    readonly reindexBatchSize: number;
+  };
+
+  /**
    * Nesne deposu (ADR-0009 · ADR-0037 §5).
    *
    * ⚠️ SAGLAYICI ADI YOK. Production R2, lokal MinIO — ikisi de `s3`tir ve
@@ -303,6 +315,10 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     feedback: {
       embeddingRateLimit: env.FEEDBACK_EMBEDDING_RATE_LIMIT,
       reindexBatchSize: env.FEEDBACK_REINDEX_BATCH_SIZE,
+    },
+    marketing: {
+      embeddingRateLimit: env.MARKETING_EMBEDDING_RATE_LIMIT,
+      reindexBatchSize: env.MARKETING_REINDEX_BATCH_SIZE,
     },
     storage: toStorageConfig(env),
     documents: {

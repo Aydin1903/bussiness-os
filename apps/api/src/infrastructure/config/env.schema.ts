@@ -698,6 +698,32 @@ const baseEnvSchema = z.object({
    * BAYATLAMA PENCERESI YOK.
    */
   FEEDBACK_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+
+  /**
+   * Kampanya modulunun saatlik EMBEDDING payi (ADR-0047 §8).
+   *
+   * ⚠️ Ad `MARKETING_EMBEDDING_...`, `MARKETING_CAMPAIGN_...` DEGIL: sayac
+   * KAYIT degil CAGRI sayar. Sonuc notsuz bir kampanya saglayiciya HIC
+   * GITMEZ ve paydan DUSMEZ.
+   *
+   * ⚠️ `PATCH` DE SAYAR ve bu, Geri Bildirim'den AYRILDIGIMIZ NOKTADIR:
+   * orada guncelleme YOKTU. Sayilmasaydi, kotasi dolmus bir tenant sinirsiz
+   * yeniden gomme yaptirabilirdi — SINIRIN ARKASINDAN DOLASAN BIR YOL.
+   */
+  MARKETING_EMBEDDING_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(60),
+
+  /**
+   * Tek `POST /campaigns/reindex` cagrisinda islenecek EN FAZLA kayit.
+   *
+   * ⚠️ ASIL FRENDIR (oran siniri istek SAYISINI baglar, token harcamasini
+   * degil). Dokuz onceki modulle ayni deger ve ayni gerekce: chunk tablosu
+   * YOK, yani kayit basina EN FAZLA BIR cagri.
+   *
+   * ⚠️ BU MODULDE ONARIMIN IKI ISI VAR (ADR-0047 §8) — Geri Bildirim'de TEK
+   * isi vardi: (a) ilk gomme sirasinda cokenler, (b) GUNCELLEME sirasinda
+   * vektoru NULL'a cekilenler (§4.2.1).
+   */
+  MARKETING_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export const envSchema = baseEnvSchema.superRefine((env, ctx) => {

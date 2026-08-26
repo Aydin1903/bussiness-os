@@ -375,6 +375,11 @@ const APPOINTMENT_NOTES = [
   'Servis bakimi tamamlandi, fren balatalari bir sonraki bakimda degisecek.',
 ];
 
+const CAMPAIGN_RESULT_NOTES = [
+  'Sonbahar indirimi beklentinin uzerinde donus getirdi; 40 form geldi, en cok pazar gunu.',
+  'E-posta kampanyasi zayif kaldi: acilma orani dusuk, konu basligi yeniden yazilmali.',
+];
+
 const INVENTORY_NOTES = [
   'Kritik parca — tedarik suresi uc hafta, stok dusmeden siparis verilmeli.',
   'Sezonluk urun, yaz aylarinda tuketim iki katina cikiyor.',
@@ -488,6 +493,7 @@ function embeddableTexts(): string[] {
     ...DOCUMENT_ENTRIES.map((entry) => entry.chunk),
     ...APPOINTMENT_NOTES,
     ...INVENTORY_NOTES,
+    ...CAMPAIGN_RESULT_NOTES,
     ...FEEDBACK_ENTRIES.filter((entry) => entry.comment !== null).map((entry) =>
       feedbackVectorText(entry),
     ),
@@ -527,6 +533,7 @@ async function seedTenantData(client: Client, embeddings: Embeddings): Promise<v
     await seedDocuments(client, embeddings);
     await seedFeedback(client, embeddings);
     await seedKnowledge(client, embeddings);
+    await seedMarketing(client, embeddings);
     await seedHr(client);
 
     await client.query('COMMIT');
@@ -572,6 +579,7 @@ async function wipe(client: Client): Promise<void> {
     'DELETE FROM documents.documents WHERE tenant_id = $1',
     'DELETE FROM feedback.responses WHERE tenant_id = $1',
     'DELETE FROM knowledge.notes WHERE tenant_id = $1',
+    'DELETE FROM marketing.campaigns WHERE tenant_id = $1',
     'DELETE FROM hr.leave_requests WHERE tenant_id = $1',
     'DELETE FROM hr.compensation_records WHERE tenant_id = $1',
     'DELETE FROM hr.employees WHERE tenant_id = $1',
@@ -1175,6 +1183,68 @@ async function seedKnowledge(client: Client, embeddings: Embeddings): Promise<vo
 }
 
 /**
+ * Kampanya — ⚠️ IKI KATKICIYI birden besler ve ORTUSME KUMELERI BOSTUR.
+ *
+ * `campaign-notes` (anlamsal) yalnizca SONUC NOTU OLAN kayitlari gorur;
+ * `campaign-gap` (yapisal) yalnizca sonuc notu OLMAYANLARI. Asagidaki kume
+ * bilerek ikisini de doldurur:
+ *
+ *   * iki kampanya sonuc notlu   -> anlamsal ses
+ *   * uc kampanya sonucu YAZILMAMIS -> ⚠️ ALARM bandi (0.95, esik 3)
+ *     ve bunlardan biri `active` ama takvimde BITMIS (kapatilmami s)
+ *   * bir kampanya taslak, biri yayinda -> `openCount` gercekci
+ */
+async function seedMarketing(client: Client, embeddings: Embeddings): Promise<void> {
+  const campaigns = [
+    // --- sonuc notlu: anlamsal katkici bunlari gorur ---
+    [id(28, 1), 'Sonbahar indirimi', 'Instagram', day(-45), day(-20), 'done', 0, id(2, 1)],
+    [id(28, 2), 'Eylul e-posta bulteni', 'e-posta', day(-38), day(-25), 'done', 1, null],
+    // --- SONUCU YAZILMAMIS: yapisal katkici bunlari gorur (ALARM, >= 3) ---
+    [id(28, 3), 'Yaz sonu kampanyasi', 'Google Ads', day(-60), day(-30), 'done', null, null],
+    [id(28, 4), 'Bayi tanitim etkinligi', 'etkinlik', day(-50), day(-15), 'done', null, id(2, 2)],
+    // ⚠️ Takvimde bitmis ama HALA `active` — kapatilmami s
+    [id(28, 5), 'Agustos sosyal medya', 'Instagram', day(-40), day(-5), 'active', null, null],
+    // --- suren / taslak: `openCount` icin ---
+    [id(28, 6), 'Sonbahar lansmani', 'Instagram', day(-3), null, 'active', null, null],
+    [id(28, 7), 'Kis kampanyasi hazirlik', null, day(20), day(60), 'draft', null, null],
+  ] as const;
+
+  for (const [
+    campaignId,
+    name,
+    channel,
+    startsOn,
+    endsOn,
+    status,
+    noteIndex,
+    companyId,
+  ] of campaigns) {
+    const resultNote = noteIndex === null ? null : (CAMPAIGN_RESULT_NOTES[noteIndex] ?? null);
+    const vector = resultNote === null ? null : vectorLiteral(embeddings, resultNote);
+
+    await client.query(
+      `INSERT INTO marketing.campaigns
+         (id, tenant_id, name, channel, starts_on, ends_on, status, result_note,
+          crm_company_id, embedding, created_by_user_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11, now(), now())`,
+      [
+        campaignId,
+        TENANT_ID,
+        name,
+        channel,
+        startsOn,
+        endsOn,
+        status,
+        resultNote,
+        companyId,
+        vector,
+        OWNER_USER_ID,
+      ],
+    );
+  }
+}
+
+/**
  * IK — ⚠️ SIFIR katkici (ADR-0043 §5.3), yani `/ask` dagilimini ETKILEMEZ.
  *
  * Yine de tohumlanir: denetim tenant'i "on bir modulde veri olan" bir tenant
@@ -1230,7 +1300,10 @@ async function report(client: Client, options: Options): Promise<void> {
      UNION ALL SELECT 'documents.document_chunks', count(*)::text FROM documents.document_chunks
      UNION ALL SELECT 'feedback.responses', count(*)::text FROM feedback.responses
      UNION ALL SELECT 'knowledge.note_chunks', count(*)::text FROM knowledge.note_chunks
-     UNION ALL SELECT 'hr.employees', count(*)::text FROM hr.employees`,
+     UNION ALL SELECT 'hr.employees', count(*)::text FROM hr.employees
+     UNION ALL SELECT 'marketing (sonucu yazilmamis)', count(*)::text
+       FROM marketing.campaigns WHERE result_note IS NULL
+         AND (status = 'done' OR (status = 'active' AND ends_on < CURRENT_DATE))`,
   );
 
   console.log(`\n[seed] Denetim tenant'i hazir — ${TENANT_ID}`);

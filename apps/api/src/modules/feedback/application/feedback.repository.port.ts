@@ -150,6 +150,26 @@ export interface FeedbackRepository {
    * @param lowRatingMax Bu degere KADAR (dahil) olan puanlar "dusuk" sayilir.
    */
   summarize(input: { since: Date; lowRatingMax: number }): Promise<FeedbackSummaryRow>;
+  /**
+   * ⚠️ Yapisal katkicinin KENDI sorgusu — ekranin `summarize`i DEGIL
+   * (ADR-0045 §3.4, ADR-0049 sonrasi eklendi).
+   *
+   * ⚠️ AYRI TUTULMASI BILINCLIDIR. ADR-0045'in kapanis denetimi
+   * `GET /feedback/summary`in bir katkici OLMADIGINI uc yerde birden yaziya
+   * gecirmisti; ayni sayilari uretiyor gorunen iki yolun TEK metoda
+   * indirilmesi, o ayrimi kodda gorunmez kilardi.
+   *
+   * ⚠️ Ustelik ihtiyaclari da farkli: ekran TEK pencere ozetler, katkici IKI
+   * pencere karsilastirir (`finance-cashflow`in deseni) ve dusuk puanin NE
+   * ZAMAN geldigini bilmek zorundadir — "3 dusuk puan" ile "3 dusuk puan,
+   * sonuncusu 2 gun once" ayni haber degildir.
+   */
+  satisfactionSnapshot(input: {
+    from: Date;
+    to: Date;
+    previousFrom: Date;
+    lowRatingMax: number;
+  }): Promise<SatisfactionSnapshot>;
 
   /**
    * ANLAMSAL arama (ADR-0045 §3.1 — `feedback-comments` katkicisi).
@@ -220,6 +240,22 @@ export interface SimilarResponse {
  *     (§9.1). `0` donseydi arayuz "0,0" basar ve "cok kotu" ile "hic veri yok"
  *     AYNI GORUNURDU — hata SESSIZ olurdu. Tip, o hatayi IMKANSIZ kilar.
  */
+/**
+ * `feedback-satisfaction` katkicisinin girdisi (ADR-0045 §3.2).
+ *
+ * ⚠️ `lastLowRatingAt` NULLABLE ve bu bir eksiklik degil: dusuk puan yoksa
+ * "sonuncusu" diye bir sey de yoktur. `null` ile eski bir tarih arasindaki
+ * fark, alarm bandinin ateslenip ateslenmedigidir.
+ */
+export interface SatisfactionSnapshot {
+  readonly average: string | null;
+  readonly count: number;
+  readonly lowRatingCount: number;
+  readonly lastLowRatingAt: Date | null;
+  /** ⚠️ ONCEKI pencerenin ortalamasi — dusus ancak karsilastirmayla gorulur. */
+  readonly previousAverage: string | null;
+}
+
 export interface FeedbackSummaryRow {
   readonly average: string | null;
   readonly count: number;

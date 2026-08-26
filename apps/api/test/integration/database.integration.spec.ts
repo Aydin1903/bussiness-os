@@ -119,6 +119,11 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // ⚠️ 0038, `marketing` semasi + TEK tablo (ADR-0047 §1, Slice 1).
+      // Down dosyasi TEK KADEMEDIR: sema ici FK yok, trigger yok. `0037`den
+      // ayrildigi tek nokta, geri alinacak KOLON BAZLI BIR YETKININ DE
+      // OLMAMASIDIR — bu modulde satir tam duzenlenebilir (ADR-0047 §2).
+      '0038_marketing_schema.down.sql',
       // 0037, `feedback` semasi + TEK tablo (ADR-0045 §1, Slice 1). ⚠️ Down
       // dosyasi TEK KADEMELI: bu semada sema ici FK YOKTUR (`crm_contact_id`
       // bir FK DEGILDIR — cross-schema FK yasak), yani `0035`in iki kademeli

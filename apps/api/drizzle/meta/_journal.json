@@ -267,6 +267,13 @@
       "when": 1785010000000,
       "tag": "0037_feedback_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785020000000,
+      "tag": "0038_marketing_schema",
+      "breakpoints": true
     }
   ]
 }

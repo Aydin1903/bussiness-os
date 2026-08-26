@@ -12,6 +12,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { HrModule } from './modules/hr/hr.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
@@ -188,6 +189,7 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // ⚠️ TEK yeni kenar: `Geri Bildirim -> CRM`. Grafik YEDIDEN SEKIZE cikar ve
     // HALA DAG — modul bir YAPRAKTIR (`feedback.public.ts` ACILMADI, talip yok).
     FeedbackModule,
+    MarketingModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

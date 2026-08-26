@@ -226,3 +226,16 @@ export { hrLeaveRequests } from './hr-leave-requests.schema';
 // sahibinin silme talebi hakki vardir (KVKK m.7 / m.11).
 export { feedbackSchema } from './feedback-schema.schema';
 export { feedbackResponses } from './feedback-responses.schema';
+
+// ---------------------------------------------------------------------------
+// marketing — Faz 5'in ONBIRINCI is modulu (ADR-0047)
+// ---------------------------------------------------------------------------
+// ONIKINCI sema. ⚠️ Sema adi (`marketing`) ile izin kaynagi (`campaign`)
+// BILEREK ayri: modul bir hafiza alani, izin bir kaynak uzerindedir (§1.1).
+//
+// ⚠️ TAM DUZENLENEBILIR bir tablo — `feedback.responses`in TAM TERSI. Uc olcut
+// de "hayir" dedi (turetilen sayi yok · sirketten cikmadi · baskasinin sozu
+// degil) ve asil gerekce dorduncusuydu: `done`da kilitlemek DURUMU YALAN
+// SOYLETIRDI, cunku sonuc notu kampanya BITTIKTEN SONRA yazilir.
+export { marketingSchema } from './marketing-schema.schema';
+export { marketingCampaigns } from './marketing-campaigns.schema';

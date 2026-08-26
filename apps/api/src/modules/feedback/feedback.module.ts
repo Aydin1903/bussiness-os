@@ -36,6 +36,7 @@ import { FeedbackUseCases } from './application/feedback.use-cases';
 import { FEEDBACK_PERMISSIONS } from './feedback.permissions';
 import { DrizzleFeedbackRepository } from './infrastructure/drizzle-feedback.repository';
 import { FeedbackCommentsContributor } from './infrastructure/feedback-comments.contributor';
+import { FeedbackSatisfactionContributor } from './infrastructure/feedback-satisfaction.contributor';
 import { FeedbackController } from './presentation/feedback.controller';
 
 /**
@@ -198,6 +199,16 @@ const FEEDBACK_CALLER = 'feedback';
       ): FeedbackCommentsContributor =>
         new FeedbackCommentsContributor(repository, transactionManager),
     },
+    {
+      provide: FeedbackSatisfactionContributor,
+      inject: [FEEDBACK_REPOSITORY, TRANSACTION_MANAGER, CLOCK],
+      useFactory: (
+        repository: FeedbackRepository,
+        transactionManager: TransactionManager,
+        clock: Clock,
+      ): FeedbackSatisfactionContributor =>
+        new FeedbackSatisfactionContributor(repository, transactionManager, clock, LOW_RATING_MAX),
+    },
   ],
 })
 export class FeedbackModule {
@@ -205,6 +216,7 @@ export class FeedbackModule {
     @Inject(PERMISSION_REGISTRY) permissions: PermissionRegistry,
     @Inject(RETRIEVAL_CONTRIBUTOR_REGISTRY) contributors: RetrievalContributorRegistry,
     commentsContributor: FeedbackCommentsContributor,
+    satisfactionContributor: FeedbackSatisfactionContributor,
   ) {
     // ADR-0025 §10.1: modul kendi permission'larini Authorization'a DEKLARE
     // eder; platform icerigi YORUMLAMAZ.
@@ -218,7 +230,19 @@ export class FeedbackModule {
 
     // Ayni desen: modul kendini kurumsal hafizaya KAYDEDER.
     //
-    // ⚠️ TEK SATIR — ve bu satirin TEK olmasi ADR-0045'in merkezi karari (§3.4).
+    // ⚠️ ARTIK IKI SATIR — ve bu, ADR-0045'in "TEK KATKICI" kararinin
+    // KOSULLARI KARSILANARAK acilmasidir, bir sapma degil.
+    //
+    // §3.4 dort on kosul yazmisti ve dordu de karsilandi:
+    //   1. `retrieval.select` satiri      -> ADR-0046
+    //   2. gercek veriyle olcum           -> ADR-0048
+    //   3. ADR-0036/0042'nin revizyonu    -> ADR-0049 (band ici esitlik kirma)
+    //   4. ⚠️ ancak ondan sonra katkici   -> burasi
+    //
+    // ⚠️ 3. adim sirf usul degildi: ADR-0048 secimin KAYIT SIRASINA dustugunu
+    // gosterdi. O kusur dururken buraya bir satir eklemek, yeni kaynagi
+    // havuzun SONUNA yazip sistematik olarak ac birakmak olurdu.
     contributors.register(commentsContributor);
+    contributors.register(satisfactionContributor);
   }
 }
