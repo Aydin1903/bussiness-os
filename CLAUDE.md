@@ -1834,8 +1834,74 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > adreslerine gönderir; gerçek kullanıcıya e-posta gitmesi için **kendi alan
 > adının Resend'de doğrulanması** gerekir. Faz 6'nın (gerçek müşteri) önkoşulu.
 >
-> ⚠️ Prod'da iki denetim artığı kullanıcı kaldı (`delivered@resend.dev`,
-> `ayirt-edici-test@example.com`) — temizlenmesi Product Owner onayına bağlı.
+> ### ⚠️ Prod'daki test artığı — kayıt 2026-08-26'da DÜZELTİLDİ
+>
+> ⚠️ Buradaki eski cümle **iki yönden de yanlıştı** ve düzeltilmesi bir
+> denetim sırasında prod'a bakılarak oldu. Eski metin silinmedi ki neyin
+> değiştiği görülsün:
+>
+> > ~~"Prod'da iki denetim artığı kullanıcı kaldı (`delivered@resend.dev`,
+> > `ayirt-edici-test@example.com`) — temizlenmesi Product Owner onayına
+> > bağlı."~~
+>
+> ⚠️ **O iki kullanıcı prod'da YOK.** `platform.users`'ta hiçbir izleri
+> kalmamış; `platform.identity_outbox`'ta da onlara ait satır yok. E-posta
+> gönderiminin ayırt edici kanıtı için 2026-08-09'da yazılmışlardı
+> (`delivered@resend.dev` → outbox YAYINLANDI · `@example.com` → **ölü
+> mektup**, HTTP 422) ve ne zaman silindikleri **kayıtlı değil**.
+>
+> ⚠️ **Kayıtta hiç geçmeyen, DAHA ESKİ bir artık ise duruyor** — ve tek
+> başına değil, bir tenant ve içerikle birlikte:
+>
+> | Ne | Değer |
+> |---|---|
+> | Kullanıcı | `deploy-test-1785962312@example.com` · doğrulanmış · aktif · **2026-08-05 20:38** |
+> | Tenant | `deploy-testi-1785962491` · aktif · **2026-08-05 20:41** |
+> | Üyelik | 1 (`owner`) |
+> | İçerik | 1 knowledge notu (+1 chunk) · 1 conversation (+2 mesaj) · 1 `platform.outbox` |
+> | Kimlik izleri | 2 login attempt · 2 token family · 2 refresh token · 5 `identity_outbox` |
+>
+> ⚠️ **Prod'da BAŞKA kullanıcı yoktur** — yani bu kayıt silinirse prod
+> **sıfır kullanıcı ve sıfır tenant** ile kalır. Product Owner'ın kendi
+> hesabı prod'da **hiç açılmadı**.
+>
+> ⚠️ Ayrıca **sahipsiz bir `identity_outbox` satırı** vardı (2026-08-26,
+> `user.logged_in`): ADR-0047'nin prod doğrulamasında açılan geçici
+> kullanıcıdan kalmıştı. Temizlik `LIKE '%e-posta%'` ile yapılmıştı ve
+> `user.logged_in` payload'ı **e-posta taşımaz** (yalnızca `userId` +
+> `sessionId`) — yani filtre onu yakalayamamıştı.
+>
+> ⚠️ **Kalıcı ders:** kimlik temizliğinde e-posta üzerinden filtrelemek
+> yetmez; `identity_outbox` gibi tablolarda bağ **`userId` üzerinden**
+> kurulur ve payload şekli olaydan olaya değişir.
+>
+> ### ✅ TEMİZLENDİ — prod artık BOŞ (2026-08-26, PO onayı)
+>
+> Yukarıdaki her şey tek bir transaction'da silindi (`ON_ERROR_STOP`, silme
+> sonrası sayımla teyit): **21 satır**, on üç tablodan.
+>
+> | | Önce | Sonra |
+> |---|:---:|:---:|
+> | `platform.users` · `tenants` · `memberships` · `credentials` | 1 · 1 · 1 · 1 | **0 · 0 · 0 · 0** |
+> | `token_families` · `refresh_tokens` · `login_attempts` | 2 · 2 · 2 | **0 · 0 · 0** |
+> | `email_verification_codes` · `verification_code_requests` | 1 · 3 | **0 · 0** |
+> | `identity_outbox` · `platform.outbox` | 5 · 1 | **0 · 0** |
+> | `conversations` · `messages` | 1 · 2 | **0 · 0** |
+> | `knowledge.notes` · `note_chunks` | 1 · 1 | **0 · 0** |
+>
+> ⚠️ **PROD ARTIK SIFIR KULLANICI VE SIFIR TENANT ile duruyor** — ve bu
+> bilinçli bir karardır, bir kaza değil: Product Owner'ın hesabı prod'da
+> **hiç açılmamıştı**, yani "temizlik sonrası bir kullanıcı kalır"
+> beklentisi bir **yanlış öncüldü** ve silmeden önce düzeltildi.
+>
+> ⚠️ Şema ve migration'lar **etkilenmedi**: 39 migration, 13 şema,
+> `marketing.campaigns` yerinde, health **200**.
+>
+> ⚠️ **Faz 6'nın (gerçek müşteri) ilk adımı artık bir kayıt akışıdır** —
+> ve bu, kayıt → doğrulama → giriş → tenant açma zincirini prod'da bir kez
+> daha sınayacaktır. `EMAIL_FROM` hâlâ Resend'in paylaşımlı test
+> göndericisidir (yukarıda); gerçek bir adrese e-posta gitmesi için alan
+> adı doğrulaması **önkoşuldur**.
 
 > **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
 > (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —
