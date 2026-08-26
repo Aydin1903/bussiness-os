@@ -18,7 +18,11 @@ import { getPrincipal } from '../../../infrastructure/auth/auth-context';
 import { ZodValidationPipe } from '../../../infrastructure/http/zod-validation.pipe';
 import { getTenantContext } from '../../../infrastructure/tenant/tenant-context';
 import { RequirePermission } from '../../../platform/authz/authz.public';
-import { MarketingUseCases, type CampaignRow } from '../application/marketing.use-cases';
+import {
+  MarketingUseCases,
+  type CampaignRow,
+  type CampaignSummary,
+} from '../application/marketing.use-cases';
 import { type CampaignChanges } from '../domain/campaign.entity';
 import { CAMPAIGN_DELETE, CAMPAIGN_READ, CAMPAIGN_WRITE } from '../marketing.permissions';
 import { MarketingDomainExceptionFilter } from './marketing-domain-exception.filter';
@@ -71,6 +75,24 @@ export class MarketingController {
   ): Promise<{ repaired: number; failed: number }> {
     const principal = requireTenantPrincipal();
     return this.useCases.reindex({ tenantId: principal.tenantId, userId: principal.userId });
+  }
+
+  /**
+   * ⚠️ SABIT YOL — `:id`DEN ONCE (ADR-0040'in rota golgeleme dersi).
+   */
+  @Get('summary')
+  @RequirePermission(CAMPAIGN_READ)
+  @ApiOperation({
+    summary: 'Duvarin ozeti — aktif, biten, sonucu yazilmamis ve aranamayan kampanya sayisi',
+    description:
+      'Toplama SQL"de yapilir; istemci satirlari toplamaz. ⚠️ `windowDays` SUNUCUDAN doner — ' +
+      'arayuz "son 30 gunde" metnini kendi yazmaz. ⚠️ BU UC BIR KATKICI DEGILDIR: ' +
+      '`missingResultCount`, `campaign-gap` katkicisinin saydigi AYNI kumedir ama yalnizca ' +
+      'EKRANA gider — havuza girmez, taban yuvasi tuketmez, T2"yi etkilemez.',
+  })
+  async summary(): Promise<CampaignSummary> {
+    requireTenantPrincipal();
+    return this.useCases.getSummary();
   }
 
   @Post()

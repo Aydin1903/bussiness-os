@@ -1,6 +1,6 @@
 # 0047 — Faz 5 / Modul 11: Kampanya / Pazarlama Notlari
 
-- **Durum:** ⚠️ **ONERILDI — PRODUCT OWNER ONAYI BEKLIYOR** (iki kalem, §PO)
+- **Durum:** ⚠️ **KABUL EDILDI ve KAPANDI** (Slice 0-2 tamam; HAFIF kapanis denetimi 2026-08-26)
 - **Tarih:** 2026-08-25
 - **Karar veren:** Product Owner
 - **Faz:** 5
@@ -1039,7 +1039,7 @@ gurultulu bir yanlislik, sessiz bir yanlisliktan iyidir.
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ----- |
 | **0** | **ADR-0047** (bu belge) — ⚠️ **IKI PO ONAYI** (A: yapisal katkici askida · B: denetim tenant'i / tohumlama)                                                                                                                                                                               | —                       | ⏳    |
 | **1** | **Backend (TEK slice):** `marketing` semasi + tek tablo + **FORCE RLS** + CRUD (⚠️ `PATCH` dahil) + kosullu embedding + ⚠️ **kosullu yeniden gomme + `NULL`'a cekme** + `reindex` + oran siniri + izin katalogu + exception filter + **TEK anlamsal katkici** + cross-modul (sifir satir) | `0038_marketing_schema` | ⏳    |
-| **2** | **Frontend + HAFIF kapanis denetimi:** liste + duvar (ODA, ortak duvar), `marketing` rengi, koridorda onikinci kapi                                                                                                                                                                       | —                       | ⏳    |
+| **2** | **Frontend + HAFIF kapanis denetimi:** liste + DETAY (ODA, ortak duvar), `marketing` rengi, koridorda onikinci kapi + ⚠️ `GET /campaigns/summary`                                                                                                                                         | —                       | ⏳    |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — degistirilecek bir
 `public.ts` yok (§6.1).
@@ -1090,6 +1090,157 @@ tenant'la tam RLS izolasyon turu ❌.
 health **200** · uygulanmis migration **38 → 39** · `marketing.campaigns`
 **RLS + FORCE** · uc dar rol `marketing` semasina **kor** ·
 `GET /api/v1/campaigns` **401**.
+
+---
+
+## ⚠️ HAFIF kapanis denetimi — **yapildi, 2026-08-26**
+
+Yedi maddenin yedisi de kosuldu. ⚠️ **Denetim sirasinda GERCEK BIR KUSUR
+BULUNMADI** — ama uygulama sirasinda IKI kusur bulunmustu ve ikisi de kapandi
+(asagida).
+
+| #   | Madde                                                               | Sonuc                                                                    |
+| --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | `git status` temiz · `pnpm verify` **cikis kodu 0**                 | ✅ api **2207** birim · web **588** birim                                |
+| 2   | Uclarin rol turu — 200/401/403/422, ⚠️ **409 YOK**                  | ✅ hepsi dogru (asagida)                                                 |
+| 3   | Renk turu — acik **ve** koyu tema, kabuk terracotta kaliyor mu      | ✅ **gercek tarayicida OLCULDU** (asagida)                               |
+| 4   | ⚠️ Bosluk gostergesi — bitmis+notsuz kampanya gercekten isaretli mi | ✅ sunucu **3**, ekran **3**; gorsel olarak da dogrulandi                |
+| 5   | ⚠️ Basarisiz reindex — vektor `NULL`'a cekiliyor mu                 | ✅ **canli istekle kanitlandi** (asagida)                                |
+| 6   | Fan-out olcumu (18 katkici)                                         | ✅ pay **~228 ms (%3,5)**; darbogaz **sekizinci kez** `LLMPort.complete` |
+| 7   | Bilinen sinirlar guncellendi (ADR + CLAUDE.md + ROADMAP §8.5)       | ✅                                                                       |
+
+### ✅ Madde 2 — uclarin turu, ve ⚠️ 409'UN YOKLUGU KANITLANDI
+
+| Istek                                               | Beklenen | Alinan  |
+| --------------------------------------------------- | :------: | :-----: |
+| Kimliksiz `GET /campaigns`                          |   401    | **401** |
+| `owner` `GET /campaigns` · `GET /campaigns/summary` |   200    | **200** |
+| `member` `POST /campaigns` (`campaign:write` VAR)   |   201    | **201** |
+| `member` `DELETE` (`campaign:delete` YOK)           |   403    | **403** |
+| Bos ad · ters tarih · `2026-02-31` · `cancelled`    |   422    | **422** |
+| 1251 karakter sonuc notu                            |   422    | **422** |
+
+⚠️ **AYNI AD IKI KEZ YAZILDI VE IKISI DE 201 DONDU** — §1.2'nin karari canli
+olarak dogrulandi: tekillik kisiti YOKTUR cunku ayni ad her ay tekrarlanabilir
+ve ikisi de GERCEKTIR. ⚠️ Bu modulde **409 diye bir cevap yoktur** ve bu bir
+eksik degil, bir karardir.
+
+⚠️ **`done` DURUMUNDA `PATCH` -> 200** ve sonuc notu gercekten degisti. §2.2'nin
+en onemli iddiasi buydu: kilit olsaydi kullanici kampanyayi yapay olarak
+`active` tutardi, yani **durum yalan soylerdi**.
+
+### ✅ Madde 3 — renk turu GERCEK TARAYICIDA olculdu
+
+`data-module` IKI dugume birden duser (koridor kapisi + oda sarmalayici);
+ikisi de `marketing` ve **kabuk her iki temada da terracotta kaldi**:
+
+| Token                             | Acik tema             | Koyu tema             |
+| --------------------------------- | --------------------- | --------------------- |
+| Modul `--accent` / `--ink`        | `#7665a6` / `#655493` | `#ae9de2` / `#bfaef4` |
+| **Kabuk** `--accent`              | `#b25628`             | `#e8935a`             |
+| ⚠️ **`--ai-accent`** (oda ICINDE) | `#b25628`             | `#e8935a`             |
+
+⚠️ **Ucuncu satir kritiktir:** oda sarmalayicisinin ICINDE olculdu ve modulun
+rengiyle DEGISMEDI — yani modul AI'in sesini EZMIYOR. `app-shell.tsx` `git
+diff` **BOS** (dokuzuncu kez dokunulmadi); `module-colors.css` `git diff` de
+**BOS** — palet ilk gunden dogru adla yaziliydi.
+
+⚠️ **MOR BAND SINAVI:** `hr` ("Ekip", 3 path, yuvarlak govdeler) ve `marketing`
+("Kampanyalar", 2 path, koseli megafon konisi) FARKLI ETIKET ve FARKLI IKON
+tasiyor; aktif kapi `aria-current="page"` aliyor. Renk hicbir yerde tek ayirt
+edici degil.
+
+### ✅ Madde 4 — bosluk gostergesi, IKI TARAFTAN dogrulandi
+
+`GET /campaigns/summary` -> `missingResultCount: 3`; ayni veriyle ekranin
+isaretleyecegi kayit sayisi da **3**. ⚠️ Isaretlenenler arasinda _"Agustos
+sosyal medya"_ var — `status = active` ama bitisi **gecmis**, yani §3.3'un
+**ikinci dali** (kapatilmadan birakilmis kampanya) gercekten calisiyor.
+
+⚠️ Gorsel olarak da dogrulandi: kartta **"◌ Sonucu yazilmadi"** rozeti, yaninda
+"Yayinda" durumu. Sonuc notu OLAN kartlar isaretsiz.
+
+### ✅ Madde 5 — `NULL`'A CEKME CANLI KANITLANDI (§4.2.1)
+
+Vektoru olan bir kayitta (`vector_dims = 1536`) saglayici bozuldu ve gomulen
+bir alan (`resultNote`) degistirildi:
+
+| Kontrol                                       | Sonuc                                                |
+| --------------------------------------------- | ---------------------------------------------------- |
+| Cevap                                         | **502** + acik govde (`DisclosableProblem`)          |
+| ⚠️ Yazilan METIN                              | ⚠️ **KAYDEDILDI** (kaybolmadi)                       |
+| ⚠️ `embedding`                                | ⚠️ **`NULL`** — bayat DEGIL                          |
+| `reindex` onu buluyor mu                      | ✅ (`embedding IS NULL AND result_note IS NOT NULL`) |
+| Saglayici duzelince `POST /campaigns/reindex` | ✅ `{"repaired":1,"failed":0}` -> vektor **1536**    |
+
+⚠️ **Bu, §4.2.1'in tek gerekcesinin canli kanitidir:** bayat bir vektor DOLU
+gorunurdu, `reindex` onu BULAMAZDI ve `/ask` ESKI ICERIKLE cevap verirdi — hata
+SESSIZ olurdu.
+
+### ✅ Madde 6 — fan-out N=18
+
+| Olcu                     | Deger                                |
+| ------------------------ | ------------------------------------ |
+| Toplam katkici           | **18** (10 anlamsal + 8 yapisal)     |
+| `candidateCount`         | 60 -> `selectedCount` 8              |
+| `campaign-notes`         | `returned`, 4 satir, **1 yuva**      |
+| `campaign-gap`           | `returned`, 4 satir, **1 yuva**      |
+| `degradedSources`        | **YOK**                              |
+| Toplam sure (3 soru ort) | ~6455 ms                             |
+| `complete`               | 5840 ms (`promptTokens` ort **777**) |
+| `embed`                  | 387 ms                               |
+| ⚠️ **Fan-out payi**      | ⚠️ **~228 ms (%3,5)**                |
+
+⚠️ Darbogaz **sekizinci olcumdur** ayni yerde: `LLMPort.complete`.
+
+### ⚠️ Uygulama sirasinda bulunan IKI KUSUR — ikisi de kapandi
+
+1. ⚠️ **`marketing.campaigns` icin `GRANT` YAZILMAMISTI.** `0000_init`in
+   `ALTER DEFAULT PRIVILEGES` satiri **yalnizca `platform` semasi** icindir
+   (ADR-0043 Slice 1b'nin bulgusu) — uygulama rolu tabloyu goremedi ve **uc
+   katkici birden** (`campaign-notes`, `campaign-gap`,
+   `feedback-satisfaction`) sessizce `degraded` dondu. ⚠️ Kusur ancak
+   `retrieval.select` satiri okundugunda gorundu. **CLAUDE.md'nin migration
+   kontrol listesine DORDUNCU madde olarak eklendi.**
+2. ⚠️ **`sql<Date | null>` BIR IDDIADIR, BIR DONUSUM DEGIL.** Drizzle ham bir
+   `max(timestamptz)` ifadesini ESLEMEZ; surucu DIZE dondurur ve
+   `feedback-satisfaction` `moment.getTime is not a function` ile cokuyordu.
+   ⚠️ Birim testleri bunu goremezdi (hepsi gercek `Date` besliyordu). Koruma
+   **tip sistemine** baglandi: cevirici kaldirilirsa DERLEME KIRILIR.
+
+---
+
+## Kampanya kapanirken bilinen sinirlar — **Slice 2 EKLERI**
+
+Asagidaki liste yukaridaki § Bilinen sinirlar'i **degistirmez, GENISLETIR**:
+
+- ⚠️ **DUVAR ILE LISTE AYRI ISTEKLERDIR** — bir kayit eklendiginde ikisi de
+  tazelenir, ama BASKA BIR KULLANICI ayni anda kayit girerse duvar bir sonraki
+  tazelemeye kadar eskidir (canli guncelleme YOK). ADR-0045'in ayni siniri.
+- ⚠️ **OZET HATASI SESSIZDIR** — `GET /campaigns/summary` cokerse duvar iskelet
+  olarak kalir ve kullanici bir hata mesaji GORMEZ (liste calismaya devam
+  eder). Bilincli: calisan bir listeyi bir toplama sorgusu yuzunden gizlemek
+  daha kotuydu.
+- ⚠️ **DURUM FILTRESI OZETI ETKILEMEZ** — duvar TUM tenant'i ozetler. Kullanici
+  "Taslak" filtresindeyken duvarda yine genel sayilari gorur; bu KASITLIDIR ama
+  ilk bakista sasirtabilir (ADR-0045'in puan bandi filtresiyle ayni sinif).
+- ⚠️ **BOSLUK TANIMI IKI YERDE YAZILI** — sunucuda `gapSnapshot`, arayuzde
+  `hasResultGap`. Ikisi SENKRON kalmak zorundadir; ayrisirsa ekran bir sey der,
+  `/ask` baska bir sey sayar ve fark SESSIZ olur (`CRM_STALE_STAGE_DAYS` /
+  `STALE_STAGE_DAYS` ayrismasinin ucuncu tekrari). ⚠️ Bugun bir test ekran
+  tarafini kilitliyor ama **iki tarafi birlikte** sinayan bir test YOKTUR.
+- ⚠️ **TARIH GIRDISI `<input type="date">`** — tarayicinin yerel takvimini
+  kullanir. Kampanyanin saati olmadigi icin (§1.5) saat dilimi sorunu DOGMAZ,
+  ama tarih BICIMI tarayici diline gore degisir.
+- ⚠️ **DETAY SAYFASINDA IYIMSER ESZAMANLILIK YOK** — iki kullanici ayni
+  kampanyayi ayni anda duzenlerse SON YAZAN KAZANIR ve digeri uyari ALMAZ.
+  ⚠️ Bu modulde etkisi digerlerinden BUYUK: satirin her alani guncellenebilir.
+- ⚠️ **LISTEDE SONUC NOTU KIRPILIR** (`line-clamp-2`) — tam metin yalnizca
+  detayda gorunur. Kirpma GORSELDIR, veri kaybi degildir.
+- ⚠️ **`reindex` ICIN ARAYUZ DUGMESI YOK** — uc vardir ama ekrandan cagrilamaz.
+  Bir kampanyanin vektoru `NULL`'a cekildiginde kullanici bunu "Aranamayan"
+  uydusunda GORUR ama ONARAMAZ. ⚠️ Tedarikci'nin onarim dugmesinin karsiligi
+  burada YAZILMADI.
 
 ---
 

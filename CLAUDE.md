@@ -273,6 +273,24 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**11. modül Kampanya/Pazarlama ✅ bitti** (ADR-0047; üç slice, HAFİF kapanış
+denetimi 2026-08-26 — migration 38 → 39, prod'da doğrulandı).
+⚠️ Bu modül **dört ilk** taşıyor: **`POST /ask` havuzuna İKİ katkıcıyla giren
+ilk modül** (anlamsal `campaign-notes` + yapısal `campaign-gap`) ve ⚠️ **ikisinin
+ÖRTÜŞME KÜMESİ BOŞ** — `campaign-notes` yalnızca sonuç notu OLAN kayıtları
+görür, `campaign-gap` yalnızca OLMAYANLARI; ADR-0045'in dördüncü ölçütü
+mantıken başka türlü geçemezdi. ⚠️ **Başarısız yeniden gömme vektörü `NULL`'a
+çeker** (projede ilk): bayat bir vektör DOLU görünür, `reindex` bulamaz ve
+`/ask` ESKİ İÇERİKLE cevap verir — hata SESSİZDİR. ⚠️ **Hedef kitle bir
+SEGMENT DEĞİLDİR** — CRM'de `segment` kavramı yoktur ve `crm.segments` açmak
+CRM'in işidir. ⚠️ **Retention listesini BÜYÜTMEYEN ilk vektör tablosu**
+(yılda birkaç kampanya girilir; liste 23'te kaldı, vektör taşıyan tablo 10'a
+çıktı).
+⚠️ **T2 ATEŞLEDİ** — bu modülün `campaign-gap`i ve Geri Bildirim'in askıdaki
+`feedback-satisfaction`ı birlikte eklenince satır döndüren yapısal kaynak
+**6 → 8** oldu (eşik 6). ADR-0050 üç seçeneği de (taban büyüklüğü · `K` ·
+rerank) gerçek dört sorulu ölçümle sınadı ve ⚠️ **hiçbirini değiştirmedi**.
+
 **10. modül Müşteri Geri Bildirimi ✅ bitti** (ADR-0045; üç slice, HAFİF
 kapanış denetimi 2026-08-25 — migration 37 → 38, prod'da doğrulandı).
 ⚠️ Bu modül **üç ilk** taşıyor: **havuza DIŞARIDAN gelen ilk ses** (bugüne
@@ -522,10 +540,11 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
 guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-iki modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
+tek modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
 4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
 7. Tedarikçi ✅, 8. Teklif/Fatura ✅, 9. İK/Personel ✅,
-10. Müşteri Geri Bildirimi ✅ — sıradaki **11. Kampanya**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+10. Müşteri Geri Bildirimi ✅, 11. Kampanya/Pazarlama ✅ — sıradaki ve
+**SON**: **12. Sadakat Programı**) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`
@@ -545,16 +564,19 @@ en hızlı büyüyen kalemidir** — bir kullanıcı isteği değil, **HER ALAN
 DEĞİŞİKLİĞİ** bir satır yazar. ⚠️ Kararı en zor olan kalem de odur: denetim
 izini kısaltmak, onu var etme sebebini zayıflatır. Ayrıca Belge kaleminde
 veritabanı dışında bir **R2 nesnesi** var ve retention işi satırla birlikte onu
-da silmek zorundadır) · **`POST /ask` top-K havuzu DOLU** (⚠️ artık **on beş**
-katkıcı — dokuz anlamsal + altı yapısal — sekiz yuva; ⚠️ iki yapısal kaynağın sistematik elenmesi **ADR-0036 ile
-kapandı** — `ceil(K/3)` yuvalık **yapısal taban kısıtı**; gerçek **rerank** hâlâ
-**açılmadı** ve kalibrasyon verisi beklemede) · ⚠️ **`retrieval.select` gözlemlenebilirlik satırı**
-(ADR-0042 §4'ün ölçüm protokolü — her yapısal kaynağın **döndürdüğü satır
-sayısı** ve giren/girmeyen parçaların **skoru**). ⚠️ **İKİ kapanış denetimi
-üst üste** buna takıldı (İK ve Müşteri Geri Bildirimi), yani artık bir sıra
-sorusu değil **bir sonraki platform işidir**: onsuz ADR-0042'nin T2 eşiği
-**ölçülemez** ve Geri Bildirim'in askıdaki yapısal katkıcısı hakkında karar
-verilemez · **not detay ucu**
+da silmek zorundadır) · **`POST /ask` top-K havuzu DOLU** (⚠️ artık **on sekiz**
+katkıcı — **on anlamsal + sekiz yapısal** — sekiz yuva. ⚠️ **T2 ATEŞLEDİ**
+(satır döndüren yapısal 8 > eşik 6) ve ADR-0050 üç seçeneği de ölçümle
+sınayıp **hiçbirini değiştirmedi**: taban `ceil(K/3)`, `K` 8, rerank kapalı.
+⚠️ ADR-0050'nin asıl bulgusu şu: kısıt bir **kapasite** değil bir **ÖLÇÜ**
+sorunudur — yapısal skor sabit band, anlamsal skor `1 - index/(n+1)` yani bir
+**SIRA**, ve on anlamsal kaynağın **onunun da** en iyi isabeti tam `1.0`.
+⚠️ Sistematik eleme **ADR-0049 ile kapandı** (band içi eşitlik `affinity` →
+`lot` ile kırılıyor; kayıt sırası artık hiçbir yerde belirleyici değil);
+gerçek **rerank** hâlâ **açılmadı** ve koşulu — **ölçülmüş kalite verisi** —
+hâlâ karşılanmadı. ⚠️ `affinity` o koşulu KARŞILAMAZ: band içi, kaba, ve genel
+sorularda **sıfır** yuva belirliyor) · ⚠️ **`retrieval.select` gözlemlenebilirlik satırı**
+✅ **KAPANDI** (ADR-0046, 2026-08-25) · **not detay ucu**
 (ADR-0029 bilinen sınır) · **streaming**
 (ROADMAP §8.3) · **6. dar rol genelleştirmesi** (ADR-0030 §2.4 — geldiğinde
 ertelenemez) · **boş/yükleniyor/hata durumlarının Atölye diline geçirilmesi** ·

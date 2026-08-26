@@ -233,6 +233,23 @@ export function FeedbackIcon(props: IconProps) {
   );
 }
 
+/**
+ * Kampanya / Pazarlama — MEGAFON.
+ *
+ * ⚠️ MOR BANDIN IKINCI KAPISI (`hr` ile) ve ikon AYIRT EDICI OLMAK ZORUNDA:
+ * `module-colors.css`in baglayici kurali geregi renk hicbir yerde TEK ayirt
+ * edici olamaz. `PeopleIcon` (Ekip) yuvarlak govdeler, bu ise KOSELI bir koni
+ * — renk koru bir kullanici icin bile silueti farkli.
+ */
+export function MarketingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 10.5v3a1.5 1.5 0 0 0 1.5 1.5H8l7 4.5V5.5L8 10H5.5A1.5 1.5 0 0 0 4 11.5Z" />
+      <path d="M18 9.5a4 4 0 0 1 0 5" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

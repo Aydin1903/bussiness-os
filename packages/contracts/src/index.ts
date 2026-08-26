@@ -549,3 +549,35 @@ export type {
   FeedbackSummary,
   ReindexFeedbackResponse,
 } from './feedback/feedback.contract';
+
+/**
+ * Kampanya / Pazarlama Notlari — Faz 5'in ONBIRINCI is modulu (ADR-0047).
+ *
+ * ⚠️ MODUL ANAHTARI `marketing`, IZIN KAYNAGI `campaign` — ve bu ayrisma bu
+ * projede KURALDIR (`invoicing` -> `quote`/`invoice`). Modul bir HAFIZA
+ * ALANIDIR, izin bir KAYNAK uzerindedir.
+ *
+ * ⚠️ `updateCampaignRequestSchema` VARDIR ve `feedback`te YOKTU: kampanya HER
+ * DURUMDA duzenlenebilir, `done` DAHIL (§2.2).
+ */
+export {
+  campaignSchema,
+  campaignListResponseSchema,
+  createCampaignRequestSchema,
+  updateCampaignRequestSchema,
+  campaignSummarySchema,
+  reindexCampaignsResponseSchema,
+  CAMPAIGN_STATUSES,
+  MAX_CAMPAIGN_NAME_CHARS,
+  MAX_CAMPAIGN_CHANNEL_CHARS,
+  MAX_CAMPAIGN_RESULT_NOTE_CHARS,
+} from './marketing/marketing.contract';
+export type {
+  Campaign,
+  CampaignStatus,
+  CampaignListResponse,
+  CreateCampaignRequest,
+  UpdateCampaignRequest,
+  CampaignSummary,
+  ReindexCampaignsResponse,
+} from './marketing/marketing.contract';

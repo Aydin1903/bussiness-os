@@ -6,6 +6,7 @@ import { requireTransaction } from '../../../infrastructure/database/transaction
 import {
   type CampaignGapRow,
   type CampaignGapSnapshot,
+  type CampaignSummaryRow,
   type ListPage,
   type MarketingRepository,
   type SimilarCampaign,
@@ -248,6 +249,42 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       openCount: counted?.openCount ?? 0,
       totalCount: counted?.totalCount ?? 0,
     };
+  }
+
+  /**
+   * Duvarin dort sayisi — ⚠️ TEK TARAMA, `FILTER` ile.
+   *
+   * ⚠️ `gapSnapshot`tan AYRI bir metottur (port'un yorumu): ayni kumeyi
+   * sayiyor gorunur ama BASKA BIR YERE gider. Birlestirmek, "ozet bir katkici
+   * degildir" ayrimini kodda gorunmez kilardi.
+   */
+  async summarize(input: { today: string; since: string }): Promise<CampaignSummaryRow> {
+    const { db } = requireTransaction();
+
+    const finished = sql`(${marketingCampaigns.status} = 'done'
+      OR (${marketingCampaigns.status} = 'active'
+          AND ${marketingCampaigns.endsOn} IS NOT NULL
+          AND ${marketingCampaigns.endsOn} < ${input.today}))`;
+
+    const [row] = await db
+      .select({
+        activeCount: sql<number>`count(*) FILTER (WHERE ${marketingCampaigns.status} = 'active')::int`,
+        endedInWindow: sql<number>`count(*) FILTER (WHERE ${finished} AND ${marketingCampaigns.endsOn} >= ${input.since})::int`,
+        missingResultCount: sql<number>`count(*) FILTER (WHERE ${finished} AND ${marketingCampaigns.resultNote} IS NULL)::int`,
+        unsearchableCount: sql<number>`count(*) FILTER (WHERE ${marketingCampaigns.resultNote} IS NULL)::int`,
+        totalCount: sql<number>`count(*)::int`,
+      })
+      .from(marketingCampaigns);
+
+    return (
+      row ?? {
+        activeCount: 0,
+        endedInWindow: 0,
+        missingResultCount: 0,
+        unsearchableCount: 0,
+        totalCount: 0,
+      }
+    );
   }
 }
 

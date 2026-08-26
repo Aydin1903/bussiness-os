@@ -13,6 +13,7 @@ import {
   FinanceIcon,
   InventoryIcon,
   FeedbackIcon,
+  MarketingIcon,
   HrIcon,
   InvoicingIcon,
   OverviewIcon,
@@ -213,6 +214,30 @@ const DOORS: readonly Door[] = [
     icon: FeedbackIcon,
     href: '/app/feedback',
     module: 'feedback',
+  },
+
+  /*
+   * ⚠️ ONIKINCI KAPI — MOR BANDIN IKINCISI (ADR-0047 §9).
+   *
+   * `hr` (#896096) · `marketing` (#7665a6) · `loyalty` (#9a5a84, 12. modul).
+   * Yesil bandin dortlusunden kucuk ama kural aynen baglayici: RENK HICBIR
+   * YERDE TEK AYIRT EDICI OLMAZ. "Ekip" ve "Kampanyalar" farkli ETIKET, farkli
+   * IKON (yuvarlak govdeler vs koseli megafon konisi) tasir ve aktif kapi
+   * `aria-current` alir.
+   *
+   * ⚠️ Anahtar `marketing` — IZIN kaynagi `campaign` OLMASINA RAGMEN. Modul
+   * anahtari rotasiyla ayni olmak zorundadir; ayrisirsa `data-module` SESSIZCE
+   * tutmaz (ADR-0035'in `booking` dersi).
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos).
+   */
+  {
+    label: 'Kampanyalar',
+    short: 'Kampanya',
+    icon: MarketingIcon,
+    href: '/app/marketing',
+    module: 'marketing',
   },
 ];
 

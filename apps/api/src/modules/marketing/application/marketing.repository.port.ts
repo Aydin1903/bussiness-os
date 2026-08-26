@@ -61,6 +61,23 @@ export interface CampaignGapSnapshot {
   readonly totalCount: number;
 }
 
+/**
+ * Duvarin ozeti (ADR-0047 §9).
+ *
+ * ⚠️ `campaign-gap` KATKICISININ `gapSnapshot`INDAN AYRI TUTULDU — ADR-0045'in
+ * kapanis denetiminin ucuncu bulgusu burada ONCEDEN uygulaniyor:
+ * `GET /campaigns/summary` BIR KATKICI DEGILDIR. Ayni kumeyi sayiyor gorunur
+ * ama yalnizca EKRANA gider; havuza girmez, taban yuvasi tuketmez, T2'yi
+ * etkilemez. Tek metoda indirmek o ayrimi kodda GORUNMEZ kilardi.
+ */
+export interface CampaignSummaryRow {
+  readonly activeCount: number;
+  readonly endedInWindow: number;
+  readonly missingResultCount: number;
+  readonly unsearchableCount: number;
+  readonly totalCount: number;
+}
+
 export interface MarketingRepository {
   insertCampaign(campaign: Campaign): Promise<void>;
   updateCampaign(campaign: Campaign): Promise<number>;
@@ -90,4 +107,5 @@ export interface MarketingRepository {
   }): Promise<SimilarCampaign[]>;
 
   gapSnapshot(input: { today: string; limit: number }): Promise<CampaignGapSnapshot>;
+  summarize(input: { today: string; since: string }): Promise<CampaignSummaryRow>;
 }

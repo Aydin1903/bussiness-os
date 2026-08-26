@@ -17,6 +17,7 @@ import {
 import { CampaignCompanyNotFoundError, CampaignNotFoundError } from '../domain/marketing.error';
 import { MARKETING_EMBEDDING_ACTION } from '../marketing.rate-limits';
 import {
+  type CampaignSummaryRow,
   type ListPage,
   type MarketingRepository,
   type UnindexedCampaign,
@@ -32,6 +33,15 @@ import {
  */
 export interface CampaignRow extends CampaignState {
   readonly companyName: string | null;
+}
+
+/** Duvarin baktigi pencere — ekranin "son N gun" metni SUNUCUDAN gelir. */
+export const SUMMARY_WINDOW_DAYS = 30;
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export interface CampaignSummary extends CampaignSummaryRow {
+  readonly windowDays: number;
 }
 
 export interface MarketingDependencies {
@@ -143,6 +153,28 @@ export class MarketingUseCases {
     }
 
     return this.#withCompanyName(state, input.role);
+  }
+
+  /**
+   * ⚠️ BIR KATKICI DEGILDIR (ADR-0047 §9.1).
+   *
+   * `missingResultCount`, `campaign-gap` katkicisinin saydigi AYNI kumedir —
+   * ama bu sayi yalnizca EKRANA gider: havuza girmez, taban yuvasi tuketmez,
+   * T2'yi etkilemez. ⚠️ ADR-0045'in kapanis denetimi bu ayrimi SONRADAN
+   * kesfetmek zorunda kalmisti; burada ONCEDEN yaziya geciyor.
+   */
+  async getSummary(): Promise<CampaignSummary> {
+    const now = this.deps.clock.now();
+    const today = now.toISOString().slice(0, 10);
+    const since = new Date(now.getTime() - SUMMARY_WINDOW_DAYS * MILLISECONDS_PER_DAY)
+      .toISOString()
+      .slice(0, 10);
+
+    const row = await this.deps.transactionManager.runInCurrentTenantTransaction(() =>
+      this.deps.repository.summarize({ today, since }),
+    );
+
+    return { ...row, windowDays: SUMMARY_WINDOW_DAYS };
   }
 
   async listCampaigns(input: {
