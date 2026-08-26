@@ -1915,7 +1915,7 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > `DROP TABLE IF EXISTS` çalıştırır ve **olmayan bir tablo için de başarılıdır**.
 > Yani yeşil yanan geri alma testi, migration'ın uygulandığının kanıtı DEĞİLDİR.
 >
-> **Her yeni migration'da üçü de yapılır:**
+> **Her yeni migration'da dördü de yapılır:**
 >
 > 1. `drizzle/<NNNN>_<ad>.sql` **ve** `<NNNN>_<ad>.down.sql` yazılır
 >    (DEVELOPMENT_RULES 6 — her migration geri alınabilir).
@@ -1925,6 +1925,34 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > 3. ⚠️ **`database.integration.spec`'in geri alma listesine eklenir** — en
 >    yeniden eskiye, bağımlı tablo ebeveyninden **önce** (ADR-0032'nin `0019`
 >    dersi — yukarıda, Projeler bölümünde).
+> 4. ⚠️ **YENİ ŞEMA AÇILDIYSA `businessos_app`'e GRANT AÇIKÇA DEKLARE EDİLİR.**
+>    `platform` şeması dışında **hiçbir otomatik varsayılan yoktur**:
+>    `0000_init`'in `ALTER DEFAULT PRIVILEGES ... IN SCHEMA platform` satırı
+>    **yalnızca o şema için** tanımlıdır (ADR-0043 Slice 1b'nin bulgusu).
+>    Yeni bir şemada verilen yetki, **tam olarak yazılan yetkidir**.
+>
+>    ⚠️ **Unutulursa hata SESSİZDİR ve TANIDIK BİR YERDEN çıkar:** tablo
+>    oluşur, migration yeşil yanar, `pnpm verify` geçer — ama uygulama rolü
+>    tabloyu **göremez** ve o modülün katkıcıları `POST /ask`te sessizce
+>    **`degraded`** döner. Kullanıcı eksik ama kendinden emin bir cevap alır.
+>    ⚠️ ADR-0047'de gerçekten yaşandı: `marketing.campaigns` için `GRANT`
+>    yazılmamıştı ve **üç katkıcı birden** (`campaign-notes`, `campaign-gap`,
+>    `feedback-satisfaction`) `degraded` döndü — kusur ancak
+>    `retrieval.select` satırı okunduğunda görüldü.
+>
+>    ⚠️ **İki satır, ve ikincisi bir KARARDIR:**
+>
+>    ```sql
+>    GRANT USAGE ON SCHEMA <sema> TO businessos_app;                    -- şemayı görür
+>    GRANT SELECT, INSERT, UPDATE, DELETE ON <sema>.<tablo> TO businessos_app;
+>    ```
+>
+>    ⚠️ İkinci satırdaki fiil listesi **modülün değiştirilebilirlik kararını
+>    yansıtmalıdır**, kopyalanmamalıdır: `feedback.responses`
+>    `GRANT UPDATE (embedding)` alır (kayıt değiştirilemez, ADR-0045 §2.3),
+>    `marketing.campaigns` tam `UPDATE` alır (satırın her alanı güncellenir,
+>    ADR-0047 §2). ⚠️ Yanlış kopyalanan bir `GRANT`, veritabanı katmanındaki
+>    savunmayı sessizce gevşetir.
 >
 > **Kanıt adımı:** migration'ın gerçekten uygulandığı, tabloların **varlığını**
 > iddia eden bir entegrasyon testiyle kilitlenir (`documents-schema
