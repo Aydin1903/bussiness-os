@@ -18,6 +18,7 @@ import {
   type RetrievalContributorRegistry,
 } from './retrieval-contributor.port';
 import {
+  type CandidateRanking,
   selectFragments,
   type RankedCandidate,
   type SelectFragmentsResult,
@@ -281,7 +282,11 @@ export class AskUseCase {
       })),
     );
 
-    const selection = selectFragments({ candidates, limit: this.deps.retrievalLimit });
+    const selection = selectFragments({
+      candidates,
+      limit: this.deps.retrievalLimit,
+      question,
+    });
 
     // ⚠️ KAYIT SECIMDEN SONRA VE CEVAPTAN ONCE — ama hicbirini ETKILEMEZ
     // (ADR-0046).
@@ -341,6 +346,7 @@ export class AskUseCase {
         rows: input.results[index] ?? null,
         candidates: input.candidates,
         selected: input.selection.selected,
+        rankings: input.selection.rankings,
       }),
     );
 
@@ -482,6 +488,7 @@ function toSourceRecord(input: {
   rows: ContextFragment[] | null;
   candidates: readonly RankedCandidate[];
   selected: ReadonlySet<RankedCandidate>;
+  rankings: ReadonlyMap<RankedCandidate, CandidateRanking>;
 }): RetrievalSourceRecord {
   const { contributor, rows } = input;
 
@@ -506,6 +513,11 @@ function toSourceRecord(input: {
       // OKUNAMAZ hale getirir — ve bu verinin tek tuketicisi bir INSANDIR.
       // Secim ZATEN yapilmis oldugu icin yuvarlama siralamayi DEGISTIREMEZ.
       score: Math.round(candidate.fragment.score * 1000) / 1000,
+      // ⚠️ `affinity` ve `lot` SECIMDEN gelir, burada YENIDEN HESAPLANMAZ
+      // (ADR-0049 §5). Kayit tarafinda ikinci bir hesap, formul degistigi gun
+      // ESKI degeri yazmaya devam ederdi ve o sapma SESSIZ olurdu.
+      affinity: Math.round((input.rankings.get(candidate)?.affinity ?? 0) * 1000) / 1000,
+      lot: input.rankings.get(candidate)?.lot ?? 0,
       selected: input.selected.has(candidate),
     }));
 

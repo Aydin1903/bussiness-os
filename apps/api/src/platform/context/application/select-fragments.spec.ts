@@ -76,12 +76,29 @@ function measuredPool(): RankedCandidate[] {
   ];
 }
 
+/**
+ * ⚠️ NOTR SORU — bu dosyanin varsayimlarini KORUMAK icin (ADR-0049).
+ *
+ * ADR-0049 `selectFragments`e band ici bir esitlik kirici ekledi ve imzaya
+ * `question` girdi. Buradaki testler SKOR ve TABAN davranisini olcer; sorunun
+ * parca metinleriyle ortak kelimesi OLMAMALI ki `affinity` her aday icin 0
+ * donsun ve olculen sey degismesin.
+ *
+ * ⚠️ Parca metinleri `"<source> parcasi"` seklindedir; asagidaki iki kelime
+ * hicbiriyle eslesmez.
+ */
+const NEUTRAL_QUESTION = 'Genel durum';
+
 function sourcesOf(fragments: readonly { source: string }[]): string[] {
   return fragments.map((item) => item.source);
 }
 
 describe('selectFragments — ADR-0035 §6.3 dagilimi', () => {
-  const selected = selectFragments({ candidates: measuredPool(), limit: 8 }).fragments;
+  const selected = selectFragments({
+    candidates: measuredPool(),
+    limit: 8,
+    question: NEUTRAL_QUESTION,
+  }).fragments;
 
   it('havuz TAM DOLAR — taban yuva harcamaz', () => {
     expect(selected).toHaveLength(8);
@@ -136,6 +153,8 @@ describe('selectFragments — taban bir TAVAN degildir', () => {
         candidate('knowledge', 0.3, 'k-b'),
       ],
       limit: 4,
+
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(sourcesOf(selected).filter((source) => source === 'project-status')).toHaveLength(2);
@@ -155,6 +174,7 @@ describe('selectFragments — taban bir TAVAN degildir', () => {
         ),
       ],
       limit: 8,
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(sourcesOf(selected)).toContain('appointment-schedule');
@@ -171,6 +191,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
         candidate('knowledge', 0.9 - index * 0.01, `k-${String(index)}`),
       ),
       limit: 8,
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(selected).toHaveLength(8);
@@ -181,13 +202,17 @@ describe('selectFragments — bos ve sinir durumlar', () => {
     const selected = selectFragments({
       candidates: [candidate('crm-pipeline', 0.95), candidate('finance-cashflow', 0.75)],
       limit: 8,
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(selected).toHaveLength(2);
   });
 
   it('limit 0 ise bos doner', () => {
-    expect(selectFragments({ candidates: measuredPool(), limit: 0 }).fragments).toEqual([]);
+    expect(
+      selectFragments({ candidates: measuredPool(), limit: 0, question: NEUTRAL_QUESTION })
+        .fragments,
+    ).toEqual([]);
   });
 
   it('⚠️ limit 1 ise GENEL BIRINCI korunur — taban devreye GIRMEZ', () => {
@@ -196,6 +221,8 @@ describe('selectFragments — bos ve sinir durumlar', () => {
     const selected = selectFragments({
       candidates: [candidate('knowledge', 0.99), candidate('crm-pipeline', 0.95)],
       limit: 1,
+
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(sourcesOf(selected)).toEqual(['knowledge']);
@@ -224,6 +251,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
         ),
       ],
       limit: 8,
+      question: NEUTRAL_QUESTION,
     }).fragments;
 
     expect(selected).toContainEqual(misLabelled.fragment);
@@ -233,7 +261,7 @@ describe('selectFragments — bos ve sinir durumlar', () => {
     const input = measuredPool();
     const before = input.map((item) => item.fragment.reference.id);
 
-    selectFragments({ candidates: input, limit: 8 });
+    selectFragments({ candidates: input, limit: 8, question: NEUTRAL_QUESTION });
 
     expect(input.map((item) => item.fragment.reference.id)).toEqual(before);
   });
@@ -246,8 +274,16 @@ describe('selectFragments — bos ve sinir durumlar', () => {
       candidate('finance-cashflow', 0.95, 'd'),
     ];
 
-    const first = selectFragments({ candidates: input, limit: 8 }).fragments;
-    const second = selectFragments({ candidates: input, limit: 8 }).fragments;
+    const first = selectFragments({
+      candidates: input,
+      limit: 8,
+      question: NEUTRAL_QUESTION,
+    }).fragments;
+    const second = selectFragments({
+      candidates: input,
+      limit: 8,
+      question: NEUTRAL_QUESTION,
+    }).fragments;
 
     expect(first.map((item) => item.reference.id)).toEqual(second.map((item) => item.reference.id));
   });

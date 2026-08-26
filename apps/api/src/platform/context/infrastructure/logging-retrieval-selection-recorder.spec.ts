@@ -43,9 +43,11 @@ function record(overrides: Partial<RetrievalSelectionRecord> = {}): RetrievalSel
         status: 'returned',
         rowCount: 2,
         selectedCount: 1,
+        // ⚠️ `affinity` ve `lot` ADR-0049 ile eklendi: ayni banddaki iki
+        // adayin NEDEN farkli sonuc aldigini satirin kendisi aciklayabilmeli.
         scores: [
-          { score: 0.95, selected: true },
-          { score: 0.75, selected: false },
+          { score: 0.95, affinity: 0.5, lot: 1809774113, selected: true },
+          { score: 0.75, affinity: 0, lot: 1809774113, selected: false },
         ],
       },
     ],

@@ -1277,8 +1277,34 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * Hatayi TEHSIS EDILEBILIR bir dizeye cevirir.
+ *
+ * ⚠️ `error.message` TEK BASINA YETMEZ ve bu, betigi kosarken YASANDI:
+ * Docker durdugunda `pg` bir `AggregateError` firlatir ve o hatanin `message`i
+ * BOS DIZEDIR. Ciktı `[seed] beklenmeyen hata:` olarak dusuyordu — yani hicbir
+ * sey soylemeyen bir hata satiri. `db-preflight.mts`in var olma sebebi tam
+ * olarak bu sinif bir belirsizlikti; ayni tuzaga burada dusulmemeli.
+ *
+ * Bos `message` durumunda hatanin ADI ve varsa ALT HATALARI yazilir.
+ */
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (error.message !== '') {
+    return error.message;
+  }
+
+  const causes =
+    'errors' in error && Array.isArray(error.errors)
+      ? error.errors
+          .map((inner: unknown) => (inner instanceof Error ? inner.message : String(inner)))
+          .filter((message) => message !== '')
+      : [];
+
+  return causes.length === 0 ? error.name : `${error.name}: ${causes.join(' | ')}`;
 }
 
 main().catch((error: unknown) => {

@@ -34,6 +34,26 @@ export type RetrievalSourceStatus = 'returned' | 'empty' | 'forbidden' | 'degrad
 export interface RetrievalScoreEntry {
   /** ⚠️ UC ONDALIGA yuvarlanmis (§4.4) — okunabilirlik icin. */
   readonly score: number;
+  /**
+   * ⚠️ Parcanin SORUYA yakinligi — band ici esitlik kiricinin LIYAKAT anahtari
+   * (ADR-0049 §5). Uc ondaliga yuvarlanmis.
+   *
+   * ⚠️ BU ALAN ZORUNLUYDU, bir iyilestirme DEGIL: ADR-0049 sonrasi ayni
+   * banddaki iki aday FARKLI sonuc alir ve `score` tek basina bunu
+   * ACIKLAYAMAZ. Kaydettigi karari aciklayamayan bir teshis satiri,
+   * OLMAMASINDAN daha kotudur — bakan kisi "rastgele" diye okur ve olmayan
+   * bir mekanizma arar.
+   */
+  readonly affinity: number;
+  /**
+   * ⚠️ Kararli kur'a — `hash(soru + kaynak)`.
+   *
+   * ⚠️ BIR ALAKA OLCUSU DEGILDIR ve oyle okunmamalidir (ADR-0049 §3):
+   * `affinity` de esitken sistematik acligi kirar, o kadar. Kaydedilmesinin
+   * tek sebebi, `affinity` esitken secimin NEDEN o yone dustugunu
+   * gosterebilmektir.
+   */
+  readonly lot: number;
   /** Bu parca modele GITTI mi. */
   readonly selected: boolean;
 }

@@ -1,3 +1,4 @@
+import { questionAffinity, selectionLot } from './question-affinity';
 import { type ContextFragment, type ContributionKind } from './retrieval-contributor.port';
 
 /**
@@ -44,6 +45,29 @@ export interface SelectFragmentsInput {
   readonly candidates: readonly RankedCandidate[];
   /** Global top-K. */
   readonly limit: number;
+  /**
+   * Kullanicinin sorusu — ⚠️ BAND ICI esitligi kirmak icin (ADR-0049).
+   *
+   * ⚠️ IMZADA GORUNUYOR, bir baglamdan ORTULU okunmuyor: karar burada yasar
+   * (ADR-0036) ve karara giren her sey imzada gorunmelidir. Bir modul-disi
+   * degiskenden okumak, fonksiyonun girdi/cikti olarak sinanabilirligini —
+   * yani ADR-0036'nin onu saf yapma gerekcesini — yok ederdi.
+   */
+  readonly question: string;
+}
+
+/**
+ * Bir adayin SIRALAMA ANAHTARLARI (ADR-0049 §1).
+ *
+ * ⚠️ Uc anahtar, uc FARKLI iddia tasir ve karistirilmamalidir:
+ *
+ *   `score`    -> kaynagin beyan ettigi aciliyet bandi (0.95 / 0.90 / 0.75)
+ *   `affinity` -> ⚠️ LIYAKAT: parca soruya ne kadar cevap veriyor
+ *   `lot`      -> ⚠️ LIYAKAT DEGIL, ADALET: kararli, soruya bagli kur'a
+ */
+export interface CandidateRanking {
+  readonly affinity: number;
+  readonly lot: number;
 }
 
 /**
@@ -88,6 +112,16 @@ export interface SelectFragmentsResult {
    * deger yazilmalidir, formulun teorik sonucu degil.
    */
   readonly structuralFloor: number;
+  /**
+   * Aday basina hesaplanan esitlik kirma anahtarlari (ADR-0049 §5).
+   *
+   * ⚠️ CIKTIDA DONER, cagiran YENIDEN HESAPLAMAZ. Gerekce ADR-0046'nin
+   * `selected` icin verdigi kararla aynidir: kaydi yazan taraf degerleri
+   * kendi hesaplasaydi, buradaki formul degistigi gun kayit ESKI degeri
+   * yazmaya devam ederdi ve ⚠️ o sapma SESSIZ olurdu — log yesil kalir,
+   * veri yalan soyler.
+   */
+  readonly rankings: ReadonlyMap<RankedCandidate, CandidateRanking>;
 }
 
 /**
@@ -117,17 +151,41 @@ export interface SelectFragmentsResult {
  * ============================================================================
  */
 export function selectFragments(input: SelectFragmentsInput): SelectFragmentsResult {
-  const { candidates, limit } = input;
+  const { candidates, limit, question } = input;
 
   if (limit <= 0) {
-    return { fragments: [], selected: new Set(), structuralFloor: 0 };
+    return { fragments: [], selected: new Set(), structuralFloor: 0, rankings: new Map() };
   }
 
+  const rankings = new Map<RankedCandidate, CandidateRanking>(
+    candidates.map((candidate) => [
+      candidate,
+      {
+        affinity: questionAffinity(question, candidate.fragment.content),
+        lot: selectionLot(question, candidate.source),
+      },
+    ]),
+  );
+
   // ⚠️ `toSorted` DEGIL `[...].sort()`: girdi `readonly` ve kopya UZERINDE
-  // siralanir — cagiranin dizisi DEGISMEZ. `Array.prototype.sort` ES2019'dan
-  // beri KARARLIDIR, yani esit skorlu adaylar katkici kayit sirasini korur ve
-  // secim DETERMINISTIKTIR (ayni girdi, ayni cikti).
-  const ranked = [...candidates].sort((a, b) => b.fragment.score - a.fragment.score);
+  // siralanir — cagiranin dizisi DEGISMEZ.
+  //
+  // ==========================================================================
+  // ⚠️ UC ANAHTAR — VE ARTIK KAYIT SIRASINA DUSULMEZ (ADR-0049)
+  // ==========================================================================
+  // ONCEDEN tek anahtar (`score`) vardi ve beraberligi `Array.prototype.sort`un
+  // KARARLILIGI bozuyordu — yani kazanani ADAYLARIN GIRDI SIRASI, o da
+  // `app.module.ts`teki MODUL IMPORT SIRASI belirliyordu. ADR-0048'in olcumu
+  // bunu mekanik olarak kanitladi: alti yapisal kaynagin altisi da 0.95'teydi
+  // ve kayit sirasindaki ILK UC kazandi, SON UC hic yuva alamadi (T1).
+  //
+  // ⚠️ Bandin ustunlugu KORUNUR: `affinity` bir bandi ASLA ezmez, cunku
+  // yalnizca `score` esitken bakilir. 0.75'lik saglikli bir satir, kelimeleri
+  // soruya benziyor diye 0.95'lik bir alarmi GECEMEZ.
+  //
+  // ⚠️ `lot` sona kaldi ve BILEREK: liyakat sinyali (`affinity`) bir sey
+  // soyluyorsa kur'a HIC devreye girmez.
+  const ranked = [...candidates].sort((a, b) => compareCandidates(a, b, rankings));
 
   const structuralFloor = structuralFloorFor(limit);
   const reserved = reserveStructuralSlots(ranked, structuralFloor);
@@ -152,13 +210,53 @@ export function selectFragments(input: SelectFragmentsInput): SelectFragmentsRes
   // uretilir; rezerve edilmis bir satiri listenin basina zorlamak, kullaniciya
   // yanlis bir "en alakali kaynak" gosterirdi.
   const fragments = selected
-    .sort((a, b) => b.fragment.score - a.fragment.score)
+    .sort((a, b) => compareCandidates(a, b, rankings))
     .map((candidate) => candidate.fragment);
 
   // ⚠️ `taken` ZATEN secilen adaylarin kumesidir — ikinci bir kume kurmak
   // gerekmiyor. Aday nesneleri cagiran tarafindan uretildigi icin kimlikleri
   // cagri boyunca sabittir.
-  return { fragments, selected: taken, structuralFloor };
+  return { fragments, selected: taken, structuralFloor, rankings };
+}
+
+/**
+ * Uc anahtarli karsilastirma (ADR-0049 §1).
+ *
+ *   1. `score`    DESC — band. DEGISMEDI.
+ *   2. `affinity` DESC — ⚠️ LIYAKAT: parcanin soruya yakinligi.
+ *   3. `lot`      ASC  — ⚠️ LIYAKAT DEGIL, ADALET: soruya bagli kararli kur'a.
+ *
+ * ⚠️ UCUNCU ANAHTAR HIC ESITLENEMEZ: `lot` girdisine KAYNAK ADI da girer ve
+ * iki farkli kaynak ayni adi tasiyamaz (`InMemoryContributorRegistry` bunu
+ * bir hata firlatarak engeller). Yani `sort`un kararliligina — dolayisiyla
+ * kayit sirasina — ARTIK HIC DUSULMEZ.
+ *
+ * ⚠️ TEK ISTISNA ve bilinclidir: AYNI kaynagin iki parcasi ayni `lot`u tasir.
+ * Orada siralama girdi sirasina duser ve bu DOGRUDUR — bir kaynagin kendi
+ * parcalarini hangi sirada dondurdugu KENDI ISIDIR (ADR-0049 §4).
+ */
+function compareCandidates(
+  a: RankedCandidate,
+  b: RankedCandidate,
+  rankings: ReadonlyMap<RankedCandidate, CandidateRanking>,
+): number {
+  const scoreDelta = b.fragment.score - a.fragment.score;
+  if (scoreDelta !== 0) {
+    return scoreDelta;
+  }
+
+  const rankA = rankings.get(a);
+  const rankB = rankings.get(b);
+  if (rankA === undefined || rankB === undefined) {
+    return 0;
+  }
+
+  const affinityDelta = rankB.affinity - rankA.affinity;
+  if (affinityDelta !== 0) {
+    return affinityDelta;
+  }
+
+  return rankA.lot - rankB.lot;
 }
 
 /**

@@ -1206,10 +1206,42 @@ describe('AskUseCase — retrieval.select kaydi (ADR-0046)', () => {
     );
 
     expect(entry?.rowCount).toBe(2);
-    expect(entry?.scores).toEqual([
+    expect(
+      entry?.scores.map((score) => ({ score: score.score, selected: score.selected })),
+    ).toEqual([
       { score: 0.9, selected: true },
       { score: 0.4, selected: false },
     ]);
+  });
+
+  it('⚠️ `affinity` ve `lot` da kaydedilir — satir KENDI KARARINI aciklayabilmeli (ADR-0049 §5)', async () => {
+    // ⚠️ BU ALANLAR ZORUNLUYDU, bir suslenme DEGIL: ADR-0049 sonrasi ayni
+    // banddaki iki aday FARKLI sonuc alir ve `score` tek basina bunu
+    // ACIKLAYAMAZ. Kaydettigi karari aciklayamayan bir teshis satiri,
+    // OLMAMASINDAN daha kotudur — bakan kisi "rastgele" diye okur.
+    const harness = createHarness({ retrievalLimit: 1 });
+    harness.search.fragments = [
+      fragment(NOTE_A, 'giren parca', 0.9),
+      fragment(NOTE_B, 'girmeyen parca', 0.4),
+    ];
+
+    await harness.useCase.execute(command());
+
+    const entry = harness.selectionRecorder.records[0]?.sources.find(
+      (source) => source.source === 'knowledge',
+    );
+
+    for (const score of entry?.scores ?? []) {
+      expect(score.affinity).toBeGreaterThanOrEqual(0);
+      expect(score.affinity).toBeLessThanOrEqual(1);
+      expect(Number.isFinite(score.lot)).toBe(true);
+    }
+
+    // ⚠️ `lot` KAYNAK basinadir: ayni kaynagin iki parcasi ayni kur'ayi ceker.
+    // Bu, `lot`un bir PARCA alaka olcusu OLMADIGININ kaniti — kaynaklar
+    // arasindaki esitligi kirar, kaynak icindekini DEGIL.
+    const lots = new Set((entry?.scores ?? []).map((score) => score.lot));
+    expect(lots.size).toBe(1);
   });
 
   it('skorlar UC ONDALIGA yuvarlanir', async () => {
