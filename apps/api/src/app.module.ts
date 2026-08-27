@@ -12,6 +12,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { HrModule } from './modules/hr/hr.module';
@@ -190,6 +191,22 @@ import { TenantContextMiddleware } from './platform/session/presentation/tenant-
     // HALA DAG — modul bir YAPRAKTIR (`feedback.public.ts` ACILMADI, talip yok).
     FeedbackModule,
     MarketingModule,
+    // ⚠️ Faz 5'in ONIKINCI ve SON is modulu (ADR-0051). Uc sey kayda deger:
+    //   1. ⚠️ CROSS-MODUL ISARETCISI ILK KEZ ZORUNLU (`crm_contact_id NOT
+    //      NULL`, §6.1). Bes modulde "zorunluluk sahte kayit uretir" dersi
+    //      burada TERS ISLER: bir isletme puan verdigi kisiyi ZATEN tanimak
+    //      zorundadir, yani zorunluluk GERCEK CRM KAYDI uretir.
+    //   2. ⚠️ BAKIYENIN NEGATIF OLAMAMASININ VERITABANI GARANTISI YOKTUR
+    //      (§4.4): satirlar arasi bir kosulu `CHECK` goremez. Tek dayanak
+    //      harcama yazan TEK kod yolu ve `SELECT ... FOR UPDATE` kilididir.
+    //   3. ⚠️ SIFIR KATKICI — IK'dan sonra ikinci, ama FARKLI sebeple: orada
+    //      bir GUVENLIK OZELLIGIYDI, burada bir SINIR. Uc aday dort testle
+    //      elendi ve T2 hicbirinin reddinde gerekce olarak KULLANILMADI
+    //      (ADR-0050 §Karar 4). Fan-out 18'DE KALIR.
+    //
+    // ⚠️ TEK yeni kenar: `Sadakat -> CRM`. Grafik DOKUZDAN ONA cikar ve HALA
+    // DAG — modul bir YAPRAKTIR (`loyalty.public.ts` ACILMADI, talip yok).
+    LoyaltyModule,
     // AI Context Engine — POST /api/v1/ask (ADR-0031 §5). Is modullerinden
     // SONRA gelir: katkicilarini onlar kaydeder.
     ContextModule,

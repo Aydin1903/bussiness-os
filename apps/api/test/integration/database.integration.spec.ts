@@ -119,6 +119,13 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // ⚠️ 0039, `loyalty` semasi + IKI tablo (ADR-0051 §1, Slice 1).
+      // ⚠️ Down dosyasi IKI KADEMELIDIR ve `0038`den ayrildigi nokta budur:
+      // Kampanya tek tabloydu ve sema ici FK tasimiyordu; burada
+      // `point_entries -> accounts` GERCEK BIR FK'dir (ayni sema) ve COCUK
+      // ONCE dusmelidir. `CASCADE` bilerek yazilmadi — sira yanlissa
+      // PATLAMASI gerekir.
+      '0039_loyalty_schema.down.sql',
       // ⚠️ 0038, `marketing` semasi + TEK tablo (ADR-0047 §1, Slice 1).
       // Down dosyasi TEK KADEMEDIR: sema ici FK yok, trigger yok. `0037`den
       // ayrildigi tek nokta, geri alinacak KOLON BAZLI BIR YETKININ DE

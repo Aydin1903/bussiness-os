@@ -510,28 +510,55 @@ describe('Tek kurumsal hafiza — katkicilar (uctan uca)', () => {
   });
 
   describe('⚠️ ADR-0036 / ADR-0042 esik durumu — KAPANIS DENETIMI MADDESI', () => {
-    it('⚠️ YAPISAL kaynak sayisi 6`DA — T2 (2K/3 = 6) TETIKLENMEDI', () => {
+    it('⚠️ YAPISAL kaynak sayisi 8`DE — T2 (2K/3 = 6) ATESLEDI ve bu NORMAL', () => {
       // ============================================================
       // ⚠️ BU TEST BIR ESIGI KILITLER, BIR DAVRANISI DEGIL
       // ============================================================
       // ADR-0042 §3'un T2 esigi: "satir donduren yapisal kaynak sayisi 2K/3'u
-      // GECTIGINDE". `K = 8` icin esik 6'dir ve gecmek 7 gerektirir.
+      // GECTIGINDE". `K = 8` icin esik 6'dir.
       //
-      // ⚠️ Geri Bildirim ANLAMSAL bir katkici ekledi (9. anlamsal kaynak);
-      // YAPISAL sayi DEGISMEDI. Biri `feedback-satisfaction`i eklerse bu test
-      // KIRMIZI YANAR — ve kirmizi yanmasi DOGRUDUR: o gun once
-      // `retrieval.select` gozlemlenebilirlik satiri, sonra olcum, sonra AYRI
-      // BIR PLATFORM ADR'si gerekir. Sira TERSINE CEVRILEMEZ.
+      // ⚠️ BU TEST 2026-08-27'DE GERCEGE YETISTIRILDI (6/9/15 -> 8/10/18) ve
+      // eski beklenti burada KAYITLI KALIYOR ki neyin degistigi gorulsun:
+      //
+      //   ~~structural 6 · semantic 9 · toplam 15~~
+      //
+      // ⚠️ Testin KENDI YAZILI ONGORUSU GERCEKLESTI: "biri
+      // `feedback-satisfaction`i eklerse bu test KIRMIZI YANAR — ve kirmizi
+      // yanmasi DOGRUDUR: o gun once `retrieval.select` gozlemlenebilirlik
+      // satiri, sonra olcum, sonra AYRI BIR PLATFORM ADR'si gerekir."
+      //
+      // ⚠️ VE SIRA TERSINE CEVRILMEDI — ucu de yapildi:
+      //   1. `retrieval.select` yazildi        -> ADR-0046 (2026-08-25)
+      //   2. denetim tenant'i + OLCUM yapildi  -> ADR-0048 (2026-08-25)
+      //   3. AYRI BIR PLATFORM ADR'si yazildi  -> ADR-0050 (2026-08-26)
+      //
+      // ⚠️ ADR-0050'nin sonucu: taban `ceil(K/3)`, `K` = 8 ve rerank
+      // DEGISMEDI — ama T2'nin ANLAMI degisti:
+      //
+      //   "Bir tetikleyici her zaman atesliyorsa, artik bir tetikleyici
+      //    degildir. T2 bundan sonra HER modulde ateslenecek."
+      //
+      // ⚠️ Yani bu test artik "T2 ateslemesin" DEMIYOR; ⚠️ **havuzun
+      // BILESIMININ SESSIZCE DEGISMEDIGINI** soyluyor. Bir modul yeni bir
+      // katkici eklerse yine KIRMIZI YANAR ve yine DOGRU yanar: eklenen her
+      // kaynak, yapisal tarafta TAM 3 olan yuva payindan baska bir kaynagin
+      // sesini kisar (ADR-0050 §Karar 1, dort soruda olculdu).
+      //
+      // ⚠️ 12. modul (Sadakat) bu sayilara DOKUNMAZ: SIFIR katkici ekler
+      // (ADR-0051 §3) — IK'dan sonra ikinci, ama FARKLI sebeple.
       const registry = app.get<RetrievalContributorRegistry>(RETRIEVAL_CONTRIBUTOR_REGISTRY);
       const all = registry.all();
 
       const structural = all.filter((c) => c.contributionKind === 'structural');
       const semantic = all.filter((c) => c.contributionKind === 'semantic');
 
-      expect(structural).toHaveLength(6);
-      expect(semantic).toHaveLength(9);
+      // ⚠️ `campaign-gap` (ADR-0047) + `feedback-satisfaction` (ADR-0045'in
+      // askidaki adayi) ile 6 -> 8.
+      expect(structural).toHaveLength(8);
+      // ⚠️ `campaign-notes` (ADR-0047) ile 9 -> 10.
+      expect(semantic).toHaveLength(10);
       // Fan-out: toplam kayitli katkici sayisi.
-      expect(all).toHaveLength(15);
+      expect(all).toHaveLength(18);
     });
 
     it('⚠️ `feedback-comments` ANLAMSAL kaydedildi — yapisal DEGIL', () => {

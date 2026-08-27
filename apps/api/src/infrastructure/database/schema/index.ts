@@ -239,3 +239,28 @@ export { feedbackResponses } from './feedback-responses.schema';
 // SOYLETIRDI, cunku sonuc notu kampanya BITTIKTEN SONRA yazilir.
 export { marketingSchema } from './marketing-schema.schema';
 export { marketingCampaigns } from './marketing-campaigns.schema';
+
+// ---------------------------------------------------------------------------
+// loyalty — Faz 5'in ONIKINCI ve SON is modulu (ADR-0051)
+// ---------------------------------------------------------------------------
+// ONUCUNCU sema. ⚠️ Sema adi (`loyalty`) ile izin kaynaklari
+// (`loyalty_account` / `loyalty_point`) BILEREK ayri; adlar ayrica NITELENMIS
+// cunku ⚠️ Faz 6 FATURALAMA'dir ve ciplak `account` orada kacinilmaz olarak
+// cakisirdi (ADR-0039'un `stock_item` ongorusu, ikinci kez).
+//
+// ⚠️ IKI TABLO, IKI FARKLI DEGISTIRILEBILIRLIK — ve ikisi AYNI defterde:
+//   `accounts`      -> guncellenemez (kolonu bile yok), SILINEBILIR (KVKK)
+//   `point_entries` -> guncellenemez, tekil SILINEMEZ, hesapla birlikte gider
+//
+// ⚠️ `balance` kolonu YOKTUR (ON DORDUNCU kez ayni karar) ve bunun bedeli
+// acikca kayitlidir: "bakiye negatife dusemez" bir SATIRLAR ARASI kosuldur,
+// bir `CHECK` onu goremez — degismezin VERITABANI GARANTISI YOKTUR ve tek
+// dayanak tek kod yolu + `SELECT ... FOR UPDATE`tur (ADR-0051 §4.4).
+//
+// ⚠️ SIFIR KATKICI — IK'dan sonra ikinci, ama FARKLI sebeple: orada sifir bir
+// GUVENLIK OZELLIGIYDI, burada bir SINIRDIR. Bu modulde yapisal bir alarmin
+// GIRDISI yoktur (puan sona ermesi ve odul esigi kapsam disi) ve tek serbest
+// metin (`note`) bir ETIKETTIR — vektor tasimayan UCUNCU is modulu.
+export { loyaltySchema } from './loyalty-schema.schema';
+export { loyaltyAccounts } from './loyalty-accounts.schema';
+export { loyaltyPointEntries } from './loyalty-point-entries.schema';

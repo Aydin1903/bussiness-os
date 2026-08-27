@@ -197,20 +197,51 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 
 > **Karar tarihi:** 2026-08-08. Bu sıra Faz 5'in **kapsamını** tanımlar ve [§4](#4-faz-6--faturalama)'ün kapı koşulunu belirler.
 
-| #      | Modül                              | Kapsam notu                                                                                                                                                                                                                                                                       | Durum       |
-| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))                                                                                                                                                                         | ✅ Bitti    |
-| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))                                                                                                                                                                               | ✅ Bitti    |
-| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                                                                                                                                                                                          | ✅ Bitti    |
-| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))                                                                                                                                                                             | ✅ Bitti    |
-| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                                                                                                                                                                 | ✅ Bitti    |
-| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                                                                                                                                                              | ✅ Bitti    |
-| **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md))                                                                                                                                              | ✅ Bitti    |
-| **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md))                                                                                                                                              | ✅ Bitti    |
-| **9**  | **İK / Personel**                  | Çalışan · **maaş (AI'dan izole)** · **izin**; ⚠️ **sağlık verisi YOK** · **SIFIR** `RetrievalContributor` ([ADR-0043](adr/0043-ik-personel-modulu.md) · [ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md))                                                    | ✅ Bitti    |
-| **10** | **Müşteri Geri Bildirimi / Anket** | Puan + opsiyonel yorum; **TEK** `RetrievalContributor` (ANLAMSAL) — ⚠️ yapısal aday **liyakatli ama ASKIDA** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md))                                                                                                               | ✅ Bitti    |
-| **11** | **Kampanya / Pazarlama Notları**   | Ad · kanal · tarih aralığı · durum · sonuç notu; **İKİ** `RetrievalContributor` (anlamsal `campaign-notes` + ⚠️ **yapısal `campaign-gap`**) — ⚠️ **T2 ATEŞLEDİ** ([ADR-0047](adr/0047-kampanya-pazarlama-modulu.md) · [ADR-0050](adr/0050-retrieval-taban-buyukluk-revizyonu.md)) | ✅ Bitti    |
-| **12** | **Sadakat Programı**               | Puan · kademe                                                                                                                                                                                                                                                                     | ⏳ Bekliyor |
+| #      | Modül                              | Kapsam notu                                                                                                                                                                                                                                                                       | Durum      |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))                                                                                                                                                                         | ✅ Bitti   |
+| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))                                                                                                                                                                               | ✅ Bitti   |
+| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                                                                                                                                                                                          | ✅ Bitti   |
+| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))                                                                                                                                                                             | ✅ Bitti   |
+| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                                                                                                                                                                 | ✅ Bitti   |
+| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                                                                                                                                                              | ✅ Bitti   |
+| **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md))                                                                                                                                              | ✅ Bitti   |
+| **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md))                                                                                                                                              | ✅ Bitti   |
+| **9**  | **İK / Personel**                  | Çalışan · **maaş (AI'dan izole)** · **izin**; ⚠️ **sağlık verisi YOK** · **SIFIR** `RetrievalContributor` ([ADR-0043](adr/0043-ik-personel-modulu.md) · [ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md))                                                    | ✅ Bitti   |
+| **10** | **Müşteri Geri Bildirimi / Anket** | Puan + opsiyonel yorum; **TEK** `RetrievalContributor` (ANLAMSAL) — ⚠️ yapısal aday **liyakatli ama ASKIDA** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md))                                                                                                               | ✅ Bitti   |
+| **11** | **Kampanya / Pazarlama Notları**   | Ad · kanal · tarih aralığı · durum · sonuç notu; **İKİ** `RetrievalContributor` (anlamsal `campaign-notes` + ⚠️ **yapısal `campaign-gap`**) — ⚠️ **T2 ATEŞLEDİ** ([ADR-0047](adr/0047-kampanya-pazarlama-modulu.md) · [ADR-0050](adr/0050-retrieval-taban-buyukluk-revizyonu.md)) | ✅ Bitti   |
+| **12** | **Sadakat Programı**               | Hesap (CRM kişisine **zorunlu** bağlı) · **değiştirilemez puan defteri** · türetilen bakiye; ⚠️ **SIFIR** `RetrievalContributor` — ⚠️ **kademe v2'ye ERTELENDİ** (aşağıdaki not) ([ADR-0051](adr/0051-sadakat-programi-modulu.md))                                                | 🔨 Sürüyor |
+
+> ### ⚠️ 12. modülün kapsamı DARALTILDI — "kademe" v2'ye ertelendi (2026-08-26)
+>
+> **Bu satır 2026-08-26'da güncellendi.** Eski kapsam notu silinmedi, hangi
+> yarısının düştüğü görülsün diye:
+>
+> > ~~"Puan · **kademe**"~~
+>
+> [ADR-0051](adr/0051-sadakat-programi-modulu.md) §10.1 yalnızca **puanı**
+> kapsıyor. Gerekçe üç katmanlı ve üçü de aynı yere çıkıyor:
+>
+> 1. ⚠️ **Kademe bir KURAL MOTORUDUR, bir kolon değil.** Eşikler tenant'a göre
+>    değişir (yani `finance.categories` deseninde **ikinci bir CRUD yüzeyi**),
+>    değerlendirme **ne zaman** koşar (her okumada mı, gecede bir mi → Queue
+>    kararı), ve **düşme** politikası ayrı bir karardır (bir kez Altın olan hep
+>    Altın mı).
+> 2. ⚠️ **AYRICALIKSIZ BİR KADEME BİR ETİKETTİR.** Kademenin var olma sebebi
+>    müşteriye bir **fayda** vermektir (daha hızlı puan, özel ödül); ikisi de
+>    kapsam dışı (otomatik kazandırma kuralı · ödül kataloğu). Bugün eklenirse
+>    modül müşteriye _"Altın üyesiniz"_ der ve **hiçbir şey vermez**.
+> 3. ⚠️ **Kademe TÜRETİLEBİLİR ve o yüzden ERTELENEBİLİR.** Bakiye/kazanım
+>    üzerinden hesaplanır, yani ⚠️ **bugün kaydedilmeyen bir veri yoktur** —
+>    defter tamdır. ADR-0033'ün kuralı: _"sonradan eklemek mümkün, geri almak
+>    değil."_ Erteleme **hiçbir veri kaybettirmiyor** ve kararı **tersine
+>    çevrilebilir** bırakıyor.
+>
+> ⚠️ **Bu bir aşama değil bir SIRA kararıdır** ve tetikleyicisi yazılıdır: önce
+> ödül kataloğu + ayrıcalık, sonra kademe. ⚠️ Aynı gün **yapısal katkıcı
+> kararı da yeniden sorulur** — bir ödül eşiği, bu modülün ilk **kullanıcı
+> beyanlı eşiği** olur ve ADR-0051 §3.4'ün _"alarmın girdisi yok"_ bulgusu
+> düşer.
 
 **Sıra keyfî değil, üç bağımlılık taşıyor:**
 

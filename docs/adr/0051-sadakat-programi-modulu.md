@@ -1,6 +1,6 @@
 # 0051 — Faz 5 / Modul 12: Sadakat Programi
 
-- **Durum:** ⚠️ **ONERILDI — PRODUCT OWNER ONAYI BEKLIYOR**
+- **Durum:** ⚠️ **Slice 0-1 UYGULANDI** (2026-08-27) — Slice 2 (frontend + kapanis denetimi) bekliyor
 - **Tarih:** 2026-08-26
 - **Karar veren:** Product Owner
 - **Faz:** 5 (⚠️ **SON modul** — bu modul kapaninca Faz 5 TAMAMEN biter)
@@ -1154,8 +1154,8 @@ ayni tercih: **gurultulu bir yanlislik, sessiz bir yanlisliktan iyidir.**
 
 | Slice | Ne                                                                                                                                                                                                                                                                                            | Migration             | Durum |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----- |
-| **0** | **ADR-0051** (bu belge) — ⚠️ **UC PO ONAYI** (A: sifir katkici · B: kademe v2'ye / ROADMAP sapmasi · C: `crm_contact_id` zorunlu)                                                                                                                                                             | —                     | ⏳    |
-| **1** | **Backend (TEK slice):** `loyalty` semasi + iki tablo + **FORCE RLS** + hesap CRUD (⚠️ `PATCH` **yok**) + ⚠️ **kilitli defter yazma yolu** + turetilmis bakiye (toplu `GROUP BY`) + `summary` + izin katalogu + exception filter + cross-modul dogrulama (sifir satir) + ⚠️ **SIFIR katkici** | `0039_loyalty_schema` | ⏳    |
+| **0** | **ADR-0051** (bu belge) — ⚠️ **UC PO ONAYI** (A: sifir katkici · B: kademe v2'ye / ROADMAP sapmasi · C: `crm_contact_id` zorunlu)                                                                                                                                                             | —                     | ✅    |
+| **1** | **Backend (TEK slice):** `loyalty` semasi + iki tablo + **FORCE RLS** + hesap CRUD (⚠️ `PATCH` **yok**) + ⚠️ **kilitli defter yazma yolu** + turetilmis bakiye (toplu `GROUP BY`) + `summary` + izin katalogu + exception filter + cross-modul dogrulama (sifir satir) + ⚠️ **SIFIR katkici** | `0039_loyalty_schema` | ✅    |
 | **2** | **Frontend + HAFIF kapanis denetimi:** liste + DETAY (ODA, ortak duvar), `loyalty` rengi, koridorda **onucuncu kapi**                                                                                                                                                                         | —                     | ⏳    |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — degistirilecek bir
@@ -1200,6 +1200,133 @@ ve **ayni yalani** soyler.
 `preDeployCommand` migration uygular. **Product Owner'a push'tan once acikca
 haber verilir.** Uygulanmis migration: **39 → 40**.
 
+---
+
+## ⚠️ Slice 1 UYGULANDI — ve IKI KARAR OLCUMLE DEGISTI (2026-08-27)
+
+Backend yazildi (`0039_loyalty_schema`), uc zorunlu testin ucu de kosuldu ve
+gecti. ⚠️ **Ama iki yazili karar, gercek bir PostgreSQL'de sinandiginda
+DEGISMEK ZORUNDA KALDI.** Ikisi de asagida duruyor; eski metinler
+**silinmedi** — bu bolum onlarin uzerine yaziyor.
+
+### ✅ §2.3'un CASCADE IDDIASI — **KANITLANDI**
+
+ADR §2.3 su cumleyi kurmus ve _"bu bir IDDIADIR, bir OLCUM DEGIL"_ diye acikca
+isaretlemisti:
+
+> _"`point_entries`e `DELETE` verilmezse, hesap silindiginde
+> `ON DELETE CASCADE` calisir mi? Beklenen cevap EVET'tir."_
+
+⚠️ **Olculdu ve DOGRU cikti.** `businessos_app` rolunun `point_entries`
+uzerinde `can_delete = false` oldugu **ayni testte dogrulanmis** haldeyken hesap
+silindi ve defter satirlari **gercekten gitti** (sayim `businessos_owner` ile,
+RLS'siz yapildi ki uygulama rolunun goremedigi bir kalinti da yakalansin).
+⚠️ Yani ADR'de yazili yedek cozume (**acik `DELETE FROM point_entries`**)
+**GEREK KALMADI**.
+
+### ⚠️ 1. DEGISEN KARAR: FK **BILESIK** oldu — RI denetimi RLS'i ATLIYOR
+
+**Yazili olan:** `account_id uuid NOT NULL REFERENCES loyalty.accounts (id)`.
+
+⚠️ **Olculen:** bir entegrasyon testi (_"BASKA TENANT IN hesabina hareket
+YAZILAMAZ"_) **KIRMIZI YANDI** — tenant A, tenant B'nin hesabina isaret eden bir
+defter satiri **yazabiliyordu**.
+
+> ⚠️ **SEBEP — ve bu, projede ILK KEZ kayda geciyor:** PostgreSQL'de referans
+> butunlugu denetimi **RLS'i ATLAR** (RI sorgusu satir guvenligi devre disi
+> kosar). Yani FK, cagiranin **GOREMEDIGI** bir satiri bulur ve kabul eder.
+> RLS'in `WITH CHECK`i yalnizca satirin **KENDI** `tenant_id`sini baglar —
+> ⚠️ **ISARET ETTIGI SATIRI DEGIL.**
+
+⚠️ **Kusur HTTP'den ERISILEBILIR DEGILDI** ve bu durustce yaziliyor:
+`lockAccountById` RLS'e tabidir ve gorunmeyen hesap icin **404** doner. Yani
+uygulama katmani zaten guvenliydi. Yine de kapatildi — bu projede savunma
+**KATMANLIDIR** ve bir gun ikinci bir yazma yolu eklenirse tek koruma
+"hatirlamak" olurdu.
+
+**Cozum ADR-0034'un deseninin AYNISIDIR** (`finance.transactions`in bilesik
+FK'si, ikinci kez): `tenant_id` bilesigin parcasi olur.
+
+⚠️ On kosulu `accounts_tenant_id_unique UNIQUE (tenant_id, id)`dir ve
+**gereksiz gorunur** (`id` zaten PK) — ADR-0034'un
+`categories_id_direction_unique` kisitiyla **birebir ayni durum**, ve orada
+oldugu gibi burada da bir test onun **varligini** koruyor.
+
+### ⚠️ 2. DEGISEN KARAR: `accounts` uzerinde **`GRANT UPDATE` VAR** — ama bir TRIGGER onu bagliyor
+
+**Yazili olan** (Slice 1'in GRANT listesi):
+
+> ~~`loyalty.accounts -> SELECT, INSERT, DELETE` ⚠️ **UPDATE YOK** (§2.2)~~
+
+⚠️ **Olculen: bu, MODULU CALISMAZ HALE GETIRIYORDU.** HTTP testinde **her** puan
+hareketi **500** dondu: _permission denied for table accounts ... FOR UPDATE_.
+
+> ⚠️ **SEBEP:** `SELECT ... FOR UPDATE` bir **SATIR KILIDIDIR** ve kilitlemek
+> tanim geregi _"bu satiri degistirebilirim"_ demektir. PostgreSQL kilitlenen
+> tablo icin `ACL_SELECT_FOR_UPDATE` ister ve o, kaynak kodda **acikca
+> `ACL_UPDATE`e esittir**. ⚠️ **Yani kilit, `UPDATE` yetkisi olmadan ALINAMAZ**
+> — ve bu modulde kilit, bakiyenin negatife dusmemesinin **TEK** dayanagidir
+> (§4.4).
+
+⚠️ **Iki secenek vardi ve ikincisi secildi:**
+
+| Secenek                                            | Neden / neden degil                                                                                                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Advisory kilit (`pg_advisory_xact_lock`)           | Yetki istemez — ama kilit **satira degil bir HASH'e** baglanir, `inventory`nin deseninden ayrisir ve okuyanin ikinci bir mekanizmayi ogrenmesini gerektirir.                    |
+| ⚠️ **`GRANT UPDATE` + REDDEDEN TRIGGER** (secildi) | ⚠️ Korumayi **ZAYIFLATMAZ, GUCLENDIRIR**: bir `GRANT`in yoklugu yalnizca **uygulama rolunu** baglar; bir trigger **TABLO SAHIBINI DE** baglar (ADR-0043'un deseni, ikinci kez). |
+
+⚠️ **Ve `DELETE` kapsam disidir** — `audit_log_append_only`den ayrildigimiz
+nokta: orada trigger `UPDATE OR DELETE` yakalar (denetim izi silinemez); burada
+silme **mesrudur ve bir YUKUMLULUKTUR** (KVKK m.7/m.11, §2.1).
+
+⚠️ **Net sonuc:** `accounts` artik `businessos_owner` icin **de**
+degistirilemezdir — yani §2.2'nin garantisi ADR'de yazilandan **daha
+gucludur**; degisen sey **mekanizmadir**, karar degil.
+
+### ⚠️ 3. UC ZORUNLU TESTIN SONUCU
+
+| #   | Test                                                               | Sonuc                                                                                                  |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| 1   | ⚠️ **Es zamanlilik** — 500 puana **6 paralel** 100 puanlik harcama | ✅ **TAM 5'i gecti, 1'i 422**; bakiye **0** — ikinci, bagimsiz bir SQL sayimiyla da dogrulandi         |
+| 2   | ⚠️ **Cascade + GRANT** (§2.3'un iddiasi)                           | ✅ **IDDIA DOGRU** — `can_delete = false` iken cascade calisti; yedek cozume gerek kalmadi             |
+| 3   | ⚠️ **Sifirdan farkli bakiye projeksiyonu** (ADR-0037'nin kusuru)   | ✅ `300 + 45 - 120 = 225` listede **dogru**; iki hesabin bakiyesi **birbirine sizmadi**; duvar = liste |
+
+⚠️ **Es zamanlilik testinin iddiasi "en fazla bes" DEGIL "TAM BES"tir** — kilit
+seri hale getirdigi icin sonuc **deterministiktir**; `<= 5` yazmak, hicbirinin
+gecmedigi bozuk bir implementasyonu da yesil yakardi.
+
+### ⚠️ 4. BULUNAN AMA **BU ISIN KAPSAMINDA OLMAYAN** BIR KIRMIZI TEST
+
+`context-contributors.integration.spec.ts` **kirmizi** ve ⚠️ **bu slice'tan ONCE
+de kirmiziydi** — kanit, HEAD'de acilan temiz bir worktree'de sayildi:
+
+| Iddia (test)       | ⚠️ HEAD'deki gercek |
+| ------------------ | ------------------- |
+| `structural` **6** | ⚠️ **8**            |
+| `semantic` **9**   | ⚠️ **10**           |
+| toplam **15**      | ⚠️ **18**           |
+
+⚠️ Test, **ADR-0050 ONCESI** bir dunyada yazildi (_"biri
+`feedback-satisfaction`i eklerse bu test KIRMIZI YANAR"_) ve o gun geldi:
+ADR-0047 + ADR-0050 ile yapisal kaynak **8**'e cikti. ⚠️ **Bu modul sifir
+katkici ekler, yani sayilara DOKUNMAZ.**
+
+✅ **PRODUCT OWNER TALIMATIYLA DUZELTILDI** (2026-08-27, ayni commit):
+`structural` **8** · `semantic` **10** · toplam **18**. ⚠️ Bu **yeni bir
+platform karari DEGILDIR** — ADR-0047 + ADR-0050'nin **zaten onaylanmis**
+sonucudur; testin **gercege yetismesidir**.
+
+⚠️ **Testin KENDI YAZILI ONGORUSU gerceklesmisti** (_"biri
+`feedback-satisfaction`i eklerse bu test KIRMIZI YANAR — ve kirmizi yanmasi
+DOGRUDUR: o gun once `retrieval.select`, sonra olcum, sonra AYRI BIR PLATFORM
+ADR'si gerekir"_) ve ⚠️ **sira TERSINE CEVRILMEDI** — ucu de yapildi:
+ADR-0046 (arac) → ADR-0048 (olcum) → ADR-0050 (platform ADR'si).
+
+⚠️ Eski beklenti (`6/9/15`) test dosyasinda **kayitli birakildi** ki neyin
+degistigi gorulsun, ve testin ANLAMI yeniden yazildi: artik _"T2 ateslemesin"_
+demiyor — ⚠️ **havuzun BILESIMININ SESSIZCE DEGISMEDIGINI** soyluyor: bir modul
+yeni bir katkici eklerse yine kirmizi yanar ve yine **dogru** yanar, cunku
+yapisal tarafta yuva payi **tam 3**tur (ADR-0050 §Karar 1).
 ---
 
 ## Kapanis denetimi (Slice 2) — **HAFIF seviye**
