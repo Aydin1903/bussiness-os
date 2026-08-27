@@ -1295,6 +1295,77 @@ gucludur**; degisen sey **mekanizmadir**, karar degil.
 seri hale getirdigi icin sonuc **deterministiktir**; `<= 5` yazmak, hicbirinin
 gecmedigi bozuk bir implementasyonu da yesil yakardi.
 
+### ⚠️ PROD DOGRULAMASI — **yapildi, 2026-08-27** (`c73e324`)
+
+Push `9695dbc..c73e324`; `preDeployCommand` migration'i uyguladi. Yedi kalemin
+yedisi de kosuldu.
+
+| #   | Kontrol                                           | Sonuc                                                                                 |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | `/api/v1/health`                                  | **200** · `production` · db **2 ms** · ⚠️ **uptime 12 s** (gercekten yeniden basladi) |
+| 2   | Uygulanmis migration                              | ⚠️ **39 → 40**                                                                        |
+| 3   | Iki tablo **RLS + FORCE**                         | `accounts` **t/t** · `point_entries` **t/t**, ikisinde de **1 politika**              |
+| 4   | `accounts` **GRANT UPDATE VAR**, trigger bagliyor | ⚠️ **davranissal olarak kanitlandi** (asagida)                                        |
+| 5   | `point_entries` **UPDATE/DELETE YOK**             | `upd = f` · `del = f`                                                                 |
+| 6   | Uc dar rol `loyalty`'ye **kor**                   | `outbox_relay` · `report_worker` · `rls_reader` → `usage = false`, grant **0**        |
+| 7   | `GET /api/v1/loyalty/accounts`                    | ⚠️ **401** — ve olmayan bir yol **404**, yani cevap **ayirt edici**                   |
+
+#### ⚠️ 4. kalem: VARLIK KANITI YETMEDI — DAVRANISSAL kanit alindi
+
+⚠️ `pg_trigger`da trigger'i gormek **yeterli degildi**: `BEFORE UPDATE FOR EACH
+ROW` bir trigger **sifir satirda ATESLEMEZ** ve prod **bos**tur (sifir kullanici,
+sifir tenant). Yani "trigger var" demek, ADR-0035'in kaydettigi ayni hatayi
+tekrarlamak olurdu: _"sinanan DEPLOY, davranis degil."_
+
+Bu yuzden **tamamen geri alinan** bir prob kosuldu (gecici tenant + hesap +
+defter satiri, sonunda `RAISE EXCEPTION` ile **rollback**):
+
+```
+accounts      UPDATE  businessos_owner engellendi mi : EVET [23001] loyalty.accounts guncellenemez...
+accounts      UPDATE  businessos_app   engellendi mi : EVET [23001] loyalty.accounts guncellenemez...
+point_entries UPDATE  businessos_app   engellendi mi : EVET [42501] permission denied
+point_entries DELETE  businessos_app   engellendi mi : EVET [42501] permission denied
+hesap silinince CASCADE calisti mi (DELETE yetkisi YOKKEN) : EVET - defter satiri kalmadi
+```
+
+⚠️ **IKI HATA KODUNUN FARKLI OLMASI KRITIKTIR ve tesaduf degildir:**
+
+| Koruma                     | Kod       | Kaynagi                                                               |
+| -------------------------- | --------- | --------------------------------------------------------------------- |
+| `accounts` UPDATE          | **23001** | ⚠️ **TRIGGER** — cunku yetki katmani bilerek bos birakildi (§Slice 1) |
+| `point_entries` UPDATE/DEL | **42501** | ⚠️ **YETKI** — `GRANT` hic verilmedi                                  |
+
+⚠️ Ve **owner ile app AYNI kodu aldi (23001)** — yani trigger'in
+_"TABLO SAHIBINI DE baglar"_ iddiasi **prod'da** dogrulandi. Bir `GRANT`in
+yoklugu bunu saglayamazdi.
+
+⚠️ **§2.3'un CASCADE iddiasi prod'da IKINCI kez** dogrulandi: `businessos_app`
+`point_entries` uzerinde `can_delete = false` iken hesap silindi ve defter
+satiri **kalmadi**.
+
+#### ⚠️ Bilesik FK prod'da yerinde
+
+Slice 1'de bir olcumden dogan tasarim degisikligi (RI denetiminin RLS'i
+atlamasi) prod'da da dogrulandi:
+
+```
+point_entries_tenant_account_fkey | FOREIGN KEY (tenant_id, account_id)
+                                    REFERENCES loyalty.accounts(tenant_id, id) ON DELETE CASCADE
+accounts_tenant_id_unique         | UNIQUE (tenant_id, id)
+```
+
+#### ⚠️ SIFIR KALINTI — prob'un bedeli olculdu
+
+Prob'dan sonra sayildi: `accounts 0 · point_entries 0 · platform.tenants 0 ·
+platform.users 0 · prob artigi 0`. ⚠️ Prod, prob **oncesindeki** hâline
+birebir dondu (sifir kullanici / sifir tenant, 2026-08-26'daki temizlikten
+beri).
+
+⚠️ **Kayda geciyor cunku bu, CLAUDE.md'nin "prod test artigi" dersinin
+uygulanmasidir**: orada iki denetim kullanicisi prod'da kalmisti ve ne zaman
+silindikleri **kayitli degildi**. Burada yazma islemi bastan **geri alinacak
+sekilde** kuruldu ve kalinti **sayimla** teyit edildi.
+
 ### ⚠️ 4. BULUNAN AMA **BU ISIN KAPSAMINDA OLMAYAN** BIR KIRMIZI TEST
 
 `context-contributors.integration.spec.ts` **kirmizi** ve ⚠️ **bu slice'tan ONCE

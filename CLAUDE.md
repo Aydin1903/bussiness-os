@@ -273,6 +273,47 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
 **Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
+**12. modül Sadakat Programı 🔨 Slice 1 bitti** (ADR-0051; backend prod'da
+doğrulandı 2026-08-27 — `c73e324`, migration 39 → 40; **Slice 2 sürüyor**).
+⚠️ Bu modül **beş ilk** taşıyor: **cross-modül işaretçisi ilk kez ZORUNLU**
+(`crm_contact_id NOT NULL`) — beş modülde _"zorunluluk sahte kayıt üretir"_
+dersi burada **ters işliyor**, çünkü bir işletme puan verdiği kişiyi zaten
+tanımak zorundadır; **bir değişmezin veritabanı garantisi ilk kez YOK**
+(bakiye ≥ 0 satırlar arası bir koşuldur, `CHECK` göremez — tek dayanak tek kod
+yolu + `SELECT … FOR UPDATE`); **defter değiştirilemez ama hesap silinebilir**
+(beşinci şekil, `RESTRICT` KVKK yüzünden kullanılamazdı); **satır içi damga
+ilk kez bir denetim izinden zayıf değil** (ekleme-yalnız defterde damganın
+kendisi sıradır, `platform/audit` bu yüzden kullanılmıyor); ve **kahraman
+rakam ilk kez anlamlı bir TOPLAM** (ADR-0034'ün para birimi ve ADR-0039'un
+birim kuralı ilk kez **tetiklenmiyor** — puanın para birimi yok, tek birim
+var).
+⚠️ **SIFIR KATKICI — İK'dan sonra ikinci, ama FARKLI sebeple:** İK'da sıfır
+bir **güvenlik özelliğiydi**, burada bir **SINIR**. Üç aday dört testle elendi
+ve ⚠️ **T2 hiçbirinin reddinde gerekçe olarak KULLANILMADI** (ADR-0050 §Karar
+4). En derin bulgu: ⚠️ **bu projedeki her yapısal alarm ya kullanıcının BEYAN
+ETTİĞİ BİR EŞİĞE ya BİR TARİHE dayanır** — Sadakat v1'de ikisi de yok, yani
+eksik olan katkıcı değil **onun besleyeceği girdi**. Fan-out **18'de kaldı**.
+⚠️ **İKİ YAZILI KARAR UYGULAMADA ÖLÇÜMLE DEĞİŞTİ** ve ikisi de ADR'ye işlendi:
+① **FK bileşik oldu** — düz bir FK ile tenant A, tenant B'nin hesabına işaret
+eden satır yazabiliyordu, çünkü ⚠️ **PostgreSQL'de referans bütünlüğü denetimi
+RLS'i ATLAR** ve `WITH CHECK` yalnızca satırın *kendi* `tenant_id`'sini bağlar.
+Çözüm ADR-0034'ün bileşik FK deseni. ② **`accounts` üzerinde `GRANT UPDATE`
+var, ama bir TRIGGER onu bağlıyor** — ⚠️ `SELECT … FOR UPDATE` bir satır
+kilididir ve PostgreSQL `ACL_SELECT_FOR_UPDATE` ister, o da `ACL_UPDATE`'e
+eşittir; yani **kilit UPDATE yetkisi olmadan alınamaz**. Bir `GRANT`in yokluğu
+yalnızca uygulama rolünü bağlardı, trigger **tablo sahibini de** bağlar — yani
+koruma zayıflamadı **güçlendi** ve bu **prod'da davranışsal olarak** kanıtlandı
+(owner ve app aynı `23001`, `point_entries` ise `42501` — iki farklı katman).
+⚠️ **Kademe (tier) v2'ye ERTELENDİ** ve bu bir **ROADMAP §3.5 sapmasıdır**:
+ayrıcalıksız bir kademe bir **etikettir**, ayrıcalıklar ödül kataloğunu
+gerektirir; kademe türetilebilir olduğu için erteleme **hiçbir veri
+kaybettirmiyor**.
+⚠️ **Retention YİRMİ ÜÇTEN YİRMİ DÖRDE çıktı** (`loyalty.point_entries`) ve
+⚠️ listedeki **ikinci** _"silmek geçmişi değil BUGÜNKÜ SAYIYI değiştirir"_
+kalemidir (`inventory.movements`ten sonra). `loyalty.accounts` listeye
+**girmedi** (müşteri sayısıyla artar, zamanla değil). ⚠️ **Vektör taşıyan
+tablo sayısı ONDA KALDI** — Faz 5'te bu sayıyı artırmayan **üçüncü** modül.
+
 **11. modül Kampanya/Pazarlama ✅ bitti** (ADR-0047; üç slice, HAFİF kapanış
 denetimi 2026-08-26 — migration 38 → 39, prod'da doğrulandı).
 ⚠️ Bu modül **dört ilk** taşıyor: **`POST /ask` havuzuna İKİ katkıcıyla giren
