@@ -195,3 +195,85 @@ describe('Koridor — kimlik solda toplanır', () => {
     );
   });
 });
+
+/**
+ * ⚠️ KORİDOR KAYDIRILABİLİR OLMALIDIR — ölçülmüş bir kullanılabilirlik hatası.
+ *
+ * ============================================================================
+ * ⚠️ NEDEN BU TESTLER VAR
+ * ============================================================================
+ * Faz 5 kapanınca koridor **on üç kapıya** çıktı (Panel + on iki modül) ve
+ * toplam yükseklik küçük ekranlarda görüntü alanını aştı. Kabuk
+ * `h-dvh overflow-hidden` olduğu için taşan kısım **kırpıldı**: son üç kapı
+ * (Geri Bildirim · Kampanya · Sadakat) ve hesap menüsü ekranda GÖRÜNMÜYOR ve
+ * ULAŞILAMIYORDU.
+ *
+ * ⚠️ Hata SESSİZDİ: kapılar DOM'da vardı, yalnızca görünmüyorlardı — hiçbir
+ * test kırmızı yanmadı, lint uyarmadı. ⚠️ Ve her yeni modül kendi kapısını
+ * gizlerdi, çünkü son eklenen her zaman en alttadır.
+ *
+ * ⚠️ Bu testler bir GÖRÜNÜMÜ değil, DÜZENİN ÜÇ ZORUNLU PARÇASINI kilitler.
+ * JSDOM gerçek düzen hesaplamaz (`scrollHeight` her zaman 0'dır), yani
+ * "gerçekten kaydırılıyor mu" burada ölçülemez — o, gerçek tarayıcıda
+ * ölçüldü. Buradaki iş, **mekanizmanın sessizce kaldırılmasını** engellemek.
+ */
+describe('⚠️ Koridor kaydırılabilir — 13 kapı sığmadığında', () => {
+  it('⚠️ liste `overflow-y-auto` VE `min-h-0` VE `flex-1` taşır — üçü birlikte', () => {
+    renderAt('/app');
+    const nav = screen.getByRole('navigation', { name: 'Odalar' });
+
+    // ⚠️ `min-h-0` OLMADAN `overflow-y-auto` HİÇBİR ŞEY YAPMAZ: bir flex
+    // çocuğunun varsayılanı `min-height: auto`dur ve içeriğinin altına asla
+    // küçülmez. Bu yüzden üçü de ayrı ayrı iddia ediliyor — biri sessizce
+    // silinirse test kırmızı yanar.
+    expect(nav.className).toContain('overflow-y-auto');
+    expect(nav.className).toContain('min-h-0');
+    expect(nav.className).toContain('flex-1');
+  });
+
+  it('⚠️ kaydırma odaya SIÇRAMAZ (`overscroll-contain`)', () => {
+    // Onsuz, liste sonuna gelindiğinde tekerlek sağdaki odayı kaydırırdı.
+    renderAt('/app');
+    expect(screen.getByRole('navigation', { name: 'Odalar' }).className).toContain(
+      'overscroll-contain',
+    );
+  });
+
+  it('⚠️ MARKA ve ŞİRKET SEÇİCİ kaydırma alanının DIŞINDA kalır', () => {
+    // Üst kısım SABİTTİR: hangi şirkette olduğunu görmek için on üç kapıyı
+    // geçmek gerekmemeli.
+    renderAt('/app');
+    const nav = screen.getByRole('navigation', { name: 'Odalar' });
+
+    expect(nav.contains(screen.getByTestId('company-switcher'))).toBe(false);
+    expect(nav.contains(screen.getByLabelText('KobiWise ana sayfa'))).toBe(false);
+  });
+
+  it('⚠️ HESAP MENÜSÜ de kaydırma alanının DIŞINDA ve daima görünür', () => {
+    // İçeri alınsaydı, çıkış yapmak için önce on üç kapıyı geçmek gerekirdi.
+    renderAt('/app');
+    const nav = screen.getByRole('navigation', { name: 'Odalar' });
+
+    expect(nav.contains(screen.getByTestId('user-menu'))).toBe(false);
+  });
+
+  it('⚠️ ON ÜÇ KAPININ ON ÜÇÜ DE listede — sonuncusu SADAKAT', () => {
+    // ⚠️ Bu sayı bilerek SABİT yazıldı: on dördüncü bir kapı eklendiğinde test
+    // kırmızı yanar ve ekleyen kişi bu dosyayı — yani kaydırma gerekçesini —
+    // okumak zorunda kalır.
+    renderAt('/app');
+    const nav = screen.getByRole('navigation', { name: 'Odalar' });
+    const doors = [...nav.querySelectorAll('a')];
+
+    expect(doors).toHaveLength(13);
+    expect(doors[doors.length - 1]?.getAttribute('href')).toBe('/app/loyalty');
+  });
+
+  it('⚠️ DAR koridorda da kaydırılabilir — 62 px"de taşma daha erken başlar', () => {
+    renderAt('/app', true);
+    const nav = screen.getByRole('navigation', { name: 'Odalar' });
+
+    expect(nav.className).toContain('overflow-y-auto');
+    expect(nav.className).toContain('min-h-0');
+  });
+});

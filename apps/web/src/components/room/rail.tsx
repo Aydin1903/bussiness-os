@@ -311,7 +311,7 @@ export function Rail({
     <div
       className={`flex h-full w-full flex-col gap-1 py-3 ${collapsed ? 'items-center' : 'px-3'}`}
     >
-      <div className={`flex items-center gap-2.5 ${collapsed ? 'flex-col' : 'px-1'}`}>
+      <div className={`flex shrink-0 items-center gap-2.5 ${collapsed ? 'flex-col' : 'px-1'}`}>
         {/*
           ⚠️ GENİŞ KORİDORDA YAZILI LOGO, dar koridorda YALNIZCA İŞARET.
 
@@ -352,13 +352,52 @@ export function Rail({
       </div>
 
       {/* Hangi şirketteyim — çok kiracılı bir üründe ilk sorulan soru. */}
-      <div className={collapsed ? 'mt-2' : 'mt-3'}>
+      <div className={`shrink-0 ${collapsed ? 'mt-2' : 'mt-3'}`}>
         <CompanySwitcher compact={collapsed} />
       </div>
 
+      {/*
+        ============================================================================
+        ⚠️ YALNIZCA BU LİSTE KAYDIRILIR — MARKA VE ŞİRKET SEÇİCİ SABİT KALIR
+        ============================================================================
+        ⚠️ BU BİR SÜS DEĞİL, ÖLÇÜLMÜŞ BİR KULLANILABİLİRLİK HATASININ DÜZELTMESİDİR.
+        Faz 5 kapanınca koridor **on üç kapıya** çıktı (Panel + on iki modül) ve
+        toplam yükseklik 700 px'lik bir görüntü alanını aşıyordu. Kabuk
+        `h-dvh overflow-hidden` olduğu için taşan kısım **kırpılıyordu**: son üç
+        kapı (Geri Bildirim · Kampanya · Sadakat) ve **hesap menüsü** ekranda
+        HİÇ GÖRÜNMÜYOR ve hiçbir şekilde ULAŞILAMIYORDU.
+
+        ⚠️ Hata SESSİZDİ ve bu, onu tehlikeli yapan şeydi: hiçbir test kırmızı
+        yanmaz, lint uyarmaz, tip denetimi görmez — kapılar DOM'da vardır,
+        yalnızca **görünmezler**. Ve son eklenen modül her zaman en alttadır,
+        yani her yeni modül kendi kapısını gizlerdi.
+
+        ⚠️ ÜÇ PARÇA BİRLİKTE ÇALIŞIR, biri eksik olursa düzelme:
+          `flex-1`           -> kalan yüksekliği alır (kaldırılan boşlukçunun işi)
+          ⚠️ `min-h-0`       -> ZORUNLU. Flex çocuğunun varsayılanı
+                                `min-height: auto`dur; onsuz liste içeriğinin
+                                altına ASLA küçülmez ve `overflow-y-auto`
+                                hiçbir şey yapmaz — taşma aynen sürer.
+          `overflow-y-auto`  -> gerektiğinde kaydırma çubuğu
+
+        ⚠️ `overscroll-contain`: liste sonuna gelindiğinde kaydırma ODAYA
+        SIÇRAMAZ. Onsuz, koridorda tekerleği çevirmek sağdaki içeriği
+        kaydırırdı — kullanıcının istemediği bir şey.
+
+        ⚠️ Ayrı bir `flex-1` boşlukçu KALDIRILDI: liste artık kalan alanı
+        kendisi alıyor, yani hesap menüsü yine en altta kalıyor. İkisi bir
+        arada olsaydı ikisi de büyür ve liste hak ettiği yüksekliğin YARISINI
+        alırdı.
+
+        ⚠️ İnce kaydırma çubuğu global olarak tanımlı (`globals.css`,
+        `scrollbar-width: thin`) — dar koridorda (62 px) kalın bir çubuk
+        ikonları kaydırırdı.
+      */}
       <nav
         aria-label="Odalar"
-        className={`mt-3 flex flex-col gap-0.5 ${collapsed ? 'items-center' : ''}`}
+        className={`mt-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain ${
+          collapsed ? 'items-center' : ''
+        }`}
       >
         {DOORS.map((door) => (
           <DoorLink
@@ -371,9 +410,14 @@ export function Rail({
         ))}
       </nav>
 
-      <div className="flex-1" />
-
-      <UserMenu compact={collapsed} />
+      {/*
+        ⚠️ `shrink-0`: hesap menüsü kaydırma alanının DIŞINDADIR ve daima
+        görünür kalır. Kaydırılabilir listenin içine alınsaydı, çıkış yapmak
+        için önce on üç kapıyı geçmek gerekirdi.
+      */}
+      <div className="mt-1 shrink-0">
+        <UserMenu compact={collapsed} />
+      </div>
     </div>
   );
 }
