@@ -581,3 +581,35 @@ export type {
   CampaignSummary,
   ReindexCampaignsResponse,
 } from './marketing/marketing.contract';
+
+/* ==========================================================================
+ * loyalty — Faz 5'in ONIKINCI ve SON is modulu (ADR-0051)
+ * ==========================================================================
+ * ⚠️ `balance` bir KOLON DEGILDIR, her okumada turetilir — ve arayuz de onu
+ * KENDI hesaplamaz (defter sayfalidir, sayfayi toplamak SESSIZCE yanlis
+ * olurdu). ⚠️ Bir `updatePointEntry` / `deletePointEntry` sozlesmesi de
+ * YOKTUR: defter degistirilemez (§2.3).
+ */
+export {
+  loyaltyAccountSchema,
+  loyaltyAccountListResponseSchema,
+  createLoyaltyAccountRequestSchema,
+  pointEntrySchema,
+  pointEntryListResponseSchema,
+  createPointEntryRequestSchema,
+  createPointEntryResponseSchema,
+  loyaltySummarySchema,
+  POINT_DIRECTIONS,
+  MAX_POINT_ENTRY_NOTE_CHARS,
+} from './loyalty/loyalty.contract';
+export type {
+  LoyaltyAccount,
+  LoyaltyAccountListResponse,
+  CreateLoyaltyAccountRequest,
+  PointEntry,
+  PointDirection,
+  PointEntryListResponse,
+  CreatePointEntryRequest,
+  CreatePointEntryResponse,
+  LoyaltySummary,
+} from './loyalty/loyalty.contract';

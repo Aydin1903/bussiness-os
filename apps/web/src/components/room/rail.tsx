@@ -13,6 +13,7 @@ import {
   FinanceIcon,
   InventoryIcon,
   FeedbackIcon,
+  LoyaltyIcon,
   MarketingIcon,
   HrIcon,
   InvoicingIcon,
@@ -238,6 +239,35 @@ const DOORS: readonly Door[] = [
     icon: MarketingIcon,
     href: '/app/marketing',
     module: 'marketing',
+  },
+  /*
+   * ⚠️ ONUCUNCU VE **SON** KAPI — FAZ 5'IN SONUNCUSU (ADR-0051 §9).
+   *
+   * ⚠️ MOR BANT ARTIK UC KAPI ve setin en kalabalik IKINCI bandi:
+   * `hr` (#896096) · `marketing` (#7665a6) · `loyalty` (#9a5a84).
+   * Yesil bant (dort kapi) hala en kalabalik.
+   *
+   * ⚠️ `hr` ile `loyalty` KOMSU HUE'dur ve renk korlugu altinda
+   * yakinlasabilirler — kural aynen baglayici: RENK HICBIR YERDE TEK AYIRT
+   * EDICI OLMAZ. Uc kapi da FARKLI ETIKET ("Ekip" / "Kampanyalar" /
+   * "Sadakat") ve FARKLI IKON tasir (yuvarlak govdeler vs koseli megafon
+   * konisi vs delikli kart + yildiz), aktif kapi ise `aria-current` alir.
+   *
+   * ⚠️ Anahtar `loyalty` — IZIN kaynaklari `loyalty_account`/`loyalty_point`
+   * OLMASINA RAGMEN. Modul anahtari rotasiyla ayni olmak zorundadir;
+   * ayrisirsa `data-module` SESSIZCE tutmaz (ADR-0035'in `booking` dersi).
+   *
+   * ⚠️ Kapi dogrudan CANLI eklendi; bir "yakinda" bolumu YOK (`SOON` dizisi
+   * Finans'ta bosalmis ve o gunden beri bos). ⚠️ VE ARTIK BOSALMAYA DEVAM
+   * EDECEK: Faz 5'in on iki modulu de canli, yani "yakinda" diye
+   * gosterilecek bir is modulu KALMADI.
+   */
+  {
+    label: 'Sadakat',
+    short: 'Sadakat',
+    icon: LoyaltyIcon,
+    href: '/app/loyalty',
+    module: 'loyalty',
   },
 ];
 

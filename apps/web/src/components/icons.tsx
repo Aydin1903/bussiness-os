@@ -250,6 +250,27 @@ export function MarketingIcon(props: IconProps) {
   );
 }
 
+/**
+ * Sadakat — ⚠️ MOR BANDIN UCUNCU KAPISI, VE IKONU KASITLI OLARAK FARKLI.
+ *
+ * `hr` (yuvarlak govdeler) · `marketing` (koseli megafon konisi) ·
+ * **`loyalty` (delikli bir KART + yildiz)**. Uc kapi da mor bandindadir ve
+ * ⚠️ renk hicbir yerde TEK ayirt edici olmaz (FRONTEND §4.8): ikon ve etiket
+ * ayrimi kapanis denetiminde ACIKCA kontrol edilir.
+ *
+ * Metafor bir SADAKAT KARTIDIR — kasada delinen o kart. Bir "puan" soyut bir
+ * sayidir; kart, kullanicinin zaten bildigi nesnedir.
+ */
+export function LoyaltyIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18" />
+      <path d="m8.5 13.2 1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2L5.3 15.5l2.2-.3z" />
+    </svg>
+  );
+}
+
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

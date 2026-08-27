@@ -1,6 +1,7 @@
 # 0051 — Faz 5 / Modul 12: Sadakat Programi
 
-- **Durum:** ⚠️ **Slice 0-1 UYGULANDI** (2026-08-27) — Slice 2 (frontend + kapanis denetimi) bekliyor
+- **Durum:** ✅ **KABUL EDILDI ve KAPANDI** (Slice 0-2 tamam; HAFIF kapanis denetimi 2026-08-27)
+  — ⚠️ **VE BU MODUL FAZ 5'I KAPATTI**
 - **Tarih:** 2026-08-26
 - **Karar veren:** Product Owner
 - **Faz:** 5 (⚠️ **SON modul** — bu modul kapaninca Faz 5 TAMAMEN biter)
@@ -1156,7 +1157,7 @@ ayni tercih: **gurultulu bir yanlislik, sessiz bir yanlisliktan iyidir.**
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----- |
 | **0** | **ADR-0051** (bu belge) — ⚠️ **UC PO ONAYI** (A: sifir katkici · B: kademe v2'ye / ROADMAP sapmasi · C: `crm_contact_id` zorunlu)                                                                                                                                                             | —                     | ✅    |
 | **1** | **Backend (TEK slice):** `loyalty` semasi + iki tablo + **FORCE RLS** + hesap CRUD (⚠️ `PATCH` **yok**) + ⚠️ **kilitli defter yazma yolu** + turetilmis bakiye (toplu `GROUP BY`) + `summary` + izin katalogu + exception filter + cross-modul dogrulama (sifir satir) + ⚠️ **SIFIR katkici** | `0039_loyalty_schema` | ✅    |
-| **2** | **Frontend + HAFIF kapanis denetimi:** liste + DETAY (ODA, ortak duvar), `loyalty` rengi, koridorda **onucuncu kapi**                                                                                                                                                                         | —                     | ⏳    |
+| **2** | **Frontend + HAFIF kapanis denetimi:** liste + DETAY (ODA, ortak duvar), `loyalty` rengi, koridorda **onucuncu kapi**                                                                                                                                                                         | —                     | ✅    |
 
 **Cross-modul slice'i YOK ve bu bir atlama degil** — degistirilecek bir
 `public.ts` yok (§6.2).
@@ -1436,6 +1437,235 @@ uc dar rol `loyalty` semasina **kor** · `GET /api/v1/loyalty/accounts` **401**.
 > **acilmadan once** ROADMAP §8.2'nin KVKK kontrol noktasi ve §8.5'in retention
 > karari **hala aciktir** — bu ADR onlari kapatmaz, ⚠️ **yalnizca ikisini de
 > BIR KALEM daha buyutur**.
+
+---
+
+## ⚠️ HAFIF kapanis denetimi — **yapildi, 2026-08-27**
+
+⚠️ **VE BU DENETIM AYNI ZAMANDA FAZ 5'IN GENEL KAPANIS DENETIMIDIR** — on iki
+modulun sonuncusu. Dokuz maddenin dokuzu da kosuldu; ⚠️ **denetim sirasinda
+GERCEK BIR KUSUR BULUNMADI** (uygulama sirasinda bulunan iki kusur yukarida,
+§Slice 1 bolumunde).
+
+| #   | Madde                                                    | Sonuc                                                                                                |
+| --- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | `git status` temiz · `pnpm verify` **cikis kodu 0**      | ✅ api **2223** birim · web **599** birim                                                            |
+| 2   | Uclarin turu — 200/401/403/**409**/422                   | ✅ hepsi dogru (asagida)                                                                             |
+| 3   | Renk turu — acik **ve** koyu tema                        | ✅ **gercek tarayicida OLCULDU** (asagida)                                                           |
+| 4   | ⚠️ Yetersiz bakiye — arayuz net bir hata gosteriyor mu   | ✅ **canli denendi**; ⚠️ **hicbir satir yazilmadi**                                                  |
+| 5   | Fan-out **18** — bu modul degistirmiyor mu               | ✅ **8 yapisal + 10 anlamsal = 18**; `loyalty` katkicisi **0**, `ContextModule` **import edilmiyor** |
+| 6   | Bilinen sinirlar guncellendi (ADR + CLAUDE.md + ROADMAP) | ✅                                                                                                   |
+| 7   | ⚠️ **13 is semasi prod'da RLS + FORCE** (Faz 5 geneli)   | ✅ **13/13 TAMAM**                                                                                   |
+| 8   | ⚠️ **12 modulun kok rotasi prod'da 401** (Faz 5 geneli)  | ✅ **12/12 401** — olmayan yollar **404**                                                            |
+| 9   | CLAUDE.md "Mevcut Durum" + ROADMAP Faz 6 kapisi          | ✅ Faz 5 **TAMAMEN KAPANDI** olarak isaretlendi                                                      |
+
+### ✅ Madde 2 — uclarin turu, ve ⚠️ **409'UN VARLIGI** kanitlandi
+
+| Istek                                                  | Beklenen |   Alinan    |
+| ------------------------------------------------------ | :------: | :---------: |
+| Kimliksiz `GET /loyalty/accounts` · `/loyalty/summary` |   401    |   **401**   |
+| `owner` `GET /loyalty/accounts` · `/loyalty/summary`   |   200    |   **200**   |
+| `member` `POST /loyalty/accounts` (hesap acar)         |   201    |   **201**   |
+| ⚠️ **Ayni kisiye IKINCI hesap**                        | **409**  |   **409**   |
+| `viewer` okur · `viewer` hesap acamaz                  | 200/403  | **200/403** |
+| `member` puan yazar · `member` silemez                 | 201/403  | **201/403** |
+| Gelecege tarih · negatif · kesirli · `adjustment`      |   422    |   **422**   |
+| Gorunmeyen kisi · `not-a-uuid`                         |   422    |   **422**   |
+| `PATCH /loyalty/accounts/<id>` (**uc YOK**)            |   404    |   **404**   |
+| `owner` `DELETE`                                       |   204    |   **204**   |
+
+⚠️ **BU MODULDE 409 VARDIR — VE BU, SON IKI MODULDEN AYRILDIGIMIZ NOKTADIR.**
+Kampanya (ADR-0047 §1.2) ve Geri Bildirim (ADR-0045) icin _"bu modulde 409 diye
+bir cevap yoktur"_ yaziliydi: ayni kampanya adi her ay tekrarlanabilir, iki
+musteri ayni gun ayni puani verebilir — ikisi de **gercektir**. Burada ayni
+musteriye ikinci bir hesap **gercek bir olgu degildir**: bakiyeyi **ikiye
+boler** ve hata **sessizdir**.
+
+⚠️ Ve govde **mevcut hesabin id'sini tasidi** — canli dogrulandi:
+
+```
+Bu musterinin zaten bir sadakat hesabi var (hesap: 01a04225-6aec-7d65-b88b-5eea3b522885).
+```
+
+⚠️ Gerekcesi kayda deger: bu modulde **kisiye gore hesap arayan bir uc YOKTUR**
+(§ Bilinen sinirlar), yani id mesajda olmasaydi 409 bir **CIKMAZ SOKAK** olurdu.
+
+⚠️ **`PATCH`in 404'u da bir kanittir**, 405 degil: rota **hic tanimli
+degildir**. Degistirilemezligin HTTP yuzeyindeki gorunumu (§2.2).
+
+### ✅ Madde 3 — renk turu GERCEK TARAYICIDA olculdu
+
+`data-module="loyalty"` oda sarmalayicisinda; kabuk kapsamin **disinda**:
+
+| Token                             | Acik tema             | Koyu tema             |
+| --------------------------------- | --------------------- | --------------------- |
+| Modul `--accent` / `--ink`        | `#9a5a84` / `#874972` | `#d792be` / `#e9a3d0` |
+| **Kabuk** `--accent`              | `#b25628`             | `#e8935a`             |
+| ⚠️ **`--ai-accent`** (oda ICINDE) | `#b25628`             | `#e8935a`             |
+
+⚠️ **Ucuncu satir kritiktir:** oda sarmalayicisinin **icinde** olculdu ve
+modulun rengiyle **degismedi** — yani modul AI'in sesini **ezmiyor**.
+`app-shell` / koridor `git diff`i disinda hicbir kabuk dosyasina dokunulmadi.
+
+⚠️ **MOR BANT SINAVI — UC KAPI:**
+
+| Kapi        | Etiket        | Ikon (cizim ogesi sayisi) | `aria-current` |
+| ----------- | ------------- | :-----------------------: | :------------: |
+| `hr`        | "Ekip"        |             4             |       —        |
+| `marketing` | "Kampanyalar" |             2             |       —        |
+| `loyalty`   | **"Sadakat"** |           **3**           |   **`page`**   |
+
+⚠️ Ucu de **farkli etiket ve farkli ikon** tasiyor; aktif kapi `aria-current`
+aliyor. `hr` (#896096) ile `loyalty` (#9a5a84) **komsu hue**dur — renk
+hicbir yerde **tek** ayirt edici degildir.
+
+### ✅ Madde 4 — YETERSIZ BAKIYE, arayuzde CANLI denendi
+
+720 puanlik bir hesaptan **5000 puan** kullandirilmaya calisildi:
+
+```
+Yetersiz bakiye: 5000 puan kullanilmak istendi, hesapta 720 puan var.
+```
+
+⚠️ **Mesaj MEVCUT BAKIYEYI tasiyor** ve bu, ADR-0051 §4.2'nin dogrudan sonucu:
+kullanici **kac puan** harcanacagini yazar, yeterli olup olmadigina **sunucu**
+karar verir (`SELECT ... FOR UPDATE` altinda). Istemcide bir on kontrol
+olsaydi, es zamanli bir hareket sonrasi ekran **sessizce yanlis** olurdu.
+
+⚠️ **VE HICBIR SATIR YAZILMADI** — veritabaninda dogrulandi: `2 satir / 720
+puan` (denemeden once ve sonra ayni). Kontrol `INSERT`ten **once** ve **ayni
+transaction icinde**dir.
+
+⚠️ Defterin gorunumu de §9'un karariniz dogruladi: **`−80 KULLANIM`** ve
+**`+800 KAZANIM`** — yon **isaret + etiket** olmak uzere **iki kanaldan** okunur,
+renkten degil (renk korlugu altinda ikisi ayni gorunurdu).
+
+### ✅ Madde 5 — fan-out **18'DE KALDI**
+
+| Olcu                                  | Deger                                            |
+| ------------------------------------- | ------------------------------------------------ |
+| Yapisal katkici                       | **8**                                            |
+| Anlamsal katkici                      | **10**                                           |
+| Toplam (fan-out)                      | **18** — ⚠️ **degismedi**                        |
+| `loyalty` katkici dosyasi             | ⚠️ **0**                                         |
+| `loyalty.module.ts` → `ContextModule` | ⚠️ **import EDILMIYOR** (yalnizca yorumda gecer) |
+
+⚠️ Bu, ADR-0050'nin butun aritmetiginin **aynen gecerli** oldugu anlamina gelir:
+taban `ceil(K/3)`, `K` 8, yapisal pay tam 3. ⚠️ Ayrica
+`context-contributors.integration.spec` bu sayilari artik **testle kilitliyor**
+(6/9/15 → 8/10/18 olarak gercege yetistirildi).
+
+---
+
+## ⚠️⚠️ FAZ 5'IN GENEL KAPANIS DOGRULAMASI (madde 7–8) — **tek seferlik**
+
+### ✅ Madde 7 — 13 IS SEMASININ TAMAMI prod'da **RLS + FORCE**
+
+Tek toplu sorgu (`pg_class` + `pg_namespace`), prod:
+
+| Sema           | Tablo | RLS | FORCE | Durum     |
+| -------------- | :---: | :-: | :---: | --------- |
+| `knowledge`    |   3   |  3  |   3   | **TAMAM** |
+| `crm`          |   6   |  6  |   6   | **TAMAM** |
+| `projects`     |   4   |  4  |   4   | **TAMAM** |
+| `finance`      |   4   |  4  |   4   | **TAMAM** |
+| `appointments` |   1   |  1  |   1   | **TAMAM** |
+| `documents`    |   2   |  2  |   2   | **TAMAM** |
+| `inventory`    |   2   |  2  |   2   | **TAMAM** |
+| `suppliers`    |   3   |  3  |   3   | **TAMAM** |
+| `invoicing`    |   3   |  3  |   3   | **TAMAM** |
+| `hr`           |   3   |  3  |   3   | **TAMAM** |
+| `feedback`     |   1   |  1  |   1   | **TAMAM** |
+| `marketing`    |   1   |  1  |   1   | **TAMAM** |
+| **`loyalty`**  |   2   |  2  |   2   | **TAMAM** |
+
+⚠️ **`platform` bu sayima DAHIL DEGILDIR ve bu bir eksiklik DEGIL, bir
+TASARIMDIR.** On tablosu RLS tasimaz ve **hepsi kimlik tablosudur**:
+`users` · `credentials` · `refresh_tokens` · `token_families` ·
+`login_attempts` · `email_verification_codes` · `password_reset_codes` ·
+`verification_code_requests` · `identity_outbox` (+ `tenants`, ki o **tenant
+KUTUGUDUR**, bir tenant'in verisi degil).
+
+⚠️ Sebep Faz 3'te yazilidir: kimlik olaylarinin **hepsi `tenantId = null`
+tasir**. Onlara tenant RLS koymak, **olmayan bir kapsami var gibi gostermek**
+olurdu — ve bu, projenin en cok kactigi hata sinifidir.
+
+### ✅ Madde 8 — 12 MODULUN KOK ROTASI prod'da **401** (404 DEGIL)
+
+Gercek isteklerle, prod:
+
+| #   | Modul                  | Kok rota (GET)          |  HTTP   |
+| --- | ---------------------- | ----------------------- | :-----: |
+| 1   | CRM                    | `/crm/companies`        | **401** |
+| 2   | Projeler               | `/projects`             | **401** |
+| 3   | Finans                 | `/finance/transactions` | **401** |
+| 4   | Randevu/Rezervasyon    | `/appointments`         | **401** |
+| 5   | Belge/Sozlesme         | `/documents`            | **401** |
+| 6   | Stok/Envanter          | `/inventory/items`      | **401** |
+| 7   | Tedarikci              | `/suppliers`            | **401** |
+| 8   | Teklif/Fatura          | `/invoicing/quotes`     | **401** |
+| 9   | IK/Personel            | `/hr/employees`         | **401** |
+| 10  | Musteri Geri Bildirimi | `/feedback`             | **401** |
+| 11  | Kampanya/Pazarlama     | `/campaigns`            | **401** |
+| 12  | **Sadakat Programi**   | `/loyalty/accounts`     | **401** |
+| —   | Knowledge (Faz 4)      | `/knowledge/notes`      | **401** |
+| —   | AI Context             | `POST /ask`             | **401** |
+
+⚠️ **AYIRT EDICILIK OLMADAN BU TABLO HICBIR SEY KANITLAMAZDI** — ADR-0035'in
+kapanis denetiminin dersi (_"`/api/docs`in 404'u tek basina ayirt edici
+DEGILDIR"_) burada **tersine** uygulandi: 401'lerin yanina **kasitli 404'ler**
+kondu.
+
+| Kontrol              | Beklenen | Alinan  |
+| -------------------- | :------: | :-----: |
+| `/bogus-module`      |   404    | **404** |
+| `/loyalty/bogus`     |   404    | **404** |
+| `/crm/bogus`         |   404    | **404** |
+| `/api/v1/health`     |   200    | **200** |
+| `/api/docs` (kapali) |   404    | **404** |
+
+⚠️ Yani **401 "uc VAR ve kimlik istiyor"**, **404 "uc YOK"** demektir ve ikisi
+prod'da **gercekten ayrisiyor**.
+
+---
+
+## ⚠️ Sadakat kapanirken bilinen sinirlar — **Slice 2 EKLERI**
+
+Asagidaki liste yukaridaki § Bilinen sinirlar'i **degistirmez, GENISLETIR**:
+
+- ⚠️ **HESAP ACARKEN MUSTERI LISTESI ILK 100 KISIYLE SINIRLIDIR** ve bu ekranda
+  **acikca yazilidir**. Sessizce kirpmak, kisisini bulamayan kullaniciya
+  _"bu kisi yok"_ dedirtirdi (IK'nin izin kuyrugundaki ayni sinir, ikinci kez).
+  ⚠️ Bir **arama** kutusu yok: dogru cozum `GET /crm/contacts`e bir `q`
+  parametresi eklemektir ve o, **CRM'in isidir**.
+- ⚠️ **DUVAR ILE LISTE AYRI ISTEKLERDIR** — baska bir kullanici ayni anda puan
+  yazarsa duvar bir sonraki tazelemeye kadar eskidir (canli guncelleme YOK).
+  ADR-0045'ten beri ayni sinir.
+- ⚠️ **OZET HATASI SESSIZDIR** — `GET /loyalty/summary` cokerse duvar iskelet
+  olarak kalir ve kullanici bir hata mesaji GORMEZ; liste calismaya devam eder.
+- ⚠️ **DETAY SAYFASINDA BIR "KAYDET" DUGMESI YOKTUR** ve bu bir eksiklik
+  degildir: hesabin **guncellenebilir hicbir alani yoktur** (§2.2). Kampanya'nin
+  detay sayfasi bir duzenleme formuydu; burada detay **DEFTER** icindir.
+- ⚠️ **PUAN GIRISI SERBEST BIR SAYIDIR** — bir "odul" secilmez (odul katalogu
+  kapsam disi, §10). Ne verildigi yalnizca `note`ta yazar ve **sorgulanamaz**.
+- ⚠️ **BINLIK AYRACI VAR — VE FINANS'TA YOKTU.** ADR-0034 parada ayraci
+  reddetmisti cunku para hicbir noktada `number` OLMUYORDU; puan ise tanimi
+  geregi bir `integer`dir ve `toLocaleString` bir donusum riski yaratmaz.
+  ⚠️ Ama **para birimi simgesi YAZILMAZ** — bir simge, olmayan bir donusumu
+  ima ederdi (bir birim testi bunu kilitliyor).
+- ⚠️ **NEGATIF BAKIYE EKRANDA GORUNUR** ve bu **kasitlidir**: §4.4'un kabul
+  ettigi tek riskin (kilit yolunun atlanmasi) **gorunur** kalmasi gerekir.
+  Sifirin altini sessizce `0` gostermek, gurultulu bir yanlisligi **sessize**
+  cevirirdi.
+- ⚠️ **ADI COZULEMEYEN HESAP LISTEDEN DUSMEZ** — dusseydi bakiye gorunmez
+  olurdu ve duvarin toplami listeyle **tutmazdi**. Satir _"Musteri kaydi
+  bulunamadi"_ diye isaretlenir ve ⚠️ **"silinmis" DENMEZ**.
+- ⚠️ **IYIMSER ESZAMANLILIK YOK** — ama bu modulde etkisi **kucuktur**:
+  hesabin guncellenebilir alani yok, defter degistirilemez. Gecerli oldugu tek
+  yer harcama yaridir ve orasi **kilitle** korunuyor.
+- ⚠️ **PLAYWRIGHT E2E YOK** — bu odanin akislari (hesap acma, puan yazma,
+  yetersiz bakiye) **elle** gezildi; projenin genel borcu (FRONTEND) burada da
+  gecerli.
 
 ---
 

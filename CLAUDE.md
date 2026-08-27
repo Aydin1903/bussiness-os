@@ -272,9 +272,25 @@ zinciri uçtan uca kapalı. Devreden tek kalem **Authorization'ın kalanı**
 **backlog**tadır: üçü de bugün varsayımsal ihtiyaçtır (ROADMAP §1.1).
 **Faz 4 tamamlandı** — Knowledge modülü + AI Context Engine; kapanış denetimi
 2026-08-05'te yapıldı (aşağıda).
-**Faz 5 sürüyor** — on iki iş modülü (ROADMAP §3.5).
-**12. modül Sadakat Programı 🔨 Slice 1 bitti** (ADR-0051; backend prod'da
-doğrulandı 2026-08-27 — `c73e324`, migration 39 → 40; **Slice 2 sürüyor**).
+**Faz 5 ✅ TAMAMEN KAPANDI (2026-08-27)** — on iki iş modülünün on ikisi de
+canlı (ROADMAP §3.5). Kapanış 12. modülün (Sadakat) HAFİF denetiminde
+doğrulandı ve o denetim aynı zamanda **Faz 5'in genel kapanış denetimidir**:
+⚠️ **13 iş şemasının 13'ü de prod'da RLS + FORCE** (`knowledge` · `crm` ·
+`projects` · `finance` · `appointments` · `documents` · `inventory` ·
+`suppliers` · `invoicing` · `hr` · `feedback` · `marketing` · `loyalty`) ve
+⚠️ **12 modülün 12'sinin kök rotası prod'da gerçek istekle 401** — olmayan
+yollar **404**, yani cevap **ayırt edici**.
+⚠️ `platform` bu sayıma **dahil değildir ve bu doğrudur**: on tablosu
+(kullanıcı, kimlik bilgisi, refresh token, kilit sayaçları, doğrulama kodları,
+`identity_outbox`) **tenant kapsamlı değildir** — Faz 3'ün kimlik olayları
+`tenantId = null` taşır; onlara tenant RLS koymak olmayan bir kapsamı **var
+gibi göstermek** olurdu.
+⚠️ **Faz 6'nın (Faturalama) kapı koşulu KARŞILANDI** — ama Faz 6 bir "başla"
+düğmesi **değildir**: ROADMAP §8.2'nin KVKK kontrol noktası ve §8.5'in
+**yirmi dört tablolu** retention borcu **hâlâ açıktır**.
+**12. modül Sadakat Programı ✅ bitti — VE FAZ 5'İ KAPATTI** (ADR-0051; üç
+slice, HAFİF kapanış denetimi 2026-08-27; backend prod'da doğrulandı — migration
+39 → 40).
 ⚠️ Bu modül **beş ilk** taşıyor: **cross-modül işaretçisi ilk kez ZORUNLU**
 (`crm_contact_id NOT NULL`) — beş modülde _"zorunluluk sahte kayıt üretir"_
 dersi burada **ters işliyor**, çünkü bir işletme puan verdiği kişiyi zaten
@@ -411,7 +427,7 @@ change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
 **onboarding** (`/app/onboarding`) · **on modülün ekranları** (`/app/crm` ·
 `/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
 `/app/inventory` · `/app/suppliers` · `/app/invoicing` · `/app/hr` ·
-`/app/feedback`). Riskli
+`/app/feedback` · `/app/loyalty`) — ⚠️ **on iki odanın on ikisi de canlı**. Riskli
 runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
 Vitest + RTL **571 test**; **kalan borç: Playwright e2e yok.**
@@ -580,12 +596,9 @@ ve ikisi senkron kalmalıdır — `color-mix` derlenmiş çıktıda kötü bir g
 ### Henüz yok
 
 Authorization'ın kalanı (RBAC çekirdeği ÇALIŞIYOR — merkezî policy engine +
-guard; kalan: tenant-configurable roller, ABAC, izin cache) · **Faz 5'in kalan
-tek modülü** (ROADMAP §3.5; 1. CRM ✅, 2. Projeler ✅, 3. Finans ✅,
-4. Randevu/Rezervasyon ✅, 5. Belge/Sözleşme ✅, 6. Stok/Envanter ✅,
-7. Tedarikçi ✅, 8. Teklif/Fatura ✅, 9. İK/Personel ✅,
-10. Müşteri Geri Bildirimi ✅, 11. Kampanya/Pazarlama ✅ — sıradaki ve
-**SON**: **12. Sadakat Programı**) · **koyu tema UI anahtarı** (bugün yalnızca OS
+guard; kalan: tenant-configurable roller, ABAC, izin cache) · ~~**Faz 5'in kalan
+modülleri**~~ ✅ **HEPSİ BİTTİ — on iki modülün on ikisi de canlı**
+(ROADMAP §3.5) · **koyu tema UI anahtarı** (bugün yalnızca OS
 tercihi) · **`company:read`'siz kullanıcı senaryosu** (dört rolün dördü de bu
 izni taşıyor — kapı var, tetikçi yok; ⚠️ Finans'ın **dar** kataloğu izin
 filtresini `cashflow:read` üzerinden gerçekten tetikledi ama `company:read`

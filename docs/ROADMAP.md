@@ -193,24 +193,56 @@ Katkıcılar **çağıranın izinlerine göre elenir** — bu bir ayrıntı değ
 
 **AI maliyet takibi, ilk CRM satırından önce yazıldı** (Slice 0.5 — [§8.1](#81-gözlemlenebilirlik-neden-faz-4e-kadar)). Faz 5 maliyeti üç ayrı yönden artırıyor: CRM ikinci bir embedding üreticisi, yapısal katkıcı her soruya sabit token ekliyor, ve fan-out tek bir `/ask`'i N kaynağa dokunduruyor. Ölçüm bunlardan **sonra** kurulsaydı, artışın nereden geldiği ayırt edilemezdi.
 
+> ### ✅✅ FAZ 5 TAMAMEN KAPANDI — on iki modülün on ikisi de canlı (2026-08-27)
+>
+> **12. modül Sadakat Programı ile Faz 5 bitti.** Kapanış [ADR-0051](adr/0051-sadakat-programi-modulu.md)'in
+> HAFİF kapanış denetiminde doğrulandı ve o denetim aynı zamanda **Faz 5'in
+> genel kapanış denetimidir** — iki toplu ölçüm tek seferlik olarak koşuldu:
+>
+> | Doğrulama                                                   | Sonuç                                                                                                                                                                                    |
+> | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | ⚠️ **13 iş şemasının tamamı** prod'da **RLS + FORCE**       | ✅ **13/13 TAMAM** (`knowledge` · `crm` · `projects` · `finance` · `appointments` · `documents` · `inventory` · `suppliers` · `invoicing` · `hr` · `feedback` · `marketing` · `loyalty`) |
+> | ⚠️ **12 modülün kök rotası** prod'da gerçek istekle **401** | ✅ **12/12 401** — ve olmayan yollar **404**, yani cevap **ayırt edici**                                                                                                                 |
+>
+> ⚠️ **`platform` bu sayıma DAHİL DEĞİLDİR ve bu doğrudur:** on tablosu
+> (`users`, `credentials`, `refresh_tokens`, `token_families`,
+> `login_attempts`, doğrulama kodları, `identity_outbox`) **tenant kapsamlı
+> değildir** — Faz 3'ün kimlik olaylarının hepsi `tenantId = null` taşır.
+> Onlara tenant RLS koymak, olmayan bir kapsamı **var gibi göstermek** olurdu.
+>
+> ⚠️ **401 ile 404 arasındaki fark bu denetimin ta kendisidir:** 404 _"bu uç
+> YOK"_ demektir (ölü routing), 401 _"uç VAR ve kimlik istiyor"_ demektir.
+> ADR-0035'in kapanış denetiminde öğrenilen ders — _"`/api/docs`in 404'ü tek
+> başına ayırt edici DEĞİLDİR"_ — burada tersine uygulandı: 401'lerin yanına
+> **kasıtlı 404'ler** kondu.
+>
+> ⚠️ **Faz 6'nın kapı koşulu ([§4](#4-faz-6--faturalama)) böylece KARŞILANDI.**
+> Koşul 2026-08-08'de _"1–2 modül"den on iki modülün TAMAMINA_ sıkılaştırılmıştı;
+> bugün on ikisi de canlı. ⚠️ **Ama Faz 6 bir "başla" düğmesi değildir:**
+> [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'nin KVKK kontrol noktası ve
+> [§8.5](#85-retention-borcu-yirmi-dört-tablo-tek-karar)'in **yirmi dört
+> tablolu** retention borcu **hâlâ açıktır** ve ikisi de gerçek müşteri verisi
+> girmeden önce karara bağlanmalıdır. ⚠️ İK'nın maaş yüzeyi ve Sadakat'in puan
+> bakiyesi o kontrol noktasının **iki yeni girdisidir**.
+
 ### 3.5 Modül sıralaması — on iki modül (Product Owner kararı)
 
 > **Karar tarihi:** 2026-08-08. Bu sıra Faz 5'in **kapsamını** tanımlar ve [§4](#4-faz-6--faturalama)'ün kapı koşulunu belirler.
 
-| #      | Modül                              | Kapsam notu                                                                                                                                                                                                                                                                       | Durum      |
-| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))                                                                                                                                                                         | ✅ Bitti   |
-| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))                                                                                                                                                                               | ✅ Bitti   |
-| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                                                                                                                                                                                          | ✅ Bitti   |
-| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))                                                                                                                                                                             | ✅ Bitti   |
-| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                                                                                                                                                                 | ✅ Bitti   |
-| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                                                                                                                                                              | ✅ Bitti   |
-| **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md))                                                                                                                                              | ✅ Bitti   |
-| **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md))                                                                                                                                              | ✅ Bitti   |
-| **9**  | **İK / Personel**                  | Çalışan · **maaş (AI'dan izole)** · **izin**; ⚠️ **sağlık verisi YOK** · **SIFIR** `RetrievalContributor` ([ADR-0043](adr/0043-ik-personel-modulu.md) · [ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md))                                                    | ✅ Bitti   |
-| **10** | **Müşteri Geri Bildirimi / Anket** | Puan + opsiyonel yorum; **TEK** `RetrievalContributor` (ANLAMSAL) — ⚠️ yapısal aday **liyakatli ama ASKIDA** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md))                                                                                                               | ✅ Bitti   |
-| **11** | **Kampanya / Pazarlama Notları**   | Ad · kanal · tarih aralığı · durum · sonuç notu; **İKİ** `RetrievalContributor` (anlamsal `campaign-notes` + ⚠️ **yapısal `campaign-gap`**) — ⚠️ **T2 ATEŞLEDİ** ([ADR-0047](adr/0047-kampanya-pazarlama-modulu.md) · [ADR-0050](adr/0050-retrieval-taban-buyukluk-revizyonu.md)) | ✅ Bitti   |
-| **12** | **Sadakat Programı**               | Hesap (CRM kişisine **zorunlu** bağlı) · **değiştirilemez puan defteri** · türetilen bakiye; ⚠️ **SIFIR** `RetrievalContributor` — ⚠️ **kademe v2'ye ERTELENDİ** (aşağıdaki not) ([ADR-0051](adr/0051-sadakat-programi-modulu.md))                                                | 🔨 Sürüyor |
+| #      | Modül                              | Kapsam notu                                                                                                                                                                                                                                                                       | Durum    |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **1**  | **CRM**                            | Şirket · kişi · fırsat · takip · görüşme; iki `RetrievalContributor` ([ADR-0031](adr/0031-crm-module.md))                                                                                                                                                                         | ✅ Bitti |
+| **2**  | **Projeler**                       | Proje · görev · ilerleme notu; iki `RetrievalContributor` ([ADR-0033](adr/0033-projects-module.md))                                                                                                                                                                               | ✅ Bitti |
+| **3**  | **Finans**                         | Gelir · gider · nakit akışı — "finansal hafıza" ([ADR-0034](adr/0034-finance-module.md))                                                                                                                                                                                          | ✅ Bitti |
+| **4**  | **Randevu / Rezervasyon**          | Takvim tabanlı kayıt; iki `RetrievalContributor` ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md))                                                                                                                                                                             | ✅ Bitti |
+| **5**  | **Belge / Sözleşme Yönetimi**      | Object storage kararını tetikledi ve **kapattı**: Cloudflare R2 ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md))                                                                                                                                                                 | ✅ Bitti |
+| **6**  | **Stok / Envanter**                | Kalem · **türetilmiş** miktar · değiştirilemez defter ([ADR-0039](adr/0039-stok-envanter-modulu.md))                                                                                                                                                                              | ✅ Bitti |
+| **7**  | **Tedarikçi Yönetimi**             | Firma · kişi · **ekleme-yalnız** görüşme günlüğü; **TEK** `RetrievalContributor` ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md))                                                                                                                                              | ✅ Bitti |
+| **8**  | **Teklif / Fatura Oluşturma**      | Teklif + fatura taslağı, TEK tablo + `kind`; **TEK** `RetrievalContributor` (YAPISAL) ([ADR-0041](adr/0041-teklif-fatura-modulu.md))                                                                                                                                              | ✅ Bitti |
+| **9**  | **İK / Personel**                  | Çalışan · **maaş (AI'dan izole)** · **izin**; ⚠️ **sağlık verisi YOK** · **SIFIR** `RetrievalContributor` ([ADR-0043](adr/0043-ik-personel-modulu.md) · [ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md))                                                    | ✅ Bitti |
+| **10** | **Müşteri Geri Bildirimi / Anket** | Puan + opsiyonel yorum; **TEK** `RetrievalContributor` (ANLAMSAL) — ⚠️ yapısal aday **liyakatli ama ASKIDA** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md))                                                                                                               | ✅ Bitti |
+| **11** | **Kampanya / Pazarlama Notları**   | Ad · kanal · tarih aralığı · durum · sonuç notu; **İKİ** `RetrievalContributor` (anlamsal `campaign-notes` + ⚠️ **yapısal `campaign-gap`**) — ⚠️ **T2 ATEŞLEDİ** ([ADR-0047](adr/0047-kampanya-pazarlama-modulu.md) · [ADR-0050](adr/0050-retrieval-taban-buyukluk-revizyonu.md)) | ✅ Bitti |
+| **12** | **Sadakat Programı**               | Hesap (CRM kişisine **ZORUNLU** bağlı) · **değiştirilemez puan defteri** · **türetilen** bakiye; **SIFIR** `RetrievalContributor` — ⚠️ kademe v2'ye ertelendi ([ADR-0051](adr/0051-sadakat-programi-modulu.md))                                                                   | ✅ Bitti |
 
 > ### ⚠️ 12. modülün kapsamı DARALTILDI — "kademe" v2'ye ertelendi (2026-08-26)
 >
@@ -414,7 +446,7 @@ Bunlar bir faza ait değildir; ya süreklidir ya da belirtilen faza kadar netle�
 | **Yedekleme / felaket kurtarma**                                                                          | ❌ Yok                                                                                                | **Hosting kararıyla birlikte** (Faz 4 §2.4)  |
 | **KVKK / GDPR uyumluluğu**                                                                                | ❌ Ele alınmadı                                                                                       | **Faz 6 öncesi zorunlu kontrol noktası**     |
 | **Playwright e2e**                                                                                        | ❌ Yok — **bilinçli ertelendi** (Vitest + RTL kuruldu)                                                | Belirsiz; bilinçli borç                      |
-| **Tablo retention politikası** — ayrıntı ve tam liste [§8.5](#85-retention-borcu-onüç-tablo-tek-karar)'te | ❌ Yok — **büyüyen borç**, artık **yirmi iki tablo**                                                  | Faz 4                                        |
+| **Tablo retention politikası** — ayrıntı ve tam liste [§8.5](#85-retention-borcu-onüç-tablo-tek-karar)'te | ❌ Yok — **büyüyen borç**, artık **yirmi dört tablo**                                                 | Faz 4                                        |
 | **Mobil görsel test** — dashboard + change-password ekranı `<768px`                                       | ❌ Yapılmadı                                                                                          | Faz 4                                        |
 | **Doküman sürüm numarası denetimi**                                                                       | 🟡 Bilinen tutarsızlık                                                                                | Faz 4                                        |
 
@@ -474,9 +506,34 @@ Gerçek streaming şunları değiştirir ve bu yüzden **kendi slice'ı + ADR no
 
 ⚠️ Bu bir **düzen** kararı değil **bilgi** kararıdır: ekrandan veri çıkarır. Bu yüzden CSS ayarı gibi ele alınamaz; ayrı bir onay ister.
 
-### 8.5 Retention borcu: yirmi üç tablo, tek karar
+### 8.5 Retention borcu: yirmi dört tablo, tek karar
 
 Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe, Faz 4 kapanış denetiminde (2026-08-05) altıya, Faz 5/CRM kapanış denetiminde (2026-08-09) sekize, Projeler Slice 3 ile (2026-08-10) ona, Finans Slice 5 ile (2026-08-11) onikiye, Randevu Slice 3 ile (2026-08-13) onüçe, İK ile (2026-08-25) yirmi ikiye, ve **Müşteri Geri Bildirimi ile (2026-08-25) YİRMİ ÜÇE** çıktı.
+
+> ### ⚠️ Sadakat Programı YİRMİ DÖRDE ÇIKARDI — ve kalem İKİNCİ KEZ "BUGÜNKÜ SAYIYI DEĞİŞTİREN" SINIFTAN (2026-08-27)
+>
+> [ADR-0051](adr/0051-sadakat-programi-modulu.md)'in `loyalty.point_entries`
+> tablosu listeye **girdi**; `loyalty.accounts` **girmedi**.
+>
+> ⚠️ **İki tablonun ayrışması listenin kendi ölçütüdür** (_"borcu doğuran şey
+> satırın ZAMANLA ÇOĞALMASIDIR"_): bir hesap müşteri başına **tek satırdır** ve
+> müşteri sayısıyla artar, kullanımla değil — `crm.contacts` listede olmadığı
+> gibi. Defter ise **her kasa işleminde** bir satır yazar.
+>
+> ⚠️ **VE BU KALEM, `inventory.movements`TEN SONRA İKİNCİSİDİR:**
+> `loyalty.point_entries` silinirse **geçmiş değil BUGÜNKÜ BAKİYE** değişir —
+> bakiye o defterden `SUM` ile türetilir ve `balance` diye bir kolon **yoktur**
+> (ADR-0051 §4.1). Saklama süresi kararında bu iki kalem **aynı özel muameleyi**
+> görür: eski satırları silmek, bugünkü sayıyı **sessizce yeniden yazar**.
+>
+> ⚠️ Bir ek keskinlik: bakiyenin negatife düşememesinin **veritabanı garantisi
+> yoktur** (§4.4) — yani bir retention işi eski `earn` satırlarını silip yeni
+> `spend` satırlarını bırakırsa, bakiye **negatife düşebilir** ve bunu
+> engelleyecek hiçbir kısıt yoktur.
+>
+> ⚠️ **Vektör taşıyan tablo sayısı ONDA KALDI** — Faz 5'te bu sayıyı
+> artırmayan **üçüncü** modül (Teklif/Fatura · İK · Sadakat). İki liste
+> ayrışmaya devam ediyor: retention **24**, vektör **10**.
 
 > ### ⚠️ Kampanya/Pazarlama borcu BÜYÜTMEDİ — liste YİRMİ ÜÇTE KALDI (2026-08-26)
 >
@@ -499,31 +556,32 @@ Borç Faz 3'te iki tabloyla açıldı, Faz 4 planıyla dörde, Slice 5 ile beşe
 > retention listesi **23**, vektör taşıyan tablo **10**. Bir modülün vektör
 > taşıması onu otomatik olarak retention borcuna sokmaz. Tek madde altında tutuluyorlar çünkü **çözüm tek bir karardır** (saklama süresi + temizlik mekanizması), ama büyüme sebepleri ve doğru sürelerin farklı olduğu unutulmamalı:
 
-| Tablo                            | Neyi biriktiriyor                                                                      | Kaynak                                                                                          |
-| -------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `login_attempts`                 | Her başarısız parola denemesi — giriş **ve** change-password akışları besliyor         | Faz 3                                                                                           |
-| `verification_code_requests`     | Her doğrulama/sıfırlama kodu isteği                                                    | Faz 3                                                                                           |
-| `daily_report_runs`              | Tenant başına günde bir satır, kalıcı olarak                                           | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1)                |
-| `messages`                       | Her soru-cevap iki satır — **en hızlı büyüyen**                                        | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1)                |
-| `knowledge.conversations`        | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ            | Faz 4 (kapanış denetimi, 2026-08-05)                                                            |
-| `knowledge.rate_limits`          | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**                       | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)                         |
-| `crm.interactions`               | Her görüşme kaydı — CRM'in AI'a bağlam üreten tek yüzeyi                               | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                               |
-| `crm.interaction_chunks`         | Görüşme başına N parça + vektör — **satır başına en PAHALI** (`vector(1536)`)          | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                               |
-| `projects.progress_notes`        | Her ilerleme notu — Projeler'in AI'a bağlam üreten tek yüzeyi                          | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                               |
-| `projects.progress_note_chunks`  | Not başına N parça + vektör — `interaction_chunks` ile **aynı pahalı sınıf**           | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                               |
-| `finance.commentaries`           | Her dönem yorumu — Finans'ın AI'a bağlam üreten tek yüzeyi                             | **Faz 5 / 3. modül** ([ADR-0034](adr/0034-finance-module.md) §1.1)                              |
-| `finance.commentary_chunks`      | Yorum başına N parça + vektör — **dördüncü** vektör tablosu                            | **Faz 5 / 3. modül** ([ADR-0034](adr/0034-finance-module.md) §1.1)                              |
-| `appointments.appointments`      | Her randevu + servis notu + vektör **aynı satırda** — chunk tablosu YOK                | **Faz 5 / 4. modül** ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md) §3)                    |
-| `documents.documents`            | Her belge + metadata — ⚠️ **R2'de bir NESNE de var**                                   | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §1)                       |
-| `documents.document_chunks`      | Belge başına N parça + vektör — **altıncı** vektör tablosu, satır başına en çok üreten | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §3)                       |
-| `inventory.items`                | Kalem başına tek satır + vektör **aynı satırda** — **yedinci** vektör tablosu          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §1)                          |
-| ⚠️ **`inventory.movements`**     | ⚠️ **Silmek GEÇMİŞİ değil BUGÜNKÜ MİKTARI değiştirir** — bkz. aşağıdaki uyarı          | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §2)                          |
-| `suppliers.interactions`         | Her görüşme + vektör **aynı satırda** — **sekizinci** vektör tablosu                   | **Faz 5 / 7. modül** ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md) §1)                     |
-| `invoicing.sales_documents`      | Her teklif/fatura başlığı — ⚠️ **vektör YOK**, listeye ilk kez bu şekilde giren kalem  | **Faz 5 / 8. modül** ([ADR-0041](adr/0041-teklif-fatura-modulu.md) §2)                          |
-| `invoicing.sales_document_lines` | Belge başına N satır kalemi — belgesiyle birlikte gider (cascade)                      | **Faz 5 / 8. modül** ([ADR-0041](adr/0041-teklif-fatura-modulu.md) §2)                          |
-| ⚠️ **`platform.audit_log`**      | ⚠️ **HER alan değişikliğine bir satır** — listedeki **en hızlı büyüyen** kalem         | **Faz 5 / 9. modül** ([ADR-0043](adr/0043-ik-personel-modulu.md) §8)                            |
-| `hr.leave_requests`              | Her izin talebi — ⚠️ **KVKK: kişisel veri**, süresi hukuki bir karardır                | **Faz 5 / 9. modül** ([ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md) §2) |
-| ⚠️ **`feedback.responses`**      | Her geri bildirim + vektör **aynı satırda** — **dokuzuncu** vektör tablosu             | **Faz 5 / 10. modül** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md) §1)                 |
+| Tablo                            | Neyi biriktiriyor                                                                                                        | Kaynak                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `login_attempts`                 | Her başarısız parola denemesi — giriş **ve** change-password akışları besliyor                                           | Faz 3                                                                                           |
+| `verification_code_requests`     | Her doğrulama/sıfırlama kodu isteği                                                                                      | Faz 3                                                                                           |
+| `daily_report_runs`              | Tenant başına günde bir satır, kalıcı olarak                                                                             | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §2.1)                |
+| `messages`                       | Her soru-cevap iki satır — **en hızlı büyüyen**                                                                          | Faz 4 ([ADR-0030](adr/0030-conversation-memory-daily-report-onboarding.md) §1.1)                |
+| `knowledge.conversations`        | `conversationId`siz her soru yeni bir konuşma açar — `messages`'ın EBEVEYNİ                                              | Faz 4 (kapanış denetimi, 2026-08-05)                                                            |
+| `knowledge.rate_limits`          | Kullanıcı + eylem başına saatte bir satır — **en yavaş büyüyen**                                                         | Faz 4 ([ADR-0029](adr/0029-knowledge-module-ai-context-engine.md) §5.1)                         |
+| `crm.interactions`               | Her görüşme kaydı — CRM'in AI'a bağlam üreten tek yüzeyi                                                                 | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                               |
+| `crm.interaction_chunks`         | Görüşme başına N parça + vektör — **satır başına en PAHALI** (`vector(1536)`)                                            | **Faz 5** ([ADR-0031](adr/0031-crm-module.md) §1)                                               |
+| `projects.progress_notes`        | Her ilerleme notu — Projeler'in AI'a bağlam üreten tek yüzeyi                                                            | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                               |
+| `projects.progress_note_chunks`  | Not başına N parça + vektör — `interaction_chunks` ile **aynı pahalı sınıf**                                             | **Faz 5 / 2. modül** ([ADR-0033](adr/0033-projects-module.md) §1)                               |
+| `finance.commentaries`           | Her dönem yorumu — Finans'ın AI'a bağlam üreten tek yüzeyi                                                               | **Faz 5 / 3. modül** ([ADR-0034](adr/0034-finance-module.md) §1.1)                              |
+| `finance.commentary_chunks`      | Yorum başına N parça + vektör — **dördüncü** vektör tablosu                                                              | **Faz 5 / 3. modül** ([ADR-0034](adr/0034-finance-module.md) §1.1)                              |
+| `appointments.appointments`      | Her randevu + servis notu + vektör **aynı satırda** — chunk tablosu YOK                                                  | **Faz 5 / 4. modül** ([ADR-0035](adr/0035-randevu-rezervasyon-modulu.md) §3)                    |
+| `documents.documents`            | Her belge + metadata — ⚠️ **R2'de bir NESNE de var**                                                                     | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §1)                       |
+| `documents.document_chunks`      | Belge başına N parça + vektör — **altıncı** vektör tablosu, satır başına en çok üreten                                   | **Faz 5 / 5. modül** ([ADR-0037](adr/0037-belge-sozlesme-yonetimi.md) §3)                       |
+| `inventory.items`                | Kalem başına tek satır + vektör **aynı satırda** — **yedinci** vektör tablosu                                            | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §1)                          |
+| ⚠️ **`inventory.movements`**     | ⚠️ **Silmek GEÇMİŞİ değil BUGÜNKÜ MİKTARI değiştirir** — bkz. aşağıdaki uyarı                                            | **Faz 5 / 6. modül** ([ADR-0039](adr/0039-stok-envanter-modulu.md) §2)                          |
+| `suppliers.interactions`         | Her görüşme + vektör **aynı satırda** — **sekizinci** vektör tablosu                                                     | **Faz 5 / 7. modül** ([ADR-0040](adr/0040-tedarikci-yonetimi-modulu.md) §1)                     |
+| `invoicing.sales_documents`      | Her teklif/fatura başlığı — ⚠️ **vektör YOK**, listeye ilk kez bu şekilde giren kalem                                    | **Faz 5 / 8. modül** ([ADR-0041](adr/0041-teklif-fatura-modulu.md) §2)                          |
+| `invoicing.sales_document_lines` | Belge başına N satır kalemi — belgesiyle birlikte gider (cascade)                                                        | **Faz 5 / 8. modül** ([ADR-0041](adr/0041-teklif-fatura-modulu.md) §2)                          |
+| ⚠️ **`platform.audit_log`**      | ⚠️ **HER alan değişikliğine bir satır** — listedeki **en hızlı büyüyen** kalem                                           | **Faz 5 / 9. modül** ([ADR-0043](adr/0043-ik-personel-modulu.md) §8)                            |
+| `hr.leave_requests`              | Her izin talebi — ⚠️ **KVKK: kişisel veri**, süresi hukuki bir karardır                                                  | **Faz 5 / 9. modül** ([ADR-0044](adr/0044-ik-v2-izin-ve-zenginlestirilmis-calisan-kaydi.md) §2) |
+| ⚠️ **`feedback.responses`**      | Her geri bildirim + vektör **aynı satırda** — **dokuzuncu** vektör tablosu                                               | **Faz 5 / 10. modül** ([ADR-0045](adr/0045-musteri-geri-bildirim-modulu.md) §1)                 |
+| ⚠️ **`loyalty.point_entries`**   | ⚠️ **Silmek GEÇMİŞİ değil BUGÜNKÜ BAKİYEYİ değiştirir** — `inventory.movements`ten sonra **ikincisi**; ⚠️ vektör **YOK** | **Faz 5 / 12. modül** ([ADR-0051](adr/0051-sadakat-programi-modulu.md) §1.3)                    |
 
 İlk ikisi **güvenlik/denetim** verisidir: süreleri kısa olabilir ama silmek denetim izini zayıflatır. Sonraki ikisi **kullanıcı verisidir**: `messages` silmek konuşma geçmişini yok eder, `daily_report_runs` ise geçmiş raporlara erişimi. Yani "hepsine 90 gün" gibi tek bir sayı doğru cevap değil — karar tablo başına verilmeli ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'deki KVKK kontrol noktasının girdisi olmalı.
 
