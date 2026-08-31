@@ -20,8 +20,23 @@ allowBuilds:
   # testcontainers'in protobuf runtime'i saf JS fallback ile calisir.
   protobufjs: false
   # Next.js gorsel optimizasyonu icin native kutuphane. Faz 1'de next/image
-  # kullanilmiyor, bu yuzden derlenmiyor. Ilk gorsel eklendiginde true yapilmali.
-  sharp: false
+  # kullanilmiyordu; kosul "ilk gorsel eklendiginde true yapilmali" idi ve
+  # KARSILANDI: landing page gercek gorseller tasiyacak (maskot + maskot videosu)
+  # ve next/image bu paket olmadan optimize EDEMEZ.
+  #
+  # NOT — bu bayrak sanildigi kadar sey yapmiyor: sharp 0.33'ten beri native
+  # binary'yi KAYNAKTAN DERLEMIYOR, platform basina hazir paket cekiyor
+  # (@img/sharp-<platform>). Olculdu: bayrak false ikenken bile sharp
+  # yukleniyor ve gorsel isliyor. Yani false birakmak next/image'i bugun
+  # KIRMIYORDU.
+  #
+  # Yine de true yapiliyor cunku engellenen script bir DERLEME degil bir
+  # DOGRULAMADIR: `install/check.js || npm run build` — hazir binary varsa
+  # dogrular, YOKSA kaynaktan derleyerek kurtarir. Bloklu birakmak, hazir
+  # binary'nin gelmedigi bir platformda hatayi kurulum zamanindan CALISMA
+  # zamanina erteler; orada belirti "sharp kurulamadi" degil, next/image'in
+  # sessizce optimize etmemesi olur.
+  sharp: true
   # eslint-import-resolver-typescript'in native yol cozucusu. Modul sinir
   # kuralinin calismasi icin ZORUNLU: cozulemeyen import sessizce denetlenmez.
   unrs-resolver: true
