@@ -159,7 +159,7 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     expect([...SCREENS].sort()).toEqual(Object.keys(AUTH_PANELS).sort());
   });
 
-  it.each(SCREENS)('%s — slogan ve destek satırı DOM’da', (key) => {
+  it.each(SCREENS)('%s — slogan DOM’da', (key) => {
     render(
       <AuthScreen screen={key}>
         <span />
@@ -167,7 +167,22 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     );
 
     expect(screen.getByText(AUTH_PANELS[key].slogan)).toBeInTheDocument();
-    expect(screen.getByText(AUTH_PANELS[key].support)).toBeInTheDocument();
+  });
+
+  it('panelde TEK cümle vardır — destek satırı geri gelmesin', () => {
+    /*
+     * ⚠️ Panelde önce bir başlık + bir açıklama satırı ikilisi vardı ve gerçek
+     * ekranda bir SLOGAN gibi değil bir PARAGRAF gibi okundu (Product Owner,
+     * 2026-08-31). İkinci bir `<p>` eklemek o kararı sessizce geri alırdı:
+     * ekran çalışır, hiçbir test kırmızı yanmaz.
+     */
+    const { container } = render(
+      <AuthScreen screen="login">
+        <span />
+      </AuthScreen>,
+    );
+
+    expect(container.querySelectorAll('.auth-panel p')).toHaveLength(1);
   });
 
   it('panelde <img> YOKTUR — sahne bir CSS zeminidir', () => {
@@ -205,6 +220,43 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
       expect(container.querySelector('.auth-panel')?.hasAttribute('data-scene')).toBe(false);
       unmount();
     }
+  });
+
+  it('yazılı logo SAĞ SÜTUNDADIR, panelde DEĞİL', () => {
+    /*
+     * ⚠️ ADR-0052 §5.2 TERSİNE ÇEVRİLDİ (Product Owner, 2026-08-31): logo sol
+     * panelden sağ sütunun üstüne taşındı. Panelde bırakılsaydı okunurluğu
+     * fotoğrafın o köşesindeki piksellere bağlı kalırdı ve sahne değiştiği gün
+     * SESSİZCE zayıflardı — §3.7'nin metin için kurduğu scrim kuralının
+     * logoda karşılığı yoktur.
+     *
+     * ⚠️ Ayrıca TEK bir örnek olmalı: önceki yazımda panelde bir, `<768px`'te
+     * formun üstünde bir tane vardı ve ikisi ayrı kurallarla yaşıyordu.
+     */
+    const { container } = render(
+      <AuthScreen screen="login">
+        <span />
+      </AuthScreen>,
+    );
+
+    const wordmarks = container.querySelectorAll('span.font-bold');
+    const panel = container.querySelector('.auth-panel');
+    const formCol = container.querySelector('.auth-form-col');
+
+    expect(wordmarks).toHaveLength(1);
+
+    /*
+     * ⚠️ `?? null` GEREKLİ, süs değil: `noUncheckedIndexedAccess` altında
+     * `wordmarks[0]` tipi `Element | undefined`'dır ve `contains()` yalnızca
+     * `Node | null` kabul eder. İlk yazımda yoktu; vitest YEŞİL yandı ve
+     * hatayı `tsc` yakaladı — birim testinin geçmesi tip denetiminin geçtiği
+     * anlamına gelmez.
+     */
+    const wordmark = wordmarks[0] ?? null;
+
+    expect(formCol?.contains(wordmark)).toBe(true);
+    expect(panel?.contains(wordmark)).toBe(false);
+    expect(screen.getByText('KobiWise')).toBeInTheDocument();
   });
 
   it('yedi sayfanın YEDİSİ de kendi ekran anahtarını deklare eder', () => {

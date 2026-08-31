@@ -170,7 +170,34 @@
  */
 .auth-panel {
   position: relative;
+  /*
+   * ⚠️ `overflow: hidden` YUVARLATILMIŞ KÖŞENİN KOŞULUDUR, süs değil.
+   * Fotoğraf ve scrim `::before`/`::after` katmanlarındadır ve mutlak
+   * konumludur; kırpılmasalardı köşeler kare kalırdı — kart yuvarlak
+   * görünür ama görsel köşeden TAŞARDI.
+   */
   overflow: hidden;
+
+  /*
+   * ⚠️ PANEL DÖRT KENARA YAPIŞMAZ — "YÜZEN KART" (Product Owner, 2026-08-31).
+   *
+   * İlk uygulama tam kanamalıydı (full-bleed): panel ekranın kenarlarına
+   * yapışıyordu. Gerçek ekranda referansla karşılaştırılınca fark tek
+   * cümleyle görüldü: yapışık bir panel ekranın BİR PARÇASI gibi durur,
+   * içine boşluk alınca bir NESNE gibi durur — ve bir nesne, üzerine
+   * markanın bir cümlesini yazabileceğiniz şeydir.
+   *
+   * ⚠️ Yarıçap uydurulmadı: `--radius-panel` (22px) sistemin kendi köşe
+   * ailesinden gelir (FRONTEND §4.7 — "köşeler tek bir aileden gelir").
+   * Yeni bir sayı yazmak, auth yüzeyini sistemin dışına çıkarırdı.
+   *
+   * ⚠️ Kenar boşluğu yüzünden panel artık `--bg`'nin üstünde YÜZER; yani
+   * zemin rengi görünür hâle gelir ve TEMAYI İZLER (açık `#f6f6f7`, koyu
+   * `#0d0f11`). Panelin kendisi temaya duyarsızdır (§Mars paleti) — yani
+   * temaya duyarlı olan çerçevedir, resim değil.
+   */
+  margin: 14px;
+  border-radius: var(--radius-panel);
   background:
     radial-gradient(126% 88% at 50% 6%, var(--mars-glow), transparent 58%),
     radial-gradient(60% 40% at 78% 22%, var(--mars-haze), transparent 62%),
@@ -321,6 +348,18 @@
     linear-gradient(to top, rgba(26, 10, 4, 0.34) 0%, rgba(26, 10, 4, 0.18) 34%, transparent 72%);
 }
 
+/*
+ * md (768–1023) — panel üstte bir ŞERİTTİR ve altındaki form ile arasındaki
+ * boşluğu KENDİ alt kenar boşluğu kurar. `margin: 14px` zaten dört kenarı
+ * verir; ayrıca bir şey gerekmez. Burada yalnızca şeridin yatayda daha geniş
+ * bir yarıçapla ezilmiş görünmemesi için köşe küçültülür.
+ */
+@media (max-width: 1023px) {
+  .auth-panel {
+    border-radius: var(--radius-card);
+  }
+}
+
 /* Panelin içeriği scrim'in ÜSTÜNDE kalır. */
 .auth-panel > * {
   position: relative;
@@ -328,36 +367,51 @@
 }
 
 /*
- * Yazılı logo panelin üstünde MARS MÜREKKEBİYLE çizilir.
+ * ⚠️ `.auth-panel-brand` KALDIRILDI (Product Owner, 2026-08-31).
  *
- * ⚠️ `KobiWiseWordmark`'a hiçbir prop EKLENMEDİ ve dosyasına dokunulmadı:
- * bileşen `text-fg` / `text-fg-3` / `bg-border-strong` yazar, bunlar
- * `var(--fg)` / `var(--fg-3)` / `var(--border-strong)` olarak derlenir ve
- * burada ezilir. `[data-module]`'ün mekanizmasının aynısı — marka bileşeni
- * bir "auth varyantı" öğrenmek zorunda kalmaz.
+ * Yazılı logo panelin sol üstünde MARS MÜREKKEBİYLE çiziliyordu ve bunun için
+ * burada `--fg` / `--fg-3` / `--border-strong` ezilirdi. Logo sağ panele
+ * taşınınca (ADR-0052 §5.2 düzeltmesi) o override'ın hiçbir tüketicisi
+ * kalmadı ve silindi.
+ *
+ * ⚠️ Ölü bırakılsaydı zararsız görünürdü ama yanıltıcı olurdu: okuyan biri
+ * panelde hâlâ bir marka öğesi olduğunu sanardı. Bir testin (`auth-surface
+ * .spec`) panelde logo bulunmadığını iddia etmesinin sebebi de budur.
  */
-.auth-panel-brand {
-  --fg: var(--mars-ink);
-  --fg-3: var(--mars-ink-2);
-  --border-strong: rgba(255, 246, 239, 0.42);
+
+/*
+ * Form sütunu — üstte yazılı logo, altında ortalanmış form.
+ */
+.auth-form-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /*
- * Form sütunu.
+ * Logo sütunun ÜSTÜNDE sabit durur; form KALAN alanda ortalanır.
  *
+ * ⚠️ Formu sütunun tamamında ortalayıp logoyu onun üstüne koymak DA olurdu —
+ * ama o zaman logo formla birlikte aşağı yukarı kayardı ve ekrandan ekrana
+ * (kısa `login` formu ↔ uzun `create-tenant` formu) farklı yükseklikte
+ * dururdu. Marka öğesinin yeri, içeriğin uzunluğuna göre oynamamalıdır.
+ */
+.auth-form-body {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
  * ⚠️ Viewport YÜKSEKLİĞİ 700 px'in altındaysa dikey ortalama BIRAKILIR
  * (ADR-0052 §4.3). Ortalanmış bir form, mobil klavye açıldığında gönder
  * düğmesini ekranın DIŞINA iter ve kullanıcı formu bitiremez. Bu, "biraz
  * çirkin" ile "tamamlanamaz" arasındaki farktır.
  */
-.auth-form-col {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 @media (max-height: 700px) {
-  .auth-form-col {
+  .auth-form-body {
     align-items: flex-start;
   }
 }

@@ -1,6 +1,9 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
+  — ⚠️ **UC DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
+  · panel metni **tek cumleye** indirildi. Ucu de asagida, uzeri cizili eski kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -344,16 +347,26 @@ ALTINA dusen kaynak piksel araligi `cover` matematigiyle hesaplandi, her
 piksele o satirin scrim alfasi kompozitlendi ve **en kotu oran** arandi —
 ortalama degil.
 
-| Sahne        | Ekran               | Ornek piksel |   Slogan | Destek satiri |
-| ------------ | ------------------- | -----------: | -------: | ------------: |
-| `walk`       | login               |       88 506 | **8.30** |          6.77 |
-| `path`       | register            |       88 506 | **7.51** |          7.13 |
-| `orbit`      | create-tenant       |       88 506 | **8.36** |      **5.86** |
-| `stage`      | select-tenant       |       88 506 | **6.16** |          5.96 |
-| — (Kademe B) | verify/forgot/reset |     analitik | **9.46** |          6.19 |
+| Sahne        | Ekran               | Ornek piksel | En kotu oran |
+| ------------ | ------------------- | -----------: | -----------: |
+| `walk`       | login               |      164 956 |    **10.16** |
+| `path`       | register            |      163 944 |     **8.92** |
+| `orbit`      | create-tenant       |      163 944 |     **8.69** |
+| `stage`      | select-tenant       |       82 984 |     **9.79** |
+| — (Kademe B) | verify/forgot/reset |     analitik |     **9.19** |
 
-⚠️ **En kotu deger 5.86** (orbit'in destek satiri) — WCAG AA'nin 4.5 esiginin
-uzerinde, ve bu bir ortalama degil **en kotu tek piksel**.
+> ⚠️ **BU TABLO IKINCI OLCUMDUR.** Ilk olcum (destek satiri hala varken ve
+> panel tam kanamaliyken) en kotu **5.86** veriyordu. Uc duzeltme —
+> tek cumle · panel inset'i · logonun tasinmasi — geometriyi degistirdi ve
+> **olcum bastan yapildi**. Yeni en kotu deger **8.69**; iyilesmenin sebebi
+> tek cumlenin daha ASAGIDA, yani scrim'in daha opak bolgesinde durmasidir.
+>
+> ⚠️ Eski degerleri **tahmin edip tasimak** mumkun degildi: kirpma penceresi
+> panelin en-boyuna bagli ve inset onu degistiriyor. Bu, "olcum bir kez
+> yapilir" sanmanin neden yanlis oldugunun somut ornegi.
+
+⚠️ **En kotu deger 8.69** (`orbit`) — WCAG AA'nin 4.5 esiginin cok uzerinde,
+ve bu bir ortalama degil **en kotu tek piksel**.
 
 ⚠️ **Kademe B'nin satiri ANALITIKTIR ve bu dogrudur:** orada fotograf yoktur,
 zemin bizim yazdigimiz determinist bir gradyandir — yani bu bolumun kendi
@@ -363,7 +376,7 @@ GECERSIZDIR. Olculecek bir degisken yok.
 ⚠️ **Kademe B'nin scrim'i uygulamada HAFIFLETILDI.** Fotograf gucundeki scrim,
 altinda fotograf olmayan bir panelde Mars gradyaninin zaten koyu olan alt ucunu
 neredeyse SIYAHA indiriyordu; `verify-email`de goruldu. Hafifletmek kontrasti
-zayiflatmadi (9.46 / 6.19).
+zayiflatmadi (**9.19**).
 
 ⚠️ **Form tarafi da iki temada olculdu** (tema `localStorage` uzerinden
 kurulup sayfa YENIDEN YUKLENEREK — canli attribute degisiminde tarayicinin stil
@@ -372,10 +385,18 @@ yanlis tabloya yol acti):
 
 | Olcum                                      |      Acik |      Koyu |
 | ------------------------------------------ | --------: | --------: |
+| ⭐ **YAZILI LOGO** / zemin                 | **16.47** | **17.10** |
+| "BUSINESS OS" alt satiri / zemin           |      5.45 |      7.81 |
 | Birincil dugme metni / dolgu               | **17.32** | **16.62** |
 | Dolgu / form zemini (oge siniri, esik 3.0) |     16.47 |     17.10 |
 | Baslik · alan etiketi / zemin              |     16.47 |     17.10 |
-| Yardimci ve ipucu metni / zemin            |      8.27 |      9.81 |
+| Yardimci metin / zemin                     |      8.27 |      9.81 |
+
+⚠️ **Logo satiri ancak §5.2'nin duzeltmesinden SONRA olculebilir hale geldi.**
+Logo panelde, fotografin uzerindeyken olculen tek bir sayisi YOKTU — arkasindaki
+piksel sahneye gore degisiyordu. Sag sutuna tasininca zemini duz bir token
+(`--bg`) oldu ve **16.47 / 17.10** olarak olculdu. Bu, o duzeltmenin
+gerekcesinin sayisal karsiligidir.
 
 ⚠️ **`--accent` olculen degeri:** acik `#16181b`, koyu `#f0f2f3` — yani karar
 davranissal olarak dogrulandi: **terracotta auth ekranlarinda `--accent`
@@ -447,6 +468,30 @@ Dort sahne de **1:1 kare**, panel **dikey**. `cover` ile kirpilir ve her sahne
 ⚠️ **Kabul olcutu:** maskotun **tamami** gorunur olmalidir. Bu, "guzel gorunsun"
 degil, **basi ya da kolu kesilmis bir maskotun markayi bozmasi** meselesidir.
 
+> ### ⚠️ EK KARAR — PANEL TAM KANAMALI DEGIL, "YUZEN KART" (PO, 2026-08-31)
+>
+> Ilk uygulama paneli dort kenara yapistiriyordu (full-bleed). Gercek ekranda
+> referansla karsilastirilinca fark tek cumleyle goruldu: **yapisik bir panel
+> ekranin BIR PARCASI gibi durur; icine bosluk alinca bir NESNE gibi durur** —
+> ve bir nesne, uzerine markanin bir cumlesini yazabileceginiz seydir.
+>
+> - Kenar boslugu **14 px** (dort kenar).
+> - Yaricap **`--radius-panel` (22 px)** — ⚠️ uydurulmus bir sayi degil,
+>   sistemin kendi kose ailesinden (FRONTEND §4.7: _"koseler tek bir aileden
+>   gelir"_). Yeni bir sayi yazmak auth yuzeyini sistemin disina cikarirdi.
+>   md seridinde `--radius-card` (16 px) kullanilir; genis ve alcak bir seritte
+>   22 px ezilmis gorunur.
+>
+> ⚠️ **`overflow: hidden` bu kararin KOSULUDUR, susu degil:** fotograf ve scrim
+> `::before`/`::after` katmanlarindadir; kirpilmasalardi kart yuvarlak gorunur
+> ama gorsel koseden **tasardi**.
+>
+> ⚠️ **Bir yan sonucu var ve kaydedilmeli:** panel artik `--bg`'nin ustunde
+> yuzuyor, yani cerceve rengi gorunur hale geldi ve **TEMAYI IZLIYOR** (acik
+> `#f6f6f7`, koyu `#0d0f11`). Panelin kendisi temaya duyarsizdir (§Sonuclari) —
+> yani temaya duyarli olan **cercevedir, resim degil**. Bu, "fotograflar tema
+> degistirmez" karariyla celismez, onu **gorunur** kilar.
+
 ### ⚠️ DORT KONUMUN DORDU DE UYGULAMADA DEGISTI — ve gozle degil HESAPLA
 
 Ilk yazimda konumlar "maskotun agirlik merkezi" diye goz karariyla verilmisti
@@ -501,14 +546,61 @@ alt satiri aciktir.
 
 **Gerekce gecerliligini korur; KONUM degisir.**
 
-| Genislik | Yazili logo nerede                        | Neden                                                                                  |
-| -------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| ≥ 1024px | **Sol panelin sol-ustunde**, ortada degil | Panel zaten marka beyanidir; sag panelde tekrar etmek markayi iki kez soylemek olurdu. |
-| 768–1023 | Ust seridin icinde                        | Ayni gerekce                                                                           |
-| < 768px  | **Formun ustune DONER**, ortalanmis       | Panel yok; logo o genislikte **tek marka tasiyicisidir**                               |
+| ~~Genislik~~ | ~~Yazili logo nerede~~                        | ~~Neden~~                                                                                  |
+| ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| ~~≥ 1024px~~ | ~~**Sol panelin sol-ustunde**, ortada degil~~ | ~~Panel zaten marka beyanidir; sag panelde tekrar etmek markayi iki kez soylemek olurdu.~~ |
+| ~~768–1023~~ | ~~Ust seridin icinde~~                        | ~~Ayni gerekce~~                                                                           |
+| ~~< 768px~~  | ~~**Formun ustune DONER**, ortalanmis~~       | ~~Panel yok; logo o genislikte **tek marka tasiyicisidir**~~                               |
 
-⚠️ **"BUSINESS OS" alt satiri her ucunde de acik kalir** — kullanici hala iceride
-degildir, kuralin kendisi degismedi.
+> ### ⚠️ DUZELTME — §D TERSINE CEVRILDI (Product Owner, 2026-08-31)
+>
+> **Yukaridaki tablo silinmedi, uzeri cizildi.** Projenin kendi kurali: bir
+> kararin degistigi ancak neyin degistigi gorulerek okunabilir.
+>
+> **Yeni karar:** yazili logo sol panelden **KALDIRILDI** ve **sag sutunun
+> USTUNE, ORTALANMIS** olarak tasindi — her genislikte ayni yer.
+>
+> | Genislik | Yazili logo nerede               |
+> | -------- | -------------------------------- |
+> | her ucu  | **Sag sutunun ustu, ortalanmis** |
+>
+> #### Neden ters cevrildi — iki sebep, ikisi de GERCEK EKRANDA goruldu
+>
+> ⚠️ **1. Logo FOTOGRAFIN UZERINDEYDI.** Yani okunurlugu, sahnenin o
+> kosesindeki piksellere bagliydi. Bu ADR §3.7'de metin icin bir scrim kurali
+> yaziyor (_"fotografa gore olculemez"_) — ama logo o kuralin **disindaydi** ve
+> altinda scrim yoktu. Sahne degistigi gun logo **sessizce** zayiflardi. Ayni
+> siniftan bir risk, ayni ADR'nin icinde iki farkli muameleye tabiydi.
+>
+> ⚠️ **2. Marka ile urunun baslangici ekranin IKI AYRI YARISINDAYDI.** Referans
+> (TradingView) logoyu formun ustune koyar: kullanici urunun adini ve giris
+> alanini **tek bir dikey eksende** okur. Bizde goz once sola (marka), sonra
+> saga (form) gidiyordu.
+>
+> #### Ne DEGISMEDI
+>
+> Kuralin **gerekcesi** aynen duruyor: _"giris ekrani kullanicinin HENUZ
+> ICERIDE OLMADIGI yuzeydir; marka kendini burada tanitir."_ Degisen yalnizca
+> **hangi yarida** tanittigidir. Dolayisiyla:
+>
+> - ⚠️ **"BUSINESS OS" alt satiri KORUNDU** (ADR-0038 §7.2) — kullanici hala
+>   iceride degil.
+> - ⚠️ **K isareti yine KULLANILMAZ** — ad zaten yaziliyken yanina bas harfini
+>   koymak ayni seyi iki kez soylemektir.
+> - ⚠️ **Maskot logonun yerine GECMEZ** — maskot markanin KARAKTERIDIR, ADI
+>   degildir.
+>
+> #### Yan kazanc: artik TEK logo var
+>
+> Onceki yazimda **iki ayri ornek** vardi — panelde bir, `<768px`'te formun
+> ustunde bir — ve ikisi ayri kurallarla yasiyordu (`md:hidden` + panel ici
+> token override). ⚠️ Iki ornek iki bakim noktasi demekti; biri degisip digeri
+> unutulsa hata **sessiz** olurdu. Simdi genislikten bagimsiz tek bir yerde
+> duruyor ve `.auth-panel-brand` token override'i **tamamen silindi** (olu
+> birakilsaydi okuyan biri panelde hala bir marka ogesi oldugunu sanardi).
+>
+> ⚠️ Bir test bunu kilitliyor: sayfada **tam bir** kelime logosu vardir, sag
+> sutunun icindedir ve panelin icinde **degildir**.
 
 ⚠️ **Maskot logonun yerini ALMAZ.** _"Maskot zaten o isi goruyor mu"_ sorusunun
 cevabi **hayirdir**: maskot markanin **karakteridir**, **adi degildir**. Bir
@@ -531,7 +623,44 @@ ogrenildigi tek yerdir.
 tarayici cevirir, kopyalanabilir — ve degistirmek icin bir goruntu duzenleyici
 gerekmez. §7.2'nin ucuncu testi bunu kilitler.
 
-⚠️ **Slogan Inter'dir, Newsreader DEGIL** ve en fazla iki satirdir (§7.1).
+⚠️ **Slogan Inter'dir, Newsreader DEGIL** (§7.1).
+
+> ### ⚠️ DUZELTME — PANELDE TEK CUMLE (Product Owner, 2026-08-31)
+>
+> Panelde once **bir baslik + bir destek satiri** ikilisi vardi
+> (_"Sirketin hafizasi yerinde duruyor."_ + _"Kaldigin yerden devam et."_).
+> Gercek ekranda referansla yan yana konunca ikili bir **PARAGRAF** gibi
+> okundu, bir slogan gibi degil.
+>
+> ⚠️ **Bir slogan tek bir fikir soyler ve ACIKLANMAZ** — aciklandigi anda
+> slogan olmaktan cikar. Ustelik aciklama zaten sag panelde, formun kendi
+> basliginin altinda duruyordu; panelde tekrari hem yer harciyor hem de
+> kullanicinin gozunu ikiye boluyordu.
+>
+> **Karar:** destek satiri **kaldirildi**; yedi ekranin her birinde panelde
+> **tek cumle** kalir. `AuthPanelContent.support` alani tipten de silindi —
+> olu birakilsaydi bir gun sessizce geri doldurulurdu.
+>
+> | Ekran             | Tek cumle                                      |
+> | ----------------- | ---------------------------------------------- |
+> | `register`        | İşletmenin hafızası buradan başlıyor.          |
+> | `login`           | Şirketin hafızası yerinde duruyor.             |
+> | `verify-email`    | Neredeyse tamam.                               |
+> | `forgot-password` | Parolalar unutulur, şirketin hafızası unutmaz. |
+> | `reset-password`  | Sıfırlanan yalnızca parolan.                   |
+> | `create-tenant`   | Şirketini kur, her şeyi tek yerden gör.        |
+> | `select-tenant`   | Her şirketin kendi hafızası var.               |
+>
+> ⚠️ **Kisit "tek SATIR" degil "tek FIKIR".** `forgot-password`un cumlesi iki
+> satira sarabilir ve korundu, cunku iki yarisi bir **karsitlik** kurar — yani
+> ikinci yari bir aciklama degil, fikrin kendisidir.
+>
+> ⚠️ **`select-tenant` bir SORU cumlesiydi** (_"Hangi sirkete geciyorsun?"_) ve
+> birakildi: formun kendi basligi zaten "Sirket sec" diyor, panel onu tekrar
+> ediyordu. **Panelin isi yonlendirmek degil, markanin bir sey soylemesidir.**
+>
+> ⚠️ Bir test bunu kilitliyor: panelde tam **bir** `<p>` vardir. Ikinci bir
+> paragraf eklemek bu karari sessizce geri alirdi.
 
 ### 5.4 Varlik adlandirma
 
@@ -703,7 +832,7 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
   acik: kullanici bugun yalnizca e-posta ile girer.
 - ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
   (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
-  temada olculdu; en kotu deger **5.86**. Tablo §3.7'de.
+  temada olculdu; en kotu deger **8.69**. Tablo §3.7'de.
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc
@@ -764,12 +893,12 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
 
 ## Product Owner onayi gereken kalemler
 
-| #     | Kalem                                                                                                                                                 | Neden onay gerekiyor                                                                                            |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **A** | ⚠️ **Terracotta auth ekranlarindan tamamen cikiyor**; birincil dugme **notr murekkep** oluyor (§3.2–3.3).                                             | Marka renginin en cok gorulen kimliksiz yuzeyden kaldirilmasi bir gorsel tercih degil, bir **anlam** kararidir. |
-| **B** | ⚠️ **Mars turuncusu §4.8'in ±35° yasak koridorunun icindedir** ve bilerek deliniyor — sinirli olarak, yalnizca sol panelde (§3.6).                    | Yazili bir platform kuralindan **kapsam tespitiyle** cikiliyor; sessizce yapilmamalidir.                        |
-| **C** | ⚠️ **Sosyal giris dugmeleri BUGUN RENDER EDILMEYECEK** (§6.1) — Faz 8 gelene kadar ekranda gorunmezler.                                               | PO uc saglayici belirtti; karar onlari tasarlayip **erteliyor**. Bedeli acik ve kabul edilmelidir.              |
-| **D** | **Yazili logo ortadan sol panele tasiniyor**; mobilde formun ustune donuyor (§5.2). "BUSINESS OS" alt satiri korunuyor, K isareti yine kullanilmiyor. | 2026-08-17 tarihli PO kuralinin **konumu** degisiyor; gerekcesi degismiyor.                                     |
+| #     | Kalem                                                                                                                                                                                                                                                       | Neden onay gerekiyor                                                                                                                                                  |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | ⚠️ **Terracotta auth ekranlarindan tamamen cikiyor**; birincil dugme **notr murekkep** oluyor (§3.2–3.3).                                                                                                                                                   | Marka renginin en cok gorulen kimliksiz yuzeyden kaldirilmasi bir gorsel tercih degil, bir **anlam** kararidir.                                                       |
+| **B** | ⚠️ **Mars turuncusu §4.8'in ±35° yasak koridorunun icindedir** ve bilerek deliniyor — sinirli olarak, yalnizca sol panelde (§3.6).                                                                                                                          | Yazili bir platform kuralindan **kapsam tespitiyle** cikiliyor; sessizce yapilmamalidir.                                                                              |
+| **C** | ⚠️ **Sosyal giris dugmeleri BUGUN RENDER EDILMEYECEK** (§6.1) — Faz 8 gelene kadar ekranda gorunmezler.                                                                                                                                                     | PO uc saglayici belirtti; karar onlari tasarlayip **erteliyor**. Bedeli acik ve kabul edilmelidir.                                                                    |
+| **D** | ~~**Yazili logo ortadan sol panele tasiniyor**; mobilde formun ustune donuyor (§5.2).~~ ⚠️ **TERSINE CEVRILDI (2026-08-31):** logo panelden kaldirildi, **sag sutunun ustune ortalandi**. "BUSINESS OS" alt satiri korunuyor, K isareti yine kullanilmiyor. | 2026-08-17 tarihli PO kuralinin **konumu** degisiyor; gerekcesi degismiyor. ⚠️ Ilk konum gercek ekranda sinandi ve degistirildi — ayrinti §5.2'deki duzeltme notunda. |
 
 ---
 

@@ -28,29 +28,29 @@ import { AUTH_PANELS, type AuthScreenKey } from './auth-panels';
  * ⚠️ DOM SIRASI: ÖNCE FORM, SONRA PANEL
  * ============================================================================
  * Panel görsel olarak SOLDA ama DOM'da SONRADIR (`order-first` onu görsel
- * olarak öne alır). Sebep erişilebilirliktir: panel dekoratif bir zemin + iki
- * cümledir; klavye ve ekran okuyucu doğrudan forma düşmelidir. Tab sırası DOM
- * sırasını izler.
+ * olarak öne alır). Sebep erişilebilirliktir: panel dekoratif bir zemin + tek
+ * bir cümledir; klavye ve ekran okuyucu doğrudan forma düşmelidir. Tab sırası
+ * DOM sırasını izler.
  *
  * ============================================================================
  * ⚠️ DUYARLI DAVRANIŞ — ve UYGULAMADA DEĞİŞEN BİR KARAR
  * ============================================================================
  * | Genişlik   | Panel                                                      |
  * | ---------- | ---------------------------------------------------------- |
- * | < 768      | YOK. Yazılı logo formun üstüne döner.                      |
- * | 768–1023   | Üstte kısa şerit — ⚠️ FOTOĞRAFSIZ, Mars zemini + logo      |
+ * | < 768      | YOK.                                                       |
+ * | 768–1023   | Üstte kısa şerit — ⚠️ FOTOĞRAFSIZ, Mars zemini             |
  * | ≥ 1024     | Sol sütun, tam yükseklik, fotoğraf (Kademe A/C)            |
  *
  * ⚠️ ADR-0052 §4.1 md şeridinde "fotoğraf kırpılır" diyordu; uygulamada
  * ÖLÇÜLDÜ ve tutmadığı görüldü. Kaynak 1:1 karedir ve maskot çerçevenin
- * ~%40'ı kadar yer kaplar; 1024×200'lük bir şeritte `cover` kırpması maskotun
+ * ~%40'ı kadar yer kaplar; 1024×208'lik bir şeritte `cover` kırpması maskotun
  * başını KESER — yani §4.4'ün "maskotun tamamı görünür" kabul ölçütü md'de
  * yapısal olarak sağlanamaz. Bandı ~420 px yapmak tabletin yarısını yerdi.
  *
- * Karar: md'de panel Kademe B'nin panelidir (gradyan + logo + slogan).
- * Kural böylece basitleşir ve GÜÇLENİR: **maskot göründüğü her yerde tamamı
- * görünür.** Yan kazanç — fotoğraf artık yalnızca ≥1024'te istenir, yani
- * tablet de baytı ödemez.
+ * Karar: md'de panel Kademe B'nin panelidir (gradyan + slogan). Kural böylece
+ * basitleşir ve GÜÇLENİR: **maskot göründüğü her yerde tamamı görünür.**
+ * Yan kazanç — fotoğraf artık yalnızca ≥1024'te istenir, yani tablet de baytı
+ * ödemez.
  */
 export function AuthScreen({
   screen,
@@ -92,39 +92,53 @@ export function AuthScreen({
           href={`/brand/mascot-scene-${scene}.avif`}
         />
       ) : null}
-      {/*
-        FORM SÜTUNU — DOM'da önce (yukarıdaki erişilebilirlik notu).
 
-        ⚠️ İçerik 380 px'te kapanır. ≥1536 px'te panel büyür ama bu sınır
-        SABİT kalır; aksi halde 27 inçlik bir ekranda 900 px genişliğinde bir
-        e-posta alanı olurdu — bugün `max-w-sm` ile önlenen şeyin iki sütunlu
-        düzendeki karşılığı.
-      */}
-      <div className="auth-form-col px-6 py-12 sm:px-10">
-        <div className="w-full max-w-[380px]">
-          {/*
-            YAZILI LOGO — KONUM DEĞİŞTİ, GEREKÇE DEĞİŞMEDİ (ADR-0052 §5.2).
+      {/* FORM SÜTUNU — DOM'da önce (yukarıdaki erişilebilirlik notu). */}
+      <div className="auth-form-col px-6 py-10 sm:px-10">
+        {/*
+          ⚠️ YAZILI LOGO ARTIK BURADA — ADR-0052 §5.2'nin KARARI TERSİNE
+          ÇEVRİLDİ (Product Owner, 2026-08-31).
 
-            Kural (Product Owner, 2026-08-17) şuydu: "Giriş ekranı kullanıcının
-            HENÜZ İÇERİDE OLMADIĞI yüzeydir; markanın kendini tam olarak
-            tanıttığı tek yer burasıdır" — bu yüzden "BUSINESS OS" alt satırı
-            yalnızca burada açılır. O gerekçe aynen geçerlidir.
+          Önceki karar logoyu SOL PANELE, fotoğrafın üzerine koyuyordu ve
+          gerekçesi "panel zaten marka beyanıdır" idi. Gerçek ekranda referansla
+          karşılaştırılınca iki sorun görüldü:
 
-            Değişen KONUMDUR: ≥768'de panel zaten marka beyanıdır ve logoyu
-            sağda tekrar etmek markayı iki kez söylemek olurdu. Panelin
-            olmadığı tek genişlikte (<768) logo buraya DÖNER, çünkü orada tek
-            marka taşıyıcısı odur.
+            1. Logo fotoğrafın ÜZERİNDE duruyordu — yani okunurluğu sahnenin
+               o köşesindeki piksellere bağlıydı. Sahne değişirse logo sessizce
+               zayıflar; bu, §3.7'nin metin için kurduğu scrim kuralının
+               logoda KARŞILIĞI OLMAYAN hâliydi.
+            2. Marka ile ürünün başlangıcı EKRANIN İKİ AYRI YARISINDA duruyordu.
+               Referansta logo formun üstündedir: kullanıcı adı ve giriş
+               alanını TEK bir dikey eksende okur.
 
-            ⚠️ K işareti burada yine KULLANILMAZ (ADR-0038 §7.2): ad zaten
-            yazılıyken yanına baş harfini koymak aynı şeyi iki kez söylemektir.
+          Yeni yer: sağ sütunun ÜSTÜ, ORTALANMIŞ. Gerekçenin kendisi değişmedi
+          — "kullanıcı henüz içeride değil, marka kendini burada tanıtır" —
+          değişen yalnızca hangi yarıda tanıttığıdır.
 
-            ⚠️ Maskot logonun YERİNE geçmez: maskot markanın KARAKTERİDİR,
-            ADI değildir — kullanıcı maskotu görüp ürünün adını öğrenemez.
-          */}
-          <div className="mb-8 flex justify-center md:hidden">
-            <KobiWiseWordmark size={30} descriptor />
-          </div>
-          {children}
+          ⚠️ Yan kazanç: artık TEK bir logo var. Önceki yazımda panelde bir,
+          `<768px`'te formun üstünde bir tane olmak üzere iki ayrı örnek vardı
+          ve ikisi ayrı kurallarla (`md:hidden` + panel içi token override)
+          yaşıyordu. Şimdi genişlikten bağımsız tek bir yerde duruyor.
+
+          ⚠️ "BUSINESS OS" alt satırı KORUNDU (ADR-0038 §7.2): kullanıcı hâlâ
+          içeride değil. K işareti yine KULLANILMAZ — ad zaten yazılıyken
+          yanına baş harfini koymak aynı şeyi iki kez söylemektir.
+
+          ⚠️ Maskot logonun yerine GEÇMEZ: maskot markanın KARAKTERİDİR, ADI
+          değildir — kullanıcı maskotu görüp ürünün adını öğrenemez.
+        */}
+        <div className="flex shrink-0 justify-center pb-10">
+          <KobiWiseWordmark size={30} descriptor />
+        </div>
+
+        {/*
+          ⚠️ İçerik 380 px'te kapanır. ≥1536 px'te panel büyür ama bu sınır
+          SABİT kalır; aksi halde 27 inçlik bir ekranda 900 px genişliğinde bir
+          e-posta alanı olurdu — bugün `max-w-sm` ile önlenen şeyin iki sütunlu
+          düzendeki karşılığı.
+        */}
+        <div className="auth-form-body">
+          <div className="w-full max-w-[380px]">{children}</div>
         </div>
       </div>
 
@@ -134,32 +148,28 @@ export function AuthScreen({
         `hidden md:flex`: <768'de hiç render edilmez. Fotoğraf zaten
         `@media (min-width: 1024px)` içinde tanımlıdır, yani dar ekranda
         indirilmez de — iki bağımsız koruma (ADR-0052 §4.2).
+
+        ⚠️ `justify-end`: panelin TEK çocuğu kaldı (slogan) ve o, panelin
+        altında durur. Önceki `justify-between` iki çocuk (logo + metin) içindi;
+        logo taşınınca tek çocukla `justify-between` sessizce "üste yasla"ya
+        dönerdi — ve slogan scrim'in dışına çıkıp okunmaz hâle gelirdi.
       */}
       <aside
-        className="auth-panel order-first hidden flex-col justify-between p-8 md:flex md:h-[208px] lg:h-auto lg:p-12"
+        className="auth-panel order-first hidden flex-col justify-end p-8 md:flex md:h-[208px] lg:h-auto lg:p-12"
         data-scene={scene}
       >
-        <div className="auth-panel-brand">
-          <KobiWiseWordmark size={26} descriptor />
-        </div>
-
         {/*
-          ⚠️ METİN BLOĞU PANELİN ALT KISMINDADIR ve bu bir hizalama tercihi
-          değil bir KONTRAST koşuludur: scrim orada ≥0.72 opaklıktadır
+          ⚠️ METİN PANELİN ALT KISMINDADIR ve bu bir hizalama tercihi değil bir
+          KONTRAST koşuludur: scrim orada ≥0.72 opaklıktadır
           (`auth-surface.css`). Yukarı taşınırsa fotoğrafın açık pikselleri
           üzerinde okunmaz hâle gelir ve hata SESSİZDİR.
         */}
-        <div className="max-w-[30ch]">
-          <p
-            className="text-[26px] leading-[1.18] font-semibold tracking-[-0.02em] lg:text-[32px]"
-            style={{ color: 'var(--mars-ink)' }}
-          >
-            {panel.slogan}
-          </p>
-          <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--mars-ink-2)' }}>
-            {panel.support}
-          </p>
-        </div>
+        <p
+          className="max-w-[22ch] text-[27px] leading-[1.16] font-semibold tracking-[-0.02em] lg:text-[34px]"
+          style={{ color: 'var(--mars-ink)' }}
+        >
+          {panel.slogan}
+        </p>
       </aside>
     </main>
   );

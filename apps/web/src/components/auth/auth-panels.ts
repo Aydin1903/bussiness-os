@@ -22,6 +22,10 @@
  * | B — Akış          | verify-email · forgot · reset         | FOTOĞRAF YOK     |
  * | C — Eşiğin içi    | create-tenant · select-tenant         | fotoğraf + slogan|
  *
+ * ⚠️ Panelde MARKA ÖĞESİ YOKTUR — yazılı logo sağ sütunun üstündedir
+ * (ADR-0052 §5.2 düzeltmesi, 2026-08-31). Panelin taşıdığı tek metin
+ * slogandır.
+ *
  * ⚠️ Kademe B'de `scene` yoktur ve bu bir eksiklik DEĞİLDİR: o ekranlar
  * mekaniktir (gelen kutusundan altı hane taşımak), çoğunlukla telefonda
  * açılır ve büyük bir fotoğraf orada ikna etmez GECİKTİRİR. Panel kaybolmaz —
@@ -30,7 +34,7 @@
  * ⚠️ `mascot-portrait` varlığı HENÜZ ÜRETİLMEDİ (ADR-0052 §2.3) ve bir sahne
  * kırpılıp "portre" diye KULLANILMAZ: kırpma arka plandaki Mars zeminini de
  * taşır ve panelin kendi gradyanıyla üst üste binerdi. Kademe B bugün
- * gradyan + logo ile çalışır; bu, kabul edilmiş bir geri düşüştür.
+ * gradyan + slogan ile çalışır; bu, kabul edilmiş bir geri düşüştür.
  */
 
 /**
@@ -48,10 +52,20 @@ export type AuthScene = 'path' | 'walk' | 'orbit' | 'stage';
 export interface AuthPanelContent {
   /** Yoksa Kademe B: fotoğraf katmanı hiç kurulmaz. */
   readonly scene?: AuthScene;
-  /** Panelin kahraman cümlesi. ⚠️ Görsele GÖMÜLMEZ — gerçek DOM metnidir. */
+  /**
+   * Panelin TEK cümlesi. ⚠️ Görsele GÖMÜLMEZ — gerçek DOM metnidir.
+   *
+   * ⚠️ **DESTEK SATIRI KALDIRILDI** (Product Owner, 2026-08-31 — ADR-0052
+   * düzeltme notu). Panelde önce bir başlık + bir açıklama satırı ikilisi
+   * vardı; gerçek ekranda referansla (TradingView) yan yana konunca ikili
+   * bir **paragraf** gibi okundu, bir slogan gibi değil.
+   *
+   * Bir slogan tek bir fikir söyler ve açıklanmaz — açıklandığı anda slogan
+   * olmaktan çıkar. Açıklama zaten sağ panelde, formun kendi başlığının
+   * altında duruyor; panelde tekrarı hem yer harcıyor hem de kullanıcının
+   * gözünü ikiye bölüyordu.
+   */
   readonly slogan: string;
-  /** Tek destek satırı. Ürünün sesi (Inter), AI'ın değil. */
-  readonly support: string;
   /**
    * Sahneyi `<link rel="preload">` ile öne çeker.
    *
@@ -81,35 +95,39 @@ export const AUTH_PANELS = {
     scene: 'path',
     preload: true,
     slogan: 'İşletmenin hafızası buradan başlıyor.',
-    support: 'Birkaç dakikada kurulur, ilk günden hatırlamaya başlar.',
   },
   login: {
     scene: 'walk',
     preload: true,
     slogan: 'Şirketin hafızası yerinde duruyor.',
-    support: 'Kaldığın yerden devam et.',
   },
   'verify-email': {
     slogan: 'Neredeyse tamam.',
-    support: 'Kodu girdiğin an hesabın hazır olacak.',
   },
   'forgot-password': {
-    slogan: 'Parolalar unutulur.',
-    support: 'Şirketin hafızası unutmaz.',
+    /*
+     * ⚠️ Setin en güçlü cümlesi ve TEK cümleye indirilirken korundu: iki
+     * yarısı bir KARŞITLIK kurar, yani ikinci yarı bir açıklama değil
+     * fikrin kendisidir. Ekranda iki satıra sarabilir — kısıt "tek satır"
+     * değil "tek fikir".
+     */
+    slogan: 'Parolalar unutulur, şirketin hafızası unutmaz.',
   },
   'reset-password': {
-    slogan: 'Yeni bir parola, aynı hafıza.',
-    support: 'Sıfırlanan yalnızca parolan; hiçbir kaydın etkilenmez.',
+    slogan: 'Sıfırlanan yalnızca parolan.',
   },
   'create-tenant': {
     scene: 'orbit',
     slogan: 'Şirketini kur, her şeyi tek yerden gör.',
-    support: 'Modüller sonra gelir; önce şirketin bir adı olsun.',
   },
   'select-tenant': {
     scene: 'stage',
-    slogan: 'Hangi şirkete geçiyorsun?',
-    support: 'Her şirketin kendi hafızası vardır; ikisi karışmaz.',
+    /*
+     * ⚠️ Soru cümlesi ("Hangi şirkete geçiyorsun?") BIRAKILDI: formun kendi
+     * başlığı zaten "Şirket seç" diyor ve panel onu tekrar ediyordu. Panelin
+     * işi yönlendirmek değil, markanın bir şey söylemesidir.
+     */
+    slogan: 'Her şirketin kendi hafızası var.',
   },
 } as const satisfies Record<string, AuthPanelContent>;
 
