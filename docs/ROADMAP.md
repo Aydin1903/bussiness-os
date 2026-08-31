@@ -29,7 +29,7 @@ Bu doküman **sıranın** ve **kapı koşullarının** Single Source of Truth'ud
 4. [Faz 6 — Faturalama](#4-faz-6--faturalama)
 5. [Faz 7 — Native Mobil](#5-faz-7--native-mobil)
 6. [Faz 8 — OAuth](#6-faz-8--oauth)
-7. [Faz 9 — Landing Page + Marka Kimliği](#7-faz-9--landing-page--marka-kimliği)
+7. [Faz 9 — Landing Page + Marka Kimliği](#7-faz-9--landing-page--marka-kimliği) — ⚠️ **kapı koşulu karşılandı; Faz 6'nın ÖNÜNE alındı** (2026-08-27)
 8. [Yatay / sürekli kalemler](#8-yatay--sürekli-kalemler)
 9. [Uzlaştırılacak kayıtlar](#9-uzlaştırılacak-kayıtlar)
 
@@ -408,6 +408,20 @@ Faturalanacak bir değer yokken faturalama inşa etmek, fiyatlandırılacak şey
 
 > ⚠️ **Bu kararın bilinçli bedeli: gelir en sona itildi.** On iki modül uzun bir yoldur ve bu süre boyunca sistem para kazanmaz. Karar bunu bilerek verdi — ama iki kalem bu erteleme yüzünden **daha da kritik** hale geldi ve Faz 6'ya kadar bekleyemez: [§2.4](#24-zorunlu-alt-adım-cicd--hosting)'ün prod/hosting koşulu (on iki modülün tek bir dağıtım denemesi yapılmadan yazılması, ilk dağıtımdaki sürprizi on iki katına çıkarır) ve [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'nin KVKK kontrol noktası (koşul "Faz 6 öncesi" diyordu; Faz 6 uzaklaştıkça bu cümle KVKK'yı da erteliyormuş gibi okunabilir — **okunmamalı**, kontrol noktası veri girmeden önce gerekir ve veri şimdi giriyor).
 
+> ### ⚠️ SIRA NOTU — Landing Page + kayıt akışı BU FAZDAN ÖNCE gelir (2026-08-27)
+>
+> **Product Owner kararı.** Bu fazın kapı koşulu (_"on iki modülün TAMAMI"_)
+> **karşılandı** ve karşılanmış olarak duruyor — ⚠️ **değişen şey koşul değil
+> SIRADIR.**
+>
+> Gerekçe tek cümleyle: ⚠️ **gerçek kullanıcı olmadan Faturalama'nın anlamı
+> yoktur.** Abonelik, plan/kota ve ödeme sağlayıcısı — üçü de faturalanacak bir
+> kullanıcının var olmasını varsayar. Bugün prod'da **sıfır kullanıcı ve sıfır
+> tenant** vardır ve dışarıdan biri **kaydolamaz**: kayıt akışına giden genel
+> bir kapı yoktu.
+>
+> Ayrıntı ve kapsam [§7](#7-faz-9--landing-page--marka-kimliği)'dedir.
+
 > **Not:** KVKK/GDPR kontrol noktası bu fazdan **önce** gelir — bkz. [§8](#8-yatay--sürekli-kalemler).
 
 ---
@@ -430,9 +444,91 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 
 ## 7. Faz 9 — Landing Page + Marka Kimliği
 
-> **Kapı koşulu:** **Domain ve marka netleşmeden başlamaz.**
+> ### ✅ KAPI KOŞULU KARŞILANDI — ve iş FAZ 6'NIN ÖNÜNE ALINDI (Product Owner kararı, 2026-08-27)
+>
+> **Eski metin silinmedi**, aşağıda duruyor: koşulun karşılandığı ve sıranın
+> değiştiği görülsün.
+>
+> #### Kapı koşulu neydi, neden kapandı
+>
+> Koşul _"domain ve marka netleşmeden başlamaz"_ idi. **İkisi de netleşti:**
+>
+> | Koşul  | Durum                                                                                                                        |
+> | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+> | Domain | ✅ **kobiwise.com** kayıtlı (Namecheap)                                                                                      |
+> | Marka  | ✅ Logo tamamlandı — yazılı logo + K işareti, kullanım kuralıyla birlikte ([ADR-0038](adr/0038-oda-tasarim-sistemi.md) §7.1) |
+>
+> ⚠️ Marka tarafı aslında **Faz 5 içinde kapanmıştı**: ODA tasarım sistemi
+> favicon ve mobil ikonu da o işte ekledi (daha önce hiç yoktu) ve
+> `(auth)/layout.tsx` yazılı logoyu "Business OS" alt satırıyla birlikte
+> kullanıyor. Bugün eklenen tek şey **domain**dir.
+>
+> #### ⚠️ SIRA DEĞİŞTİ: Landing Page + kayıt akışı, Faz 6'DAN ÖNCE
+>
+> **Gerekçe tek cümleyle: gerçek kullanıcı olmadan Faturalama'nın anlamı
+> yoktur.** Faz 6 abonelik, plan/kota ve ödeme sağlayıcısıdır — üçü de
+> **faturalanacak bir kullanıcının var olmasını** varsayar. Bugün prod'da
+> **sıfır kullanıcı ve sıfır tenant** vardır ve dışarıdan biri kaydolamaz:
+> kök rota bir landing page değildi ve kayıt akışına giden hiçbir genel kapı
+> yoktu.
+>
+> ⚠️ **Bu, [§4](#4-faz-6--faturalama)'ün kapı koşulunu GEVŞETMEZ.** O koşul
+> (_"on iki modülün TAMAMI"_) 2026-08-27'de **karşılandı** ve karşılanmış
+> olarak duruyor. Değişen şey koşul değil **sıradır**: Faz 6 artık
+> "başlanabilir" ama önüne bir iş girdi.
+>
+> ⚠️ **Bugün eksik olan Faz 9'un TAMAMI DEĞİLDİR** ve bu ayrım kapsamı belirler:
+>
+> | Parça                                                                                                                                   | Durum                                                                                                                                               |
+> | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Auth ekranları (`register` · `verify-email` · `login` · `forgot`/`reset-password` · `create-tenant` · `select-tenant`)                  | ✅ **YAZILI ve API'ye bağlı** (~920 satır); login sonrası yönlendirme kuralı da uygulanmış ([FRONTEND](architecture/FRONTEND_ARCHITECTURE.md) §3.1) |
+> | Backend auth uçları (register · verify-email · resend · login · refresh · logout · forgot/reset-password · switch-tenant · tenant açma) | ✅ **HEPSİ CANLI** — eksik uç yok                                                                                                                   |
+> | ⚠️ Genel giriş noktası (`/`)                                                                                                            | ⚠️ **YOK** — 2026-08-27'de geçici olarak `/login`'e yönlendirildi (aşağıda)                                                                         |
+> | ⚠️ Pazarlama içeriği: ne yaptığı, fiyatlandırma, KVKK/gizlilik metni                                                                    | ⚠️ **YOK**                                                                                                                                          |
+> | ⚠️ **E-posta teslimatı**                                                                                                                | ⚠️ **ENGEL** — aşağıda                                                                                                                              |
+>
+> #### ⚠️ ASIL DARBOĞAZ LANDING DEĞİL, E-POSTA
+>
+> `EMAIL_FROM` bugün Resend'in **paylaşımlı test göndericisidir** (`resend.dev`)
+> ve o modda Resend yalnızca hesap sahibinin adresine ve `*.resend.dev` test
+> adreslerine gönderir. ⚠️ Yani **gerçek bir kullanıcı doğrulama kodunu
+> ALAMAZ** — kayıt akışı ekranda çalışsa bile ikinci adımda durur.
+>
+> Önkoşul: **kobiwise.com'un Resend'de doğrulanması** (DNS kayıtları). Domain
+> artık var, yani bu iş de yapılabilir hale geldi.
+>
+> ⚠️ Ve bir kayıt daha: **kayıt → doğrulama → giriş → tenant açma zinciri
+> prod'da HİÇ uçtan uca koşulmadı.** Bugüne kadarki tüm prod tenant'ları
+> doğrudan API çağrılarıyla (`curl` + `psql`) açıldı ve doğrulama adımı
+> `email_verified` elle `true` yapılarak **atlandı**. Zincirin prod'daki ilk
+> gerçek sınavı bu iş olacaktır.
+>
+> #### ⚠️ 2026-08-27'de yapılan GEÇİCİ düzeltme — bu bir landing page DEĞİLDİR
+>
+> Kök rota (`/`) Faz 1'den beri bir **altyapı sağlık kartı** çiziyordu: servis
+> adı, sürüm, **ortam**, **uptime** ve **veritabanı gecikmesi**. ⚠️ Ve
+> `middleware.ts`'in kapsamı **dışındaydı** (`matcher: ['/app/:path*']`), yani
+> kimliksiz herkese açıktı — prod'da `SWAGGER_ENABLED=false` ile uç sözleşmesi
+> kasten kapatılmışken.
+>
+> Rota `/login`'e yönlendirildi. ⚠️ **Sağlık kontrolü kaybolmadı:**
+> `GET /api/v1/health` yerinde ve dağıtım doğrulamasının tek kaynağı zaten
+> odur; kaldırılan şey ölçüm değil, o ölçümün **kimliksiz bir HTML sayfası
+> olarak yayınlanmasıdır**.
+>
+> ⚠️ Yönlendirme **307 (geçici)**, `permanentRedirect` **değil**: 308'i
+> tarayıcılar kalıcı olarak önbelleğe alır ve landing page yayına alındığı gün
+> daha önce siteye girmiş her tarayıcı **hâlâ `/login`'e giderdi** — hata
+> sessiz olurdu. Bir test bunu kilitliyor.
+
+> ~~**Kapı koşulu:** **Domain ve marka netleşmeden başlamaz.**~~
+> — ✅ karşılandı, 2026-08-27 (yukarıya bakınız).
 
 E-posta şablonlarının HTML/marka hâline getirilmesi de buraya bağlıdır ([AUTH §7.7](architecture/AUTH_ARCHITECTURE.md)) — bugün bilinçli olarak düz metindir ve bu bir **içerik** borcudur, mimari borç değil. Referanslar: [`DESIGN_REFERENCES.md`](architecture/DESIGN_REFERENCES.md).
+
+⚠️ **Bu kalem artık düz metin olmanın ötesinde bir şey daha bekliyor:** şablon
+işi ancak alan adı Resend'de doğrulandıktan sonra gerçek bir adrese gönderilip
+**görülebilir**. Yani sıra: domain doğrulaması → gerçek gönderim → şablon.
 
 ---
 
