@@ -1,0 +1,363 @@
+/*
+ * AUTH YÜZEYİ — ADR-0052.
+ *
+ * ============================================================================
+ * BU DOSYA NEDEN `module-colors.css` DEĞİL
+ * ============================================================================
+ * `module-colors.css` on iki **iş modülünün** SSOT'udur ve ROADMAP §3.5'in
+ * sırasını taşır. Auth bir modül değildir: şeması, izni, rotası, katkıcısı
+ * yoktur. Aynı dosyaya koymak, on üçüncü modül geldiğinde paletin yanlış
+ * yerde aranmasına yol açardı.
+ *
+ * Mekanizma yine de BİREBİR aynıdır ve bu bilinçlidir: `[data-surface='auth']`
+ * alt ağacında `--accent` ve türevleri ezilir, hiçbir bileşen değişmez.
+ * `@theme inline` sayesinde `.bg-accent { background-color: var(--accent) }`
+ * derlenir — utility ara değişkeni ATLAR (module-colors.css'te derlenmiş
+ * çıktıya bakılarak doğrulanmış gerçek).
+ *
+ * ============================================================================
+ * ⚠️ KARAR: TERRACOTTA AUTH EKRANLARINDAN TAMAMEN ÇIKAR (ADR-0052 §3.2)
+ * ============================================================================
+ * Kökte `--accent` = `--ai-accent` = terracottadır. Sol panele Mars turuncusu
+ * konunca ekranda iki sıcak turuncu olurdu ve İKİSİ DE "vurgu" rolünde. Sorun
+ * hue mesafesi değil ROL çakışmasıdır.
+ *
+ * Asıl bedel auth ekranında bile değil: kullanıcı burada "turuncu = marka"
+ * öğrenip `/app`'te "turuncu = asistan konuşuyor" ile karşılaşırdı. AYNI RENK
+ * İKİ FARKLI ŞEY SÖYLERSE İKİSİNİ DE SÖYLEMEZ.
+ *
+ * Çözüm teritoryadır, hue değil:
+ *   1. Mars paleti YALNIZCA sol panelin içinde yaşar (aşağıdaki `.auth-panel`).
+ *   2. Auth kapsamında `--accent` NÖTR MÜREKKEBE çekilir → birincil düğme
+ *      neredeyse siyah (koyu temada neredeyse beyaz).
+ *
+ * Sonuç tek cümleyle sınanabilir: ekranda TAM OLARAK BİR turuncu bölge vardır
+ * ve terracotta hiç yoktur.
+ *
+ * Nötr dolgunun kendi gerekçesi daha güçlüdür: auth ekranında yapılacak TAM
+ * OLARAK BİR şey vardır; birincil eylemin bulunmak için renge değil KONTRASTA
+ * ihtiyacı vardır. `Button`'ın kendi yorumu bunu zaten yazıyor.
+ */
+
+/*
+ * ============================================================================
+ * 1. NÖTR MÜREKKEP — iki tema yan yana
+ * ============================================================================
+ * Değerler uydurulmadı: açık temanın mürekkebi `--fg` (`#16181b`), koyu
+ * temanınki `--fg` (`#f0f2f3`). Yani "accent" auth'ta metin rengiyle aynı
+ * şeydir ve bu, kararın kendisidir — vurgu bir RENK değil bir KONTRAST'tır.
+ */
+[data-surface='auth'] {
+  --as-ink: #16181b;
+  --as-ink-rgb: 22 24 27;
+  --as-on-ink: #fbfcfd;
+  --as-tint-a: 5%;
+  --as-tint-2-a: 8%;
+  --as-glow-a: 16%;
+}
+
+/*
+ * Tema seçimi — `module-colors.css`'in özgüllük hesabının aynısı.
+ * `[data-surface='auth']` = (0,1,0) · `:root[data-theme='dark'] […]` = (0,2,0)
+ * · `@media` içindeki `:root:not([data-theme='light']) […]` = (0,3,0).
+ * Sıra değil özgüllük karar verir; `data-theme='light'` seçiliyken sistem koyu
+ * olsa bile `:not()` bloğu eler.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-surface='auth'] {
+    --as-ink: #f0f2f3;
+    --as-ink-rgb: 240 242 243;
+    --as-on-ink: #0f1316;
+    --as-tint-a: 6%;
+    --as-tint-2-a: 10%;
+    --as-glow-a: 20%;
+  }
+}
+
+:root[data-theme='dark'] [data-surface='auth'] {
+  --as-ink: #f0f2f3;
+  --as-ink-rgb: 240 242 243;
+  --as-on-ink: #0f1316;
+  --as-tint-a: 6%;
+  --as-tint-2-a: 10%;
+  --as-glow-a: 20%;
+}
+
+/*
+ * ============================================================================
+ * 2. SİSTEME BAĞLANMA — dönüşüm tek yerde
+ * ============================================================================
+ * ⚠️ `--tint` / `--glow` BURADA yeniden türetilmek ZORUNDA. Kökte türetilseydi
+ * kökün HESAPLANMIŞ değeri miras alınırdı ve `--accent` ezilse bile tint
+ * terracotta kalırdı (`module-colors.css`'in aynı notu).
+ *
+ * ⚠️ `--ai-accent` / `--ai-ink` / `--ai-tint` BİLEREK dokunulmadan bırakıldı:
+ * auth ekranlarında AI konuşmaz, yani bu token'ların hiçbir tüketicisi yoktur.
+ * Ezmek, olmayan bir sesi susturmak olurdu — ve bir gün auth'a bir AI yüzeyi
+ * gelirse (bugün yok) o yüzeyin terracotta kalması DOĞRU davranıştır.
+ */
+[data-surface='auth'] {
+  --accent: var(--as-ink);
+  --accent-fg: var(--as-on-ink);
+  --ink: var(--as-ink);
+  --accent-rgb: var(--as-ink-rgb);
+  --tint: rgb(var(--as-ink-rgb) / var(--as-tint-a));
+  --tint-2: rgb(var(--as-ink-rgb) / var(--as-tint-2-a));
+  --glow: rgb(var(--as-ink-rgb) / var(--as-glow-a));
+}
+
+/*
+ * ⚠️ ZEMİN IŞIĞI KAPATILMAZ, ÖRTÜLÜR — ve sebebi bir uygulama bulgusudur.
+ *
+ * `globals.css`'in terracotta zemin ışığı (`--bg-warm`) ve kağıt taneciği
+ * `body::before` / `body::after` üzerindedir. Bunlar `[data-surface='auth']`
+ * kapsamının DIŞINDADIR — yani bir token ezmek onları KALDIRMAZ.
+ *
+ * `body::before/after` `position: fixed; z-index: 0` taşır; akıştaki
+ * konumlandırılmamış bir blok onların ALTINDA boyanır. Auth kökü bu yüzden
+ * kendi yığın bağlamını kurar ve ışığın üstünü örter — `.room-canvas > *`
+ * ile aynı teknik.
+ *
+ * Bedeli dürüstçe: sağ panelde kağıt taneciği de kaybolur. Kabul edildi —
+ * form yüzeyinin temiz olması istenen şeydir; tanecik panelde kendi
+ * katmanında yaşar (§3).
+ */
+[data-surface='auth'] {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * ============================================================================
+ * 3. MARS PALETİ — ⚠️ YALNIZCA SOL PANELİN İÇİNDE
+ * ============================================================================
+ * Bir düğme dolgusu, bir bağlantı rengi, bir odak halkası, bir rozet ASLA
+ * Mars turuncusu olmaz. Bu kural bir üslup tercihi değil, §1'deki kararın
+ * diğer yarısıdır — ikisi birlikte "ekranda tek turuncu bölge" garantisini
+ * verir.
+ *
+ * ⚠️ `--bot-mint` ve `--bot-lilac` (maskotun gözleri ve detayı) uygulamaya
+ * GİREMEZ: uygulamada yeşil Finans'ın (#307d54), mor İK'nin (#896096) imza
+ * rengidir; maskotun renkleri orada modül rengi sanılırdı.
+ *
+ * ⚠️ Bu palet FRONTEND §4.8'in "terracottanın ±35° koridoru yasak" kuralının
+ * TAM İÇİNDEDİR ve bu bilinçlidir (ADR-0052 §3.6): o kural MODÜL imza
+ * renkleri içindir ve amacı AI'ın sesinin ayırt edilmesidir. Auth'ta AI
+ * konuşmaz ve modül yoktur — kuralın koruduğu şey orada mevcut değildir.
+ * Tersi bağlayıcıdır: Mars `/app` altına girerse kural derhal ihlal edilir.
+ */
+[data-surface='auth'] {
+  --mars-deep: #7a2d12;
+  --mars-core: #d9491a;
+  --mars-glow: #f7a35a;
+  --mars-haze: #ffd9a8;
+  --mars-ink: #fff6ef;
+  --mars-ink-2: rgba(255, 246, 239, 0.72);
+  --bot-mint: #8ee3b6;
+  --bot-lilac: #b9a3e8;
+}
+
+/*
+ * Panelin zemini — fotoğraf GELMESE DE burası doludur.
+ *
+ * Kademe B (verify-email · forgot-password · reset-password) tam olarak bu
+ * katmanla çalışır: fotoğraf yok, Mars zemini + tanecik + logo var. "Fotoğraf
+ * yok" bir eksiklik değil, panelin SUSMASIDIR (ADR-0052 §1.3).
+ *
+ * Aynı katman, fotoğraflı kademelerde de YER TUTUCUDUR: görsel inene kadar
+ * panel boş beyaz yanıp sönmez, Mars zemini durur. `blurDataURL` yerine
+ * geçen şey budur.
+ */
+.auth-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(126% 88% at 50% 6%, var(--mars-glow), transparent 58%),
+    radial-gradient(60% 40% at 78% 22%, var(--mars-haze), transparent 62%),
+    linear-gradient(180deg, var(--mars-core) 0%, var(--mars-deep) 100%);
+}
+
+/*
+ * ⚠️ FOTOĞRAF KATMANI — KURAL YALNIZCA ≥1024px'te VAR (ADR-0052 §4.2).
+ *
+ * `hidden lg:block` YANLIŞ çözümdür: öğe gizlenir ama görüntü yine indirilir.
+ * Kural bir `@media` bloğunun içinde olduğu için dar ekranda HİÇ uygulanmaz
+ * ve tarayıcı dosyayı HİÇ istemez. Bu, "gizlemek" ile "indirmemek" arasındaki
+ * farktır ve ölçülebilir: ağ sekmesinde satır yoktur.
+ *
+ * ⚠️ VARLIK ÜRETİMİ (provenance): dosyalar `logo ve fotoğraflar/` altındaki
+ * 1254×1254 JPEG'lerden sharp 0.34.5 ile üretildi — AVIF q72 / WebP q80–86,
+ * `effort: 6`, ölçek YOK (kaynak zaten 1254 px; büyütmek bayt ekler, ayrıntı
+ * eklemez). Ölçülen en büyük: AVIF 47.2 KB · WebP 84.6 KB — bütçe 120 KB.
+ * Ham JPEG'ler ve video repoya GİRMEZ (ADR-0052 §5.5).
+ *
+ * ⚠️ `image-set()` AVIF'i destekleyene AVIF, desteklemeyene WebP verir; ikisi
+ * de olmazsa altındaki Mars gradyanı kalır — geri düşüş sessiz değil, doğru.
+ */
+@media (min-width: 1024px) {
+  .auth-panel[data-scene]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    background-size: cover;
+    /*
+     * ⚠️ Her sahne KENDİ konumunu taşır — maskotun ağırlık merkezi (ADR-0052
+     * §4.4). Kaynak 1:1 KARE, panel ise DİKEY: `cover` yatayda kırpar ve
+     * yanlış konumla maskotun bir KOLU ya da GÖVDESİ kesilir.
+     *
+     * ⚠️ DEĞERLER TARAYICIDA ÖLÇÜLDÜ VE DÖRDÜ DE DEĞİŞTİ. İlk yazımda göz
+     * kararıyla "maskotun ağırlık merkezi" yazılmıştı (41/68/70/66) ve
+     * EN SIKIŞIK en-boyda (512×1100 panel — kaynağın yalnızca %46'sı görünür)
+     * dördünde de kırpma vardı: `walk`in sol kolu, `path`in sağ gövdesi,
+     * `stage`in sağ kolu. Adaylar o en-boyda yan yana konup seçildi.
+     *
+     * ⚠️ Kırpma en dar lg'de (1024) DEĞİL, en DİKEY panelde en serttir:
+     * panel = ekranın yarısı olduğu için asıl belirleyen genişlik değil
+     * EN-BOY ORANIDIR. 1440×900'de kaynağın %80'i görünür; 1024×1100'de
+     * yalnızca %47'si.
+     *
+     * ⚠️ SON DEĞERLER GÖZLE DEĞİL HESAPLA SEÇİLDİ. Maskotun kaynak
+     * görüntüdeki yatay aralığı cetvelli bir kaplamayla OKUNDU:
+     *
+     *   walk 22–60%  ·  path 56–90%  ·  orbit 62–92%  ·  stage 52–84%
+     *
+     * `cover` yatay kırparken görünen pencere `L = X·(1−a)`, `R = L + a`
+     * (a = panelGenişlik/panelYükseklik). İki uç en-boy (a=0.47 ve a=0.80)
+     * için "maskot tamamen içeride" eşitsizlikleri çözülünce her sahne için
+     * bir ARALIK çıkar; seçilen değer o aralığın ortasıdır:
+     *
+     *   walk  [25–41%] → 34%   ·   path  [81–100%] → 86%
+     *   orbit [85–100%] → 90%  ·   stage [70–97%]  → 84%
+     *
+     * ⚠️ Sağa yaslı üç sahnede pencere sola kaydıkça kaybedilen şey MASKOT
+     * DEĞİL ARKA PLANDIR (şehir, Dünya, grafikler) — takas bilinçli olarak bu
+     * yönde yapıldı.
+     */
+    background-position: var(--scene-pos, 50% 45%);
+  }
+
+  .auth-panel[data-scene='path']::before {
+    --scene-pos: 86% 44%;
+    background-image: image-set(
+      url('/brand/mascot-scene-path.avif') type('image/avif'),
+      url('/brand/mascot-scene-path.webp') type('image/webp')
+    );
+  }
+
+  .auth-panel[data-scene='walk']::before {
+    --scene-pos: 34% 46%;
+    background-image: image-set(
+      url('/brand/mascot-scene-walk.avif') type('image/avif'),
+      url('/brand/mascot-scene-walk.webp') type('image/webp')
+    );
+  }
+
+  .auth-panel[data-scene='orbit']::before {
+    --scene-pos: 90% 44%;
+    background-image: image-set(
+      url('/brand/mascot-scene-orbit.avif') type('image/avif'),
+      url('/brand/mascot-scene-orbit.webp') type('image/webp')
+    );
+  }
+
+  .auth-panel[data-scene='stage']::before {
+    --scene-pos: 84% 47%;
+    background-image: image-set(
+      url('/brand/mascot-scene-stage.avif') type('image/avif'),
+      url('/brand/mascot-scene-stage.webp') type('image/webp')
+    );
+  }
+}
+
+/*
+ * ============================================================================
+ * ⚠️ SCRIM — PANEL METNİNİN KONTRASTI FOTOĞRAFA GÖRE ÖLÇÜLEMEZ
+ * ============================================================================
+ * Bu, ADR-0052'nin en kolay atlanacak kalemidir. Bir fotoğrafın üstüne
+ * yazılan metnin kontrastı SABİT DEĞİLDİR: her sahne farklıdır ve fotoğraf
+ * değiştiği gün metin SESSİZCE okunmaz olur — ne test ne lint yakalar.
+ *
+ * Kural: panel metni her zaman bir scrim üzerindedir, fotoğrafın çıplak
+ * üstünde değil. Metin bloğu panelin ALT %40'ındadır ve orada opaklık
+ * ≥ 0.72'dir.
+ *
+ * Tanecik scrim'in ÜSTÜNDE ve alfası SVG'nin içine gömülü (`opacity='.06'`) —
+ * ayrı bir DOM düğümü ya da `background-blend-mode` gerekmesin diye.
+ */
+.auth-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to top,
+      rgba(26, 10, 4, 0.88) 0%,
+      rgba(26, 10, 4, 0.72) 30%,
+      rgba(26, 10, 4, 0.3) 56%,
+      transparent 78%
+    );
+}
+
+/*
+ * ⚠️ KADEME B'DE SCRIM HAFİFTİR — ve bu, TARAYICIDA GÖRÜLDÜKTEN SONRA eklendi.
+ *
+ * Fotoğraf gücündeki scrim (yukarıdaki) altında fotoğraf OLMAYAN bir panelde
+ * yanlış çalışıyor: Mars gradyanının zaten koyu olan alt ucunu (`--mars-deep`)
+ * neredeyse SİYAHA indiriyor ve panelin altında kasıtsız görünen bir siyah
+ * bant bırakıyordu. `verify-email`de görüldü.
+ *
+ * Hafifletmek kontrastı ZAYIFLATMIYOR çünkü buradaki zemin bir fotoğraf değil
+ * BİZİM yazdığımız bir gradyandır: metin bloğunun hizasında en açık değer
+ * `#8f3314`tür ve scrim'siz bile `--mars-ink` ile ~7.4:1 verir. Yani §3.7'nin
+ * "fotoğrafa göre ölçülemez" gerekçesi Kademe B için GEÇERLİ DEĞİLDİR —
+ * ölçülecek bir değişken yok.
+ */
+.auth-panel:not([data-scene])::after {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E"),
+    linear-gradient(to top, rgba(26, 10, 4, 0.34) 0%, rgba(26, 10, 4, 0.18) 34%, transparent 72%);
+}
+
+/* Panelin içeriği scrim'in ÜSTÜNDE kalır. */
+.auth-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Yazılı logo panelin üstünde MARS MÜREKKEBİYLE çizilir.
+ *
+ * ⚠️ `KobiWiseWordmark`'a hiçbir prop EKLENMEDİ ve dosyasına dokunulmadı:
+ * bileşen `text-fg` / `text-fg-3` / `bg-border-strong` yazar, bunlar
+ * `var(--fg)` / `var(--fg-3)` / `var(--border-strong)` olarak derlenir ve
+ * burada ezilir. `[data-module]`'ün mekanizmasının aynısı — marka bileşeni
+ * bir "auth varyantı" öğrenmek zorunda kalmaz.
+ */
+.auth-panel-brand {
+  --fg: var(--mars-ink);
+  --fg-3: var(--mars-ink-2);
+  --border-strong: rgba(255, 246, 239, 0.42);
+}
+
+/*
+ * Form sütunu.
+ *
+ * ⚠️ Viewport YÜKSEKLİĞİ 700 px'in altındaysa dikey ortalama BIRAKILIR
+ * (ADR-0052 §4.3). Ortalanmış bir form, mobil klavye açıldığında gönder
+ * düğmesini ekranın DIŞINA iter ve kullanıcı formu bitiremez. Bu, "biraz
+ * çirkin" ile "tamamlanamaz" arasındaki farktır.
+ */
+.auth-form-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-height: 700px) {
+  .auth-form-col {
+    align-items: flex-start;
+  }
+}

@@ -2,10 +2,12 @@
 
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
-> **Durum:** Faz 5 sürüyor — **ilk dört modül bitti** (CRM · Projeler · Finans · Randevu/Rezervasyon), sıradaki 5. modül Belge/Sözleşme Yönetimi
-> **Sürüm:** 2.3
-> **Son güncelleme:** 2026-08-13
+> **Durum:** ✅ **Faz 5 TAMAMEN KAPANDI** (2026-08-27) — on iki iş modülünün on ikisi de canlı ([§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı)). Sıradaki iş **Faz 9'un landing page'i**; ⚠️ Faz 6 (Faturalama) "başlanabilir" ama **sırası landing'in arkasındadır** ([§7](#7-faz-9--landing-page--marka-kimliği))
+> **Sürüm:** 2.4
+> **Son güncelleme:** 2026-08-31
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
+
+> ⚠️ **Bu satır 2026-08-13'ten 2026-08-31'e kadar bayat kaldı** ve _"Faz 5 sürüyor — ilk dört modül bitti, sıradaki 5. modül Belge/Sözleşme"_ diyordu. Kayıt bırakılıyor çünkü bir belgenin BAŞLIĞI, en çok okunan ve en az güncellenen yeridir: sekiz modül bitip iki faz sırası değiştiği hâlde başlık hiç değişmemişti.
 
 ---
 

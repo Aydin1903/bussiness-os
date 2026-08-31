@@ -1,6 +1,6 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
-- **Durum:** Onerildi (Product Owner onayi bekleniyor — dort kalem, en altta)
+- **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -336,10 +336,53 @@ Hesaplanan en kotu durum (dort sahnenin **en acik** pikseli — M1'in gunes
 cekirdegi `#fff0d0` — 0.72 scrim altinda `#5a4a3d`'ye duser): `--mars-ink` ile
 **~8.5:1**, `--mars-ink-2` ile **~6.1:1**.
 
-⚠️ **Bu bir HESAPTIR, bir OLCUM DEGIL.** Uygulama sirasinda dort sahnenin dordu
-de tarayicida, iki temada olculecek ve **olculen deger buraya yazilacak** —
-ADR-0038'in `#B85C2B` → `#B25628` duzeltmesini ureten disiplin (_"kontrast
-olculerek secildi, goze gore degil"_).
+### ✅ OLCULDU — tarayicida, gercek piksellerle (2026-08-31)
+
+~~Bu bir HESAPTIR, bir OLCUM DEGIL.~~ Kapandi. Olcum yontemi tahmine yer
+birakmiyor: sahne ayni origin'den bir `<canvas>`a alindi, metin kutusunun
+ALTINA dusen kaynak piksel araligi `cover` matematigiyle hesaplandi, her
+piksele o satirin scrim alfasi kompozitlendi ve **en kotu oran** arandi —
+ortalama degil.
+
+| Sahne        | Ekran               | Ornek piksel |   Slogan | Destek satiri |
+| ------------ | ------------------- | -----------: | -------: | ------------: |
+| `walk`       | login               |       88 506 | **8.30** |          6.77 |
+| `path`       | register            |       88 506 | **7.51** |          7.13 |
+| `orbit`      | create-tenant       |       88 506 | **8.36** |      **5.86** |
+| `stage`      | select-tenant       |       88 506 | **6.16** |          5.96 |
+| — (Kademe B) | verify/forgot/reset |     analitik | **9.46** |          6.19 |
+
+⚠️ **En kotu deger 5.86** (orbit'in destek satiri) — WCAG AA'nin 4.5 esiginin
+uzerinde, ve bu bir ortalama degil **en kotu tek piksel**.
+
+⚠️ **Kademe B'nin satiri ANALITIKTIR ve bu dogrudur:** orada fotograf yoktur,
+zemin bizim yazdigimiz determinist bir gradyandir — yani bu bolumun kendi
+gerekcesi (_"fotograf degisirse metin sessizce okunmaz olur"_) orada
+GECERSIZDIR. Olculecek bir degisken yok.
+
+⚠️ **Kademe B'nin scrim'i uygulamada HAFIFLETILDI.** Fotograf gucundeki scrim,
+altinda fotograf olmayan bir panelde Mars gradyaninin zaten koyu olan alt ucunu
+neredeyse SIYAHA indiriyordu; `verify-email`de goruldu. Hafifletmek kontrasti
+zayiflatmadi (9.46 / 6.19).
+
+⚠️ **Form tarafi da iki temada olculdu** (tema `localStorage` uzerinden
+kurulup sayfa YENIDEN YUKLENEREK — canli attribute degisiminde tarayicinin stil
+yeniden hesaplamasi olcumden geride kalip **bayat deger** verdi ve bu bir kez
+yanlis tabloya yol acti):
+
+| Olcum                                      |      Acik |      Koyu |
+| ------------------------------------------ | --------: | --------: |
+| Birincil dugme metni / dolgu               | **17.32** | **16.62** |
+| Dolgu / form zemini (oge siniri, esik 3.0) |     16.47 |     17.10 |
+| Baslik · alan etiketi / zemin              |     16.47 |     17.10 |
+| Yardimci ve ipucu metni / zemin            |      8.27 |      9.81 |
+
+⚠️ **`--accent` olculen degeri:** acik `#16181b`, koyu `#f0f2f3` — yani karar
+davranissal olarak dogrulandi: **terracotta auth ekranlarinda `--accent`
+DEGILDIR.** `--ai-accent` ise iki temada da kok degerinde kaldi
+(`#b25628` / `#e8935a`), yani §2'nin "AI token'lari ezilmez" karari da yerinde.
+`--mars-*` degerleri iki temada **birebir ayni** — panelin temaya duyarsiz
+oldugu (§Sonuclari) olculdu.
 
 ---
 
@@ -350,12 +393,30 @@ olculerek secildi, goze gore degil"_).
 | Genislik          | Duzen                                                                                                          |
 | ----------------- | -------------------------------------------------------------------------------------------------------------- |
 | **≥ 1024px** (lg) | Iki sutun `1fr / 1fr`. Form sutununun **icerigi 380 px'te kapanir** ve kendi sutununda optik olarak ortalanir. |
-| **768–1023** (md) | Tek sutun. Panel **ustte kisa bir serit** (~200 px), fotograf kirpilir, slogan seridin icinde.                 |
+| **768–1023** (md) | Tek sutun. Panel **ustte ~208 px serit** — ⚠️ **FOTOGRAFSIZ**, Kademe B'nin paneli (asagida).                  |
 | **< 768** (sm)    | ⚠️ **Panel TAMAMEN KALKAR.** Form tek basina; yazili logo formun ustune doner (§5.2).                          |
 
 ⚠️ **≥ 1536px (2xl)**: form sutunu 380 px'te sabit kalir, **panel buyur**. Aksi
 halde 27 inclik bir ekranda 900 px genisliginde bir e-posta alani olusurdu —
 bugun `max-w-sm` ile onlenen sey, iki sutunlu duzende **yeniden** onlenmelidir.
+
+> ### ⚠️ md KADEMESI UYGULAMADA DEGISTI — "fotograf kirpilir" TUTMADI
+>
+> Bu bolum once _"panel ustte kisa bir serit, fotograf kirpilir"_ diyordu ve
+> §4.4 ayni anda _"maskotun tamami gorunur"_ diye bir kabul olcutu koyuyordu.
+> **Ikisi ayni anda saglanamaz** ve bu, olcunce goruldu: kaynak 1:1 karedir,
+> maskot cercevenin ~%40'i kadar yer kaplar; 1024×208'lik bir seritte `cover`
+> kirpmasi maskotun basini KESER. Bandi ~420 px yapmak tabletin ekraninin
+> neredeyse yarisini yerdi.
+>
+> **Karar:** md'de panel Kademe B'nin panelidir (gradyan + logo + slogan,
+> fotograf yok). Kural boylece basitlesir ve GUCLENIR:
+> **maskot gorundugu her yerde tamami gorunur.**
+>
+> ⚠️ Yan kazanci olculebilir: fotograf artik yalnizca ≥1024'te istenir — yani
+> §4.2'nin "mobilde indirilmez" garantisi **tableti de kapsar**. Uc genislikte
+> ag kaydiyla dogrulandi: 1200 px'te AVIF **indirildi**, 900 px'te **sifir**
+> gorsel, 500 px'te **sifir** gorsel.
 
 ### 4.2 ⚠️ Mobilde panel "gizlenmez", HIC INDIRILMEZ
 
@@ -380,14 +441,41 @@ kullanicidir (§1.3).
 
 ### 4.4 Fotograf kirpma — ⚠️ MASKOTUN KAFASI KESILEMEZ
 
-Dort sahne de **1:1 kare**, panel **dikey**. `object-fit: cover` ile kirpilir ve
-her sahne **kendi `object-position` degerini tasir** (maskot M1/M4'te sagda,
-M3'te solda, M2'de merkezde-sagda).
+Dort sahne de **1:1 kare**, panel **dikey**. `cover` ile kirpilir ve her sahne
+**kendi konumunu tasir**.
 
-⚠️ **Kabul olcutu:** uc kirilma noktasinin ucunde de maskotun **tamami** gorunur
-olmalidir. Bu, "guzel gorunsun" degil, **basi kesilmis bir maskotun markayi
-bozmasi** meselesidir; gozle bir kez bakilarak degil, uc genislikte tek tek
-dogrulanir.
+⚠️ **Kabul olcutu:** maskotun **tamami** gorunur olmalidir. Bu, "guzel gorunsun"
+degil, **basi ya da kolu kesilmis bir maskotun markayi bozmasi** meselesidir.
+
+### ⚠️ DORT KONUMUN DORDU DE UYGULAMADA DEGISTI — ve gozle degil HESAPLA
+
+Ilk yazimda konumlar "maskotun agirlik merkezi" diye goz karariyla verilmisti
+(41% / 68% / 70% / 66%). ⚠️ **Dordunde de kirpma vardi** ve olcunce goruldu.
+
+⚠️ **Belirleyen sey EN DAR GENISLIK DEGIL, EN-BOY ORANIDIR** — panel ekranin
+yarisi oldugu icin 1440×900'de kaynagin %80'i gorunurken 1024×1100'de yalnizca
+**%47'si** gorunur. Yani "uc kirilma noktasinda bak" yetmez; **en dikey** panel
+sinav noktasidir.
+
+Yontem: maskotun kaynak goruntudeki yatay araligi **cetvelli bir kaplamayla
+OKUNDU**, sonra `cover` penceresi (`L = X·(1−a)`, `R = L + a`, burada
+`a = panelGenislik / panelYukseklik`) iki uc en-boy icin cozuldu:
+
+| Sahne   | Maskotun kaynaktaki araligi | Gecerli `X` araligi | Secilen |
+| ------- | --------------------------- | ------------------- | ------- |
+| `walk`  | 22–60%                      | 25–41%              | **34%** |
+| `path`  | 56–90%                      | 81–100%             | **86%** |
+| `orbit` | 62–92%                      | 85–100%             | **90%** |
+| `stage` | 52–84%                      | 70–97%              | **84%** |
+
+⚠️ Saga yasli uc sahnede pencere sola kaydikca kaybedilen sey **maskot degil
+ARKA PLANDIR** (sehir, Dunya, grafikler) — takas bilincli olarak bu yonde
+yapildi: sahnenin baglami kirpilabilir, karakter kirpilamaz.
+
+⚠️ **Bilinen sinir, durustce:** garanti **hesaplanan iki uc en-boy arasi** icin
+gecerlidir (a ≈ 0.47 – 0.80). Dikey (portre) bir monitorde panel cok daha dar
+kalir ve o aralik disina cikilir; orada kirpma yeniden mumkundur. Bu bir
+"her kosulda" garantisi **degildir** ve oyle yazilmamalidir.
 
 ---
 
@@ -613,8 +701,9 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
 - ⚠️ **Sosyal giris dugmeleri bugun EKRANDA OLMAYACAK.** Product Owner uc
   saglayici belirtti; karar onlari **tasarliyor ama ertelemektedir**. Bedeli
   acik: kullanici bugun yalnizca e-posta ile girer.
-- ⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.** Dort sahne tarayicida,
-  iki temada olculmeden §3.7 bir tahmindir ve oyle okunmalidir.
+- ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
+  (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
+  temada olculdu; en kotu deger **5.86**. Tablo §3.7'de.
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import type { MyMembershipItem } from '@business-os/contracts';
 
+import { AuthScreen } from '@/components/auth/auth-screen';
 import { FormError } from '@/components/ui/form-error';
 import { errorMessage } from '@/lib/api/error-message';
 import { listMyMemberships } from '@/lib/api/tenants';
@@ -62,54 +63,56 @@ export default function SelectTenantPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">Şirket seç</h1>
-        <p className="text-sm text-fg-muted">Devam etmek için bir şirket seçin.</p>
-      </header>
+    <AuthScreen screen="select-tenant">
+      <div className="flex flex-col gap-5">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold">Şirket seç</h1>
+          <p className="text-sm text-fg-muted">Devam etmek için bir şirket seçin.</p>
+        </header>
 
-      <FormError message={error} />
+        <FormError message={error} />
 
-      {items === null && error === null ? (
-        <p className="text-sm text-fg-muted">Yükleniyor…</p>
-      ) : null}
+        {items === null && error === null ? (
+          <p className="text-sm text-fg-muted">Yükleniyor…</p>
+        ) : null}
 
-      {items !== null ? (
-        <ul className="flex flex-col gap-2">
-          {items.map((item) => (
-            <li key={item.tenantId}>
-              <button
-                type="button"
-                onClick={() => {
-                  void choose(item.tenantId);
-                }}
-                disabled={selectingId !== null}
-                className="flex w-full items-center justify-between rounded-lg border border-border bg-raised px-4 py-3 text-left transition-colors hover:bg-fill disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span className="text-sm font-medium text-fg">{item.tenantName}</span>
-                <span className="text-xs text-fg-muted">
-                  {selectingId === item.tenantId
-                    ? 'Geçiliyor…'
-                    : (ROLE_LABELS[item.role] ?? item.role)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+        {items !== null ? (
+          <ul className="flex flex-col gap-2">
+            {items.map((item) => (
+              <li key={item.tenantId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void choose(item.tenantId);
+                  }}
+                  disabled={selectingId !== null}
+                  className="flex w-full items-center justify-between rounded-lg border border-border bg-raised px-4 py-3 text-left transition-colors hover:bg-fill disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="text-sm font-medium text-fg">{item.tenantName}</span>
+                  <span className="text-xs text-fg-muted">
+                    {selectingId === item.tenantId
+                      ? 'Geçiliyor…'
+                      : (ROLE_LABELS[item.role] ?? item.role)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
-      {items !== null && items.length === 0 ? (
-        <p className="text-sm text-fg-muted">Henüz bir şirkete üye değilsin.</p>
-      ) : null}
+        {items !== null && items.length === 0 ? (
+          <p className="text-sm text-fg-muted">Henüz bir şirkete üye değilsin.</p>
+        ) : null}
 
-      <p className="text-center text-sm text-fg-muted">
-        <Link
-          href="/create-tenant"
-          className="font-medium text-fg underline-offset-2 hover:underline"
-        >
-          Yeni şirket oluştur
-        </Link>
-      </p>
-    </div>
+        <p className="text-center text-sm text-fg-muted">
+          <Link
+            href="/create-tenant"
+            className="font-medium text-fg underline-offset-2 hover:underline"
+          >
+            Yeni şirket oluştur
+          </Link>
+        </p>
+      </div>
+    </AuthScreen>
   );
 }

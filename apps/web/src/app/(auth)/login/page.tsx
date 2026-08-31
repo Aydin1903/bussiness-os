@@ -1,3 +1,5 @@
+import { AuthScreen } from '@/components/auth/auth-screen';
+
 import { LoginForm } from './login-form';
 
 /**
@@ -21,5 +23,9 @@ export default async function LoginPage({
   const justVerified = params.verified === '1';
   const justReset = params.reset === '1';
 
-  return <LoginForm next={next} justVerified={justVerified} justReset={justReset} />;
+  return (
+    <AuthScreen screen="login">
+      <LoginForm next={next} justVerified={justVerified} justReset={justReset} />
+    </AuthScreen>
+  );
 }

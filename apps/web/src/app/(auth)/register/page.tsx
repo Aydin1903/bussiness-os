@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { AuthScreen } from '@/components/auth/auth-screen';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { FormError } from '@/components/ui/form-error';
@@ -40,59 +41,61 @@ export default function RegisterPage() {
   }
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-      className="flex flex-col gap-5"
-      noValidate
-    >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">Hesap oluştur</h1>
-        <p className="text-sm text-fg-muted">Başlamak için e-posta ve parola belirleyin.</p>
-      </header>
+    <AuthScreen screen="register">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+        className="flex flex-col gap-5"
+        noValidate
+      >
+        <header className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold">Hesap oluştur</h1>
+          <p className="text-sm text-fg-muted">Başlamak için e-posta ve parola belirleyin.</p>
+        </header>
 
-      <FormError message={error} />
+        <FormError message={error} />
 
-      <Field label="E-posta" htmlFor="email">
-        <Input
-          id="email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-          }}
-          required
-        />
-      </Field>
+        <Field label="E-posta" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+            required
+          />
+        </Field>
 
-      <Field label="Parola" htmlFor="password">
-        <Input
-          id="password"
-          type="password"
-          name="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
-          }}
-          required
-        />
-      </Field>
+        <Field label="Parola" htmlFor="password">
+          <Input
+            id="password"
+            type="password"
+            name="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value);
+            }}
+            required
+          />
+        </Field>
 
-      <Button type="submit" loading={loading}>
-        Hesap oluştur
-      </Button>
+        <Button type="submit" loading={loading}>
+          Hesap oluştur
+        </Button>
 
-      <p className="text-center text-sm text-fg-muted">
-        Zaten hesabın var mı?{' '}
-        <Link href="/login" className="font-medium text-fg underline-offset-2 hover:underline">
-          Giriş yap
-        </Link>
-      </p>
-    </form>
+        <p className="text-center text-sm text-fg-muted">
+          Zaten hesabın var mı?{' '}
+          <Link href="/login" className="font-medium text-fg underline-offset-2 hover:underline">
+            Giriş yap
+          </Link>
+        </p>
+      </form>
+    </AuthScreen>
   );
 }

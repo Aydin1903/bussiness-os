@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @import './module-colors.css';
+/* Auth yüzeyi — ADR-0052. Modül paletinden AYRI dosya: auth bir modül değildir. */
+@import './auth-surface.css';
 
 /*
  * Tasarım token'ları — FRONTEND_ARCHITECTURE §4.
