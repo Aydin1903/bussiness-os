@@ -479,29 +479,48 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 >
 > ⚠️ **Bugün eksik olan Faz 9'un TAMAMI DEĞİLDİR** ve bu ayrım kapsamı belirler:
 >
-> | Parça                                                                                                                                   | Durum                                                                                                                                               |
-> | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | Auth ekranları (`register` · `verify-email` · `login` · `forgot`/`reset-password` · `create-tenant` · `select-tenant`)                  | ✅ **YAZILI ve API'ye bağlı** (~920 satır); login sonrası yönlendirme kuralı da uygulanmış ([FRONTEND](architecture/FRONTEND_ARCHITECTURE.md) §3.1) |
-> | Backend auth uçları (register · verify-email · resend · login · refresh · logout · forgot/reset-password · switch-tenant · tenant açma) | ✅ **HEPSİ CANLI** — eksik uç yok                                                                                                                   |
-> | ⚠️ Genel giriş noktası (`/`)                                                                                                            | ⚠️ **YOK** — 2026-08-27'de geçici olarak `/login`'e yönlendirildi (aşağıda)                                                                         |
-> | ⚠️ Pazarlama içeriği: ne yaptığı, fiyatlandırma, KVKK/gizlilik metni                                                                    | ⚠️ **YOK**                                                                                                                                          |
-> | ⚠️ **E-posta teslimatı**                                                                                                                | ⚠️ **ENGEL** — aşağıda                                                                                                                              |
+> | Parça                                                                                                                                   | Durum                                                                                                                                                                                                                           |
+> | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Auth ekranları (`register` · `verify-email` · `login` · `forgot`/`reset-password` · `create-tenant` · `select-tenant`)                  | ✅ **YAZILI ve API'ye bağlı** (~920 satır); login sonrası yönlendirme kuralı da uygulanmış ([FRONTEND](architecture/FRONTEND_ARCHITECTURE.md) §3.1)                                                                             |
+> | Backend auth uçları (register · verify-email · resend · login · refresh · logout · forgot/reset-password · switch-tenant · tenant açma) | ✅ **HEPSİ CANLI** — eksik uç yok                                                                                                                                                                                               |
+> | ⚠️ Genel giriş noktası (`/`)                                                                                                            | ⚠️ **YOK** — 2026-08-27'de geçici olarak `/login`'e yönlendirildi (aşağıda)                                                                                                                                                     |
+> | ⚠️ Pazarlama içeriği: ne yaptığı, fiyatlandırma, KVKK/gizlilik metni                                                                    | ⚠️ **YOK**                                                                                                                                                                                                                      |
+> | ~~⚠️ **E-posta teslimatı**~~                                                                                                            | ✅ **ÇÖZÜLDÜ** (2026-08-31) — `noreply@mail.kobiwise.com`; zincir prod'da koştu, aşağıda                                                                                                                                        |
+> | ⚠️ **Web'in PROD'A DAĞITILMASI**                                                                                                        | ⚠️ **YOK** — Railway'de tek servis API'dir; `/login` dışarıdan **404** döner ve prod CORS `localhost`a kapalıdır (2026-08-31'de ölçüldü). ⚠️ Kayıt akışı bugün API olarak çalışıyor ama **dışarıdan kimse ekranını göremiyor**. |
 >
 > #### ⚠️ ASIL DARBOĞAZ LANDING DEĞİL, E-POSTA
 >
-> `EMAIL_FROM` bugün Resend'in **paylaşımlı test göndericisidir** (`resend.dev`)
-> ve o modda Resend yalnızca hesap sahibinin adresine ve `*.resend.dev` test
-> adreslerine gönderir. ⚠️ Yani **gerçek bir kullanıcı doğrulama kodunu
-> ALAMAZ** — kayıt akışı ekranda çalışsa bile ikinci adımda durur.
+> ~~`EMAIL_FROM` bugün Resend'in paylaşımlı test göndericisidir (`resend.dev`)
+> … gerçek bir kullanıcı doğrulama kodunu ALAMAZ … Önkoşul: kobiwise.com'un
+> Resend'de doğrulanması … zincirin prod'daki ilk gerçek sınavı bu iş
+> olacaktır.~~
 >
-> Önkoşul: **kobiwise.com'un Resend'de doğrulanması** (DNS kayıtları). Domain
-> artık var, yani bu iş de yapılabilir hale geldi.
+> ### ✅ ENGEL KALKTI — VE ZİNCİR PROD'DA KOŞTU (2026-08-31)
 >
-> ⚠️ Ve bir kayıt daha: **kayıt → doğrulama → giriş → tenant açma zinciri
-> prod'da HİÇ uçtan uca koşulmadı.** Bugüne kadarki tüm prod tenant'ları
-> doğrudan API çağrılarıyla (`curl` + `psql`) açıldı ve doğrulama adımı
-> `email_verified` elle `true` yapılarak **atlandı**. Zincirin prod'daki ilk
-> gerçek sınavı bu iş olacaktır.
+> `mail.kobiwise.com` Resend'de **doğrulandı**; `EMAIL_FROM` artık
+> **`noreply@mail.kobiwise.com`**. ⚠️ **Kayıt → doğrulama → giriş → tenant açma
+> zinciri prod'da İLK KEZ uçtan uca koştu** ve ⚠️ **doğrulama kodunun gerçek
+> bir gelen kutusuna ULAŞTIĞI kanıtlandı** — bugüne kadar bu adım her seferinde
+> `email_verified` elle `true` yapılarak atlanıyordu.
+>
+> Ölçülen zincir: `register` **202** → outbox **YAYINLANDI** (0 deneme) →
+> **kod gelen kutusundan okundu** → `verify-email` **200** → `login` **200** →
+> `/me/memberships` **0 üyelik** → `POST /tenants` **201 `active`** →
+> `switch-tenant` **200** → `notes/exists` **`hasNotes: false`**.
+>
+> ⚠️ **AÇIK KALAN TEK ADIM — ve sebebi bir eksiklik değil bir OLGU:**
+> `/app/onboarding` yönlendirmesi prod'da **gözlenemedi**, çünkü ⚠️ **prod'da
+> WEB DAĞITIMI YOKTUR** (Railway'de tek servis API; `/login` → **404**) ve prod
+> CORS `localhost`a kapalıdır. Prod'da ölçülen şey yönlendirmenin **girdisidir**
+> (`hasNotes: false` — kapının tek sinyali); yönlendirmenin kendisi bir birim
+> testiyle kilitli ve gerçek tarayıcıda **lokal** yığında gözlendi.
+>
+> ⚠️ **Bu, Landing Page işinin kapsamına doğrudan bir madde ekler:** web'in
+> prod'a dağıtılması. Kayıt akışı bugün API olarak çalışıyor ama **dışarıdan
+> kimse ekranını göremiyor**.
+>
+> ⚠️ Test hesabı ve tenant'ı temizlendi (tek transaction, `ON_ERROR_STOP`,
+> sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**.
 >
 > #### ⚠️ 2026-08-27'de yapılan GEÇİCİ düzeltme — bu bir landing page DEĞİLDİR
 >

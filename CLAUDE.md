@@ -1934,10 +1934,45 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > `SWAGGER_ENABLED=false` — `/api/docs` artık 404 (öncesinde uç sözleşmesi
 > internete açıktı).
 >
-> ⚠️ `EMAIL_FROM` Resend'in **paylaşımlı test göndericisidir** (`resend.dev`).
+> ~~⚠️ `EMAIL_FROM` Resend'in **paylaşımlı test göndericisidir** (`resend.dev`).
 > Bu modda Resend yalnızca hesap sahibinin adresine ve `*.resend.dev` test
 > adreslerine gönderir; gerçek kullanıcıya e-posta gitmesi için **kendi alan
-> adının Resend'de doğrulanması** gerekir. Faz 6'nın (gerçek müşteri) önkoşulu.
+> adının Resend'de doğrulanması** gerekir.~~
+>
+> ### ✅ E-POSTA ARTIK GERÇEK BİR ALAN ADINDAN GİDİYOR (2026-08-31)
+>
+> `mail.kobiwise.com` Resend'de **doğrulandı** ve `EMAIL_FROM`
+> `onboarding@resend.dev` → **`noreply@mail.kobiwise.com`** olarak güncellendi
+> (Railway, `--skip-deploys` ile girildi, sonra deploy tetiklendi).
+>
+> ⚠️ **VE KAYIT ZİNCİRİ PROD'DA İLK KEZ UÇTAN UCA KOŞTU** — bugüne kadar her
+> prod tenant'ı `curl` + `psql` ile açılmış ve doğrulama adımı `email_verified`
+> elle `true` yapılarak **atlanmıştı**:
+>
+> | Adım | Sonuç |
+> | --- | --- |
+> | `POST /auth/register` | **202** |
+> | Resend teslimatı | outbox **YAYINLANDI**, **0 deneme**, hata yok |
+> | ⚠️ **Kodun gerçekten ULAŞMASI** | ⚠️ **KANITLANDI** — kod gerçek gelen kutusundan okundu |
+> | `POST /auth/verify-email` | **200** |
+> | `POST /auth/login` | **200** (identity token) |
+> | `GET /me/memberships` | **0 üyelik** → FRONTEND §3.1 gereği `/create-tenant` |
+> | `POST /tenants` | **201**, `status: active` (ADR-0016 V1 senkron) |
+> | `POST /auth/switch-tenant` | **200** (access token) |
+> | `GET /knowledge/notes/exists` | **`hasNotes: false`** → onboarding kapısının tek girdisi |
+>
+> ⚠️ **AMA `/app/onboarding` YÖNLENDİRMESİ PROD'DA GÖZLENEMEDİ ve bu kayda
+> geçiyor:** prod'da **web dağıtımı YOKTUR** — Railway'de tek servis API'dir
+> (`/login` → **404**) ve prod CORS `localhost`a kapalıdır (ACAO başlığı yok).
+> Prod'da ölçülen şey yönlendirmenin **girdisidir** (`hasNotes: false`);
+> yönlendirmenin kendisi bir birim testiyle kilitli
+> (`onboarding-gate.spec.tsx`) ve gerçek tarayıcıda **lokal** yığında gözlendi.
+> ⚠️ İkisini karıştırmamak gerekir — ADR-0035'in _"sınanan DEPLOY, davranış
+> değil"_ dersinin aynı sınıfı.
+>
+> ⚠️ **Test hesabı ve tenant'ı temizlendi** (tek transaction, `ON_ERROR_STOP`,
+> sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**, on üç tablonun
+> on üçü de **0**.
 >
 > ### ⚠️ Prod'daki test artığı — kayıt 2026-08-26'da DÜZELTİLDİ
 >
