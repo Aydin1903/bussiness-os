@@ -129,11 +129,13 @@ Dördü de bu fazın açık kalemleriydi. [ADR-0029](adr/0029-knowledge-module-a
 
 **Bu faz prod'a çıkmadan kapanmaz.** Bugüne kadar hiç prod'a çıkılmadı.
 
-| Kalem               | Durum                                         |
-| ------------------- | --------------------------------------------- |
-| CI (GitHub Actions) | ✅ Faz 1'de kuruldu — test + lint + typecheck |
-| **CD**              | ❌ Yok                                        |
-| **Hosting**         | ❌ Karara bağlanmadı                          |
+| Kalem               | Durum                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| CI (GitHub Actions) | ✅ Faz 1'de kuruldu — test + lint + typecheck                                                                                     |
+| **CD**              | ✅ **VAR** — iki hedefe de **otomatik dağıtım**: her `git push` hem Railway'i (API) hem Vercel'i (web) tetikler                   |
+| **Hosting**         | ✅ **KARARA BAĞLANDI** — API **Railway** (`api.kobiwise.com`) · web **Vercel** (`app.kobiwise.com`) · PostgreSQL Railway volume'ü |
+
+⚠️ **Yukarıdaki üç satır 2026-08-31'de düzeltildi; ikisi 2026-08-09'dan beri bayattı.** Eski hâlleri (`CD ❌ Yok` · `Hosting ❌ Karara bağlanmadı`) bu satırın hemen altındaki uyarı bloğunda geçtiği gibi durur — koşulun gerçekten karşılandığı ancak neyin değiştiği görülerek okunabilir.
 
 Gerekçe: prod'a hiç çıkmamış bir sistemin "çalışıyor" iddiası test edilmemiş bir iddiadır. Migration'ların gerçek bir veritabanında sırayla uygulanması, secret yönetimi, ortam ayrımı ve geri alma (rollback) yolu — hepsi ancak gerçek bir dağıtımda ortaya çıkar. Bu iş ne kadar ertelenirse, ilk dağıtımda karşılaşılacak sürpriz o kadar büyür.
 
@@ -144,6 +146,42 @@ Gerekçe: prod'a hiç çıkmamış bir sistemin "çalışıyor" iddiası test ed
 > Kayıt bilerek duruyor ve metin **yumuşatılmadı**: bir kapı koşulunun sessizce aşılması, koşulun hiç yazılmamış olmasından kötüdür. Yukarıdaki gerekçe bugün de geçerlidir ve borç **büyüyor** — Faz 5 üç yeni migration getiriyor (`platform.rate_limits` · `platform.conversations`/`messages` · `crm.*`, [ADR-0031](adr/0031-crm-module.md)), yani "migration'ların gerçek bir veritabanında sırayla uygulanması" riski her slice ile artıyor.
 >
 > **Bu bir Product Owner kararıdır, mühendislik kararı değil:** ya koşul Faz 5 için yeniden bağlayıcı kılınır, ya da bilinçli olarak gevşetilip yeni bir faza taşınır. Üçüncü seçenek — yazılı durup uygulanmaması — ikisinden de kötüdür.
+
+> ### ✅ KOŞUL ARTIK KARŞILANDI — ve iki kez, iki ayrı hedefte (2026-08-31)
+>
+> **Yukarıdaki uyarı bloğu silinmedi**: borcun ne kadar sürdüğü ancak orada
+> durduğu için okunabilir. Bugün kapandığı da burada yazar.
+>
+> | Katman        | Nerede                                                  | Adres                                              |
+> | ------------- | ------------------------------------------------------- | -------------------------------------------------- |
+> | API (NestJS)  | **Railway** · proje `attractive-tenderness`             | **https://api.kobiwise.com**                       |
+> | Web (Next.js) | **Vercel** · takım `KOBIWISE` · proje `kobiwise-web`    | **https://app.kobiwise.com**                       |
+> | PostgreSQL    | Railway (volume) — beş rol, RLS + FORCE, `vector` 0.8.6 | — (public TCP proxy yok; `railway ssh` ile okunur) |
+>
+> ⚠️ **CD'nin "var" olması bir rahatlama değil, bir SORUMLULUKTUR:** dağıtım
+> otomatiktir ve `railway.api.json`'un `preDeployCommand`'i
+> `db:preflight && db:migrate` çalıştırır — yani **her push migration uygular.**
+> Kural değişmedi (`CLAUDE.md`, "⚠️ Railway prod CANLI"): migration içeren bir
+> push'tan önce Product Owner'a **açıkça haber verilir**.
+>
+> ⚠️ **Her push artık İKİ yere gider.** Vercel tarafında iki ayar bunu
+> güvenli kılar ve ikisi de gerçek bir hatadan sonra yazıldı: production dalı
+> `feature/tenant-multi-tenancy-core`'a **elle çekildi** (Vercel varsayılan
+> olarak bayat `main`i almıştı) ve **Ignored Build Step** yalnızca üretim
+> dalını derler (repodaki dokuz dependabot dalı aksi hâlde dokuz önizleme
+> derlemesi üretirdi).
+>
+> ⚠️ **İki alt domain bir tercih değil bir ZORUNLULUKTU** ve bu, hosting
+> kararının kendisini bağlar: refresh çerezi `SameSite=Strict` taşır
+> (ADR-0026) ve `*.vercel.app` ile `*.up.railway.app` Public Suffix listesinde
+> **ayrı sitelerdir** — çerez hiç gönderilmez, oturum yenileme **sessizce**
+> bozulurdu. Sağlayıcı değiştirilecekse bu kısıt birlikte taşınır.
+>
+> Kapanışın kanıtı bir iddia değil bir **koşudur**: kayıt → doğrulama →
+> giriş → tenant açma zinciri **web arayüzünden**, gerçek tarayıcıda, prod'da
+> uçtan uca koştu ve sayfa yenilemesinden sonra oturum ayakta kaldı. Ayrıntı
+> ve prod log'u [`CLAUDE.md`](../CLAUDE.md) "⚠️ WEB PROD'DA CANLI"
+> bölümündedir.
 
 ### 2.5 Kapı koşulu (Faz 4'e giriş)
 
