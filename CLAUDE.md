@@ -472,6 +472,12 @@ runtime akışları
 Vitest + RTL **571 test**; **kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
+⚠️ **VE ARTIK PROD'DA YAYINDA — https://app.kobiwise.com** (Vercel, 2026-08-31).
+Kayıt → doğrulama → giriş → tenant açma zinciri **web arayüzünden** koştu ve
+⚠️ **oturum sayfa yenilemeden sonra ayakta kaldı** — `SameSite=Strict` refresh
+çerezinin alt domainler arasında çalıştığı prod log'unda görüldü. Ayrıntı:
+**"⚠️ WEB PROD'DA CANLI"** bölümü.
+
 ### Faz 1 — altyapı
 
 Turborepo monorepo · NestJS API · Next.js web · PostgreSQL (rol ayrımı ile) ·
@@ -1901,6 +1907,119 @@ Gerçekten yeni **altı** karar:
 >   `hr.compensation_records` listeye **girmedi** ve gerekçeleri **farklıdır**
 >   (biri çoğalmaz, diğeri **silinemez**) — ROADMAP §8.5.
 
+### ⚠️ WEB PROD'DA CANLI — app.kobiwise.com (2026-08-31)
+
+**`apps/web` Vercel'e dağıtıldı.** Bugüne kadar prod'da yalnızca API vardı;
+ROADMAP §7'nin _"kayıt akışı API olarak çalışıyor ama dışarıdan kimse ekranını
+göremiyor"_ maddesi **kapandı**.
+
+| Katman | Nerede | Adres |
+|---|---|---|
+| Web (Next.js) | **Vercel** · takım `KOBIWISE` · proje `kobiwise-web` | **https://app.kobiwise.com** |
+| API (NestJS) | Railway · servis `bussiness-os` | **https://api.kobiwise.com** |
+
+⚠️ **İKİ ALT DOMAIN BİR TERCİH DEĞİL, BİR ZORUNLULUKTUR.** Refresh çerezi
+`SameSite=Strict` taşır (ADR-0026) ve `*.vercel.app` ile `*.up.railway.app`
+Public Suffix listesinde **ayrı sitelerdir** — çerez hiç gönderilmez, oturum
+yenileme **sessizce** bozulurdu. `kobiwise.com` altındaki iki alt domain aynı
+sitedir. `refresh-cookie.ts`in kendi yorumu bunu zaten yazıyordu:
+_"Web ve API'nin AYNI kayıtlı alanda / subdomain olması gerekir."_
+
+**Vercel proje ayarları** (Vercel API ile kuruldu, panelden değil):
+
+- Root Directory `apps/web` · preset Next.js · Node 24.x
+- Build: `cd ../.. && pnpm turbo run build --filter=@business-os/web`
+- Install: `cd ../.. && pnpm install --frozen-lockfile` (pnpm 11 sorunsuz)
+- ⚠️ **Production dalı `feature/tenant-multi-tenancy-core`** — Vercel varsayılan
+  olarak `main`i almıştı ve `main` **bayat**. Düzeltilmeseydi Vercel aylar
+  öncesinin kodunu yayınlardı ve hata **ekranda görünmezdi**.
+- ⚠️ **Ignored Build Step** — yalnızca üretim dalı derlenir (repoda dokuz
+  dependabot dalı var; her biri ayrı bir önizleme derlemesi üretirdi).
+- Tek ortam değişkeni: `NEXT_PUBLIC_API_URL=https://api.kobiwise.com/api/v1`.
+  ⚠️ **`NEXT_PUBLIC_*` DERLEME ZAMANINDA gömülür** — değişkeni değiştirmek tek
+  başına yetmez, yeniden derleme **şarttır**. Doğrulama env'e bakarak değil,
+  **yayınlanan paketin içine bakarak** yapıldı (yeni adres var, eski adres yok).
+
+⚠️ **Her push artık İKİ yere gidiyor:** Railway (API) **ve** Vercel (web).
+
+Railway tarafında tek değişiklik: **`CORS_ORIGINS=https://app.kobiwise.com`**.
+⚠️ Öncesinde bu değişken **hiç tanımlı değildi** ve `main.ts:39` liste boşsa
+`enableCors`u hiç çağırmıyor — yani CORS yanlış ayarlı değil, **kapalıydı**.
+Kanıt ayırt ediciydi: `/health` `Origin` başlığıyla **200** dönüyordu ama
+cevapta `access-control-allow-origin` **yoktu**.
+
+#### ⚠️ SameSite=Strict ALT DOMAINLER ARASINDA DAVRANIŞSAL OLARAK KANITLANDI
+
+Bugüne kadar bu yalnızca **koddan çıkarımdı**. Prod log'unda (gerçek kullanıcı,
+gerçek tarayıcı, `origin: https://app.kobiwise.com` → `host: api.kobiwise.com`,
+`sec-fetch-site: same-site`):
+
+| Saat | İstek | Sonuç | Çerez |
+|---|---|---|---|
+| 11:38:01 | `POST /auth/login` | 200 | yok — cevap onu **yazdı** |
+| 11:38:10 | `POST /auth/switch-tenant` | 200 | ⭐ **GÖNDERİLDİ** |
+| 11:49:08 | `POST /auth/refresh` (F5) | 200 | ⭐ **GÖNDERİLDİ** |
+
+⚠️ **Negatif yarısı daha da değerli:** `/api/v1/auth` altında **olmayan** her
+istek (`/me/memberships`, `/tenants`, `/knowledge/*`, `/finance/*`) **çerezsiz**
+gitti. Yani `Path=/api/v1/auth` daraltması gerçekten çalışıyor; çerez her
+isteğe binmiyor. Joker bir davranış olsaydı o satırlar da çerez taşırdı.
+
+Çerezin **ölçülen** hâli (prod'dan, `POST /auth/logout` cevabından — silme
+yazmayla aynı özniteliklerle yapılır):
+
+```
+Set-Cookie: refresh_token=; Path=/api/v1/auth; Expires=...; HttpOnly; Secure; SameSite=Strict
+```
+
+⚠️ **`Domain=` YOK** → çerez host-only; tasarımın yazdığı gibi
+(_"Domain KONMAZ"_). Ve rotasyon çalıştı: `refresh_tokens` **7 satır, 5'i
+kullanılmış**, iki token ailesi (iki giriş).
+
+#### ⚠️ Onboarding kapısı: BEKLENEN DAVRANIŞ, boşluk DEĞİL
+
+F5 sonrası kullanıcı sihirbazı değil **doğrudan paneli** gördü. Araştırıldı ve
+açıklandı: `OnboardingGate` ilk satırda `isOnboardingCompleted(tenantId)`
+bayrağına bakar ve bayrak varsa `notes/exists`i **hiç çağırmaz**
+(`onboarding-gate.tsx:44`).
+
+⚠️ Kanıt dolaylı ama **kapalı**: `markOnboardingCompleted`in tam **iki** çağıran
+yeri var; biri `hasNotes === true` ister ve `knowledge.notes` baştan sona
+**0**'dı — yani o yol **hiç koşmadı**. Geriye tek yol kalır: sihirbazın
+`finish()`i (`wizard.tsx:68`). **Demek ki kullanıcı sihirbazı GÖRDÜ ve içinden
+geçti** (yedi soruyu da atlayarak — bu yüzden not oluşmadı). Log da bunu
+destekliyor: `notes/exists` **11:38:12** ve **11:48:03**'te çağrıldı,
+**11:49:08'deki F5'ten sonra çağrılmadı** — yani bayrak arada yazıldı.
+
+Bu, `completed.ts`in yazılı gerekçesidir: _"kullanıcı 7 sorunun hepsini atlarsa
+hiç not oluşmaz; koşul hâlâ doğrudur ve wizard bir sonraki girişte yeniden
+açılır — açıkça geçtiği bir akışın onu tekrar karşılaması yanlış."_
+
+⚠️ **Bilinen sınır (kusur değil):** bayrak `localStorage`tadır ve **tarayıcı
+başınadır**. Aynı kullanıcı başka bir tarayıcıda sihirbazı **yeniden görür**.
+Sunucuda "onboarding tamamlandı" diye bir durum **yoktur** ve bu bilinçlidir —
+bayrak bir UX ipucudur, yetki taşımaz.
+
+#### Web prod'da bilinen sınırlar
+
+- ⚠️ **`kobiwise-web.vercel.app` hâlâ sayfayı açar ama API'ye ULAŞAMAZ** —
+  `CORS_ORIGINS` tek origin taşır. Bu bir arıza değil, kararın sonucu;
+  kullanılacak adres **app.kobiwise.com**tur.
+- ⚠️ **Kök alan `kobiwise.com` bağlı DEĞİL** — yalnızca iki alt domain var.
+  Landing page yayına girdiğinde apex kaydı ayrıca eklenecek.
+- ⚠️ **Landing page hâlâ YOK**: `/` bugün de **307** ile `/login`e gidiyor
+  (2026-08-27'nin geçici düzeltmesi). Pazarlama içeriği, fiyatlandırma ve
+  KVKK/gizlilik metni **yazılmadı**.
+- ⚠️ **Playwright e2e yok** — bu işte de yazılmadı; doğrulama gerçek tarayıcı
+  ve prod log'u üzerinden **elle** yapıldı.
+- ⚠️ **Gözlem, kovalanmadı:** panel açılışında `GET /me/memberships` kısa
+  aralıkla **onlarca kez** çağrılıyor (304'ler). Bir arıza belirtisi değil ama
+  gereksiz; ayrı bir iş olarak bakılmalı.
+- ⚠️ **API artık halka açık ve taranıyor:** log'da `GET /api/.env` → **404**
+  denemeleri görüldü. Beklenen internet gürültüsü; `SWAGGER_ENABLED=false`
+  ve uç sözleşmesi kapalı.
+
+
 ### ⚠️ Railway prod CANLI ve her push oraya gidiyor (2026-08-09)
 
 Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir**:
@@ -1971,14 +2090,18 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > | `POST /auth/switch-tenant` | **200** (access token) |
 > | `GET /knowledge/notes/exists` | **`hasNotes: false`** → onboarding kapısının tek girdisi |
 >
-> ⚠️ **AMA `/app/onboarding` YÖNLENDİRMESİ PROD'DA GÖZLENEMEDİ ve bu kayda
-> geçiyor:** prod'da **web dağıtımı YOKTUR** — Railway'de tek servis API'dir
-> (`/login` → **404**) ve prod CORS `localhost`a kapalıdır (ACAO başlığı yok).
-> Prod'da ölçülen şey yönlendirmenin **girdisidir** (`hasNotes: false`);
-> yönlendirmenin kendisi bir birim testiyle kilitli
-> (`onboarding-gate.spec.tsx`) ve gerçek tarayıcıda **lokal** yığında gözlendi.
-> ⚠️ İkisini karıştırmamak gerekir — ADR-0035'in _"sınanan DEPLOY, davranış
-> değil"_ dersinin aynı sınıfı.
+> ~~⚠️ **AMA `/app/onboarding` YÖNLENDİRMESİ PROD'DA GÖZLENEMEDİ:** prod'da
+> **web dağıtımı YOKTUR** — Railway'de tek servis API'dir (`/login` → **404**)
+> ve prod CORS `localhost`a kapalıdır. Yönlendirmenin kendisi bir birim testiyle
+> kilitli (`onboarding-gate.spec.tsx`) ve gerçek tarayıcıda **lokal** yığında
+> gözlendi.~~
+>
+> ### ✅ KAPANDI — WEB PROD'A DAĞITILDI (2026-08-31, aynı gün)
+>
+> Yukarıdaki paragrafın dayandığı önerme (_"prod'da web dağıtımı YOKTUR"_) artık
+> **yanlıştır**: `apps/web` Vercel'e dağıtıldı, **app.kobiwise.com** canlıdır ve
+> zincir **web arayüzünden** koştu. Ayrıntı aşağıdaki
+> **"⚠️ WEB PROD'DA CANLI"** bölümündedir.
 >
 > ⚠️ **Test hesabı ve tenant'ı temizlendi** (tek transaction, `ON_ERROR_STOP`,
 > sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**, on üç tablonun
