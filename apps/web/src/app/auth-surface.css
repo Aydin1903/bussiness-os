@@ -306,8 +306,24 @@
  * değiştiği gün metin SESSİZCE okunmaz olur — ne test ne lint yakalar.
  *
  * Kural: panel metni her zaman bir scrim üzerindedir, fotoğrafın çıplak
- * üstünde değil. Metin bloğu panelin ALT %40'ındadır ve orada opaklık
+ * üstünde değil. Metin bloğu panelin ÜST kısmındadır ve orada opaklık
  * ≥ 0.72'dir.
+ *
+ * ============================================================================
+ * ⚠️ YÖN ÇEVRİLDİ: `to top` → `to bottom` (Product Owner, 2026-08-31)
+ * ============================================================================
+ * Metin panelin altından ÜSTÜNE alındı. ⚠️ Scrim'i olduğu yerde bırakmak,
+ * bu işin en sinsi hatası olurdu: metin panelin EN AÇIK bölgesine —
+ * gün batımı gökyüzü, ufuk ışığı, `--mars-glow`/`--mars-haze` radyallerinin
+ * toplandığı yere — KORUMASIZ düşerdi.
+ *
+ * Ve hata SESSİZ olurdu: ekran çalışır, düzen doğrudur, hiçbir test kırmızı
+ * yanmaz; yalnızca beyaz metin açık turuncunun üzerinde okunmaz. Bu yüzden
+ * metnin hizası ile scrim'in yönü **tek bir karardır ve birlikte değişir**.
+ *
+ * ⚠️ Yan kazanç: panelin ALTI artık scrim'siz kalıyor ve orada gradyanın
+ * kendi koyu ucu (`--mars-deep`) görünüyor — yani Kademe B için açılmış olan
+ * "siyah bant" istisnası da gereksizleşti ve silindi (yukarıda).
  *
  * Tanecik scrim'in ÜSTÜNDE ve alfası SVG'nin içine gömülü (`opacity='.06'`) —
  * ayrı bir DOM düğümü ya da `background-blend-mode` gerekmesin diye.
@@ -320,7 +336,7 @@
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E"),
     linear-gradient(
-      to top,
+      to bottom,
       rgba(26, 10, 4, 0.88) 0%,
       rgba(26, 10, 4, 0.72) 30%,
       rgba(26, 10, 4, 0.3) 56%,
@@ -329,24 +345,20 @@
 }
 
 /*
- * ⚠️ KADEME B'DE SCRIM HAFİFTİR — ve bu, TARAYICIDA GÖRÜLDÜKTEN SONRA eklendi.
+ * ⚠️ KADEME B'NİN AYRI SCRIM'İ KALDIRILDI — ve sebebi metnin yer değiştirmesi.
  *
- * Fotoğraf gücündeki scrim (yukarıdaki) altında fotoğraf OLMAYAN bir panelde
- * yanlış çalışıyor: Mars gradyanının zaten koyu olan alt ucunu (`--mars-deep`)
- * neredeyse SİYAHA indiriyor ve panelin altında kasıtsız görünen bir siyah
- * bant bırakıyordu. `verify-email`de görüldü.
+ * Metin panelin ALTINDAYKEN Kademe B'nin ayrı, hafif bir scrim'i vardı: orada
+ * Mars gradyanının alt ucu (`--mars-deep`) zaten koyuydu ve fotoğraf gücündeki
+ * scrim onu neredeyse SİYAHA indiriyordu.
  *
- * Hafifletmek kontrastı ZAYIFLATMIYOR çünkü buradaki zemin bir fotoğraf değil
- * BİZİM yazdığımız bir gradyandır: metin bloğunun hizasında en açık değer
- * `#8f3314`tür ve scrim'siz bile `--mars-ink` ile ~7.4:1 verir. Yani §3.7'nin
- * "fotoğrafa göre ölçülemez" gerekçesi Kademe B için GEÇERLİ DEĞİLDİR —
- * ölçülecek bir değişken yok.
+ * ⚠️ Metin ÜSTE alınınca o gerekçe ORTADAN KALKTI ve TERSİNE döndü: panelin
+ * üstü gradyanın EN AÇIK yeridir (`--mars-glow` + `--mars-haze` radyalleri
+ * orada toplanır). Yani Kademe B artık fotoğraflı kademelerden daha AZ değil,
+ * en az onlar KADAR koruma ister.
+ *
+ * Sonuç: tek scrim, iki kademe. Özel durum silindi — kaldırılan şey bir
+ * özellik değil, artık yanlış olan bir istisnaydı.
  */
-.auth-panel:not([data-scene])::after {
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E"),
-    linear-gradient(to top, rgba(26, 10, 4, 0.34) 0%, rgba(26, 10, 4, 0.18) 34%, transparent 72%);
-}
 
 /*
  * md (768–1023) — panel üstte bir ŞERİTTİR ve altındaki form ile arasındaki

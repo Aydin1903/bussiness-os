@@ -1,9 +1,11 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
-  — ⚠️ **UC DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  — ⚠️ **BES DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
   §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
-  · panel metni **tek cumleye** indirildi. Ucu de asagida, uzeri cizili eski kararlariyla birlikte.
+  · panel metni **tek cumleye** indirildi · ⚠️ **metin panelin ALTINDAN USTUNE** alindi
+  ve **scrim'in yonu onunla birlikte cevrildi** · slogan **iki yarima + `/` ayracina**
+  gecti. Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -334,10 +336,41 @@ background: linear-gradient(
 );
 ```
 
-**Metin blogu panelin ALT %40'indadir** ve orada scrim opakligi ≥ 0.72'dir.
-Hesaplanan en kotu durum (dort sahnenin **en acik** pikseli — M1'in gunes
-cekirdegi `#fff0d0` — 0.72 scrim altinda `#5a4a3d`'ye duser): `--mars-ink` ile
-**~8.5:1**, `--mars-ink-2` ile **~6.1:1**.
+~~**Metin blogu panelin ALT %40'indadir** ve orada scrim opakligi ≥ 0.72'dir.~~
+
+> ### ⚠️ DUZELTME — METIN USTE, SCRIM DE USTE (Product Owner, 2026-08-31)
+>
+> Slogan panelin altindan **USTUNE** alindi (referansin duzeni). ⚠️ **Bu isin
+> en sinsi hatasi, scrim'i oldugu yerde birakmak olurdu.**
+>
+> Panelin ustu, panelin **EN ACIK** bolgesidir: gun batimi gokyuzu, ufuk isigi
+> ve Mars gradyaninin iki radyali (`--mars-glow` + `--mars-haze`) orada
+> toplanir. Metin oraya **korumasiz** dusseydi:
+>
+> |                       | Kademe B, panelin ustu                  |
+> | --------------------- | --------------------------------------- |
+> | Scrim'siz zemin       | ≈ `#e57639`                             |
+> | `--mars-ink` ile oran | ⚠️ **2.80** — AA esiginin (4.5) ALTINDA |
+> | Scrim ile (0.82)      | **10.52**                               |
+>
+> ⚠️ Ve hata **SESSIZ** olurdu: ekran calisir, duzen dogrudur, hicbir test
+> kirmizi yanmaz; yalnizca beyaz metin acik turuncunun uzerinde okunmaz.
+>
+> **Yeni kural:** metin blogu panelin **UST** kismindadir ve scrim `to bottom`
+> yonundedir (opaklik ustte ≥ 0.72). ⚠️ **Metnin hizasi ile scrim'in yonu TEK
+> BIR KARARDIR ve birlikte degisir** — bir test ikisini birbirine bagliyor
+> (`justify-start` ⇔ `to bottom`) ve mutasyonla sinandi.
+>
+> ⚠️ **Yan sonuc: Kademe B'nin AYRI SCRIM'I SILINDI.** Metin alttayken Kademe
+> B'ye hafif bir scrim acilmisti (orada gradyanin alt ucu zaten koyuydu ve
+> fotograf gucundeki scrim onu neredeyse siyaha indiriyordu). Metin uste
+> alininca o gerekce **tersine dondu**: panelin ustu en acik yerdir, yani
+> Kademe B artik fotografli kademelerden daha AZ degil, en az onlar KADAR
+> koruma ister. Tek scrim, iki kademe — kaldirilan sey bir ozellik degil,
+> **artik yanlis olan bir istisnaydi**.
+> Hesaplanan en kotu durum (dort sahnenin **en acik** pikseli — M1'in gunes
+> cekirdegi `#fff0d0` — 0.72 scrim altinda `#5a4a3d`'ye duser): `--mars-ink` ile
+> **~8.5:1**, `--mars-ink-2` ile **~6.1:1**.
 
 ### ✅ OLCULDU — tarayicida, gercek piksellerle (2026-08-31)
 
@@ -349,34 +382,43 @@ ortalama degil.
 
 | Sahne        | Ekran               | Ornek piksel | En kotu oran |
 | ------------ | ------------------- | -----------: | -----------: |
-| `walk`       | login               |      164 956 |    **10.16** |
-| `path`       | register            |      163 944 |     **8.92** |
-| `orbit`      | create-tenant       |      163 944 |     **8.69** |
-| `stage`      | select-tenant       |       82 984 |     **9.79** |
-| — (Kademe B) | verify/forgot/reset |     analitik |     **9.19** |
+| `walk`       | login               |      164 956 |    **10.28** |
+| `path`       | register            |      164 956 |    **10.15** |
+| `orbit`      | create-tenant       |      164 956 |    **15.38** |
+| `stage`      | select-tenant       |       82 984 |    **10.16** |
+| — (Kademe B) | verify/forgot/reset |       39 026 |    **10.52** |
 
-> ⚠️ **BU TABLO IKINCI OLCUMDUR.** Ilk olcum (destek satiri hala varken ve
-> panel tam kanamaliyken) en kotu **5.86** veriyordu. Uc duzeltme —
-> tek cumle · panel inset'i · logonun tasinmasi — geometriyi degistirdi ve
-> **olcum bastan yapildi**. Yeni en kotu deger **8.69**; iyilesmenin sebebi
-> tek cumlenin daha ASAGIDA, yani scrim'in daha opak bolgesinde durmasidir.
+> ⚠️ **BU TABLO UCUNCU OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
 >
-> ⚠️ Eski degerleri **tahmin edip tasimak** mumkun degildi: kirpma penceresi
-> panelin en-boyuna bagli ve inset onu degistiriyor. Bu, "olcum bir kez
-> yapilir" sanmanin neden yanlis oldugunun somut ornegi.
+> | Olcum | Ne degismisti                                                     |   En kotu |
+> | ----- | ----------------------------------------------------------------- | --------: |
+> | 1.    | ilk uygulama (destek satiri var, panel tam kanamali, metin ALTTA) |      5.86 |
+> | 2.    | tek cumle · panel inset'i · logo sag sutuna                       |      8.69 |
+> | 3.    | ⚠️ **metin USTE, scrim `to bottom`**                              | **10.15** |
+>
+> ⚠️ Degerleri **tahmin edip tasimak** her seferinde mumkun degildi: kirpma
+> penceresi panelin en-boyuna, scrim'in katkisi ise metnin dikey konumuna
+> baglidir. Ucuncu olcumdeki iyilesmenin sebebi acik — metin artik scrim'in
+> **en opak** bolgesinde duruyor.
+>
+> ⚠️ **Kademe B artik ANALITIK degil, PIKSEL PIKSEL olculuyor.** Metin alttayken
+> iki radyal (`glow`, `haze`) metnin hizasinda sifirdi ve tek bir dogrusal
+> gradyan hesabi yetiyordu. Metin uste alininca **ikisi de devreye girdi**;
+> hesap 39 026 nokta uzerinde, her iki radyalin alfasi ayri ayri cozulerek
+> yapildi.
 
-⚠️ **En kotu deger 8.69** (`orbit`) — WCAG AA'nin 4.5 esiginin cok uzerinde,
-ve bu bir ortalama degil **en kotu tek piksel**.
+⚠️ **En kotu deger 10.15** (`path`) — WCAG AA'nin 4.5 esiginin iki katindan
+fazla, ve bu bir ortalama degil **en kotu tek piksel**.
 
-⚠️ **Kademe B'nin satiri ANALITIKTIR ve bu dogrudur:** orada fotograf yoktur,
-zemin bizim yazdigimiz determinist bir gradyandir — yani bu bolumun kendi
-gerekcesi (_"fotograf degisirse metin sessizce okunmaz olur"_) orada
-GECERSIZDIR. Olculecek bir degisken yok.
+⚠️ **Kademe B'de fotograf yoktur**, zemin bizim yazdigimiz determinist bir
+gradyandir — yani bu bolumun kendi gerekcesi (_"fotograf degisirse metin
+sessizce okunmaz olur"_) orada GECERSIZDIR. Yine de ⚠️ **metin uste alindiktan
+sonra o gradyanin EN ACIK bolgesine dustugu icin** olcum orada da piksel piksel
+yapildi (39 026 nokta, iki radyal dahil).
 
-⚠️ **Kademe B'nin scrim'i uygulamada HAFIFLETILDI.** Fotograf gucundeki scrim,
-altinda fotograf olmayan bir panelde Mars gradyaninin zaten koyu olan alt ucunu
-neredeyse SIYAHA indiriyordu; `verify-email`de goruldu. Hafifletmek kontrasti
-zayiflatmadi (**9.19**).
+~~⚠️ **Kademe B'nin scrim'i uygulamada HAFIFLETILDI.**~~ ⚠️ **GERI ALINDI** —
+metin uste alininca bu istisna yanlis oldu ve silindi (yukaridaki duzeltme
+notu). Bugun tek scrim vardir ve iki kademe de onu kullanir.
 
 ⚠️ **Form tarafi da iki temada olculdu** (tema `localStorage` uzerinden
 kurulup sayfa YENIDEN YUKLENEREK — canli attribute degisiminde tarayicinin stil
@@ -638,18 +680,47 @@ gerekmez. §7.2'nin ucuncu testi bunu kilitler.
 > kullanicinin gozunu ikiye boluyordu.
 >
 > **Karar:** destek satiri **kaldirildi**; yedi ekranin her birinde panelde
-> **tek cumle** kalir. `AuthPanelContent.support` alani tipten de silindi —
+> **tek cumle** kalir (bicimi asagida bir kez daha degisti). `AuthPanelContent.support` alani tipten de silindi —
 > olu birakilsaydi bir gun sessizce geri doldurulurdu.
 >
-> | Ekran             | Tek cumle                                      |
-> | ----------------- | ---------------------------------------------- |
-> | `register`        | İşletmenin hafızası buradan başlıyor.          |
-> | `login`           | Şirketin hafızası yerinde duruyor.             |
-> | `verify-email`    | Neredeyse tamam.                               |
-> | `forgot-password` | Parolalar unutulur, şirketin hafızası unutmaz. |
-> | `reset-password`  | Sıfırlanan yalnızca parolan.                   |
-> | `create-tenant`   | Şirketini kur, her şeyi tek yerden gör.        |
-> | `select-tenant`   | Her şirketin kendi hafızası var.               |
+> | ~~Ekran~~             | ~~Tek cumle (ilk yazim)~~                          |
+> | --------------------- | -------------------------------------------------- |
+> | ~~`register`~~        | ~~İşletmenin hafızası buradan başlıyor.~~          |
+> | ~~`login`~~           | ~~Şirketin hafızası yerinde duruyor.~~             |
+> | ~~`verify-email`~~    | ~~Neredeyse tamam.~~                               |
+> | ~~`forgot-password`~~ | ~~Parolalar unutulur, şirketin hafızası unutmaz.~~ |
+> | ~~`reset-password`~~  | ~~Sıfırlanan yalnızca parolan.~~                   |
+> | ~~`create-tenant`~~   | ~~Şirketini kur, her şeyi tek yerden gör.~~        |
+> | ~~`select-tenant`~~   | ~~Her şirketin kendi hafızası var.~~               |
+>
+> #### ⚠️ EK DUZELTME — IKI YARIM, ARALARINDA `/` (ayni gun)
+>
+> Product Owner referansin biciminden bir adim daha istedi
+> (_"Look first / Then leap."_): her slogan **iki kisa yarimdir** ve aralarinda
+> bir **egik cizgi** durur. Yedi cumle bu bicime gore yeniden yazildi:
+>
+> | Ekran             | Slogan                                          |
+> | ----------------- | ----------------------------------------------- |
+> | `register`        | İşletmenin hafızası / buradan başlıyor.         |
+> | `login`           | Şirketin hafızası / yerinde duruyor.            |
+> | `verify-email`    | Son bir adım / neredeyse tamam.                 |
+> | `forgot-password` | Parolalar unutulur / şirketin hafızası unutmaz. |
+> | `reset-password`  | Yeni bir parola / aynı hafıza.                  |
+> | `create-tenant`   | Şirketini kur / her şeyi tek yerden gör.        |
+> | `select-tenant`   | Ayrı şirket / ayrı hafıza.                      |
+>
+> ⚠️ **`forgot-password`ta egik cizgi zaten duran VIRGULUN yerini aldi** —
+> cumle degismedi, ayraci degisti. `verify-email` ve `select-tenant` ise tek
+> yarimliydi ve iki yarima **yeniden yazildi**.
+>
+> ⚠️ **EGIK CIZGI METNIN ICINDEDIR, ayri bir oge DEGILDIR.** Ayri bir `<span>`e
+> alinip soluklastirilabilirdi (bicimsel olarak daha zarif olurdu) ama o zaman
+> slogan **tek bir metin dugumu olmaktan cikardi**: ekran okuyucu iki parca
+> okur, tarayici cevirisi araya girer ve `getByText(slogan)` testi calismaz
+> hale gelirdi. ⚠️ **Bicim ugruna metnin butunlugu bozulmaz.**
+>
+> Bir test bunu kilitliyor: yedi sloganin yedisi de `/` ile **tam iki**
+> yarima ayrilir ve iki yarim da bos degildir.
 >
 > ⚠️ **Kisit "tek SATIR" degil "tek FIKIR".** `forgot-password`un cumlesi iki
 > satira sarabilir ve korundu, cunku iki yarisi bir **karsitlik** kurar — yani
@@ -832,7 +903,7 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
   acik: kullanici bugun yalnizca e-posta ile girer.
 - ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
   (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
-  temada olculdu; en kotu deger **8.69**. Tablo §3.7'de.
+  temada olculdu; en kotu deger **10.15**. Tablo §3.7'de (uc kez olculdu).
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc

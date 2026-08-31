@@ -55,6 +55,16 @@ export interface AuthPanelContent {
   /**
    * Panelin TEK cümlesi. ⚠️ Görsele GÖMÜLMEZ — gerçek DOM metnidir.
    *
+   * ⚠️ **İKİ YARIM, ARALARINDA EĞİK ÇİZGİ** (Product Owner, 2026-08-31 —
+   * referans: TradingView'ın _"Look first / Then leap."_ biçimi). Yedi
+   * cümlenin yedisi de iki kısa yarımdan oluşur ve ` / ` onları ayırır.
+   *
+   * ⚠️ Eğik çizgi metnin **İÇİNDEDİR**, ayrı bir öğe değildir. Ayrı bir
+   * `<span>`e alınıp soluklaştırılabilirdi ama o zaman slogan tek bir metin
+   * düğümü olmaktan çıkardı: ekran okuyucu iki parça okur, tarayıcı çevirisi
+   * araya girer ve `getByText(slogan)` testi çalışmaz hâle gelirdi. Biçim
+   * uğruna metnin bütünlüğü bozulmaz.
+   *
    * ⚠️ **DESTEK SATIRI KALDIRILDI** (Product Owner, 2026-08-31 — ADR-0052
    * düzeltme notu). Panelde önce bir başlık + bir açıklama satırı ikilisi
    * vardı; gerçek ekranda referansla (TradingView) yan yana konunca ikili
@@ -94,31 +104,30 @@ export const AUTH_PANELS = {
   register: {
     scene: 'path',
     preload: true,
-    slogan: 'İşletmenin hafızası buradan başlıyor.',
+    slogan: 'İşletmenin hafızası / buradan başlıyor.',
   },
   login: {
     scene: 'walk',
     preload: true,
-    slogan: 'Şirketin hafızası yerinde duruyor.',
+    slogan: 'Şirketin hafızası / yerinde duruyor.',
   },
   'verify-email': {
-    slogan: 'Neredeyse tamam.',
+    slogan: 'Son bir adım / neredeyse tamam.',
   },
   'forgot-password': {
     /*
-     * ⚠️ Setin en güçlü cümlesi ve TEK cümleye indirilirken korundu: iki
-     * yarısı bir KARŞITLIK kurar, yani ikinci yarı bir açıklama değil
-     * fikrin kendisidir. Ekranda iki satıra sarabilir — kısıt "tek satır"
-     * değil "tek fikir".
+     * ⚠️ Setin en güçlü cümlesi: iki yarısı bir KARŞITLIK kurar, yani ikinci
+     * yarı bir açıklama değil fikrin kendisidir. Eğik çizgi burada zaten
+     * duran virgülün yerini aldı.
      */
-    slogan: 'Parolalar unutulur, şirketin hafızası unutmaz.',
+    slogan: 'Parolalar unutulur / şirketin hafızası unutmaz.',
   },
   'reset-password': {
-    slogan: 'Sıfırlanan yalnızca parolan.',
+    slogan: 'Yeni bir parola / aynı hafıza.',
   },
   'create-tenant': {
     scene: 'orbit',
-    slogan: 'Şirketini kur, her şeyi tek yerden gör.',
+    slogan: 'Şirketini kur / her şeyi tek yerden gör.',
   },
   'select-tenant': {
     scene: 'stage',
@@ -127,7 +136,7 @@ export const AUTH_PANELS = {
      * başlığı zaten "Şirket seç" diyor ve panel onu tekrar ediyordu. Panelin
      * işi yönlendirmek değil, markanın bir şey söylemesidir.
      */
-    slogan: 'Her şirketin kendi hafızası var.',
+    slogan: 'Ayrı şirket / ayrı hafıza.',
   },
 } as const satisfies Record<string, AuthPanelContent>;
 

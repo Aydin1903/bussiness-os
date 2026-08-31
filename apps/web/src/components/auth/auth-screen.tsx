@@ -149,23 +149,29 @@ export function AuthScreen({
         `@media (min-width: 1024px)` içinde tanımlıdır, yani dar ekranda
         indirilmez de — iki bağımsız koruma (ADR-0052 §4.2).
 
-        ⚠️ `justify-end`: panelin TEK çocuğu kaldı (slogan) ve o, panelin
-        altında durur. Önceki `justify-between` iki çocuk (logo + metin) içindi;
-        logo taşınınca tek çocukla `justify-between` sessizce "üste yasla"ya
-        dönerdi — ve slogan scrim'in dışına çıkıp okunmaz hâle gelirdi.
+        ⚠️ `justify-start`: panelin TEK çocuğu slogandır ve o, panelin
+        ÜSTÜNDE durur (Product Owner, 2026-08-31 — metin fotoğrafın altından
+        üstüne alındı).
       */}
       <aside
-        className="auth-panel order-first hidden flex-col justify-end p-8 md:flex md:h-[208px] lg:h-auto lg:p-12"
+        className="auth-panel order-first hidden flex-col justify-start p-8 md:flex md:h-[208px] lg:h-auto lg:p-12"
         data-scene={scene}
       >
         {/*
-          ⚠️ METİN PANELİN ALT KISMINDADIR ve bu bir hizalama tercihi değil bir
-          KONTRAST koşuludur: scrim orada ≥0.72 opaklıktadır
-          (`auth-surface.css`). Yukarı taşınırsa fotoğrafın açık pikselleri
-          üzerinde okunmaz hâle gelir ve hata SESSİZDİR.
+          ⚠️ METİN PANELİN ÜST KISMINDADIR ve bu bir hizalama tercihi değil bir
+          KONTRAST koşuludur: scrim ORADA yoğundur (`auth-surface.css`).
+
+          ⚠️ Metin yukarı taşınırken scrim'in de yönü çevrildi. Yalnızca metni
+          taşımak, onu panelin EN AÇIK bölgesine (gün batımı gökyüzü, ufuk
+          ışığı) korumasız bırakırdı ve hata SESSİZ olurdu: ekran çalışır,
+          yalnızca beyaz metin açık turuncunun üzerinde okunmaz. İkisi
+          BİRLİKTE taşınır.
+
+          `text-balance`: iki yarımlı bir cümlede satır sonu eğik çizginin
+          yanlış tarafına düşmesin diye satırlar dengelenir.
         */}
         <p
-          className="max-w-[22ch] text-[27px] leading-[1.16] font-semibold tracking-[-0.02em] lg:text-[34px]"
+          className="max-w-[22ch] text-[27px] leading-[1.16] font-semibold tracking-[-0.02em] text-balance lg:text-[34px]"
           style={{ color: 'var(--mars-ink)' }}
         >
           {panel.slogan}

@@ -169,6 +169,28 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     expect(screen.getByText(AUTH_PANELS[key].slogan)).toBeInTheDocument();
   });
 
+  it('yedi sloganın YEDİSİ de iki yarımdan oluşur (` / ` ayracı)', () => {
+    /*
+     * ⚠️ Biçim kararı: her slogan iki kısa yarımdır ve aralarında bir eğik
+     * çizgi durur (Product Owner, 2026-08-31 — referansın _"Look first /
+     * Then leap."_ biçimi). Bir gün biri tek yarımlı bir cümle eklerse ekran
+     * çalışmaya devam eder ve hata SESSİZ olur: yalnızca o ekran setin
+     * ritminden düşer.
+     *
+     * ⚠️ Eğik çizgi metnin İÇİNDEDİR, ayrı bir öğe değildir — bu test aynı
+     * zamanda onu kilitler: ayrı bir `<span>`e alınsaydı slogan tek bir metin
+     * düğümü olmaktan çıkardı (ekran okuyucu, tarayıcı çevirisi).
+     */
+    for (const key of SCREENS) {
+      const { slogan } = AUTH_PANELS[key];
+      const halves = slogan.split(' / ');
+
+      expect(halves, `${key}: "${slogan}"`).toHaveLength(2);
+      expect(halves[0]?.length ?? 0).toBeGreaterThan(0);
+      expect(halves[1]?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
   it('panelde TEK cümle vardır — destek satırı geri gelmesin', () => {
     /*
      * ⚠️ Panelde önce bir başlık + bir açıklama satırı ikilisi vardı ve gerçek
@@ -272,6 +294,51 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
 
       expect(page, `${key}/page.tsx AuthScreen kullanmıyor`).toContain(`screen="${key}"`);
     }
+  });
+});
+
+describe('ADR-0052 · scrim metnin PEŞİNDEN gider', () => {
+  /*
+   * ⚠️ BU TESTİN SEBEBİ YAŞANMIŞ BİR RİSKTİR. Slogan panelin altından üstüne
+   * alındı (Product Owner, 2026-08-31). Scrim olduğu yerde bırakılsaydı metin
+   * panelin EN AÇIK bölgesine — gün batımı gökyüzü, `--mars-glow`/`--mars-haze`
+   * radyallerinin toplandığı yere — KORUMASIZ düşerdi.
+   *
+   * Ve hata SESSİZ olurdu: ekran çalışır, düzen doğrudur, hiçbir test kırmızı
+   * yanmaz; yalnızca beyaz metin açık turuncunun üzerinde okunmaz.
+   *
+   * Bu yüzden ikisi TEK BİR KARARDIR ve test onları birbirine bağlar:
+   * metin `justify-start` (üstte) ise scrim de `to bottom` (üstte yoğun)
+   * olmak ZORUNDADIR.
+   */
+  const CSS = readFileSync(join(SRC, 'app', 'auth-surface.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  it('metin panelin ÜSTÜNDE hizalanır', () => {
+    const { container } = render(
+      <AuthScreen screen="login">
+        <span />
+      </AuthScreen>,
+    );
+
+    expect(container.querySelector('.auth-panel')?.className).toContain('justify-start');
+  });
+
+  it('scrim ÜSTTE yoğundur (`to bottom`) — metinle aynı yönde', () => {
+    expect(CSS).toContain('to bottom');
+    expect(CSS).not.toContain('to top');
+  });
+
+  it('Kademe B için AYRI bir scrim YOKTUR — tek kural, iki kademe', () => {
+    /*
+     * Metin alttayken Kademe B'nin ayrı hafif bir scrim'i vardı (orada gradyanın
+     * alt ucu zaten koyuydu). Metin üste alınınca o gerekçe TERSİNE döndü ve
+     * istisna silindi. Geri gelmesi, Kademe B'yi tam olarak korumasız bırakacağı
+     * yerde zayıflatırdı.
+     */
+    expect(CSS).not.toContain(':not([data-scene])::after');
   });
 });
 
