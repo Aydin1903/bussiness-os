@@ -277,6 +277,16 @@ pnpm format             # Prettier
 > hangi görevlerin koştuğu hakkında log'un sessizliğinden hiçbir şey
 > çıkarılamaz.** Şüphe varsa görev tek başına koşturulur
 > (`pnpm --filter <paket> run <görev>`).
+>
+> ⚠️ **Aynı ailenin bir başka üyesi:** bir boru hattında (`$cmd1 | cmd2`) `$?`
+> yalnızca **SON** komutun çıkış kodunu taşır — ara komutlardan biri patlarsa
+> bu **sessizce kaybolur**. `PIPESTATUS[0]` (bash) ya da eşdeğeri kullanılmalı.
+>
+> ⚠️ **Gerçekten yaşandı (2026-08-31):** `pnpm verify 2>&1 | tail -25` koşuldu;
+> `verify` prettier'dan **1** ile düştü ama `$?` `tail`'in kodunu okudu ve
+> sonuç **"çıkış kodu 0"** diye raporlandı — üstelik hatanın kendisi ekrandaki
+> çıktıda **yazılıydı**. Yukarıdaki iki kuralla aynı sınıf: doğru sorunun
+> (_"hangi sürecin çıkış kodu?"_) yanlış özneye sorulması.
 
 Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
