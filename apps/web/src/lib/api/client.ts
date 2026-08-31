@@ -13,8 +13,9 @@ import { refreshSession } from './refresh';
  * - `credentials: 'include'` — HttpOnly refresh cookie'sinin (yenileme uçlarında)
  *   gitmesi için (ADR-0026).
  * - 401 → single-flight iki adımlı yenileme, sonra orijinal isteği TEK KEZ tekrar.
- * - Başarı gövdesini paylaşılan Zod şemasıyla DOĞRULAR (mevcut `fetchHealth`
- *   disiplini): tip güvenliği çalışma zamanında kanıtlanır.
+ * - Başarı gövdesini paylaşılan Zod şemasıyla DOĞRULAR: tip güvenliği çalışma
+ *   zamanında kanıtlanır. Web ve API aynı sürümden deploy edilmediği an tip
+ *   güvenliği bir VARSAYIMA döner; şema doğrulaması o varsayımı sınar.
  * - Hatayı tek yerde `ApiError`'a (RFC 7807) çevirir.
  *
  * İki giriş: `apiFetch` (gövde bekleyen, şema zorunlu → `T`) ve `apiSend`
