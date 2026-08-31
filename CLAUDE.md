@@ -249,6 +249,35 @@ pnpm format             # Prettier
 > aramak yasaktır (DEVELOPMENT_RULES 5.4 — bu kural iki kez yanlış yeşil
 > rapor üretildikten sonra yazıldı).
 
+> ### ⚠️ Kalıcı ders: BİR ÇIKTININ **YOKLUĞU**, O ADIMIN GEÇTİĞİNİN KANITI DEĞİLDİR
+>
+> **DEVELOPMENT_RULES 5.4'ün aynadaki hali ve onunla birlikte okunur.** 5.4
+> çıktıda hata **aramayı** yasaklar; bu kural çıktının **yokluğundan başarı
+> çıkarmayı** yasaklar. İkisi aynı sınıftır ve ikisi de yanlış yeşil rapor
+> üretmiştir.
+>
+> ⚠️ **`pnpm verify` görevleri PARALEL koşar** (`turbo run lint typecheck build
+> test`). Bir görev patladığında turbo **kalanları iptal eder** ve iptal edilen
+> görev **hiç çıktı üretmez** — log'da o görevin adı bile geçmez.
+>
+> ⚠️ **Gerçekten yaşandı (2026-08-31):** `web:build` patladı, turbo `web:lint`i
+> iptal etti, log'da `@business-os/web:lint` satırı **hiç yoktu** ve bu
+> _"lint geçti"_ diye okundu. Oradan da olmayan bir **lint ayrışması** teşhisi
+> üretildi (_"`pnpm lint` bu kalıbı geçiriyor ama `next build` reddediyor"_) ve
+> o teşhis bir commit mesajına ve bir kod yorumuna yazıldı. ⚠️ **Ölçünce
+> çöktü:** aynı kalıp `pnpm lint`te de `error` veriyordu — iki taraf da aynı
+> config'ten (`strictTypeChecked`) besleniyordu, ortada ayrışma **yoktu**.
+>
+> ⚠️ **Bir sessiz iptal, bir başarıdan AYIRT EDİLEMEZ** — çünkü ikisi de log'da
+> aynı şeyi bırakır: **hiçbir şey**. Ayrımı yapan tek şey **çıkış kodudur**.
+>
+> **Kural:** bir görevin geçtiği söylenecekse o görevin **kendi çıkış kodu**
+> ayrı ayrı doğrulanır. Toplu bir `pnpm verify` çıkış kodu 0 ise **hepsi**
+> geçmiştir (turbo hiçbirini iptal etmemiştir); ⚠️ **çıkış kodu 0 DEĞİLSE,
+> hangi görevlerin koştuğu hakkında log'un sessizliğinden hiçbir şey
+> çıkarılamaz.** Şüphe varsa görev tek başına koşturulur
+> (`pnpm --filter <paket> run <görev>`).
+
 Uç noktalar: `/api/v1/health` · `/api/docs` (Swagger) · `/api/docs/json`
 
 ---
