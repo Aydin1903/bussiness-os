@@ -170,6 +170,19 @@
  */
 .auth-panel {
   position: relative;
+
+  /*
+   * ⚠️ `container-type: inline-size` — sloganın puntosu PANELİN genişliğinden
+   * türetilir, viewport'unkinden değil (`auth-slogan`, aşağıda).
+   *
+   * Fark önemli: panel ekranın yarısıdır ve `14px` kenar boşluğu vardır; bir
+   * `vw` hesabı bunların hiçbirini bilmez ve 1024 px'te taşar, 2560 px'te
+   * abartır. `cqw` doğrudan panelin kendi genişliğini ölçer.
+   *
+   * Sınırlama yalnızca INLINE eksendedir: panelin yüksekliği ızgaradan gelmeye
+   * devam eder, `::before`/`::after` katmanları etkilenmez.
+   */
+  container-type: inline-size;
   /*
    * ⚠️ `overflow: hidden` YUVARLATILMIŞ KÖŞENİN KOŞULUDUR, süs değil.
    * Fotoğraf ve scrim `::before`/`::after` katmanlarındadır ve mutlak
@@ -390,6 +403,55 @@
  * panelde hâlâ bir marka öğesi olduğunu sanardı. Bir testin (`auth-surface
  * .spec`) panelde logo bulunmadığını iddia etmesinin sebebi de budur.
  */
+
+/*
+ * ============================================================================
+ * ⚠️ SLOGAN TEK SATIRDIR — punto UZUNLUKTAN türetilir
+ * ============================================================================
+ * Product Owner iki yarımın YAN YANA durmasını istedi (2026-08-31). Sabit bir
+ * punto bunu garanti EDEMEZ: en uzun slogan 47, en kısası 26 karakterdir —
+ * aynı puntoda biri taşar, öteki cılız kalır. Bu yüzden punto sloganın kendi
+ * uzunluğundan hesaplanır ve her satır kendi genişliğini doldurur.
+ *
+ *   punto = (panelin İÇ genişliği) / (karakter sayısı × 0.5)
+ *
+ * `--slogan-em` bileşende hesaplanır (`karakter × 0.5`, Inter'in ortalama harf
+ * ilerlemesi). ⚠️ Bu bir TAHMİNDİR ve BİLEREK cömerttir: tarayıcıda ölçülen
+ * gerçek ortalama **0.446**'dır, yani hesap ~%12 pay bırakıyor. Pay, olağandışı
+ * geniş harfli (M, W) bir cümlenin taşmasına karşıdır.
+ *
+ * ⚠️ Ölçülen değeri (0.446) yazmak daha "doğru" görünürdü ama payı sıfırlardı:
+ * o sayı BU slogana özgüdür, bir sonrakine değil.
+ *
+ * ⚠️ `clamp` iki ucu da bağlar: 2560 px'lik bir ekranda punto 40 px'te durur
+ * (aksi halde slogan bir afişe döner), 1024 px'te 15 px'in altına inmez
+ * (okunmaz hâle gelmesindense taşması yeğdir — ve taşmayı test yakalar).
+ *
+ * ⚠️ Üst sınır 34 → 40 px'e ÇIKARILDI: yirmi dört karakterlik yeni slogan
+ * (_"Sen büyü / o hatırlasın."_) eskilerin yarısı kadar ve hesap 34 px'i her
+ * ekranda tavana dayıyordu — yani `clamp` fiilen sabit punto gibi çalışıyordu.
+ *
+ * ⚠️ YATAY DOLGU AYRICA ÇIKARILMAZ — ve bu, ilk yazımdaki bir HATANIN
+ * düzeltilmesidir. `p-8`/`lg:p-12` dolgusu elle çıkarılıyordu; tarayıcıda
+ * ölçüldü ve `100cqw`in zaten **içerik kutusuna** eşit olduğu görüldü
+ * (panel 612 px, dolgu 2×48, ölçülen `100cqw` = 516 px). Yani dolgu iki kez
+ * düşülüyordu ve punto olması gerekenden **%19 küçük** çıkıyordu.
+ *
+ * ⚠️ Hata SESSİZDİ: metin taşmıyordu, yalnızca gereğinden küçüktü — ve
+ * yorumda yazan gerekçe de YANLIŞTI. Ölçülmeseydi ikisi de kalırdı.
+ *
+ * ⚠️ İTALİK: `font-style: italic` — ve bu, `layout.tsx`'te Inter'in italik
+ * kesiminin AÇIKÇA yüklenmesini gerektirir. Yüklenmezse tarayıcı dik harfleri
+ * mekanik olarak eğer (sahte italik) ve hata SESSİZ olur.
+ */
+.auth-slogan {
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font-size: clamp(15px, calc(100cqw / var(--slogan-em, 12)), 40px);
+}
 
 /*
  * Form sütunu — üstte yazılı logo, altında ortalanmış form.

@@ -26,6 +26,25 @@ const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
   display: 'swap',
+  /*
+   * ⚠️ `italic` AÇIKÇA İSTENİR — yoksa tarayıcı SAHTE İTALİK üretir.
+   *
+   * `next/font/google` varsayılan olarak yalnızca `normal` stilini indirir.
+   * `font-style: italic` yazıldığında italik dosya yoksa tarayıcı dik
+   * harfleri mekanik olarak EĞER (synthetic oblique): harf biçimleri
+   * değişmez, yalnızca yamultulur — `a`/`f` gibi italikte yeniden çizilen
+   * harfler dik hâllerinin eğik kopyası olarak kalır ve büyük puntoda bu
+   * açıkça görünür.
+   *
+   * ⚠️ Hata SESSİZDİR: ekran çalışır, yazı "italik görünür", yalnızca
+   * kötüdür — ne lint ne test yakalar.
+   *
+   * Bedeli dürüstçe: uygulamanın tamamına ikinci bir font dosyası girer.
+   * Bugün italiği yalnızca auth paneli kullanıyor (kod tabanında başka
+   * `italic` kullanımı YOK — arandı). Kabul edildi: alternatif, marka
+   * yüzeyinde sahte italik göstermekti.
+   */
+  style: ['normal', 'italic'],
 });
 
 /**

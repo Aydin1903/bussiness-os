@@ -1,11 +1,13 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
-  — ⚠️ **BES DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  — ⚠️ **YEDI DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
   §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
   · panel metni **tek cumleye** indirildi · ⚠️ **metin panelin ALTINDAN USTUNE** alindi
   ve **scrim'in yonu onunla birlikte cevrildi** · slogan **iki yarima + `/` ayracina**
-  gecti. Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
+  gecti · ⚠️ **MARKANIN SLOGANI VERILDI** ve yedi ayri cumlenin yerini
+  **tek slogan** aldi: _"Sen buyu / o hatirlasin."_ · slogan **TEK SATIR** ve
+  **ITALIK**. Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -382,32 +384,34 @@ ortalama degil.
 
 | Sahne        | Ekran               | Ornek piksel | En kotu oran |
 | ------------ | ------------------- | -----------: | -----------: |
-| `walk`       | login               |      164 956 |    **10.28** |
-| `path`       | register            |      164 956 |    **10.15** |
-| `orbit`      | create-tenant       |      164 956 |    **15.38** |
-| `stage`      | select-tenant       |       82 984 |    **10.16** |
-| — (Kademe B) | verify/forgot/reset |       39 026 |    **10.52** |
+| `walk`       | login               |       87 800 |    **11.17** |
+| `path`       | register            |       86 922 |    **10.88** |
+| `orbit`      | create-tenant       |       86 922 |    **16.90** |
+| `stage`      | select-tenant       |       86 922 |     **9.55** |
+| — (Kademe B) | verify/forgot/reset |       20 972 |    **11.43** |
 
-> ⚠️ **BU TABLO UCUNCU OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
+> ⚠️ **BU TABLO DORDUNCU OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
 >
-> | Olcum | Ne degismisti                                                     |   En kotu |
-> | ----- | ----------------------------------------------------------------- | --------: |
-> | 1.    | ilk uygulama (destek satiri var, panel tam kanamali, metin ALTTA) |      5.86 |
-> | 2.    | tek cumle · panel inset'i · logo sag sutuna                       |      8.69 |
-> | 3.    | ⚠️ **metin USTE, scrim `to bottom`**                              | **10.15** |
+> | Olcum | Ne degismisti                                                 |  En kotu |
+> | ----- | ------------------------------------------------------------- | -------: |
+> | 1.    | ilk uygulama (destek satiri, tam kanamali panel, metin ALTTA) |     5.86 |
+> | 2.    | tek cumle · panel inset'i · logo sag sutuna                   |     8.69 |
+> | 3.    | metin USTE, scrim `to bottom`                                 |    10.15 |
+> | 4.    | tek satir · italik · yeni slogan (24 karakter)                | **9.55** |
 >
-> ⚠️ Degerleri **tahmin edip tasimak** her seferinde mumkun degildi: kirpma
-> penceresi panelin en-boyuna, scrim'in katkisi ise metnin dikey konumuna
-> baglidir. Ucuncu olcumdeki iyilesmenin sebebi acik — metin artik scrim'in
-> **en opak** bolgesinde duruyor.
+> ⚠️ Degerleri **tahmin edip tasimak** hicbir adimda mumkun degildi: kirpma
+> penceresi panelin en-boyuna, scrim'in katkisi metnin dikey konumuna, metnin
+> kapladigi alan ise punto ve uzunluga baglidir. Dorduncu olcumde slogan
+> kisaldi ama punto buyudu — yani metin kutusu **yer degistirdi** ve altindaki
+> pikseller bastan orneklendi.
 >
-> ⚠️ **Kademe B artik ANALITIK degil, PIKSEL PIKSEL olculuyor.** Metin alttayken
-> iki radyal (`glow`, `haze`) metnin hizasinda sifirdi ve tek bir dogrusal
-> gradyan hesabi yetiyordu. Metin uste alininca **ikisi de devreye girdi**;
-> hesap 39 026 nokta uzerinde, her iki radyalin alfasi ayri ayri cozulerek
-> yapildi.
+> ⚠️ **Olcum artik metnin KENDI kutusuna gore yapiliyor**, `<p>`nin kutusuna
+> gore degil: `white-space: nowrap` altinda paragraf satirdan genistir ve eski
+> yontem **bos alani da** orneklerdi. `Range.getBoundingClientRect()` yalnizca
+> harflerin bulundugu dikdortgeni verir — bu yuzden ornek sayisi yariya indi
+> ama olcum **daha dogru** oldu.
 
-⚠️ **En kotu deger 10.15** (`path`) — WCAG AA'nin 4.5 esiginin iki katindan
+⚠️ **En kotu deger 9.55** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
 fazla, ve bu bir ortalama degil **en kotu tek piksel**.
 
 ⚠️ **Kademe B'de fotograf yoktur**, zemin bizim yazdigimiz determinist bir
@@ -665,7 +669,65 @@ ogrenildigi tek yerdir.
 tarayici cevirir, kopyalanabilir — ve degistirmek icin bir goruntu duzenleyici
 gerekmez. §7.2'nin ucuncu testi bunu kilitler.
 
-⚠️ **Slogan Inter'dir, Newsreader DEGIL** (§7.1).
+⚠️ **Slogan Inter'dir, Newsreader DEGIL** (§7.1) — ⚠️ ama artik **ITALIK**
+kesimi (asagida).
+
+> ### ⚠️ DUZELTME — TEK SATIR + ITALIK (Product Owner, 2026-08-31)
+>
+> **Iki yarim YAN YANA durur, alt alta degil.** Slogan artik sarmaz.
+>
+> #### ⚠️ Punto UZUNLUKTAN turetilir — sabit punto tek satiri GARANTI EDEMEZ
+>
+> Sabit bir punto yazilabilirdi (bugun tek slogan var) ama SESSIZCE
+> yanlislasirdi: ⚠️ **slogan bugune kadar UC KEZ degisti.** Bir sonrakinde
+> metin panelden tasardi ve hicbir test kirmizi yanmazdi. Bu yuzden:
+>
+> ```
+> punto = clamp(15px, panelin IC genisligi / (karakter x 0.5), 40px)
+> ```
+>
+> ⚠️ **`cqw` viewport'a degil PANELE baglidir** (`container-type: inline-size`).
+> Panel ekranin yarisidir ve 14 px kenar boslugu vardir; bir `vw` hesabi
+> bunlarin hicbirini bilmez.
+>
+> ⚠️ **UYGULAMADA BIR HATA OLCUMLE BULUNDU:** ilk yazim yatay dolguyu ELLE
+> cikariyordu (`100cqw - 96px`). Tarayicida olculdu ve `100cqw`in zaten
+> **icerik kutusuna** esit oldugu gorüldü (panel 612 px, dolgu 2x48, olculen
+> `100cqw` = **516 px**). Yani dolgu **iki kez** dusuluyordu ve punto olmasi
+> gerekenden **%19 kucuk** cikiyordu. ⚠️ Hata SESSIZDI — metin tasmiyordu,
+> yalnizca kucuktu — **ve yorumdaki gerekce de yanlisti.** Ikisi de duzeltildi.
+>
+> ⚠️ `0.5` katsayisi Inter'in ortalama harf ilerlemesi icin bir TAHMINDIR ve
+> BILEREK comerttir: olculen gercek deger **0.446**, yani hesap ~%12 pay
+> birakiyor. Olculen degeri yazmak daha "dogru" gorunurdu ama payi sifirlardi —
+> o sayi BU slogana ozgudur, bir sonrakine degil.
+>
+> **Olculen sonuc** (tek satir, tasma yok, dort genislikte):
+>
+> | Viewport |   Panel |   Punto |  Metin / alan | Pay |
+> | -------- | ------: | ------: | ------------: | --: |
+> | 1024     |  484 px | 32.3 px |  346 / 388 px | %11 |
+> | 1440     |  692 px |   40 px |  428 / 596 px | %28 |
+> | 2560     | 1252 px |   40 px | 428 / 1156 px | %63 |
+>
+> #### ⚠️ ITALIK GERCEK KESIMDIR — ve bu bir font YUKLEME kararidir
+>
+> `font-style: italic` yazmak YETMEZ: `next/font/google` varsayilan olarak
+> yalnizca `normal` kesimini indirir ve italik dosya yoksa tarayici dik
+> harfleri **mekanik olarak eger** (synthetic oblique). Italikte yeniden
+> cizilen harfler (`a`, `f`) dik hallerinin egik kopyasi kalir ve 40 px'te bu
+> acikca gorunur. ⚠️ Hata SESSIZDIR: yazi "italik gorunur", yalnizca kotudur.
+>
+> Bu yuzden `layout.tsx`'te `style: ['normal', 'italic']` eklendi ve tarayicida
+> dogrulandi (`document.fonts` → `Inter italic … loaded`). ⚠️ **Bedeli
+> durustce:** uygulamanin tamamina ikinci bir font dosyasi girer. Bugun italigi
+> yalnizca auth paneli kullaniyor (kod tabaninda baska `italic` kullanimi
+> YOK — arandi). Alternatif, marka yuzeyinde sahte italik gostermekti.
+>
+> ⚠️ **Newsreader KULLANILMADI** ve bu bilinclidir: italik bir serif tam da bu
+> tur bir slogana yakisirdi ama Newsreader **AI'in sesidir** (§7.1). Panel
+> marka konusur, AI degil — kullanmak, ADR'nin cizdigi cizgiyi tam olarak
+> bulaniklastirirdi.
 
 > ### ⚠️ DUZELTME — PANELDE TEK CUMLE (Product Owner, 2026-08-31)
 >
@@ -719,8 +781,32 @@ gerekmez. §7.2'nin ucuncu testi bunu kilitler.
 > okur, tarayici cevirisi araya girer ve `getByText(slogan)` testi calismaz
 > hale gelirdi. ⚠️ **Bicim ugruna metnin butunlugu bozulmaz.**
 >
-> Bir test bunu kilitliyor: yedi sloganin yedisi de `/` ile **tam iki**
-> yarima ayrilir ve iki yarim da bos degildir.
+> Bir test bunu kilitliyor: slogan `/` ile **tam iki** yarima ayrilir ve iki
+> yarim da bos degildir.
+>
+> #### ⚠️ SON DUZELTME — MARKANIN SLOGANI, TEK CUMLE (ayni gun)
+>
+> Product Owner sloganin kendisini verdi: **_"Sen buyu, o hatirlasin."_** →
+> panel bicimiyle **_"Sen buyu / o hatirlasin."_** (egik cizgi yine orijinal
+> VIRGULUN yerini aldi; cumle degismedi).
+>
+> ⚠️ **Yukaridaki YEDI CUMLENIN TAMAMI DUSTU** — ve bu bir kayip degil bir
+> duzeltmedir: **bir markanin BIR slogani vardir.** Yedi farkli cumle slogan
+> degil, ekran basina metindi.
+>
+> **Veri modeli buna gore degisti:** `slogan` alani `AUTH_PANELS`ten
+> **CIKARILDI** ve `BRAND_SLOGAN` sabitine tasindi. ⚠️ Yedi kopya olarak
+> birakilsaydi `globals.css`'in kendi uyarisi gecerli olurdu (_"kopyalar
+> sapmaya aciktir"_): biri duzeltilir, altisi eski kalir ve hata SESSIZ olur.
+> Bir test kopyanin geri gelmesini engelliyor.
+>
+> ⚠️ **Yan kazanc olculebilir:** yeni slogan **24 karakter** — referansin
+> _"Look first / Then leap."_ cumlesiyle neredeyse ayni uzunlukta ve
+> oncekilerin (36–47 karakter) yarisi kadar. Bu, sloganin **tek satirda ve
+> BUYUK puntoda** durabilmesini mumkun kildi (40 px, oncekiler 22–28 px'e
+> dusuyordu).
+>
+> Ve urunun tezini tek cumlede soyluyor: **moduller urun degil hafizadir.**
 >
 > ⚠️ **Kisit "tek SATIR" degil "tek FIKIR".** `forgot-password`un cumlesi iki
 > satira sarabilir ve korundu, cunku iki yarisi bir **karsitlik** kurar — yani
@@ -903,7 +989,7 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
   acik: kullanici bugun yalnizca e-posta ile girer.
 - ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
   (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
-  temada olculdu; en kotu deger **10.15**. Tablo §3.7'de (uc kez olculdu).
+  temada olculdu; en kotu deger **9.55**. Tablo §3.7'de (dort kez olculdu).
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc

@@ -22,6 +22,10 @@
  * | B — Akış          | verify-email · forgot · reset         | FOTOĞRAF YOK     |
  * | C — Eşiğin içi    | create-tenant · select-tenant         | fotoğraf + slogan|
  *
+ * ⚠️ Slogan artık burada DEĞİL: markanın tek sloganı vardır ve o
+ * `BRAND_SLOGAN`dır (aşağıda). Bu tablo yalnızca hangi ekranın hangi SAHNEYİ
+ * aldığını söyler.
+ *
  * ⚠️ Panelde MARKA ÖĞESİ YOKTUR — yazılı logo sağ sütunun üstündedir
  * (ADR-0052 §5.2 düzeltmesi, 2026-08-31). Panelin taşıdığı tek metin
  * slogandır.
@@ -49,33 +53,37 @@
  */
 export type AuthScene = 'path' | 'walk' | 'orbit' | 'stage';
 
+/**
+ * MARKANIN SLOGANI — Product Owner, 2026-08-31.
+ *
+ * ============================================================================
+ * ⚠️ YEDİ AYRI CÜMLE DEĞİL, TEK SLOGAN
+ * ============================================================================
+ * Önceki yazımda yedi ekranın her birinin kendi cümlesi vardı ("İşletmenin
+ * hafızası / buradan başlıyor.", "Neredeyse tamam." …). Product Owner
+ * markanın sloganını verdi ve kural sadeleşti: **bir markanın bir sloganı
+ * vardır.** Yedi farklı cümle slogan değil, ekran başına metindi.
+ *
+ * ⚠️ Bu yüzden slogan `AUTH_PANELS`ten ÇIKARILDI ve buraya taşındı. Yedi
+ * kopya olarak bırakılsaydı `globals.css`'in kendi uyarısı geçerli olurdu —
+ * _"aynı paletin üç kopyası demekti ve kopyalar sapmaya açıktı"_: biri
+ * düzeltilir, altısı eski kalır ve hata SESSİZ olur.
+ *
+ * ⚠️ Eğik çizgi ORİJİNAL VİRGÜLÜN yerini aldı ("Sen büyü, o hatırlasın").
+ * Cümle değişmedi, ayracı değişti — panel biçimi iki yarım ister (§5.3).
+ *
+ * ⚠️ Yirmi dört karakter: referansın _"Look first / Then leap."_ cümlesiyle
+ * neredeyse aynı uzunlukta. Bu bir tesadüf değil AVANTAJ — slogan tek satırda
+ * ve büyük puntoda durabiliyor (punto uzunluktan türetiliyor, bkz.
+ * `auth-surface.css › .auth-slogan`).
+ *
+ * Ve ürünün tezini tek cümlede söylüyor: **modüller ürün değil hafızadır.**
+ */
+export const BRAND_SLOGAN = 'Sen büyü / o hatırlasın.';
+
 export interface AuthPanelContent {
   /** Yoksa Kademe B: fotoğraf katmanı hiç kurulmaz. */
   readonly scene?: AuthScene;
-  /**
-   * Panelin TEK cümlesi. ⚠️ Görsele GÖMÜLMEZ — gerçek DOM metnidir.
-   *
-   * ⚠️ **İKİ YARIM, ARALARINDA EĞİK ÇİZGİ** (Product Owner, 2026-08-31 —
-   * referans: TradingView'ın _"Look first / Then leap."_ biçimi). Yedi
-   * cümlenin yedisi de iki kısa yarımdan oluşur ve ` / ` onları ayırır.
-   *
-   * ⚠️ Eğik çizgi metnin **İÇİNDEDİR**, ayrı bir öğe değildir. Ayrı bir
-   * `<span>`e alınıp soluklaştırılabilirdi ama o zaman slogan tek bir metin
-   * düğümü olmaktan çıkardı: ekran okuyucu iki parça okur, tarayıcı çevirisi
-   * araya girer ve `getByText(slogan)` testi çalışmaz hâle gelirdi. Biçim
-   * uğruna metnin bütünlüğü bozulmaz.
-   *
-   * ⚠️ **DESTEK SATIRI KALDIRILDI** (Product Owner, 2026-08-31 — ADR-0052
-   * düzeltme notu). Panelde önce bir başlık + bir açıklama satırı ikilisi
-   * vardı; gerçek ekranda referansla (TradingView) yan yana konunca ikili
-   * bir **paragraf** gibi okundu, bir slogan gibi değil.
-   *
-   * Bir slogan tek bir fikir söyler ve açıklanmaz — açıklandığı anda slogan
-   * olmaktan çıkar. Açıklama zaten sağ panelde, formun kendi başlığının
-   * altında duruyor; panelde tekrarı hem yer harcıyor hem de kullanıcının
-   * gözünü ikiye bölüyordu.
-   */
-  readonly slogan: string;
   /**
    * Sahneyi `<link rel="preload">` ile öne çeker.
    *
@@ -104,39 +112,19 @@ export const AUTH_PANELS = {
   register: {
     scene: 'path',
     preload: true,
-    slogan: 'İşletmenin hafızası / buradan başlıyor.',
   },
   login: {
     scene: 'walk',
     preload: true,
-    slogan: 'Şirketin hafızası / yerinde duruyor.',
   },
-  'verify-email': {
-    slogan: 'Son bir adım / neredeyse tamam.',
-  },
-  'forgot-password': {
-    /*
-     * ⚠️ Setin en güçlü cümlesi: iki yarısı bir KARŞITLIK kurar, yani ikinci
-     * yarı bir açıklama değil fikrin kendisidir. Eğik çizgi burada zaten
-     * duran virgülün yerini aldı.
-     */
-    slogan: 'Parolalar unutulur / şirketin hafızası unutmaz.',
-  },
-  'reset-password': {
-    slogan: 'Yeni bir parola / aynı hafıza.',
-  },
+  'verify-email': {},
+  'forgot-password': {},
+  'reset-password': {},
   'create-tenant': {
     scene: 'orbit',
-    slogan: 'Şirketini kur / her şeyi tek yerden gör.',
   },
   'select-tenant': {
     scene: 'stage',
-    /*
-     * ⚠️ Soru cümlesi ("Hangi şirkete geçiyorsun?") BIRAKILDI: formun kendi
-     * başlığı zaten "Şirket seç" diyor ve panel onu tekrar ediyordu. Panelin
-     * işi yönlendirmek değil, markanın bir şey söylemesidir.
-     */
-    slogan: 'Ayrı şirket / ayrı hafıza.',
   },
 } as const satisfies Record<string, AuthPanelContent>;
 

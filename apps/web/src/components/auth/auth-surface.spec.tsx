@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import AuthLayout from '@/app/(auth)/layout';
 
-import { AUTH_PANELS, AUTH_SCREEN_KEYS } from './auth-panels';
+import { AUTH_PANELS, AUTH_SCREEN_KEYS, BRAND_SLOGAN } from './auth-panels';
 import { AuthScreen } from './auth-screen';
 
 /**
@@ -166,29 +166,43 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
       </AuthScreen>,
     );
 
-    expect(screen.getByText(AUTH_PANELS[key].slogan)).toBeInTheDocument();
+    expect(screen.getByText(BRAND_SLOGAN)).toBeInTheDocument();
   });
 
-  it('yedi sloganın YEDİSİ de iki yarımdan oluşur (` / ` ayracı)', () => {
+  it('slogan TEK KAYNAKTAN gelir — ekran başına kopyalanmaz', () => {
     /*
-     * ⚠️ Biçim kararı: her slogan iki kısa yarımdır ve aralarında bir eğik
-     * çizgi durur (Product Owner, 2026-08-31 — referansın _"Look first /
-     * Then leap."_ biçimi). Bir gün biri tek yarımlı bir cümle eklerse ekran
-     * çalışmaya devam eder ve hata SESSİZ olur: yalnızca o ekran setin
-     * ritminden düşer.
+     * ⚠️ Bir markanın BİR sloganı vardır (Product Owner, 2026-08-31). Önceki
+     * yazımda yedi ekranın her birinin kendi cümlesi vardı; slogan verilince
+     * `AUTH_PANELS`ten çıkarıldı.
+     *
+     * Yedi kopya olarak bırakılsaydı `globals.css`'in kendi uyarısı geçerli
+     * olurdu (_"kopyalar sapmaya açıktır"_): biri düzeltilir, altısı eski
+     * kalır ve hata SESSİZ olur. Bu test kopyanın geri gelmesini engeller.
+     */
+    for (const key of SCREENS) {
+      expect(AUTH_PANELS[key], `${key} kendi sloganını taşıyor`).not.toHaveProperty('slogan');
+    }
+  });
+
+  it('slogan iki yarımdan oluşur (` / ` ayracı)', () => {
+    /*
+     * ⚠️ Biçim kararı: slogan iki kısa yarımdır ve aralarında bir eğik çizgi
+     * durur (Product Owner, 2026-08-31 — referansın _"Look first / Then leap."_
+     * biçimi). Eğik çizgi ORİJİNAL VİRGÜLÜN yerini aldı: "Sen büyü, o
+     * hatırlasın" → "Sen büyü / o hatırlasın." Cümle değişmedi, ayracı değişti.
+     *
+     * ⚠️ Tek yarımlı bir cümleye dönülürse ekran çalışmaya devam eder ve hata
+     * SESSİZ olur — yalnızca panel referansın ritmini kaybeder.
      *
      * ⚠️ Eğik çizgi metnin İÇİNDEDİR, ayrı bir öğe değildir — bu test aynı
      * zamanda onu kilitler: ayrı bir `<span>`e alınsaydı slogan tek bir metin
      * düğümü olmaktan çıkardı (ekran okuyucu, tarayıcı çevirisi).
      */
-    for (const key of SCREENS) {
-      const { slogan } = AUTH_PANELS[key];
-      const halves = slogan.split(' / ');
+    const halves = BRAND_SLOGAN.split(' / ');
 
-      expect(halves, `${key}: "${slogan}"`).toHaveLength(2);
-      expect(halves[0]?.length ?? 0).toBeGreaterThan(0);
-      expect(halves[1]?.length ?? 0).toBeGreaterThan(0);
-    }
+    expect(halves, `slogan: "${BRAND_SLOGAN}"`).toHaveLength(2);
+    expect(halves[0]?.length ?? 0).toBeGreaterThan(0);
+    expect(halves[1]?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('panelde TEK cümle vardır — destek satırı geri gelmesin', () => {
@@ -339,6 +353,53 @@ describe('ADR-0052 · scrim metnin PEŞİNDEN gider', () => {
      * yerde zayıflatırdı.
      */
     expect(CSS).not.toContain(':not([data-scene])::after');
+  });
+});
+
+describe('ADR-0052 · slogan TEK SATIRA sığar', () => {
+  /*
+   * ⚠️ Punto sloganın UZUNLUĞUNDAN türetilir (`--slogan-em` = karakter × 0.5,
+   * `auth-surface.css`). `0.5` Inter'in ortalama harf ilerlemesi için bir
+   * TAHMİNDİR — ve tahminler bozulur: slogan bugüne kadar üç kez değişti.
+   *
+   * jsdom düzen yapmaz, yani gerçek taşmayı burada ölçemeyiz. Ölçebileceğimiz
+   * şey, hesabın GİRDİSİNİN doğru olmasıdır: `--slogan-em` gerçekten sloganın
+   * uzunluğundan geliyor mu. Yanlış bir sabit yazılırsa (ya da biri onu
+   * dondurursa) tek satır garantisi sessizce kaybolurdu.
+   *
+   * Gerçek taşma tarayıcıda ölçüldü (`scrollWidth ≤ clientWidth`).
+   */
+  it('`--slogan-em` sloganın uzunluğundan türetilir, sabit değildir', () => {
+    const { container } = render(
+      <AuthScreen screen="login">
+        <span />
+      </AuthScreen>,
+    );
+
+    const p = container.querySelector('.auth-slogan');
+    const em = p?.getAttribute('style')?.match(/--slogan-em:\s*([\d.]+)/)?.[1];
+
+    expect(em).toBeDefined();
+    expect(Number(em)).toBeCloseTo(BRAND_SLOGAN.length * 0.5, 2);
+  });
+
+  it('slogan `nowrap` ile tek satırdadır', () => {
+    const css = readFileSync(join(SRC, 'app', 'auth-surface.css'), 'utf8');
+
+    expect(css).toMatch(/\.auth-slogan\s*\{[\s\S]*white-space:\s*nowrap/);
+  });
+
+  it('İTALİK gerçek kesimdir — `layout.tsx` italik stili AÇIKÇA yükler', () => {
+    /*
+     * ⚠️ `next/font/google` varsayılan olarak yalnızca `normal` indirir.
+     * `style: ['normal', 'italic']` yazılmazsa tarayıcı SAHTE İTALİK üretir:
+     * dik harfler mekanik olarak eğilir, italikte yeniden çizilen harfler
+     * (a, f) dik hâllerinin eğik kopyası kalır. Hata SESSİZDİR — yazı
+     * "italik görünür", yalnızca kötüdür.
+     */
+    const layout = readFileSync(join(SRC, 'app', 'layout.tsx'), 'utf8');
+
+    expect(layout).toMatch(/style:\s*\['normal',\s*'italic'\]/);
   });
 });
 

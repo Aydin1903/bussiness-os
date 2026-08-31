@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { KobiWiseWordmark } from '@/components/brand';
 
-import { AUTH_PANELS, type AuthScreenKey } from './auth-panels';
+import { AUTH_PANELS, BRAND_SLOGAN, type AuthScreenKey } from './auth-panels';
 
 /**
  * SPLIT-SCREEN AUTH İSKELETİ — ADR-0052.
@@ -52,6 +52,19 @@ import { AUTH_PANELS, type AuthScreenKey } from './auth-panels';
  * Yan kazanç — fotoğraf artık yalnızca ≥1024'te istenir, yani tablet de baytı
  * ödemez.
  */
+/**
+ * `style` nesnesine bir CSS özel değişkeni yazmanın TİP ONAYSIZ yolu.
+ *
+ * ⚠️ `CSSProperties`in index imzası yoktur, yani `{'--slogan-em': …}` doğrudan
+ * atanamaz. İlk yazımda `as string` kullanıldı ve lint onu reddetti
+ * (`consistent-type-assertions` — proje tip onaylarını yasaklıyor). Arayüzü
+ * genişletmek aynı işi yapar ve TİP GÜVENLİDİR: anahtar adı yanlış yazılırsa
+ * derleme hatası olur, sessizce etkisiz bir stil değil.
+ */
+interface SloganStyle extends CSSProperties {
+  readonly '--slogan-em': string;
+}
+
 export function AuthScreen({
   screen,
   children,
@@ -66,6 +79,23 @@ export function AuthScreen({
   // `=== true` YAZILMAZ: tabloda `preload` yalnızca `true` literal'i olarak
   // geçtiği için karşılaştırma her zaman doğrudur ve lint onu hata sayar.
   const preload = 'preload' in panel;
+
+  /*
+    ⚠️ SLOGANIN GENİŞLİĞİ `em` CİNSİNDEN TAHMİN EDİLİR ve punto ondan TÜRETİLİR
+    (`auth-surface.css`). Bugün tek bir slogan var, yani sabit bir punto da
+    yazılabilirdi — ama o punto SESSİZCE yanlışlaşırdı: slogan bir gün
+    değişirse (bugüne kadar üç kez değişti) tek satır garantisi kaybolur ve
+    metin panelden taşar. Hesap sloganın kendi uzunluğundan yapılır.
+
+    `0.5` Inter'in ortalama harf ilerlemesidir (em cinsinden) ve tarayıcıda
+    ÖLÇÜLEREK doğrulandı. ⚠️ Tahmin olduğu için pay bırakıldı; olağandışı geniş
+    harflerden (M, W) oluşan bir cümle yine de taşabilir — bir test
+    `scrollWidth ≤ clientWidth` iddiasıyla bunu kilitliyor.
+  */
+  const sloganStyle: SloganStyle = {
+    color: 'var(--mars-ink)',
+    '--slogan-em': (BRAND_SLOGAN.length * 0.5).toFixed(2),
+  };
 
   return (
     <main className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
@@ -167,14 +197,12 @@ export function AuthScreen({
           yalnızca beyaz metin açık turuncunun üzerinde okunmaz. İkisi
           BİRLİKTE taşınır.
 
-          `text-balance`: iki yarımlı bir cümlede satır sonu eğik çizginin
-          yanlış tarafına düşmesin diye satırlar dengelenir.
+          ⚠️ SLOGAN TEK SATIRDIR (Product Owner, 2026-08-31): iki yarım YAN
+          YANA durur, alt alta değil. Bunun bedeli punto: satır kırılamayınca
+          uzunluk puntoyu belirler ve en uzun slogan en küçük puntoyu alır.
         */}
-        <p
-          className="max-w-[22ch] text-[27px] leading-[1.16] font-semibold tracking-[-0.02em] text-balance lg:text-[34px]"
-          style={{ color: 'var(--mars-ink)' }}
-        >
-          {panel.slogan}
+        <p className="auth-slogan" style={sloganStyle}>
+          {BRAND_SLOGAN}
         </p>
       </aside>
     </main>
