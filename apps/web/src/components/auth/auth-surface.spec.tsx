@@ -389,6 +389,28 @@ describe('ADR-0052 · slogan TEK SATIRA sığar', () => {
     expect(css).toMatch(/\.auth-slogan\s*\{[\s\S]*white-space:\s*nowrap/);
   });
 
+  it('slogan ORTALANIR — ve ortalanacak bir alanı olur', () => {
+    /*
+     * ⚠️ `text-align: center` tek başına yetmez: `<p>` panelin tam genişliğini
+     * kaplamalıdır. Bir zamanlar burada `max-w-[22ch]` vardı (metin sararken
+     * satır uzunluğunu bağlamak için); kalsaydı metin o DAR kutunun içinde
+     * ortalanır ve panelde hâlâ sola yaslı görünürdü — "ortala" uygulanmış ama
+     * görünürde hiçbir şey değişmemiş olurdu.
+     *
+     * Bu yüzden test iki şeyi birden iddia eder: kural var VE sloganda bir
+     * genişlik sınırı yok.
+     */
+    const css = readFileSync(join(SRC, 'app', 'auth-surface.css'), 'utf8');
+    const { container } = render(
+      <AuthScreen screen="login">
+        <span />
+      </AuthScreen>,
+    );
+
+    expect(css).toMatch(/\.auth-slogan\s*\{[\s\S]*text-align:\s*center/);
+    expect(container.querySelector('.auth-slogan')?.className).not.toMatch(/max-w/);
+  });
+
   it('İTALİK gerçek kesimdir — `layout.tsx` italik stili AÇIKÇA yükler', () => {
     /*
      * ⚠️ `next/font/google` varsayılan olarak yalnızca `normal` indirir.

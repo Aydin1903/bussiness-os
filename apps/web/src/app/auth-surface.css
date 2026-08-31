@@ -450,6 +450,20 @@
   line-height: 1.15;
   letter-spacing: -0.02em;
   white-space: nowrap;
+
+  /*
+   * ⚠️ ORTALANIR (Product Owner, 2026-08-31) — ve `text-align` TEK BAŞINA
+   * yetmesi bir tesadüf değil, düzenin sonucudur: `<p>` esnek sütunun çapraz
+   * ekseninde `stretch` ile panelin tam genişliğini kaplar, yani ortalanacak
+   * bir alan vardır.
+   *
+   * ⚠️ Bir zamanlar burada `max-w-[22ch]` vardı (metin iki satıra sararken
+   * satır uzunluğunu bağlamak için) ve tek satıra geçilirken kaldırılmıştı.
+   * Kalsaydı `text-align: center` metni 22ch'lik DAR kutunun içinde ortalardı
+   * ve panelde hâlâ sola yaslı görünürdü — hata sessiz olurdu: "ortala"
+   * uygulanmış ama görünürde hiçbir şey değişmemiş olurdu.
+   */
+  text-align: center;
   font-size: clamp(15px, calc(100cqw / var(--slogan-em, 12)), 40px);
 }
 

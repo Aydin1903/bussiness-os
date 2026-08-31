@@ -1,13 +1,14 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
-  — ⚠️ **YEDI DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  — ⚠️ **SEKIZ DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
   §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
   · panel metni **tek cumleye** indirildi · ⚠️ **metin panelin ALTINDAN USTUNE** alindi
   ve **scrim'in yonu onunla birlikte cevrildi** · slogan **iki yarima + `/` ayracina**
   gecti · ⚠️ **MARKANIN SLOGANI VERILDI** ve yedi ayri cumlenin yerini
   **tek slogan** aldi: _"Sen buyu / o hatirlasin."_ · slogan **TEK SATIR** ve
-  **ITALIK**. Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
+  **ITALIK** · slogan **ORTALANDI**. Hepsi asagida, uzeri cizili eski
+  kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -384,34 +385,48 @@ ortalama degil.
 
 | Sahne        | Ekran               | Ornek piksel | En kotu oran |
 | ------------ | ------------------- | -----------: | -----------: |
-| `walk`       | login               |       87 800 |    **11.17** |
-| `path`       | register            |       86 922 |    **10.88** |
-| `orbit`      | create-tenant       |       86 922 |    **16.90** |
-| `stage`      | select-tenant       |       86 922 |     **9.55** |
-| — (Kademe B) | verify/forgot/reset |       20 972 |    **11.43** |
+| `walk`       | login               |       86 922 |    **11.96** |
+| `path`       | register            |       87 800 |    **12.25** |
+| `orbit`      | create-tenant       |       87 800 |    **15.93** |
+| `stage`      | select-tenant       |       86 922 |     **9.91** |
+| — (Kademe B) | verify/forgot/reset |       20 972 |    **11.88** |
 
-> ⚠️ **BU TABLO DORDUNCU OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
+> ⚠️ **BU TABLO BESINCI OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
 >
 > | Olcum | Ne degismisti                                                 |  En kotu |
 > | ----- | ------------------------------------------------------------- | -------: |
 > | 1.    | ilk uygulama (destek satiri, tam kanamali panel, metin ALTTA) |     5.86 |
 > | 2.    | tek cumle · panel inset'i · logo sag sutuna                   |     8.69 |
 > | 3.    | metin USTE, scrim `to bottom`                                 |    10.15 |
-> | 4.    | tek satir · italik · yeni slogan (24 karakter)                | **9.55** |
+> | 4.    | tek satir · italik · yeni slogan (24 karakter)                |     9.55 |
+> | 5.    | metin ORTALANDI                                               | **9.91** |
 >
 > ⚠️ Degerleri **tahmin edip tasimak** hicbir adimda mumkun degildi: kirpma
 > penceresi panelin en-boyuna, scrim'in katkisi metnin dikey konumuna, metnin
-> kapladigi alan ise punto ve uzunluga baglidir. Dorduncu olcumde slogan
-> kisaldi ama punto buyudu — yani metin kutusu **yer degistirdi** ve altindaki
-> pikseller bastan orneklendi.
+> kapladigi alan punto ve uzunluga, altindaki pikseller ise metnin YATAY
+> konumuna baglidir. Besinci adimda yalnizca hizalama degisti — ve dort sahnenin
+> dordunde de sonuc degisti.
 >
-> ⚠️ **Olcum artik metnin KENDI kutusuna gore yapiliyor**, `<p>`nin kutusuna
-> gore degil: `white-space: nowrap` altinda paragraf satirdan genistir ve eski
-> yontem **bos alani da** orneklerdi. `Range.getBoundingClientRect()` yalnizca
-> harflerin bulundugu dikdortgeni verir — bu yuzden ornek sayisi yariya indi
-> ama olcum **daha dogru** oldu.
+> ### ⚠️ ORTALAMA, SCRIM'I DAHA DA GEREKLI KILDI — ve bu OLCULDU
+>
+> Kademe B'de metnin altindaki zemin **scrim OLMASAYDI** ne olurdu:
+>
+> | Metnin yatay konumu       | Scrim'siz en kotu oran |
+> | ------------------------- | ---------------------: |
+> | Sola yasli (onceki)       |                   2.80 |
+> | ⚠️ **Ortalanmis (bugun)** |            ⚠️ **1.77** |
+>
+> Sebep dogrudan: Mars gradyaninin `--mars-glow` radyali panelin **%50**
+> yatayinda merkezlenmistir. Metin sola yaslıyken o merkezden uzaktaydi;
+> ortalanınca **tam altina** dustu. Yani "ortala" gibi zararsiz gorunen bir
+> hizalama degisikligi, korumasiz bir tasarimda metni **1.77:1'e** — okunamaz
+> bolgeye — tasirdi.
+>
+> ⚠️ Bu, §3.7'nin kuralinin neden bir HIZALAMA TERCIHI degil bir KONTRAST
+> KOSULU oldugunun en net kanitidir: scrim sayesinde ayni nokta **11.88**
+> olcuyor.
 
-⚠️ **En kotu deger 9.55** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
+⚠️ **En kotu deger 9.91** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
 fazla, ve bu bir ortalama degil **en kotu tek piksel**.
 
 ⚠️ **Kademe B'de fotograf yoktur**, zemin bizim yazdigimiz determinist bir
@@ -724,6 +739,20 @@ kesimi (asagida).
 > yalnizca auth paneli kullaniyor (kod tabaninda baska `italic` kullanimi
 > YOK — arandi). Alternatif, marka yuzeyinde sahte italik gostermekti.
 >
+> #### ⚠️ ORTALAMA (ayni gun)
+>
+> Slogan panelin **ortasina** hizalandi (`text-align: center`). ⚠️ Tek basina
+> `text-align` yetmez: `<p>` esnek sutunun capraz ekseninde `stretch` ile
+> panelin tam genisligini kaplamalidir. Bir zamanlar burada `max-w-[22ch]`
+> vardi (metin sararken satir uzunlugunu baglamak icin) ve tek satira gecilirken
+> kaldirilmisti — kalsaydi metin o DAR kutunun icinde ortalanir, panelde hala
+> sola yasli gorunurdu. Hata sessiz olurdu: "ortala" uygulanmis ama gorunurde
+> hicbir sey degismemis olurdu. Bir test ikisini birden iddia ediyor.
+>
+> ⚠️ **Ve ortalama, scrim'i DAHA DA gerekli kildi** — §3.7'deki olcume bakiniz:
+> scrim olmasaydi Kademe B'nin metni 2.80'den **1.77**'ye duserdi, cunku
+> ortalanan metin `--mars-glow` radyalinin (merkez %50) tam altina gelir.
+>
 > ⚠️ **Newsreader KULLANILMADI** ve bu bilinclidir: italik bir serif tam da bu
 > tur bir slogana yakisirdi ama Newsreader **AI'in sesidir** (§7.1). Panel
 > marka konusur, AI degil — kullanmak, ADR'nin cizdigi cizgiyi tam olarak
@@ -989,7 +1018,7 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
   acik: kullanici bugun yalnizca e-posta ile girer.
 - ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
   (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
-  temada olculdu; en kotu deger **9.55**. Tablo §3.7'de (dort kez olculdu).
+  temada olculdu; en kotu deger **9.91**. Tablo §3.7'de (bes kez olculdu).
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc
