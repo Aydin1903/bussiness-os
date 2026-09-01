@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import AuthLayout from '@/app/(auth)/layout';
 
-import { AUTH_PANELS, AUTH_SCREEN_KEYS, BRAND_SLOGAN } from './auth-panels';
+import { AUTH_PANELS, AUTH_SCREEN_KEYS } from './auth-panels';
 import { AuthScreen } from './auth-screen';
 
 /**
@@ -29,6 +29,21 @@ import { AuthScreen } from './auth-screen';
 const SRC = join(__dirname, '..', '..');
 
 const SCREENS = AUTH_SCREEN_KEYS;
+
+/**
+ * Sloganı OLAN ekranlar (Kademe A + C) ve OLMAYANLAR (Kademe B).
+ *
+ * ⚠️ Elle iki liste yazmak yerine tablodan TÜRETİLİR: bir ekranın sloganı
+ * eklenip listeler unutulursa test sessizce yanlış kümeyi sınardı.
+ */
+const SLOGANLI = SCREENS.filter((k) => 'slogan' in AUTH_PANELS[k]);
+const SLOGANSIZ = SCREENS.filter((k) => !('slogan' in AUTH_PANELS[k]));
+
+/** Ekranın sloganını, tip onayı olmadan okur. */
+function sloganOf(key: (typeof SCREENS)[number]): string {
+  const panel = AUTH_PANELS[key];
+  return 'slogan' in panel ? panel.slogan : '';
+}
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -159,32 +174,67 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     expect([...SCREENS].sort()).toEqual(Object.keys(AUTH_PANELS).sort());
   });
 
-  it.each(SCREENS)('%s — slogan DOM’da', (key) => {
+  it('dört sahneli ekranın dördü de kendi sloganını taşır', () => {
+    // Sahnesi olan her ekranın sloganı vardır; ikisi birlikte gider.
+    expect(SLOGANLI).toHaveLength(4);
+    expect(SLOGANSIZ).toHaveLength(3);
+
+    for (const key of SLOGANLI) {
+      expect(AUTH_PANELS[key], `${key}: sahnesi var ama sloganı yok`).toHaveProperty('scene');
+    }
+  });
+
+  it.each(SLOGANLI)('%s — slogan DOM’da', (key) => {
     render(
       <AuthScreen screen={key}>
         <span />
       </AuthScreen>,
     );
 
-    expect(screen.getByText(BRAND_SLOGAN)).toBeInTheDocument();
+    expect(screen.getByText(sloganOf(key))).toBeInTheDocument();
   });
 
-  it('slogan TEK KAYNAKTAN gelir — ekran başına kopyalanmaz', () => {
+  it('dört sloganın dördü de FARKLIDIR', () => {
     /*
-     * ⚠️ Bir markanın BİR sloganı vardır (Product Owner, 2026-08-31). Önceki
-     * yazımda yedi ekranın her birinin kendi cümlesi vardı; slogan verilince
-     * `AUTH_PANELS`ten çıkarıldı.
-     *
-     * Yedi kopya olarak bırakılsaydı `globals.css`'in kendi uyarısı geçerli
-     * olurdu (_"kopyalar sapmaya açıktır"_): biri düzeltilir, altısı eski
-     * kalır ve hata SESSİZ olur. Bu test kopyanın geri gelmesini engeller.
+     * ⚠️ Bir tur önce yedi ekran TEK bir `BRAND_SLOGAN` paylaşıyordu ve karar
+     * geri alındı (Product Owner, 2026-08-31): her sahne kendi cümlesini
+     * söyler. Kopyala-yapıştır bir slogan o kararı sessizce geri alırdı —
+     * ekran çalışır, yalnızca iki oda aynı şeyi söyler.
      */
-    for (const key of SCREENS) {
-      expect(AUTH_PANELS[key], `${key} kendi sloganını taşıyor`).not.toHaveProperty('slogan');
-    }
+    const hepsi = SLOGANLI.map(sloganOf);
+
+    expect(new Set(hepsi).size).toBe(hepsi.length);
   });
 
-  it('slogan iki yarımdan oluşur (` / ` ayracı)', () => {
+  it.each(SLOGANSIZ)('%s — KADEME B SUSAR: panelde hiç metin YOK', (key) => {
+    /*
+     * ⚠️ Bu test, bir tur önceki testin TERSİDİR ve bu kayda değer: o gün
+     * "yedi ekran TEK slogan paylaşır" kararı test edilmişti. Product Owner
+     * kararı değiştirdi (2026-08-31) ve eski test, yeni kararın tam tersini
+     * savunur hâlde kalırdı.
+     *
+     * Yeni kural ADR-0052 §1.3'ün sonuna kadar götürülmesidir: Kademe B
+     * MEKANİK ekrandır (gelen kutusundan altı hane taşımak) ve orada dekoratif
+     * anlatı ikna etmez, GECİKTİRİR.
+     *
+     * ⚠️ `<p>`nin hiç OLMAMASI iddia edilir, boş olması değil: boş bir `<p>`
+     * görünmez ama ölçülebilir bir satır yüksekliği bırakır ve panelin üstünde
+     * sebepsiz bir boşluk açardı.
+     */
+    const { container } = render(
+      <AuthScreen screen={key}>
+        <span />
+      </AuthScreen>,
+    );
+
+    const paneli = container.querySelector('.auth-panel');
+
+    expect(paneli).not.toBeNull();
+    expect(paneli?.querySelectorAll('p')).toHaveLength(0);
+    expect(paneli?.textContent).toBe('');
+  });
+
+  it('dört sloganın dördü de iki yarımdan oluşur (` / ` ayracı)', () => {
     /*
      * ⚠️ Biçim kararı: slogan iki kısa yarımdır ve aralarında bir eğik çizgi
      * durur (Product Owner, 2026-08-31 — referansın _"Look first / Then leap."_
@@ -198,11 +248,14 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
      * zamanda onu kilitler: ayrı bir `<span>`e alınsaydı slogan tek bir metin
      * düğümü olmaktan çıkardı (ekran okuyucu, tarayıcı çevirisi).
      */
-    const halves = BRAND_SLOGAN.split(' / ');
+    for (const key of SLOGANLI) {
+      const slogan = sloganOf(key);
+      const halves = slogan.split(' / ');
 
-    expect(halves, `slogan: "${BRAND_SLOGAN}"`).toHaveLength(2);
-    expect(halves[0]?.length ?? 0).toBeGreaterThan(0);
-    expect(halves[1]?.length ?? 0).toBeGreaterThan(0);
+      expect(halves, `${key}: "${slogan}"`).toHaveLength(2);
+      expect(halves[0]?.length ?? 0).toBeGreaterThan(0);
+      expect(halves[1]?.length ?? 0).toBeGreaterThan(0);
+    }
   });
 
   it('panelde TEK cümle vardır — destek satırı geri gelmesin', () => {
@@ -212,13 +265,16 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
      * 2026-08-31). İkinci bir `<p>` eklemek o kararı sessizce geri alırdı:
      * ekran çalışır, hiçbir test kırmızı yanmaz.
      */
-    const { container } = render(
-      <AuthScreen screen="login">
-        <span />
-      </AuthScreen>,
-    );
+    for (const key of SLOGANLI) {
+      const { container, unmount } = render(
+        <AuthScreen screen={key}>
+          <span />
+        </AuthScreen>,
+      );
 
-    expect(container.querySelectorAll('.auth-panel p')).toHaveLength(1);
+      expect(container.querySelectorAll('.auth-panel p'), key).toHaveLength(1);
+      unmount();
+    }
   });
 
   it('panelde <img> YOKTUR — sahne bir CSS zeminidir', () => {
@@ -380,7 +436,30 @@ describe('ADR-0052 · slogan TEK SATIRA sığar', () => {
     const em = p?.getAttribute('style')?.match(/--slogan-em:\s*([\d.]+)/)?.[1];
 
     expect(em).toBeDefined();
-    expect(Number(em)).toBeCloseTo(BRAND_SLOGAN.length * 0.5, 2);
+    expect(Number(em)).toBeCloseTo(sloganOf('login').length * 0.5, 2);
+  });
+
+  it('her ekranın `--slogan-em`i KENDİ sloganından gelir', () => {
+    /*
+     * ⚠️ Dört slogan farklı uzunlukta (24–36 karakter). Hesap tek bir sabitten
+     * yapılsaydı en uzunu taşar, en kısası cılız kalırdı — ve ikisi de SESSİZ
+     * olurdu.
+     */
+    for (const key of SLOGANLI) {
+      const { container, unmount } = render(
+        <AuthScreen screen={key}>
+          <span />
+        </AuthScreen>,
+      );
+
+      const em = container
+        .querySelector('.auth-slogan')
+        ?.getAttribute('style')
+        ?.match(/--slogan-em:\s*([\d.]+)/)?.[1];
+
+      expect(Number(em), key).toBeCloseTo(sloganOf(key).length * 0.5, 2);
+      unmount();
+    }
   });
 
   it('slogan `nowrap` ile tek satırdadır', () => {

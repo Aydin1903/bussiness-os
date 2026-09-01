@@ -1,14 +1,15 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
-  — ⚠️ **SEKIZ DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  — ⚠️ **DOKUZ DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
   §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
   · panel metni **tek cumleye** indirildi · ⚠️ **metin panelin ALTINDAN USTUNE** alindi
   ve **scrim'in yonu onunla birlikte cevrildi** · slogan **iki yarima + `/` ayracina**
   gecti · ⚠️ **MARKANIN SLOGANI VERILDI** ve yedi ayri cumlenin yerini
   **tek slogan** aldi: _"Sen buyu / o hatirlasin."_ · slogan **TEK SATIR** ve
-  **ITALIK** · slogan **ORTALANDI**. Hepsi asagida, uzeri cizili eski
-  kararlariyla birlikte.
+  **ITALIK** · slogan **ORTALANDI** · ⚠️ **"tek marka slogani" GERI ALINDI**:
+  sahnesi olan dort ekran KENDI cumlesini tasir, Kademe B'de metin **HIC YOK**.
+  Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -383,50 +384,34 @@ ALTINA dusen kaynak piksel araligi `cover` matematigiyle hesaplandi, her
 piksele o satirin scrim alfasi kompozitlendi ve **en kotu oran** arandi —
 ortalama degil.
 
-| Sahne        | Ekran               | Ornek piksel | En kotu oran |
-| ------------ | ------------------- | -----------: | -----------: |
-| `walk`       | login               |       86 922 |    **11.96** |
-| `path`       | register            |       87 800 |    **12.25** |
-| `orbit`      | create-tenant       |       87 800 |    **15.93** |
-| `stage`      | select-tenant       |       86 922 |     **9.91** |
-| — (Kademe B) | verify/forgot/reset |       20 972 |    **11.88** |
+| Sahne   | Ekran         | Slogan                               |   Punto |  Ornek |   En kotu |
+| ------- | ------------- | ------------------------------------ | ------: | -----: | --------: |
+| `path`  | register      | Bugun katil / yarin hatirlansin.     | 32.3 px | 75 440 | **12.62** |
+| `walk`  | login         | Sen buyu / o hatirlasin.             |   40 px | 86 922 | **11.96** |
+| `orbit` | create-tenant | Sirketini kur / merkezini olustur.   | 30.4 px | 70 070 | **15.93** |
+| `stage` | select-tenant | Sirketini sec / kaldigin yerden sur. | 28.7 px | 65 952 | **10.49** |
 
-> ⚠️ **BU TABLO BESINCI OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
->
-> | Olcum | Ne degismisti                                                 |  En kotu |
-> | ----- | ------------------------------------------------------------- | -------: |
-> | 1.    | ilk uygulama (destek satiri, tam kanamali panel, metin ALTTA) |     5.86 |
-> | 2.    | tek cumle · panel inset'i · logo sag sutuna                   |     8.69 |
-> | 3.    | metin USTE, scrim `to bottom`                                 |    10.15 |
-> | 4.    | tek satir · italik · yeni slogan (24 karakter)                |     9.55 |
-> | 5.    | metin ORTALANDI                                               | **9.91** |
->
-> ⚠️ Degerleri **tahmin edip tasimak** hicbir adimda mumkun degildi: kirpma
-> penceresi panelin en-boyuna, scrim'in katkisi metnin dikey konumuna, metnin
-> kapladigi alan punto ve uzunluga, altindaki pikseller ise metnin YATAY
-> konumuna baglidir. Besinci adimda yalnizca hizalama degisti — ve dort sahnenin
-> dordunde de sonuc degisti.
->
-> ### ⚠️ ORTALAMA, SCRIM'I DAHA DA GEREKLI KILDI — ve bu OLCULDU
->
-> Kademe B'de metnin altindaki zemin **scrim OLMASAYDI** ne olurdu:
->
-> | Metnin yatay konumu       | Scrim'siz en kotu oran |
-> | ------------------------- | ---------------------: |
-> | Sola yasli (onceki)       |                   2.80 |
-> | ⚠️ **Ortalanmis (bugun)** |            ⚠️ **1.77** |
->
-> Sebep dogrudan: Mars gradyaninin `--mars-glow` radyali panelin **%50**
-> yatayinda merkezlenmistir. Metin sola yaslıyken o merkezden uzaktaydi;
-> ortalanınca **tam altina** dustu. Yani "ortala" gibi zararsiz gorunen bir
-> hizalama degisikligi, korumasiz bir tasarimda metni **1.77:1'e** — okunamaz
-> bolgeye — tasirdi.
->
-> ⚠️ Bu, §3.7'nin kuralinin neden bir HIZALAMA TERCIHI degil bir KONTRAST
-> KOSULU oldugunun en net kanitidir: scrim sayesinde ayni nokta **11.88**
-> olcuyor.
+⚠️ **KADEME B ARTIK OLCUME GIRMEZ** — orada metin YOKTUR (Product Owner,
+2026-08-31). Bir onceki olcumde 11.88 veren satir, olculecek bir metin
+kalmadigi icin listeden dustu; panel yalnizca zemindir.
 
-⚠️ **En kotu deger 9.91** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
+> ⚠️ **BU TABLO ALTINCI OLCUMDUR** ve her seferinde bastan olculdu, tasinmadi:
+>
+> | Olcum | Ne degismisti                                                 |   En kotu |
+> | ----- | ------------------------------------------------------------- | --------: |
+> | 1.    | ilk uygulama (destek satiri, tam kanamali panel, metin ALTTA) |      5.86 |
+> | 2.    | tek cumle · panel inset'i · logo sag sutuna                   |      8.69 |
+> | 3.    | metin USTE, scrim `to bottom`                                 |     10.15 |
+> | 4.    | tek satir · italik · tek marka slogani (24 karakter)          |      9.55 |
+> | 5.    | metin ORTALANDI                                               |      9.91 |
+> | 6.    | ⚠️ **ekran basina slogan (4 ayri cumle, 24–36 karakter)**     | **10.49** |
+>
+> ⚠️ Altinci olcumde **her ekranin puntosu farklilasti** (28.7–40 px), cunku
+> punto sloganin uzunlugundan turetilir. Farkli punto = farkli metin kutusu =
+> **altindaki farkli pikseller**. Yani dort ekranin dordu de ayri ayri
+> olculmek zorundaydi; tek bir olcumu digerlerine genellemek mumkun degildi.
+
+⚠️ **En kotu deger 10.49** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
 fazla, ve bu bir ortalama degil **en kotu tek piksel**.
 
 ⚠️ **Kademe B'de fotograf yoktur**, zemin bizim yazdigimiz determinist bir
@@ -837,6 +822,47 @@ kesimi (asagida).
 >
 > Ve urunun tezini tek cumlede soyluyor: **moduller urun degil hafizadir.**
 >
+> #### ⚠️ VE BU KARAR ERTESI TUR GERI ALINDI (Product Owner, 2026-08-31)
+>
+> ~~Bir markanin BIR slogani vardir~~ → **sahnesi olan dort ekran KENDI
+> cumlesini tasir.** Yukaridaki gerekce silinmedi; neyin degistigi ancak
+> orada durdugu icin okunabilir.
+>
+> ⚠️ **Yeni gerekce, ADR'nin KENDI olcutudur.** §2.1 sahne secimi icin sunu
+> yaziyordu: _"karakterin bulundugu durum, kullanicinin bulundugu durumla ayni
+> olmalidir."_ Slogan da ayni olcute tabi olunca sahneyle **ayni seyi** soyler
+> ve panel tek bir fikir haline gelir:
+>
+> | Ekran           | Sahne                                       | Slogan                                   |
+> | --------------- | ------------------------------------------- | ---------------------------------------- |
+> | `register`      | M1 Yol — yeni gelen, sehre giden isikli yol | **Bugun katil / yarin hatirlansin.**     |
+> | `login`         | M3 Yuruyus — donen kullanici                | **Sen buyu / o hatirlasin.**             |
+> | `create-tenant` | M4 Yorunge — yukaridan bakis                | **Sirketini kur / merkezini olustur.**   |
+> | `select-tenant` | M2 Sahne — birden fazla podyum              | **Sirketini sec / kaldigin yerden sur.** |
+>
+> ⚠️ **KADEME B'YE SLOGAN EKLENMEDI — ve metin oradan TAMAMEN KALKTI.** Bir tur
+> boyunca uc mekanik ekran da `BRAND_SLOGAN`i gosteriyordu; artik panelde
+> **hicbir metin yoktur**. Bu, §1.3'un zaten verilmis kararinin sonuna kadar
+> goturulmesidir: o ekranlar mekaniktir (gelen kutusundan alti hane tasimak) ve
+> orada dekoratif bir anlati ikna etmez, GECIKTIRIR. Panel kaybolmaz — Mars
+> zemini ve tanecigi kalir; susan sey **metindir**.
+>
+> ⚠️ **`slogan` alani `''` DEGIL, HIC YAZILMAZ.** Bos bir dize `<p>`yi yine
+> kurardi: gorunmez ama olculebilir bir satir yuksekligi birakir ve panelin
+> ustunde sebepsiz bir bosluk acardi. Bir test `<p>`nin **hic olmadigini**
+> iddia ediyor.
+>
+> ⚠️ **`BRAND_SLOGAN` sabiti KALDIRILDI.** "Sen buyu / o hatirlasin." artik
+> markanin degil `login`in cumlesidir; sabiti adiyla birakmak okuyan birine
+> **olmayan bir kural** anlatirdi.
+>
+> ⚠️ **BIR TEST TERSINE CEVRILDI ve bu kayda degerdir.** Onceki tur
+> _"slogan TEK KAYNAKTAN gelir — ekran basina kopyalanmaz"_ diye bir test
+> yazilmisti. O test bugun yeni kararin **tam tersini** savunur halde kalirdi;
+> yerini iki test aldi: (1) dort sloganin dordu de FARKLIDIR — kopyala-yapistir
+> bir cumle yeni karari sessizce geri alirdi; (2) Kademe B'nin panelinde `<p>`
+> **yoktur**.
+>
 > ⚠️ **Kisit "tek SATIR" degil "tek FIKIR".** `forgot-password`un cumlesi iki
 > satira sarabilir ve korundu, cunku iki yarisi bir **karsitlik** kurar — yani
 > ikinci yari bir aciklama degil, fikrin kendisidir.
@@ -1018,7 +1044,7 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
   acik: kullanici bugun yalnizca e-posta ile girer.
 - ~~⚠️ **Panel metninin kontrasti HESAPLANDI, OLCULMEDI.**~~ ✅ **KAPANDI
   (2026-08-31)** — dort sahne de tarayicida gercek piksellerle, form tarafi iki
-  temada olculdu; en kotu deger **9.91**. Tablo §3.7'de (bes kez olculdu).
+  temada olculdu; en kotu deger **10.49**. Tablo §3.7'de (alti kez olculdu).
 - ⚠️ **Fotograflar tema degistirmez.** Koyu temada da ayni Mars sahneleri
   gorunur; yalnizca **sag panel** temayi izler. Alternatif (her sahnenin koyu
   varyanti) varlik sayisini ikiye katlar ve ADR-0038'in _"ayni paletin uc

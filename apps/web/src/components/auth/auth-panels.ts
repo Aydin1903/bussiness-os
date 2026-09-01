@@ -22,23 +22,22 @@
  * | B — Akış          | verify-email · forgot · reset         | FOTOĞRAF YOK     |
  * | C — Eşiğin içi    | create-tenant · select-tenant         | fotoğraf + slogan|
  *
- * ⚠️ Slogan artık burada DEĞİL: markanın tek sloganı vardır ve o
- * `BRAND_SLOGAN`dır (aşağıda). Bu tablo yalnızca hangi ekranın hangi SAHNEYİ
- * aldığını söyler.
+ * ⚠️ Sahnesi olan dört ekranın dördü de KENDİ cümlesini taşır; Kademe B'nin
+ * üçünde slogan YOKTUR (aşağıdaki not).
  *
  * ⚠️ Panelde MARKA ÖĞESİ YOKTUR — yazılı logo sağ sütunun üstündedir
  * (ADR-0052 §5.2 düzeltmesi, 2026-08-31). Panelin taşıdığı tek metin
  * slogandır.
  *
- * ⚠️ Kademe B'de `scene` yoktur ve bu bir eksiklik DEĞİLDİR: o ekranlar
- * mekaniktir (gelen kutusundan altı hane taşımak), çoğunlukla telefonda
- * açılır ve büyük bir fotoğraf orada ikna etmez GECİKTİRİR. Panel kaybolmaz —
- * Mars zemini, tanecik ve logo kalır; değişen şey sesin yüksekliğidir.
+ * ⚠️ Kademe B'de `scene` DE `slogan` DA yoktur ve bu bir eksiklik DEĞİLDİR:
+ * o ekranlar mekaniktir (gelen kutusundan altı hane taşımak), çoğunlukla
+ * telefonda açılır ve orada dekoratif bir anlatı ikna etmez GECİKTİRİR.
+ * Panel kaybolmaz — Mars zemini ve taneciği kalır; susan şey METİNDİR.
  *
  * ⚠️ `mascot-portrait` varlığı HENÜZ ÜRETİLMEDİ (ADR-0052 §2.3) ve bir sahne
  * kırpılıp "portre" diye KULLANILMAZ: kırpma arka plandaki Mars zeminini de
  * taşır ve panelin kendi gradyanıyla üst üste binerdi. Kademe B bugün
- * gradyan + slogan ile çalışır; bu, kabul edilmiş bir geri düşüştür.
+ * yalnızca gradyanla çalışır; bu, kabul edilmiş bir geri düşüştür.
  */
 
 /**
@@ -54,36 +53,57 @@
 export type AuthScene = 'path' | 'walk' | 'orbit' | 'stage';
 
 /**
- * MARKANIN SLOGANI — Product Owner, 2026-08-31.
+ * ⚠️ SLOGAN EKRAN BAŞINADIR — ve bu, bir gün önceki kararın GERİ ALINMASIDIR.
  *
  * ============================================================================
- * ⚠️ YEDİ AYRI CÜMLE DEĞİL, TEK SLOGAN
+ * ÖNCE "TEK MARKA SLOGANI" DENDİ, SONRA GERİ ALINDI
  * ============================================================================
- * Önceki yazımda yedi ekranın her birinin kendi cümlesi vardı ("İşletmenin
- * hafızası / buradan başlıyor.", "Neredeyse tamam." …). Product Owner
- * markanın sloganını verdi ve kural sadeleşti: **bir markanın bir sloganı
- * vardır.** Yedi farklı cümle slogan değil, ekran başına metindi.
+ * Bir tur önce slogan `AUTH_PANELS`ten çıkarılıp tek bir `BRAND_SLOGAN`
+ * sabitine taşınmıştı; gerekçe _"bir markanın bir sloganı vardır"_ idi ve bir
+ * test kopyalanmasını engelliyordu.
  *
- * ⚠️ Bu yüzden slogan `AUTH_PANELS`ten ÇIKARILDI ve buraya taşındı. Yedi
- * kopya olarak bırakılsaydı `globals.css`'in kendi uyarısı geçerli olurdu —
- * _"aynı paletin üç kopyası demekti ve kopyalar sapmaya açıktı"_: biri
- * düzeltilir, altısı eski kalır ve hata SESSİZ olur.
+ * Product Owner kararı değiştirdi (2026-08-31): **dört sahneli ekranın her
+ * biri kendi cümlesini taşır.** Gerekçe ADR-0052 §2.1'in kendi ölçütüdür —
+ * _"karakterin bulunduğu durum, kullanıcının bulunduğu durumla aynı
+ * olmalıdır"_. O ölçüt sahne seçimi için yazılmıştı; slogan da aynı ölçüte
+ * tabi olunca sahneyle **aynı şeyi** söyler:
  *
- * ⚠️ Eğik çizgi ORİJİNAL VİRGÜLÜN yerini aldı ("Sen büyü, o hatırlasın").
- * Cümle değişmedi, ayracı değişti — panel biçimi iki yarım ister (§5.3).
+ *   Yol (M1) → yeni gelen        → "Bugün katıl / yarın hatırlansın."
+ *   Yürüyüş (M3) → dönen kullanıcı → "Sen büyü / o hatırlasın."
+ *   Yörünge (M4) → kuruyor        → "Şirketini kur / merkezini oluştur."
+ *   Sahne (M2) → seçiyor          → "Şirketini seç / kaldığın yerden sür."
  *
- * ⚠️ Yirmi dört karakter: referansın _"Look first / Then leap."_ cümlesiyle
- * neredeyse aynı uzunlukta. Bu bir tesadüf değil AVANTAJ — slogan tek satırda
- * ve büyük puntoda durabiliyor (punto uzunluktan türetiliyor, bkz.
- * `auth-surface.css › .auth-slogan`).
+ * ⚠️ **KADEME B'NİN SLOGANI YOKTUR** ve bu bir eksiklik değil, ADR-0052
+ * §1.3'ün zaten verilmiş kararının sonuna kadar götürülmesidir: o ekranlar
+ * MEKANİKTİR (gelen kutusundan altı hane taşımak) ve orada dekoratif bir
+ * anlatı kullanıcıyı ikna etmez, GECİKTİRİR. Panel yine de kaybolmaz —
+ * Mars zemini ve taneciği kalır; susan şey **metindir**.
  *
- * Ve ürünün tezini tek cümlede söylüyor: **modüller ürün değil hafızadır.**
+ * ⚠️ Bir turdur ekranların üçünde de görünen `BRAND_SLOGAN` bu yüzden
+ * **kaldırıldı**; "Sen büyü / o hatırlasın." artık markanın değil `login`in
+ * cümlesidir. Sabiti adıyla bırakmak yanıltıcı olurdu: tek bir ekranın metnini
+ * `BRAND_*` diye adlandırmak, okuyan birine olmayan bir kural anlatırdı.
  */
-export const BRAND_SLOGAN = 'Sen büyü / o hatırlasın.';
 
 export interface AuthPanelContent {
   /** Yoksa Kademe B: fotoğraf katmanı hiç kurulmaz. */
   readonly scene?: AuthScene;
+  /**
+   * Panelin TEK cümlesi. ⚠️ Görsele GÖMÜLMEZ — gerçek DOM metnidir.
+   *
+   * ⚠️ **YOKSA PANEL SUSAR** (Kademe B). `''` yazmak DEĞİL, alanı hiç
+   * yazmamak: boş bir dize `<p>`yi yine kurar ve panelde görünmez ama
+   * ölçülebilir bir boşluk bırakırdı — bir test `<p>`nin hiç olmadığını
+   * iddia ediyor.
+   *
+   * ⚠️ **İKİ YARIM, ARALARINDA EĞİK ÇİZGİ** (referans: _"Look first / Then
+   * leap."_). Eğik çizgi metnin **İÇİNDEDİR**, ayrı bir öğe değildir: ayrı bir
+   * `<span>`e alınsaydı slogan tek bir metin düğümü olmaktan çıkardı — ekran
+   * okuyucu iki parça okur, tarayıcı çevirisi araya girer ve
+   * `getByText(slogan)` çalışmaz hâle gelirdi. Biçim uğruna metnin bütünlüğü
+   * bozulmaz.
+   */
+  readonly slogan?: string;
   /**
    * Sahneyi `<link rel="preload">` ile öne çeker.
    *
@@ -112,19 +132,27 @@ export const AUTH_PANELS = {
   register: {
     scene: 'path',
     preload: true,
+    slogan: 'Bugün katıl / yarın hatırlansın.',
   },
   login: {
     scene: 'walk',
     preload: true,
+    slogan: 'Sen büyü / o hatırlasın.',
   },
+  /*
+   * ⚠️ ÜÇÜ DE BOŞ — Kademe B. `slogan` alanı YAZILMAZ (yukarıdaki not):
+   * mekanik ekranda dekoratif anlatı yoktur.
+   */
   'verify-email': {},
   'forgot-password': {},
   'reset-password': {},
   'create-tenant': {
     scene: 'orbit',
+    slogan: 'Şirketini kur / merkezini oluştur.',
   },
   'select-tenant': {
     scene: 'stage',
+    slogan: 'Şirketini seç / kaldığın yerden sür.',
   },
 } as const satisfies Record<string, AuthPanelContent>;
 

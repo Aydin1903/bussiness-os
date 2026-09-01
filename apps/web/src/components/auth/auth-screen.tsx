@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 
 import { KobiWiseWordmark } from '@/components/brand';
 
-import { AUTH_PANELS, BRAND_SLOGAN, type AuthScreenKey } from './auth-panels';
+import { AUTH_PANELS, type AuthScreenKey } from './auth-panels';
 
 /**
  * SPLIT-SCREEN AUTH İSKELETİ — ADR-0052.
@@ -47,7 +47,7 @@ import { AUTH_PANELS, BRAND_SLOGAN, type AuthScreenKey } from './auth-panels';
  * başını KESER — yani §4.4'ün "maskotun tamamı görünür" kabul ölçütü md'de
  * yapısal olarak sağlanamaz. Bandı ~420 px yapmak tabletin yarısını yerdi.
  *
- * Karar: md'de panel Kademe B'nin panelidir (gradyan + slogan). Kural böylece
+ * Karar: md'de panel Kademe B'nin panelidir (yalnızca gradyan). Kural böylece
  * basitleşir ve GÜÇLENİR: **maskot göründüğü her yerde tamamı görünür.**
  * Yan kazanç — fotoğraf artık yalnızca ≥1024'te istenir, yani tablet de baytı
  * ödemez.
@@ -80,22 +80,26 @@ export function AuthScreen({
   // geçtiği için karşılaştırma her zaman doğrudur ve lint onu hata sayar.
   const preload = 'preload' in panel;
 
+  const slogan = 'slogan' in panel ? panel.slogan : undefined;
+
   /*
     ⚠️ SLOGANIN GENİŞLİĞİ `em` CİNSİNDEN TAHMİN EDİLİR ve punto ondan TÜRETİLİR
-    (`auth-surface.css`). Bugün tek bir slogan var, yani sabit bir punto da
-    yazılabilirdi — ama o punto SESSİZCE yanlışlaşırdı: slogan bir gün
-    değişirse (bugüne kadar üç kez değişti) tek satır garantisi kaybolur ve
-    metin panelden taşar. Hesap sloganın kendi uzunluğundan yapılır.
+    (`auth-surface.css`). Dört ekranın dördü de FARKLI uzunlukta (24–36
+    karakter); sabit bir punto ya en uzununu taşırır ya en kısasını cılız
+    bırakır. Hesap her sloganın kendi uzunluğundan yapılır.
 
     `0.5` Inter'in ortalama harf ilerlemesidir (em cinsinden) ve tarayıcıda
-    ÖLÇÜLEREK doğrulandı. ⚠️ Tahmin olduğu için pay bırakıldı; olağandışı geniş
-    harflerden (M, W) oluşan bir cümle yine de taşabilir — bir test
-    `scrollWidth ≤ clientWidth` iddiasıyla bunu kilitliyor.
+    ÖLÇÜLEREK doğrulandı (gerçek ortalama 0.446 — yani ~%12 pay var). ⚠️ Tahmin
+    olduğu için pay bırakıldı; olağandışı geniş harflerden (M, W) oluşan bir
+    cümle yine de taşabilir.
   */
-  const sloganStyle: SloganStyle = {
-    color: 'var(--mars-ink)',
-    '--slogan-em': (BRAND_SLOGAN.length * 0.5).toFixed(2),
-  };
+  const sloganStyle: SloganStyle | undefined =
+    slogan === undefined
+      ? undefined
+      : {
+          color: 'var(--mars-ink)',
+          '--slogan-em': (slogan.length * 0.5).toFixed(2),
+        };
 
   return (
     <main className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
@@ -179,9 +183,9 @@ export function AuthScreen({
         `@media (min-width: 1024px)` içinde tanımlıdır, yani dar ekranda
         indirilmez de — iki bağımsız koruma (ADR-0052 §4.2).
 
-        ⚠️ `justify-start`: panelin TEK çocuğu slogandır ve o, panelin
+        ⚠️ `justify-start`: panelin (varsa) TEK çocuğu slogandır ve o, panelin
         ÜSTÜNDE durur (Product Owner, 2026-08-31 — metin fotoğrafın altından
-        üstüne alındı).
+        üstüne alındı). Kademe B'de hiç çocuğu yoktur; panel yalnızca zemindir.
       */}
       <aside
         className="auth-panel order-first hidden flex-col justify-start p-8 md:flex md:h-[208px] lg:h-auto lg:p-12"
@@ -197,13 +201,17 @@ export function AuthScreen({
           yalnızca beyaz metin açık turuncunun üzerinde okunmaz. İkisi
           BİRLİKTE taşınır.
 
-          ⚠️ SLOGAN TEK SATIRDIR (Product Owner, 2026-08-31): iki yarım YAN
-          YANA durur, alt alta değil. Bunun bedeli punto: satır kırılamayınca
-          uzunluk puntoyu belirler ve en uzun slogan en küçük puntoyu alır.
+          ⚠️ KADEME B'DE BU `<p>` HİÇ RENDER EDİLMEZ (Product Owner,
+          2026-08-31). Boş bir dizeyle render etmek DEĞİL, öğeyi hiç kurmamak:
+          boş bir `<p>` görünmez ama ölçülebilir bir satır yüksekliği bırakır
+          ve panelin üstünde sebepsiz bir boşluk açardı. Bir test `<p>`nin hiç
+          olmadığını iddia ediyor.
         */}
-        <p className="auth-slogan" style={sloganStyle}>
-          {BRAND_SLOGAN}
-        </p>
+        {slogan === undefined ? null : (
+          <p className="auth-slogan" style={sloganStyle}>
+            {slogan}
+          </p>
+        )}
       </aside>
     </main>
   );
