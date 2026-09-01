@@ -34,6 +34,8 @@ import {
   type AccessTokenInput,
   type IdentityTokenInput,
   type TokenSigner,
+  type VerifiedOAuthPendingLink,
+  type VerifiedOAuthState,
   type VerifiedToken,
 } from './token-signer.port';
 import { type UserRepository } from './user.repository.port';
@@ -166,6 +168,26 @@ class FakeTokenSigner implements TokenSigner {
   }
   verify(): Promise<VerifiedToken> {
     return Promise.reject(new Error('bu testte kullanilmiyor'));
+  }
+  // ==========================================================================
+  // ⚠️ OAuth AKIS METOTLARI — ADR-0053 §4.2'nin (PO Kalem B3) YAN ETKISI
+  // ==========================================================================
+  // `TokenSigner` port'u ucuncu bir token turuyle genisledi ve bu sahtenin de
+  // genislemesi GEREKTI. ⚠️ Metotlar bilincli olarak FIRLATIR, sessizce bir
+  // deger DONDURMEZ: parola girisi bu yollari HIC kullanmamalidir ve bir gun
+  // kullanirsa test GURULTUYLE kirilmalidir — sahte bir deger donseydi,
+  // yanlislikla OAuth yoluna sapan bir degisiklik YESIL gecerdi.
+  signOAuthState(): Promise<string> {
+    throw new Error('parola girisi OAuth state token i imzalamaz');
+  }
+  verifyOAuthState(): Promise<VerifiedOAuthState> {
+    throw new Error('parola girisi OAuth state token i dogrulamaz');
+  }
+  signOAuthPendingLink(): Promise<string> {
+    throw new Error('parola girisi bekleyen baglama token i imzalamaz');
+  }
+  verifyOAuthPendingLink(): Promise<VerifiedOAuthPendingLink> {
+    throw new Error('parola girisi bekleyen baglama token i dogrulamaz');
   }
 }
 

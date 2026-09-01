@@ -1,0 +1,28 @@
+-- 0040_federated_identities — GERI ALMA
+--
+-- DEVELOPMENT_RULES 6: her migration geri alinabilir olur.
+--
+-- ⚠️ TEK KADEMELI ve bu, `0039`dan (Sadakat) ayrildigi noktadir: orada
+-- `point_entries -> accounts` GERCEK BIR SEMA ICI FK'ydi ve cocuk ONCE
+-- dusmeliydi. Burada sema ici FK YOKTUR — tek FK `platform.users`a gider ve
+-- o tablo bu migration'in disindadir, dusurulmez.
+--
+-- ⚠️ `DROP TABLE` INDEX'LERI DE GOTURUR (ikisi de bu tabloya aittir), yani
+-- ayrica dusurulmelerine gerek yoktur. Trigger ve fonksiyon YOKTUR — `0032`nin
+-- _"`DROP TABLE` bir plpgsql fonksiyonunu goturmez"_ dersi burada
+-- TETIKLENMIYOR.
+--
+-- ⚠️ YETKILER AYRICA GERI ALINMAZ ve bu dogrudur: `REVOKE`/`GRANT` tabloya
+-- BAGLIDIR (`pg_class` uzerindeki ACL), tablo dusunce onlar da gider. Geri
+-- alinacak ayri bir nesne yoktur — `0033`/`0034`ten ayrildigi nokta budur:
+-- onlar MEVCUT tablolarin yetkisini daraltmisti ve down dosyalari yetkiyi
+-- geri vermek ZORUNDAYDI.
+--
+-- ⚠️ NE KAYBEDILIR, DURUSTCE: bu tablo dusurulurse yalnizca OAuth ile
+-- kaydolmus kullanicilar GIRIS YAPAMAZ HALE GELIR. `platform.users` satirlari
+-- yerinde kalir ama `platform.credentials`ta karsiligi olmadigi icin parolayla
+-- da giremezler (ADR-0053 §1.4: federe kullanici, credential satiri OLMAYAN
+-- bir `User`tir). Yani bu down dosyasi yalnizca "migration henuz uretime
+-- cikmadi" durumu icindir.
+
+DROP TABLE IF EXISTS platform.federated_identities;

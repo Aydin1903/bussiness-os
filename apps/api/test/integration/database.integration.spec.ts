@@ -71,6 +71,11 @@ describe('veritabani migration hatti', () => {
       'conversations',
       'credentials',
       'email_verification_codes',
+      // ⚠️ 0040 (ADR-0053 §2). Bu liste ALFABETIKTIR ve TAM ESITLIKLE
+      // karsilastirilir: yeni bir platform tablosu eklenip buraya
+      // yazilmazsa test KIRMIZI yanar — migration'in gercekten uygulandigini
+      // iddia eden kanit adiminin ta kendisi (CLAUDE.md kalici dersi).
+      'federated_identities',
       'identity_outbox',
       'login_attempts',
       'memberships',
@@ -119,6 +124,20 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // ⚠️ 0040, `platform.federated_identities` (ADR-0053 §2).
+      //
+      // ⚠️ TEK KADEMELI ve `0039`dan ayrildigi nokta budur: orada sema ici
+      // GERCEK bir FK vardi (`point_entries -> accounts`) ve cocuk once
+      // dusmeliydi; burada tek FK `platform.users`a gider ve o tablo bu
+      // migration'in disindadir.
+      //
+      // ⚠️ AYRICA `0033`/`0034`TEN DE AYRILIR: onlar MEVCUT tablolarin
+      // yetkisini daraltmisti, yani down dosyalari yetkiyi geri vermek
+      // zorundaydi. Burada yetkiler tabloya baglidir (`pg_class` ACL) ve
+      // `DROP TABLE` ile birlikte giderler.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0040_federated_identities.down.sql',
       // ⚠️ 0039, `loyalty` semasi + IKI tablo (ADR-0051 §1, Slice 1).
       // ⚠️ Down dosyasi IKI KADEMELIDIR ve `0038`den ayrildigi nokta budur:
       // Kampanya tek tabloydu ve sema ici FK tasimiyordu; burada
@@ -352,6 +371,8 @@ describe('veritabani migration hatti', () => {
       'conversations',
       'credentials',
       'email_verification_codes',
+      // ⚠️ 0040 — geri alma sonrasi YENIDEN uygulandiginda da burada olmali.
+      'federated_identities',
       'identity_outbox',
       'login_attempts',
       'memberships',

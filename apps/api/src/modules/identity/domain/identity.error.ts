@@ -397,3 +397,145 @@ export class TooManyLoginAttemptsError extends IdentityDomainError {
     super('Cok fazla giris denemesi yapildi; lutfen daha sonra tekrar deneyin.');
   }
 }
+
+// ============================================================================
+// SOSYAL GIRIS (OAuth) — ADR-0053
+// ============================================================================
+
+/** `FederatedIdentityId.create` gecersiz bir deger aldiginda. */
+export class InvalidFederatedIdentityIdError extends IdentityDomainError {
+  readonly code = 'FEDERATED_IDENTITY_ID_INVALID';
+
+  constructor(value: string) {
+    super(`Baglanti id'si gecerli bir UUIDv7 degil: "${value}"`);
+  }
+}
+
+/**
+ * Saglayicinin `sub` degeri anlamsiz.
+ *
+ * ⚠️ DEGERI mesaja KOYMAZ: `sub` kisisel veri sayilabilecek bir tanimlayicidir
+ * ve bu mesaj log'a duser (P1, DEVELOPMENT_RULES 8).
+ */
+export class InvalidProviderSubjectError extends IdentityDomainError {
+  readonly code = 'PROVIDER_SUBJECT_INVALID';
+
+  constructor(reason: string) {
+    super(`Saglayici kimligi gecersiz: ${reason}`);
+  }
+}
+
+/** Baglantinin zaman damgasi `Invalid Date`. Ic tutarsizlik — 500. */
+export class InvalidFederatedIdentityTimestampError extends IdentityDomainError {
+  readonly code = 'FEDERATED_IDENTITY_TIMESTAMP_INVALID';
+
+  constructor(field: string) {
+    super(`Baglanti zaman damgasi gecerli bir tarih degil: ${field}`);
+  }
+}
+
+/** Bilinmeyen ya da YAPILANDIRILMAMIS saglayici — 404 (ADR-0053 §3.3). */
+export class OAuthProviderNotConfiguredError extends IdentityDomainError {
+  readonly code = 'OAUTH_PROVIDER_NOT_CONFIGURED';
+
+  constructor() {
+    super('Bu saglayici ile giris su anda kullanilamiyor.');
+  }
+}
+
+/**
+ * State/PKCE cerezi yok, suresi dolmus, imzasi gecersiz ya da sorgudaki
+ * `state` ile eslesmiyor — 400.
+ *
+ * ⚠️ DORT SEBEP DE AYNI HATAYA DUSER ve bu bilinclidir: hangisinin
+ * gerceklestigini soylemek, CSRF denemesi yapan bir saldirgana hangi
+ * parcasinin tuttugunu ogretirdi (P2 ile ayni disiplin).
+ */
+export class OAuthStateInvalidError extends IdentityDomainError {
+  readonly code = 'OAUTH_STATE_INVALID';
+
+  constructor() {
+    super('Giris oturumu gecersiz ya da zaman asimina ugradi. Lutfen tekrar deneyin.');
+  }
+}
+
+/**
+ * Saglayici tarafinda ariza: token exchange basarisiz, ID token dogrulanamadi
+ * (imza/`iss`/`aud`/`exp`/`nonce`) ya da userinfo cagrisi coktu — 502.
+ *
+ * ⚠️ `DisclosableProblem` ISARETI ALIR (ADR-0053 §12): kullanici "tekrar
+ * deneyin" ile "beklenmeyen hata" arasindaki farki gormeli. Maskelenirse
+ * tekrar denemesi gerektigini OGRENEMEZ.
+ *
+ * ⚠️ Saglayicinin HAM hata metni bu mesaja KONMAZ — ic detay tasiyabilir.
+ */
+export class OAuthProviderFailedError extends IdentityDomainError {
+  readonly code = 'OAUTH_PROVIDER_FAILED';
+
+  constructor() {
+    super('Saglayici ile iletisim kurulamadi. Lutfen tekrar deneyin.');
+  }
+}
+
+/**
+ * Saglayici HIC e-posta vermedi — 400.
+ *
+ * ⚠️ BU BIR D3 DURUMU DEGILDIR ve ayrim implementasyonda netlesti: D3, kendi
+ * 6 haneli kodumuzu bir adrese gondermeye dayanir; ADRES YOKSA gonderilecek
+ * yer de yoktur. `platform.users.email` `NOT NULL`dur ve kimligin bizim
+ * tarafimizdaki capasidir (`EmailPort` oraya yazar).
+ *
+ * Telafi kullaniciya soylenir: saglayicida e-posta paylasimina izin vermek ya
+ * da parolayla kaydolmak.
+ */
+export class OAuthEmailUnavailableError extends IdentityDomainError {
+  readonly code = 'OAUTH_EMAIL_UNAVAILABLE';
+
+  constructor() {
+    super(
+      'Saglayici bir e-posta adresi paylasmadi; bu hesapla giris yapilamiyor. ' +
+        'Saglayicida e-posta paylasimina izin verin ya da e-posta ve parolayla kaydolun.',
+    );
+  }
+}
+
+/**
+ * Ayni saglayici hesabi baska bir kullaniciya baglanmaya calisildi ya da
+ * kullanicinin bu saglayicida zaten bir hesabi var — 409.
+ *
+ * ⚠️ Normal akista ULASILAMAZ (D1 once kontrol edilir); bu, IKI ES ZAMANLI
+ * callback'in ayni anda baglamaya calismasindaki YARIS DURUMUDUR ve tekillik
+ * index'i onu veritabaninda keser. Yakalanmasaydi kullanici islenmemis bir
+ * 500 gorurdu.
+ */
+export class FederatedIdentityConflictError extends IdentityDomainError {
+  readonly code = 'FEDERATED_IDENTITY_CONFLICT';
+
+  constructor() {
+    super('Bu hesap baglantisi zaten mevcut.');
+  }
+}
+
+/** Kaldirilmak istenen baglanti yok — 404. */
+export class FederatedIdentityNotFoundError extends IdentityDomainError {
+  readonly code = 'FEDERATED_IDENTITY_NOT_FOUND';
+
+  constructor() {
+    super('Bu saglayici hesabinizla bagli degil.');
+  }
+}
+
+/**
+ * Hesaptaki SON giris yontemi kaldirilmak istendi — 409 (ADR-0053 §4.4).
+ *
+ * ⚠️ Burada P2 GECERLI DEGILDIR ve bu bilinclidir: kullanici kendi hesabinda,
+ * kimligi kanitlanmis haldedir. Kendi giris yontemlerini bilmek bir sizinti
+ * degil bir HAKTIR — sizdirilan bir sey yoksa gizlenecek bir sey de yoktur.
+ */
+export class LastSignInMethodError extends IdentityDomainError {
+  readonly code = 'LAST_SIGN_IN_METHOD';
+
+  constructor() {
+    super('Bu, hesabinizdaki tek giris yontemi. Kaldirmadan once baska bir yontem ekleyin.');
+  }
+}

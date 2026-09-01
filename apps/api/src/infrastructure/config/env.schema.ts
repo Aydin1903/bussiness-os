@@ -48,6 +48,36 @@ const baseEnvSchema = z.object({
   /** Virgulle ayrilmis origin listesi. Bos ise CORS kapalidir. */
   CORS_ORIGINS: z.string().default(''),
 
+  // ==========================================================================
+  // SOSYAL GIRIS — OAuth (ADR-0053)
+  // ==========================================================================
+  /**
+   * API'nin DISARIDAN gorunen kok adresi (`https://api.kobiwise.com`).
+   *
+   * ⚠️ `redirect_uri` BUNDAN TURETILIR, ISTEKTEN DEGIL. Istekten alinsaydi
+   * (`Host` basligi ya da bir sorgu parametresi) saldirgan kodu KENDI
+   * adresine yonlendirebilirdi — OAuth'un en klasik acigi. Saglayicilar da
+   * `redirect_uri`nin kayitli deger ile BIREBIR eslesmesini ister.
+   */
+  API_PUBLIC_URL: z.url().optional(),
+
+  /**
+   * Web uygulamasinin kok adresi (`https://app.kobiwise.com`).
+   *
+   * Callback, isi bittiginde buraya yonlendirir. ⚠️ Sabit bir degerdir; istekten
+   * gelen hicbir sey bu adresi degistiremez (acik yonlendirme korumasi).
+   */
+  WEB_PUBLIC_URL: z.url().optional(),
+
+  /**
+   * ⚠️ Bir saglayicinin IKI degiskeni de yoksa o saglayici YOK SAYILIR
+   * (ADR-0053 §3.3): registry'ye girmez, ucu 404 doner, arayuz dugmesini hic
+   * cizmez. "Devre disi" diye bir bayrak YOKTUR — yapilandirmanin yoklugu
+   * kararin kendisidir.
+   */
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+
   /**
    * Varsayilan KAPALI (fail-closed).
    *
@@ -738,7 +768,66 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
   forbidFakeProvidersInProduction(env, ctx);
   requireS3StorageCredentials(env, ctx);
   forbidMemoryStorageInProduction(env, ctx);
+  requireOAuthUrlsWhenProviderConfigured(env, ctx);
 });
+
+/**
+ * ⚠️ BIR OAuth SAGLAYICISI YAPILANDIRILDIYSA IKI ADRES DE ZORUNLUDUR
+ * (ADR-0053 §4.1, §5).
+ *
+ * Ikisi de saglayici-bagimsizdir ve eksik olmalari FARKLI ama IKISI DE SESSIZ
+ * hatalar uretirdi:
+ *
+ *   `API_PUBLIC_URL` yoksa  -> `redirect_uri` uretilemez. Istekten turetmek
+ *                              (Host basligi) OAuth'un en klasik acigidir:
+ *                              saldirgan kodu KENDI adresine yonlendirir.
+ *   `WEB_PUBLIC_URL` yoksa  -> callback isini bitirir ama kullaniciyi
+ *                              gonderecek yer bulamaz; giris "calisir" ve
+ *                              kullanici bos bir sayfada kalir.
+ *
+ * ⚠️ Kural TEK YONLUDUR: adresler saglayicisiz da tanimlanabilir (zararsizdir),
+ * ama saglayici adressiz tanimlanamaz.
+ */
+function requireOAuthUrlsWhenProviderConfigured(env: RawEnv, ctx: RefinementContext): void {
+  const anyProviderConfigured =
+    !isBlank(env.GOOGLE_OAUTH_CLIENT_ID) || !isBlank(env.GOOGLE_OAUTH_CLIENT_SECRET);
+
+  if (!anyProviderConfigured) {
+    return;
+  }
+
+  if (isBlank(env.API_PUBLIC_URL)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['API_PUBLIC_URL'],
+      message:
+        'Bir OAuth saglayicisi yapilandirildiginda API_PUBLIC_URL zorunludur ' +
+        '(redirect_uri bundan turetilir, istekten DEGIL).',
+    });
+  }
+  if (isBlank(env.WEB_PUBLIC_URL)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['WEB_PUBLIC_URL'],
+      message:
+        'Bir OAuth saglayicisi yapilandirildiginda WEB_PUBLIC_URL zorunludur ' +
+        '(callback kullaniciyi buraya geri yonlendirir).',
+    });
+  }
+
+  // ⚠️ YARIM YAPILANDIRMA DA HATADIR: yalnizca ID ya da yalnizca secret
+  // yazilmis bir saglayici, registry'de "yok" sayilir ve dugme sessizce
+  // kaybolur — yani hata calisma aninda DEGIL, hic gorunmeden olusur.
+  const googleHalf =
+    isBlank(env.GOOGLE_OAUTH_CLIENT_ID) !== isBlank(env.GOOGLE_OAUTH_CLIENT_SECRET);
+  if (googleHalf) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_OAUTH_CLIENT_SECRET'],
+      message: 'GOOGLE_OAUTH_CLIENT_ID ve GOOGLE_OAUTH_CLIENT_SECRET birlikte tanimlanmalidir.',
+    });
+  }
+}
 
 /** Zod'un `superRefine` baglami — kurallarin ortak imzasi. */
 type RefinementContext = z.RefinementCtx;

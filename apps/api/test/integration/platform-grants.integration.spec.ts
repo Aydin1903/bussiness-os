@@ -58,6 +58,17 @@ const FULL = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
 const APPEND_ONLY = ['INSERT', 'SELECT'];
 
 /**
+ * ⚠️ EKLENIR · OKUNUR · SILINIR — ama TABLO SEVIYESINDE GUNCELLENMEZ
+ * (ADR-0053 §2.2, migration `0040`).
+ *
+ * `audit_log`tan FARKLIDIR ve fark onemlidir: orada hicbir sey degismez,
+ * burada TEK BIR KOLON degisir (`last_login_at`) ve o yetki KOLON
+ * SEVIYESINDE verilir — bu yuzden tablo seviyesi matriste `UPDATE`
+ * GORUNMEZ. Kolon yetkisi ayri bir testte dogrulanir (asagida).
+ */
+const APPEND_AND_DELETE = ['DELETE', 'INSERT', 'SELECT'];
+
+/**
  * `platform` semasinin TAM yetki matrisi.
  *
  * ⚠️ Her `FULL` satirinin yaninda o yetkinin NEDEN gerekli oldugu yazilidir.
@@ -70,6 +81,16 @@ const EXPECTED_APP_GRANTS: readonly (readonly [string, readonly string[], string
   ['conversations', FULL, 'retention temizligi (ROADMAP §8.5)'],
   ['credentials', FULL, 'parola degistirme -> UPDATE'],
   ['email_verification_codes', FULL, 'deneme sayaci -> UPDATE; tuketilen kod -> DELETE'],
+
+  // ⚠️ ADR-0053 §2.2: `provider_subject` uzerinde UPDATE bir HESAP DEVRI
+  // PRIMITIFIDIR. Tablo seviyesinde UPDATE KALDIRILDI; tek mesru mutasyon
+  // (`last_login_at`) KOLON SEVIYESINDE verildi. DELETE gereklidir —
+  // `DELETE /me/identities/:provider` (§4.4).
+  [
+    'federated_identities',
+    APPEND_AND_DELETE,
+    'baglanti kaldirma -> DELETE; guncelleme YALNIZCA last_login_at kolonunda',
+  ],
   ['identity_outbox', FULL, 'yayin damgasi + attempt_count -> UPDATE; olu mektup -> DELETE'],
   ['login_attempts', FULL, 'retention temizligi (ROADMAP §8.5)'],
   ['memberships', FULL, 'rol/durum degisikligi -> UPDATE; uyelik kaldirma -> DELETE'],
@@ -161,15 +182,47 @@ describe('platform semasi yetki matrisi (gercek PostgreSQL)', () => {
     expect(auditLog?.privs).toBe('INSERT,SELECT');
   });
 
-  it('⚠️ `audit_log` DISINDA platformda append-only tablo YOKTUR — denetimin sonucu', async () => {
+  it('⚠️ TABLO SEVIYESINDE UPDATE tasimayan tablolar TAM OLARAK IKISIDIR', async () => {
     // 2026-08-24 denetimi: on alti tablo tek tek sorgulandi ve `audit_log`
     // disinda UPDATE/DELETE tasiyan HER tablo icin o yetki GEREKLIDIR
     // (gerekceler `EXPECTED_APP_GRANTS`ta satir satir yazili).
     // Yani sonuc: KONTROL EDILDI, TEMIZ.
+    //
+    // ⚠️ 2026-09-01'de IKINCI satir eklendi: `federated_identities`
+    // (ADR-0053 §2.2). IKISI AYNI SEY DEGILDIR ve ayrim burada kaydedilir:
+    //   `audit_log`             -> HICBIR kolon degismez (append-only).
+    //   `federated_identities`  -> TEK kolon degisir (`last_login_at`) ve o
+    //                              yetki KOLON SEVIYESINDEDIR, yani bu tablo
+    //                              seviyesi listesinde gorunmez.
     const rows = await grantsFor(APP_ROLE, 'platform');
     const restricted = rows.filter((row) => !row.privs.includes('UPDATE'));
 
-    expect(restricted.map((row) => row.table_name)).toEqual(['audit_log']);
+    expect(restricted.map((row) => row.table_name)).toEqual(['audit_log', 'federated_identities']);
+  });
+
+  /**
+   * ⚠️ ADR-0053 §2.2'NIN ASIL KILIDI — KOLON SEVIYESI YETKI.
+   *
+   * Yukaridaki matris `federated_identities`in tablo seviyesinde UPDATE
+   * tasimadigini soyler ama BU YETMEZ: kolon yetkisi yanlislikla
+   * `provider_subject`e verilseydi matris DEGISMEZ ve hata SESSIZ olurdu.
+   *
+   * Bu test tam olarak o bosluğu kapatir: guncellenebilen kolon kumesinin
+   * TAM OLARAK `{last_login_at}` oldugunu iddia eder.
+   */
+  it('⚠️ `federated_identities`te UPDATE edilebilen TEK kolon `last_login_at`tir', async () => {
+    const result = await ownerPool.query<{ column_name: string }>(
+      `SELECT column_name
+         FROM information_schema.column_privileges
+        WHERE grantee = $1
+          AND table_schema = 'platform'
+          AND table_name = 'federated_identities'
+          AND privilege_type = 'UPDATE'
+        ORDER BY column_name`,
+      [APP_ROLE],
+    );
+
+    expect(result.rows.map((row) => row.column_name)).toEqual(['last_login_at']);
   });
 
   // ==========================================================================

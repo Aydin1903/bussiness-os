@@ -1,9 +1,20 @@
 # 0053 — Sosyal giris (OAuth): Google · Microsoft · LinkedIn · Facebook
 
-- **Durum:** 🟡 **ONERILDI — Product Owner onayi bekliyor** (implementasyona baslanmadi)
+- **Durum:** ✅ **KABUL EDILDI** (2026-09-01) — ⚠️ **onay kalemlerinin TAMAMI onaylandi:**
+  A · **B (B1–B5)** · C · D · E · F
 - **Tarih:** 2026-09-01
 - **Karar veren:** Product Owner
 - **Faz:** 8 (ROADMAP §6 — _"bagimsiz kalem, herhangi bir noktada one alinabilir"_)
+
+> ### Onay kaydi
+>
+> ⚠️ **B tek bir kalem olarak onaylanmadi.** Onaya sunulurken bes ayri karara
+> ayrildi (B1 tablo + kolon bazli GRANT · B2 port · B3 `TokenSigner`
+> genislemesi · B4 **iki** cerez · B5 sifir yeni izin) ve besi de ayri ayri
+> onaylandi. ⚠️ Bu ayrim, ADR'nin ilk yaziminda tabloda **tekil** gorunen iki
+> seyi duzeltti: `TokenSigner` genislemesi B'nin en agir parcasidir ve
+> **cerez BIR DEGIL IKIDIR** (§4.2, §4.3) — ikisi de asagida duzeltilmis
+> haliyle yazilidir.
 
 > ### ⚠️ ONCE SONUC: BU ADR'NIN AGIRLIK MERKEZI BIR DUGME DEGIL, BIR ESITLIK KARARIDIR
 >
@@ -1022,16 +1033,20 @@ ayrim Apple'in ADR'sine devrediliyor.
 
 ---
 
-## ⚠️ Product Owner onayi gereken kalemler
+## ✅ Product Owner onayi gereken kalemler — **ALTISI DA ONAYLANDI (2026-09-01)**
 
-| #     | Kalem                                                                                                                                    | Neden onaya sunuluyor                                                                                                        |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **A** | ⚠️ **Hesap birlestirme = (c) + D3.** Dogrulanmamis e-postada **reddetmek yerine** kendi kodumuzu gonderiyoruz.                           | PO'nun yazdigi (c) "reddet" diyordu; bu bir **sapmadir** ve bedeli (bir kerelik ek adim) kabul edilmelidir.                  |
-| **B** | ⚠️ **Kimlik/Authorization kararidir** (CLAUDE.md "Danisilmasi Zorunlu"): yeni tablo, yeni port, `TokenSigner`in genislemesi, yeni cerez. | Kimlik yuzeyine dokunan her sey PO onayina tabidir.                                                                          |
-| **C** | ⚠️ **Facebook `emailVerified = false` sayiliyor** (§6.1) — yani Facebook kullanicisi ilk giriste bir kod girer.                          | Tek satirla `true`ya cevrilebilir. Durust konum `false`tur; **hiz** isteniyorsa PO bunu bilerek degistirmelidir.             |
-| **D** | ⚠️ **Microsoft ve LinkedIn marka kilavuzlarindan SAPILIYOR** (§9.2) — yuvarlak yalnizca-ikon dugme.                                      | ⚠️ Hukuki gorus degildir; LinkedIn ve Meta API erisimini askiya alabilir. Geri donus yolu yazildi ama **riski PO ustlenir**. |
-| **E** | ⚠️ **Google GIS betigi giris ekranina ekleniyor** (§10.5).                                                                               | Kisisellestirilmis kutu **istege baglidir**; vazgecilirse geri kalan her sey aynen calisir.                                  |
-| **F** | ⚠️ **ADR-0052 §6.1 ve §6.2 DEGISIYOR**: dugmeler render edilecek; siralama **Google · Microsoft · LinkedIn · Facebook** (Apple cikti).   | Yayinlanmis bir ADR'nin kararini degistiriyor; ADR-0052'nin metni silinmez, **uzerine superseded notu** eklenir.             |
+| #      | Kalem                                                                                                                                  | Neden onaya sunuldu                                                                                                                             | Durum |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | :---: |
+| **A**  | ⚠️ **Hesap birlestirme = (c) + D3.** Dogrulanmamis e-postada **reddetmek yerine** kendi kodumuzu gonderiyoruz.                         | PO'nun yazdigi (c) "reddet" diyordu; bu bir **sapmadir** ve bedeli (bir kerelik ek adim) kabul edilmelidir.                                     |  ✅   |
+| **B1** | ⚠️ **`platform.federated_identities`** (migration `0040`) — RLS yok; ⚠️ acik `REVOKE UPDATE` + `GRANT UPDATE (last_login_at)`.         | Onaylanan sey tablonun **varligi degil**, kolon bazli GRANT karari: `provider_subject` uzerinde UPDATE bir **hesap devri primitifidir** (§2.2). |  ✅   |
+| **B2** | **`OAuthProviderPort`** — `shared/` + `infrastructure/oauth/`.                                                                         | ADR-0007/0009 deseninin tekrari; en dusuk riskli kalem ama `shared/` kernel'ine dokunuyor.                                                      |  ✅   |
+| **B3** | ⚠️ **`TokenSigner` genisliyor** — ucuncu token turu (OAuth state), `typ` claim'i ile ayrilir.                                          | ⚠️ **B'nin en agir parcasi.** Alternatifi (ayri imzalayici) **ikinci bir anahtar yasam dongusu** demekti. Ayrim **testle kilitlenir** (§4.2).   |  ✅   |
+| **B4** | ⚠️ **IKI yeni cerez** (bir degil): `state` (10 dk) ve **bekleyen baglama** (15 dk, yalnizca D3). Ikisi de **`SameSite=Lax`**.          | ⚠️ `Lax` bir tutarsizlik degil **zorunluluktur**: callback ust seviye cross-site navigasyondur, `Strict` orada **hic gonderilmez** (§4.2).      |  ✅   |
+| **B5** | ⚠️ **Sifir yeni izin.** Bes ucun hicbiri ADR-0025 katalogunu buyutmuyor.                                                               | Bu da bir **Authorization kararidir**: izinler tenant kapsamlidir, bu uclar **global kimlik** uzerinde calisir (§8).                            |  ✅   |
+| **C**  | ⚠️ **Facebook `emailVerified = false` sayiliyor** (§6.1) — Facebook kullanicisi ilk giriste bir kod girer.                             | Tek satirla `true`ya cevrilebilir. Durust konum `false`tur; **hiz** isteniyorsa PO bunu bilerek degistirmelidir.                                |  ✅   |
+| **D**  | ⚠️ **Microsoft ve LinkedIn marka kilavuzlarindan SAPILIYOR** (§9.2) — yuvarlak yalnizca-ikon dugme.                                    | ⚠️ Hukuki gorus degildir; LinkedIn ve Meta API erisimini askiya alabilir. Geri donus yolu yazildi ama **riski PO ustlenir**.                    |  ✅   |
+| **E**  | ⚠️ **Google GIS betigi giris ekranina ekleniyor** (§10.5).                                                                             | Kisisellestirilmis kutu **istege baglidir**; vazgecilirse geri kalan her sey aynen calisir — listedeki tek gercekten opsiyonel kalem.           |  ✅   |
+| **F**  | ⚠️ **ADR-0052 §6.1 ve §6.2 DEGISIYOR**: dugmeler render edilecek; siralama **Google · Microsoft · LinkedIn · Facebook** (Apple cikti). | Yayinlanmis bir ADR'nin kararini degistiriyor; ADR-0052'nin metni **silinmez**, uzeri cizilir ve superseded notu eklenir.                       |  ✅   |
 
 ---
 

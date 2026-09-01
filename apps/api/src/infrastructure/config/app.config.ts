@@ -40,6 +40,21 @@ export interface AppConfig {
    * Anahtarlar base64(PEM) olarak tasinir ve KULLANILDIGI yerde (IdentityModule
    * factory'si) `jose` ile CryptoKey'e cevrilir — config saf veri kalir.
    */
+  /**
+   * Sosyal giris (ADR-0053).
+   *
+   * ⚠️ `providers` YALNIZCA yapilandirilmis olanlari icerir: eksik bir
+   * saglayici burada HIC bulunmaz — bir `enabled: false` bayragi YOKTUR
+   * (ADR-0053 §3.3, "yapilandirilmamis saglayici = olmayan saglayici").
+   */
+  readonly oauth: {
+    /** ⚠️ `redirect_uri` bundan turetilir, istekten DEGIL. */
+    readonly apiPublicUrl: string;
+    /** Callback isini bitirince kullaniciyi buraya yollar. */
+    readonly webPublicUrl: string;
+    readonly google: { readonly clientId: string; readonly clientSecret: string } | null;
+  };
+
   readonly auth: {
     readonly jwt: {
       readonly issuer: string;
@@ -272,6 +287,7 @@ export function createAppConfig(source: Record<string, string | undefined>): App
     swagger: {
       enabled: env.SWAGGER_ENABLED,
     },
+    oauth: toOAuthConfig(env),
     auth: toAuthConfig(env),
     outboxRelay: toOutboxRelayConfig(env),
     email: toEmailConfig(env),
@@ -446,6 +462,25 @@ function toOutboxRelayConfig(env: Env): AppConfig['outboxRelay'] {
 }
 
 /** Identity sirlarini yapilandirmaya tasir. Deger DONUSTURMEZ; yalnizca eslestirir. */
+/**
+ * ⚠️ Bir saglayici ancak IKI degiskeni de doluysa yapilandirilmis sayilir.
+ * Yarim yapilandirma env semasinda zaten reddedilir; buradaki kontrol o
+ * kuralin KOD TARAFINDAKI KARSILIGIDIR — ikisi ayrisirsa `undefined` bir
+ * secret ile istek atilir ve hata saglayici tarafinda gorunurdu.
+ */
+function toOAuthConfig(env: Env): AppConfig['oauth'] {
+  const google =
+    env.GOOGLE_OAUTH_CLIENT_ID !== undefined && env.GOOGLE_OAUTH_CLIENT_SECRET !== undefined
+      ? { clientId: env.GOOGLE_OAUTH_CLIENT_ID, clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET }
+      : null;
+
+  return {
+    apiPublicUrl: env.API_PUBLIC_URL ?? '',
+    webPublicUrl: env.WEB_PUBLIC_URL ?? '',
+    google,
+  };
+}
+
 function toAuthConfig(env: Env): AppConfig['auth'] {
   return {
     jwt: {

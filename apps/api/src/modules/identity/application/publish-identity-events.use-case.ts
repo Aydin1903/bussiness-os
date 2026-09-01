@@ -1,6 +1,9 @@
 import { type Clock } from '../../../shared/clock.port';
 import { EmailDeliveryError, type EmailPort } from '../../../shared/email.port';
 import { type TransactionManager } from '../../../shared/transaction-manager.port';
+import { FederatedIdentityLinked } from '../domain/federated-identity-linked.event';
+import { FederatedIdentityUnlinked } from '../domain/federated-identity-unlinked.event';
+import { OAuthEmailVerificationRequested } from '../domain/oauth-email-verification-requested.event';
 import { PasswordResetRequested } from '../domain/password-reset-requested.event';
 import { UserEmailVerified } from '../domain/user-email-verified.event';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
@@ -14,6 +17,7 @@ import {
 import { buildPasswordChangedNotification } from './password-changed-email.builder';
 import { buildPasswordResetEmail } from './password-reset-email.builder';
 import { decideDeliveryRetry } from './outbox-retry.policy';
+import { buildOAuthVerificationEmail } from './oauth-verification-email.builder';
 import { buildVerificationEmail } from './verification-email.builder';
 
 /** Teslimati BASARISIZ olan kayit. */
@@ -59,7 +63,19 @@ export interface PublishIdentityEventsDependencies {
  * buyur ve her tur ayni satirlar yeniden okunurdu. "Islendi" demek ile "is
  * yoktu" demek arasindaki fark burada kayit altina alinir.
  */
-const NO_DELIVERY_EVENT_TYPES: readonly string[] = [UserLoggedIn.TYPE, UserEmailVerified.TYPE];
+const NO_DELIVERY_EVENT_TYPES: readonly string[] = [
+  UserLoggedIn.TYPE,
+  UserEmailVerified.TYPE,
+  // ⚠️ Sosyal giris baglama/kaldirma olaylari (ADR-0053 §2.3). Bunlar DENETIM
+  // kayitlaridir; teslimat gerektirmezler ama ISARETLENIRLER — aksi halde
+  // `identity_outbox_pending_idx` sonsuza kadar buyurdu.
+  //
+  // ⚠️ Bu iki olayin `platform.audit_log`a YAZILAMAMASININ sebebi orada
+  // yazilidir: o tablonun `tenant_id`si `NOT NULL`dur ve kimlik olaylari
+  // tenant'sizdir.
+  FederatedIdentityLinked.TYPE,
+  FederatedIdentityUnlinked.TYPE,
+];
 
 /** Tek turun ic muhasebesi; disariya `PublishIdentityEventsResult` olarak cikar. */
 interface BatchOutcome {
@@ -231,6 +247,12 @@ export class PublishIdentityEventsUseCase {
   async #deliver(record: IdentityOutboxRecord): Promise<'delivered' | 'no-op' | 'unhandled'> {
     if (record.eventType === UserRegistered.TYPE) {
       await this.deps.emailPort.send(buildVerificationEmail(record.payload));
+      return 'delivered';
+    }
+
+    if (record.eventType === OAuthEmailVerificationRequested.TYPE) {
+      // D3 (ADR-0053 §1.3): saglayicinin hukmu `false` — kendi kodumuz gider.
+      await this.deps.emailPort.send(buildOAuthVerificationEmail(record.payload));
       return 'delivered';
     }
 

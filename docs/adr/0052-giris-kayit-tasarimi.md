@@ -992,21 +992,22 @@ video **girmez**. Video hicbir auth ekraninda kullanilmaz (§6.4).
 
 ## 6. Sosyal giris — Google · Microsoft · Apple
 
-> ### 🟡 BU BOLUMUN KARARLARINI [ADR-0053](0053-sosyal-giris-oauth.md) DEGISTIRMEYI ONERIYOR
+> ### ⚠️ BU BOLUMUN UC KARARI [ADR-0053](0053-sosyal-giris-oauth.md) TARAFINDAN DEGISTIRILDI (2026-09-01)
 >
-> ADR-0053 (**2026-09-01, ONERILDI — PO onayi bekliyor**) §6.1'in "render
-> edilmez" kosulunu (_"Faz 8'in backend'i gelene kadar"_) karsilar ve uc
-> maddeyi degistirmeyi onerir:
+> ADR-0053 **kabul edildi** (alti onay kaleminin altisi da: A · B1–B5 · C · D ·
+> E · F) ve §6.1'in kendi yazdigi kosulu — _"Faz 8'in backend'i gelene kadar"_ —
+> **karsiladi**.
 >
-> | Bu ADR'de yazan                             | ADR-0053'un onerisi                                                                      |
-> | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
-> | §6.1 Dugmeler **render edilmez**            | `login` ve `register`de **render edilir** (ADR-0053 §11)                                 |
-> | §6.2 Sira: Google · Microsoft · **Apple**   | Google · Microsoft · **LinkedIn · Facebook** — ⚠️ **Apple v1 disi** (ADR-0053 §9.3, §15) |
-> | §6.3/3 Federe kullanicinin parola ekranlari | `GET /me/identities` + e-posta icerigi ile **kapatilir** (ADR-0053 §7)                   |
+> | Bu ADR'de yazan                             | ⚠️ BUGUN GECERLI OLAN                                                                    | Bu bir geri alma mi?                                       |
+> | ------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+> | §6.1 Dugmeler **render edilmez**            | `login` ve `register`de **render EDILIR** (ADR-0053 §11)                                 | ❌ **Hayir** — bu ADR'nin kendi kosulunun **dolmasidir**   |
+> | §6.2 Sira: Google · Microsoft · **Apple**   | Google · Microsoft · **LinkedIn · Facebook** — ⚠️ **Apple v1 DISI** (ADR-0053 §9.3, §15) | ✅ **Evet** — gercek bir degisiklik                        |
+> | §6.3/3 Federe kullanicinin parola ekranlari | `GET /me/identities` + e-posta icerigi ile **KAPATILDI** (ADR-0053 §7)                   | ❌ **Hayir** — bu ADR'nin biraktigi borcun **odenmesidir** |
 >
-> ⚠️ **Bu bolumun metni SILINMEZ ve DEGISTIRILMEZ.** ADR-0053 kabul edilirse
-> yerine gecen not burada kalir; reddedilirse asagidaki karar **aynen
-> gecerlidir**.
+> ⚠️ **Bu bolumun metni SILINMEDI.** Degisen kararlarin uzeri cizildi ve
+> yanlarina bugunku hali yazildi; degismeyen her sey (yer, gerekce, bicim
+> ilkesi, §6.4) **aynen gecerlidir**. Bir ADR'nin neyi ne zaman degistirdigi,
+> ancak eski metin yerinde durdugu icin okunabilir.
 
 ### 6.1 ⚠️ TASARLANIR, AMA BUGUN RENDER EDILMEZ
 
@@ -1014,8 +1015,16 @@ video **girmez**. Video hicbir auth ekraninda kullanilmaz (§6.4).
 _"bagimsiz kalem"_ der; bugun ne bir saglayici kaydi, ne bir callback ucu, ne
 `Credential` tarafinda federe bir yol vardir.
 
-> **Karar:** dugmelerin yeri, sirasi, etiketi ve bicimi **bu ADR'de tanimlanir**;
-> Faz 8'in backend'i gelene kadar **render edilmez.**
+> ~~**Karar:** dugmelerin yeri, sirasi, etiketi ve bicimi **bu ADR'de
+> tanimlanir**; Faz 8'in backend'i gelene kadar **render edilmez.**~~
+>
+> ### ✅ KOSUL DOLDU — DUGMELER ARTIK RENDER EDILIYOR (ADR-0053, 2026-09-01)
+>
+> ⚠️ Bu karar **iptal edilmedi, KOSULU GERCEKLESTI.** Cumlenin ikinci yarisi
+> (_"Faz 8'in backend'i gelene kadar"_) bir tarih degil bir **kapi kosuluydu**;
+> [ADR-0053](0053-sosyal-giris-oauth.md) o backend'dir. Ilk yarisi — yerin,
+> siranin, etiketin ve bicimin **bu ADR'de tanimlanmasi** — hala gecerlidir ve
+> ADR-0053 §9.3 yalnizca **sirayi** degistirdi.
 
 ⚠️ Gerekce projenin kendi kaydidir. Faz 2 boyunca `POST /api/v1/tenants` her
 istege **503** dondu ve o kayit CLAUDE.md'de bilerek duruyor: _"bir ozelligin
@@ -1029,12 +1038,12 @@ kabul edilebilir bir gorsel degisikliktir.
 
 ### 6.2 Geldiginde: sira, yer, bicim
 
-| Karar    | Deger                                                                           |
-| -------- | ------------------------------------------------------------------------------- |
-| Ekranlar | **Yalnizca `login` ve `register`.** Digerlerinde anlamsizdir.                   |
-| Yer      | ⚠️ **E-posta formunun ALTINDA**, "veya" ayraciyla — ustunde degil               |
-| Sira     | **Google · Microsoft · Apple**                                                  |
-| Bicim    | Her saglayicinin **kendi marka kilavuzu**; bizim tasarim sistemimize uydurulmaz |
+| Karar    | Deger                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Ekranlar | **Yalnizca `login` ve `register`.** Digerlerinde anlamsizdir. ✅ **DEGISMEDI** — ADR-0053 §11 yediyi tek tek sayip ayni sonuca vardi |
+| Yer      | ⚠️ **E-posta formunun ALTINDA**, "veya" ayraciyla — ustunde degil. ✅ **DEGISMEDI**                                                  |
+| Sira     | ~~**Google · Microsoft · Apple**~~ → ⚠️ **Google · Microsoft · LinkedIn · Facebook** (ADR-0053 §9.3). **Apple v1 DISI**              |
+| Bicim    | Her saglayicinin **kendi marka kilavuzu**; bizim tasarim sistemimize uydurulmaz. ✅ **DEGISMEDI** — ama ⚠️ olculdu, asagiya bakiniz  |
 
 ⚠️ **Neden altta:** uc yabanci markali dugme, ekranin **bize ait olmayan** tek
 parcasidir ve tasarim sistemimize uydurulamaz (saglayici kilavuzlari buna izin
@@ -1042,9 +1051,30 @@ vermez). Uste konursa ekranin ilk gorunen seyi uc baska sirketin logosu olur.
 Ayrica **bugun calisan yol e-postadir** ve birincil yol gorsel olarak da
 birincil olmalidir.
 
-⚠️ **Sira gerekcelidir:** Google Turkiye'deki KOBI'lerde en yaygin hesap;
+⚠️ ~~**Sira gerekcelidir:** Google Turkiye'deki KOBI'lerde en yaygin hesap;
 Microsoft ikinci, cunku Microsoft 365 kullanan sirket sayisi yuksek; Apple
-ucuncu ve §6.3'un esigi yuzunden en gec gelecek olan.
+ucuncu ve §6.3'un esigi yuzunden en gec gelecek olan.~~
+
+> ### ⚠️ SIRA DEGISTI — VE GEREKCESININ CINSI DE DEGISTI (ADR-0053 §9.3)
+>
+> **Bugunku sira: Google · Microsoft · LinkedIn · Facebook.**
+>
+> ⚠️ Eski siralamanin gerekcesi bir **esikti** (Apple ucuncu, cunku en gec
+> hazir olacakti). Yeni siralamanin gerekcesi **yaygin kullanimdir**: Google
+> (en yaygin) · Microsoft (M365 kullanan KOBI sayisi yuksek) · LinkedIn
+> (is baglami — ⚠️ **bu bir B2B urunudur**) · Facebook (en genis kitle, en
+> dusuk is bagi).
+>
+> ⚠️ **Apple listeden CIKTI** ve sebebi §6.3/2'nin tam olarak ongordugu sey:
+> Developer Program uyeligi **ucretli bir on kosuldur** ve tamamlanmadi.
+> ADR-0053 §15 Apple'i **besinci anahtar** olarak, tek adapter + tek CHECK
+> satiriyla eklenebilecek sekilde birakti.
+>
+> ⚠️ **§6.3/1'in "Hide My Email" sorunu KUCULDU AMA COZULMEDI:** ADR-0053'te
+> kimligin capasi e-posta degil `sub` oldugu icin, rolelenmis adres oluse bile
+> **giris calismaya devam eder** — bozulan yalnizca `EmailPort`un o adrese
+> ulasmasidir. Yani Apple geldiginde cozulecek sey "giris" degil **"iletisim
+> adresi"**dir.
 
 ### 6.3 ⚠️ Faz 8'e devredilen ve BUGUNDEN GORULEN uc kisit
 
@@ -1057,10 +1087,27 @@ ucuncu ve §6.3'un esigi yuzunden en gec gelecek olan.
    Microsoft'ta boyle bir esik yoktur — yani uc saglayici **ayni anda hazir
    olmayabilir** ve tasarim **ikisi acik, biri kapaliyken de** ayakta durmalidir
    (dugme sayisi 2 veya 3 olabilir).
-3. ⚠️ **Federe kullanicinin parolasi yoktur.** `Credential`'in `User`'dan ayri
-   tutulmasi (AUTH §5.3) tam olarak bunun icin yapildi — ama `forgot-password`
-   ve `/me/change-password` o kullanici icin **anlamsizdir** ve ekranlar bugun
-   bunu bilmiyor. Faz 8 geldiginde bu iki ekranin metni yeniden okunmalidir.
+3. ⚠️ ~~**Federe kullanicinin parolasi yoktur.** `Credential`'in `User`'dan
+   ayri tutulmasi (AUTH §5.3) tam olarak bunun icin yapildi — ama
+   `forgot-password` ve `/me/change-password` o kullanici icin
+   **anlamsizdir** ve ekranlar bugun bunu bilmiyor. Faz 8 geldiginde bu iki
+   ekranin metni yeniden okunmalidir.~~
+   **✅ KAPANDI — ADR-0053 §7 (2026-09-01).** Ve cozum **iki ekranda farkli**
+   oldu, cunku ikisinin **kimlik durumu farklidir**:
+   - `forgot-password` **kimliksizdir** → ⚠️ HTTP yaniti **degistirilemez**
+     (P2: _"bu hesabin parolasi yok"_ demek bir **hesap sayim oracle'idir**).
+     Cozum kanaldadir: `credential === null` olan kullaniciya **kod yerine
+     bir aciklama e-postasi** gider. ⚠️ Bu sizinti degildir — HTTP yaniti
+     **herkese**, e-posta **yalnizca gelen kutusunun sahibine** doner; 6 haneli
+     kodun kendisiyle **ayni ayrim**.
+   - `/me/change-password` **kimligi kanitlanmistir** → P2 uygulanmaz; ekran
+     `GET /me/identities`in `hasPassword` alanini okur ve form yerine bir
+     aciklama gosterir.
+
+   ⚠️ **Bir bulgu kayda deger:** `login`, `reset-password` ve
+   `change-password`, `credential === null` durumunu **OAuth yazilmadan uc faz
+   once** dogru ele aliyordu (sahte hash + genel 401, zamanlama da sizdirmiyor).
+   Yani eksik olan **guvenlik degil deneyimdi**.
 
 ### 6.4 Video kullanilmaz
 

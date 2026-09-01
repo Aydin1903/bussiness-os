@@ -17,6 +17,7 @@ import {
   type TransactionManager,
 } from '../../shared/transaction-manager.port';
 import { CREDENTIAL_REPOSITORY } from './application/credential.repository.port';
+import { FEDERATED_IDENTITY_REPOSITORY } from './application/federated-identity.repository.port';
 import { EMAIL_VERIFICATION_CODE_REPOSITORY } from './application/email-verification-code.repository.port';
 import { PASSWORD_RESET_CODE_REPOSITORY } from './application/password-reset-code.repository.port';
 import { IDENTITY_EVENT_PUBLISHER } from './application/identity-event-publisher.port';
@@ -40,6 +41,7 @@ import { Argon2idPasswordHasher } from './infrastructure/argon2id-password-hashe
 import { CryptoRefreshTokenGenerator } from './infrastructure/crypto-refresh-token-generator.adapter';
 import { CryptoVerificationCodeGenerator } from './infrastructure/crypto-verification-code-generator.adapter';
 import { DrizzleCredentialRepository } from './infrastructure/drizzle-credential.repository';
+import { DrizzleFederatedIdentityRepository } from './infrastructure/drizzle-federated-identity.repository';
 import { DrizzleEmailVerificationCodeRepository } from './infrastructure/drizzle-email-verification-code.repository';
 import { DrizzlePasswordResetCodeRepository } from './infrastructure/drizzle-password-reset-code.repository';
 import { DrizzleIdentityOutboxRepository } from './infrastructure/drizzle-identity-outbox.repository';
@@ -54,6 +56,7 @@ import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token-
 import { TokenSignerAccessTokenIssuer } from './infrastructure/token-signer-access-token-issuer';
 import { DrizzleVerificationCodeRequestRepository } from './infrastructure/drizzle-verification-code-request.repository';
 import { identityChangePasswordProviders } from './identity-change-password.providers';
+import { identityOAuthProviders } from './identity-oauth.providers';
 import { identityOutboxProviders } from './identity-outbox.providers';
 import { identityPasswordResetProviders } from './identity-password-reset.providers';
 import { identityUseCaseProviders } from './identity-use-case.providers';
@@ -65,7 +68,9 @@ import {
 } from './identity.public';
 import { AuthContextMiddleware } from './presentation/auth-context.middleware';
 import { AuthController } from './presentation/auth.controller';
+import { MeIdentitiesController } from './presentation/me-identities.controller';
 import { MePasswordController } from './presentation/me-password.controller';
+import { OAuthController } from './presentation/oauth.controller';
 
 /** base64(PEM) -> PEM. Anahtarlar `.env`'de tek satir tasinir (bkz. env.schema). */
 function decodePem(base64: string): string {
@@ -90,7 +95,7 @@ function decodePem(base64: string): string {
   // Teslimat yolu icin `EMAIL_PORT`. Somut saglayici EmailModule'un karari;
   // Identity yalnizca port'u tuketir.
   imports: [EmailModule],
-  controllers: [AuthController, MePasswordController],
+  controllers: [AuthController, MePasswordController, OAuthController, MeIdentitiesController],
   providers: [
     // --- Paylasilan cekirdek port'lari -------------------------------------
     { provide: CLOCK, useClass: SystemClock },
@@ -101,6 +106,7 @@ function decodePem(base64: string): string {
     // --- Kalicilik ----------------------------------------------------------
     { provide: USER_REPOSITORY, useClass: DrizzleUserRepository },
     { provide: CREDENTIAL_REPOSITORY, useClass: DrizzleCredentialRepository },
+    { provide: FEDERATED_IDENTITY_REPOSITORY, useClass: DrizzleFederatedIdentityRepository },
     {
       provide: EMAIL_VERIFICATION_CODE_REPOSITORY,
       useClass: DrizzleEmailVerificationCodeRepository,
@@ -196,6 +202,10 @@ function decodePem(base64: string): string {
 
     // --- Parola degistirme use case'i (AUTH §7.6) ---------------------------
     ...identityChangePasswordProviders,
+
+    // --- Sosyal giris / OAuth (ADR-0053) ------------------------------------
+    // Ayri dosya: parola sifirlama ve parola degistirme ile ayni disiplin.
+    ...identityOAuthProviders,
 
     // --- Outbox teslimat yolu ve zamanlayicisi ------------------------------
     ...identityOutboxProviders,

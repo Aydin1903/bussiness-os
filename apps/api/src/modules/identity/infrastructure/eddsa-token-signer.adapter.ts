@@ -5,10 +5,15 @@ import { SignJWT, jwtVerify, type CryptoKey, type JWTPayload } from 'jose';
 
 import { type Clock } from '../../../shared/clock.port';
 import {
+  OAUTH_STATE_TOKEN_TYPE,
   type AccessTokenInput,
   type IdentityTokenInput,
+  type OAuthPendingLinkTokenInput,
+  type OAuthStateTokenInput,
   type TokenSigner,
   type TokenType,
+  type VerifiedOAuthPendingLink,
+  type VerifiedOAuthState,
   type VerifiedToken,
 } from '../application/token-signer.port';
 import { InvalidTokenError } from '../domain/identity.error';
@@ -16,6 +21,19 @@ import { InvalidTokenError } from '../domain/identity.error';
 /** Token omurleri (ADR-0020, AUTH_ARCHITECTURE 10.4). */
 const IDENTITY_TOKEN_TTL_SECONDS = 5 * 60; // 5 dk — tek isi tenant sectirmek
 const ACCESS_TOKEN_TTL_SECONDS = 15 * 60; // 15 dk — calinan token'in kullanim penceresi
+
+/**
+ * OAuth akis token'lari (ADR-0053 §4.2/§4.3).
+ *
+ * ⚠️ Ikisi de KISA: state, kullanicinin saglayici ekraninda gecirdigi sureyi
+ * kapsamalidir (10 dk yeterli, uzatmak calinan bir cerezin penceresini buyutur);
+ * bekleyen baglama ise 6 haneli kodun omruyle ayni bantta durur (15 dk).
+ */
+const OAUTH_STATE_TTL_SECONDS = 10 * 60;
+const OAUTH_PENDING_LINK_TTL_SECONDS = 15 * 60;
+
+/** ⚠️ `TokenType`tan AYRI tutulur — bunlar oturum token'i DEGILDIR. */
+const OAUTH_PENDING_LINK_TOKEN_TYPE = 'oauth-pending-link';
 
 /**
  * Imzalama yapilandirmasi. Anahtarlar secret manager'dan gelir ve ASLA repoda
@@ -87,6 +105,81 @@ export class EddsaTokenSigner implements TokenSigner {
     };
   }
 
+  // ==========================================================================
+  // ⚠️ OAuth AKIS TOKEN'LARI (ADR-0053 §4.2) — OTURUM TOKEN'I DEGILDIR
+  // ==========================================================================
+  // Ikisinin de `sub` ve `sid` claim'i YOKTUR: bir kimlik iddiasi tasimazlar,
+  // yalnizca akisin iki adimini birbirine baglarlar. Ayrimi zorlayan sey
+  // `typ` claim'idir ve HER IKI YONDE de kontrol edilir:
+  //
+  //   verify()                -> `typ`i 'identity'|'access' degilse REDDEDER
+  //   verifyOAuthState()      -> `typ`i 'oauth-state' degilse REDDEDER
+  //   verifyOAuthPendingLink()-> `typ`i 'oauth-pending-link' degilse REDDEDER
+  //
+  // Tek yonlu bir kontrol yetmezdi: calinmis bir kimlik token'i state cerezine
+  // konabilir ve PKCE dogrulayicisinin yerine gecebilirdi.
+  // ==========================================================================
+
+  signOAuthState(input: OAuthStateTokenInput): Promise<string> {
+    return this.#sign(
+      {
+        typ: OAUTH_STATE_TOKEN_TYPE,
+        provider: input.provider,
+        state: input.state,
+        nonce: input.nonce,
+        cv: input.codeVerifier,
+        next: input.next,
+      },
+      // ⚠️ `sub` YOK: bu token bir kullaniciyi temsil etmez. `#sign` bunu
+      // `undefined` ile gecer ve JWT'de `sub` claim'i hic olusmaz.
+      undefined,
+      OAUTH_STATE_TTL_SECONDS,
+    );
+  }
+
+  async verifyOAuthState(token: string): Promise<VerifiedOAuthState> {
+    const payload = await this.#verifiedPayload(token);
+
+    if (payload.typ !== OAUTH_STATE_TOKEN_TYPE) {
+      throw new InvalidTokenError('bu token bir OAuth state token i degil');
+    }
+
+    return {
+      provider: requireStringClaim(payload.provider, 'provider'),
+      state: requireStringClaim(payload.state, 'state'),
+      nonce: requireStringClaim(payload.nonce, 'nonce'),
+      codeVerifier: requireStringClaim(payload.cv, 'cv'),
+      next: optionalStringClaim(payload.next),
+    };
+  }
+
+  signOAuthPendingLink(input: OAuthPendingLinkTokenInput): Promise<string> {
+    return this.#sign(
+      {
+        typ: OAUTH_PENDING_LINK_TOKEN_TYPE,
+        provider: input.provider,
+        psub: input.subject,
+        email: input.email,
+      },
+      undefined,
+      OAUTH_PENDING_LINK_TTL_SECONDS,
+    );
+  }
+
+  async verifyOAuthPendingLink(token: string): Promise<VerifiedOAuthPendingLink> {
+    const payload = await this.#verifiedPayload(token);
+
+    if (payload.typ !== OAUTH_PENDING_LINK_TOKEN_TYPE) {
+      throw new InvalidTokenError('bu token bir OAuth bekleyen baglama token i degil');
+    }
+
+    return {
+      provider: requireStringClaim(payload.provider, 'provider'),
+      subject: requireStringClaim(payload.psub, 'psub'),
+      email: requireStringClaim(payload.email, 'email'),
+    };
+  }
+
   /** Imzayi/sureyi/iss/aud/kid'i dogrular ve payload'i doner; aksi halde firlatir. */
   async #verifiedPayload(token: string): Promise<JWTPayload> {
     try {
@@ -116,18 +209,29 @@ export class EddsaTokenSigner implements TokenSigner {
     }
   }
 
-  #sign(claims: Record<string, unknown>, userId: string, ttlSeconds: number): Promise<string> {
+  /**
+   * `userId` `undefined` ise `sub` claim'i HIC YAZILMAZ.
+   *
+   * ⚠️ Bos dize ile yazmak DEGIL, alani hic olusturmamak: bos bir `sub`, "bir
+   * kullanici var ama kimligi bos" gibi okunur ve bir gun birinin ona
+   * guvenmesine yol acardi. OAuth akis token'lari bir kullaniciyi TEMSIL ETMEZ.
+   */
+  #sign(
+    claims: Record<string, unknown>,
+    userId: string | undefined,
+    ttlSeconds: number,
+  ): Promise<string> {
     const nowSeconds = Math.floor(this.#clock.now().getTime() / 1000);
 
-    return new SignJWT(claims)
+    const jwt = new SignJWT(claims)
       .setProtectedHeader({ alg: 'EdDSA', kid: this.#config.signingKid })
       .setIssuer(this.#config.issuer)
       .setAudience(this.#config.audience)
-      .setSubject(userId)
       .setJti(randomUUID())
       .setIssuedAt(nowSeconds)
-      .setExpirationTime(nowSeconds + ttlSeconds)
-      .sign(this.#config.signingKey);
+      .setExpirationTime(nowSeconds + ttlSeconds);
+
+    return (userId === undefined ? jwt : jwt.setSubject(userId)).sign(this.#config.signingKey);
   }
 }
 
@@ -140,4 +244,9 @@ function requireStringClaim(value: unknown, name: string): string {
     throw new InvalidTokenError(`${name} claim'i eksik veya gecersiz`);
   }
   return value;
+}
+
+/** `next` bilincli olarak bos olabilir; yoklugu bir hata DEGILDIR. */
+function optionalStringClaim(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
