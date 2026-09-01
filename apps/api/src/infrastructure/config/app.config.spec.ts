@@ -347,4 +347,63 @@ describe('createAppConfig', () => {
       expect(config.llm.provider).toBe('deepseek');
     });
   });
+  describe('sosyal giris (OAuth) — ADR-0053', () => {
+    const withGoogle = {
+      ...validEnv,
+      API_PUBLIC_URL: 'https://api.kobiwise.com',
+      WEB_PUBLIC_URL: 'https://app.kobiwise.com',
+      GOOGLE_OAUTH_CLIENT_ID: 'client-id',
+      GOOGLE_OAUTH_CLIENT_SECRET: 'client-secret',
+    };
+
+    it('saglayici yapilandirilmamissa `google` NULL olur', () => {
+      // ⚠️ Bir `enabled: false` bayragi YOKTUR: yapilandirmanin yoklugu
+      // kararin kendisidir (ADR-0053 §3.3).
+      const config = createAppConfig(validEnv);
+
+      expect(config.oauth.google).toBeNull();
+    });
+
+    it('iki degisken de doluysa saglayici yapilandirilir', () => {
+      const config = createAppConfig(withGoogle);
+
+      expect(config.oauth.google).toEqual({
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      });
+    });
+
+    /**
+     * ⚠️ BU TESTIN KORUDUGU SEY BIR KARAKTERDIR — VE O KARAKTER AKISI KIRAR.
+     *
+     * `redirect_uri` su sekilde kurulur:
+     *   `${apiPublicUrl}/api/v1/auth/oauth/google/callback`
+     *
+     * Sondaki egik cizgi kirpilmazsa sonuc CIFT SLASH icerir ve saglayicilar
+     * `redirect_uri`nin konsolda kayitli deger ile BIREBIR eslesmesini ister —
+     * akis `redirect_uri_mismatch` ile kirilir. ⚠️ `z.url()` sondaki egik
+     * cizgiyi GECERLI sayar, yani semaya guvenmek YETMEZ.
+     */
+    it('⚠️ sondaki egik cizgi KIRPILIR — `redirect_uri` birebir eslesmeli', () => {
+      const config = createAppConfig({
+        ...withGoogle,
+        API_PUBLIC_URL: 'https://api.kobiwise.com/',
+        WEB_PUBLIC_URL: 'https://app.kobiwise.com///',
+      });
+
+      expect(config.oauth.apiPublicUrl).toBe('https://api.kobiwise.com');
+      expect(config.oauth.webPublicUrl).toBe('https://app.kobiwise.com');
+    });
+
+    it('⚠️ URETILEN redirect_uri tam olarak beklenen adrestir', () => {
+      // Google Cloud Console'a GIRILECEK deger burada sabitlenir: kod bu yolu
+      // degistirirse test kirmizi yanar ve konsoldaki kaydin da guncellenmesi
+      // gerektigi HATIRLATILIR (aksi halde hata yalnizca uretimde gorulurdu).
+      const config = createAppConfig(withGoogle);
+
+      expect(`${config.oauth.apiPublicUrl}/api/v1/auth/oauth/google/callback`).toBe(
+        'https://api.kobiwise.com/api/v1/auth/oauth/google/callback',
+      );
+    });
+  });
 });

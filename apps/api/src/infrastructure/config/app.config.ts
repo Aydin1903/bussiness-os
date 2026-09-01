@@ -475,10 +475,34 @@ function toOAuthConfig(env: Env): AppConfig['oauth'] {
       : null;
 
   return {
-    apiPublicUrl: env.API_PUBLIC_URL ?? '',
-    webPublicUrl: env.WEB_PUBLIC_URL ?? '',
+    apiPublicUrl: withoutTrailingSlash(env.API_PUBLIC_URL),
+    webPublicUrl: withoutTrailingSlash(env.WEB_PUBLIC_URL),
     google,
   };
+}
+
+/**
+ * ⚠️ SONDAKI `/` KIRPILIR — ve bu bir suslemeden ibaret DEGILDIR.
+ *
+ * `redirect_uri` su sekilde kurulur (`oauth.controller.ts`):
+ *
+ *     `${apiPublicUrl}/api/v1/auth/oauth/<saglayici>/callback`
+ *
+ * `API_PUBLIC_URL` sondaki egik cizgiyle yazilirsa (`https://api.example.com/`)
+ * sonuc CIFT SLASH icerir: `https://api.example.com//api/v1/...`. Saglayicilar
+ * `redirect_uri`nin konsolda kayitli deger ile **BIREBIR** eslesmesini ister —
+ * yani akis `redirect_uri_mismatch` ile kirilir.
+ *
+ * ⚠️ Hata sessiz DEGILDIR ama YANLIS YERDE gorunur: kullanici Google'in hata
+ * ekranini gorur ve sorun bizim yapilandirmamizdayken saglayicida sanilir.
+ * `z.url()` sondaki egik cizgiyi GECERLI sayar, yani semaya guvenmek yetmez.
+ *
+ * Ayni normallestirme `WEB_PUBLIC_URL` icin de yapilir; orada bedeli daha
+ * kucuktur (`new URL(path, base)` cift slash uretmez) ama iki degerin ayni
+ * kurala tabi olmasi, birinin unutulmasini engeller.
+ */
+function withoutTrailingSlash(value: string | undefined): string {
+  return value === undefined ? '' : value.replace(/\/+$/u, '');
 }
 
 function toAuthConfig(env: Env): AppConfig['auth'] {

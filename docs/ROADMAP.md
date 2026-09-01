@@ -517,10 +517,18 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 >
 > **Gerekçe tek cümleyle: gerçek kullanıcı olmadan Faturalama'nın anlamı
 > yoktur.** Faz 6 abonelik, plan/kota ve ödeme sağlayıcısıdır — üçü de
-> **faturalanacak bir kullanıcının var olmasını** varsayar. Bugün prod'da
+> **faturalanacak bir kullanıcının var olmasını** varsayar. ~~Bugün prod'da
 > **sıfır kullanıcı ve sıfır tenant** vardır ve dışarıdan biri kaydolamaz:
 > kök rota bir landing page değildi ve kayıt akışına giden hiçbir genel kapı
-> yoktu.
+> yoktu.~~
+>
+> ⚠️ **2026-09-01 GÜNCELLEMESİ — bu paragrafın ÖNCÜLÜ değişti, SONUCU
+> değişmedi.** Prod'da artık **3 kullanıcı / 2 tenant** var (aşağıda,
+> "PROD ARTIK BOŞ DEĞİL"). Yani _"gerçek kullanıcı yok"_ önermesi düştü —
+> ⚠️ ama sıra kararı **ayakta kalır ve gerekçesi güçlenir**: kullanıcı
+> geldiğine göre ona ne sattığımızı anlatan sayfa, fiyatlandırma ve KVKK metni
+> **daha da acildir**. Kayıt akışına giden genel kapı hâlâ **yok** (`/` → 307
+> `/login`).
 >
 > ⚠️ **Bu, [§4](#4-faz-6--faturalama)'ün kapı koşulunu GEVŞETMEZ.** O koşul
 > (_"on iki modülün TAMAMI"_) 2026-08-27'de **karşılandı** ve karşılanmış
@@ -589,8 +597,44 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 > gidiyor; pazarlama içeriği, fiyatlandırma ve KVKK/gizlilik metni yazılmadı.
 > Bu fazın **asıl işi** odur ve sıradaki adımdır.
 >
-> ⚠️ Test hesabı ve tenant'ı temizlendi (tek transaction, `ON_ERROR_STOP`,
-> sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**.
+> ⚠️ ~~Test hesabı ve tenant'ı temizlendi (tek transaction, `ON_ERROR_STOP`,
+> sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**.~~
+>
+> ### ⚠️⚠️ BU SATIR ARTIK GEÇERSİZ — PROD'DA GERÇEK KULLANICI VAR (2026-09-01)
+>
+> **Ölçüldü: `platform.users` = 3, `platform.tenants` = 2.** Metin silinmedi;
+> ne zaman doğru olduğu ancak yerinde durduğu için okunabilir.
+>
+> ⚠️ **Ve bu bir test artığı DEĞİL:** Railway log'unda **2026-09-01 08:29**'da
+> `app.kobiwise.com` üzerinden gerçek bir tarayıcıdan koşan tam bir zincir
+> görüldü — `register` 422 (parola politikası) → `register` **202** → outbox
+> teslimatı → `verify-email` **200** → `login` **200** → `/me/memberships`
+> **200**. Ayrıntı ve tablo [`CLAUDE.md`](../CLAUDE.md)'nin
+> **"⚠️⚠️ PROD ARTIK BOŞ DEĞİL"** bölümündedir.
+>
+> ⚠️ **Bu, §4'ün (Faz 6) gerekçesini GÜÇLENDİRİR ama kapısını AÇMAZ:** Faz 9'un
+> sıra önceliği _"gerçek kullanıcı olmadan Faturalama'nın anlamı yoktur"_
+> gerekçesine dayanıyordu; artık gerçek kullanıcı **var**. Yine de landing
+> page, fiyatlandırma ve KVKK metni hâlâ **yok** — yani sıra değişmez, yalnızca
+> aciliyeti artar.
+>
+> ### ⚠️ MIGRATION RİSK DEĞERLENDİRMESİ DEĞİŞTİ — bağlayıcı
+>
+> ⚠️ **Artık kaybedilecek gerçek veri var.** Bugüne kadarki her migration
+> (`0040` dahil) boş ya da yalnızca test verisi olan bir veritabanına
+> uygulandı; bir `down` dosyası çalıştırmak "hiçbir şey kaybetmemek" demekti.
+> **Bu artık doğru değil.** Dört sonuç:
+>
+> 1. ⚠️ `down` dosyaları bir **geri alma planı değil, bir VERİ KAYBI
+>    planıdır** — `0040`'ın kendi uyarısı (_"yalnızca migration henüz üretime
+>    çıkmadı durumu için"_) bugün **tüm** migration'lar için geçerli.
+> 2. ⚠️ **Yıkıcı migration'lar (`DROP COLUMN` · `DROP TABLE` · tip daraltma ·
+>    kısıt ekleme) artık PO onayı gerektirir** — push `preDeployCommand`
+>    üzerinden onları **doğrudan** uygular; arada insan adımı yoktur.
+> 3. ⚠️ **Yedek stratejisi YAZILI DEĞİL.** Railway volume'ünün otomatik yedeği
+>    bu projede hiç doğrulanmadı. İlk gerçek veri geldiğine göre bu **açık bir
+>    borçtur** ve §4'ten (Faz 6) önce cevaplanmalıdır.
+> 4. ⚠️ Prod'da _"kimse yok, denesem de olur"_ varsayımı **kalktı**.
 >
 > #### ⚠️ 2026-08-27'de yapılan GEÇİCİ düzeltme — bu bir landing page DEĞİLDİR
 >

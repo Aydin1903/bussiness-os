@@ -20,10 +20,7 @@ import { IpAddress } from '../domain/ip-address.value-object';
 import { LoginAttempt } from '../domain/login-attempt.entity';
 import { LoginAttemptId } from '../domain/login-attempt-id.value-object';
 import { PasswordHash } from '../domain/password-hash.value-object';
-import { REFRESH_TOKEN_TTL_DAYS, RefreshToken } from '../domain/refresh-token.entity';
-import { RefreshTokenId } from '../domain/refresh-token-id.value-object';
-import { TokenFamily } from '../domain/token-family.entity';
-import { TokenFamilyId } from '../domain/token-family-id.value-object';
+import { type TokenFamily } from '../domain/token-family.entity';
 import { type User } from '../domain/user.entity';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
 import { type CredentialRepository } from './credential.repository.port';
@@ -32,12 +29,12 @@ import { type PasswordHasher } from './password-hasher.port';
 import { type RefreshTokenGenerator } from './refresh-token-generator.port';
 import { type RefreshTokenHasher } from './refresh-token-hasher.port';
 import { type RefreshTokenRepository } from './refresh-token.repository.port';
+import { issueSessionTokens, persistSessionTokens, type SessionTokens } from './session-tokens';
 import { type TokenFamilyRepository } from './token-family.repository.port';
 import { type TokenSigner } from './token-signer.port';
 import { type UserRepository } from './user.repository.port';
 
 const MINUTE_MS = 60_000;
-const DAY_MS = 24 * 60 * MINUTE_MS;
 
 /**
  * Kullanici bulunamadiginda dogrulanan SAHTE hash (AUTH_ARCHITECTURE 9.1).
@@ -249,29 +246,22 @@ export class LoginUseCase {
       ? await this.deps.passwordHasher.hash(password)
       : null;
 
-    const family = TokenFamily.start({
-      id: TokenFamilyId.create(this.deps.idGenerator.nextId()),
-      userId: user.id,
-      createdAt: context.now,
-    });
-    const rawRefreshToken = this.deps.refreshTokenGenerator.generate();
-    const refreshToken = RefreshToken.issue({
-      id: RefreshTokenId.create(this.deps.idGenerator.nextId()),
-      familyId: family.id,
-      tokenHash: this.deps.refreshTokenHasher.hash(rawRefreshToken),
-      expiresAt: new Date(context.now.getTime() + REFRESH_TOKEN_TTL_DAYS * DAY_MS),
-    });
+    // ⚠️ Token cifti sosyal giris ile PAYLASILAN aritmetikten gelir
+    // (`session-tokens.ts`). Buraya kadar olan ve bundan sonraki her sey —
+    // kademeli yeniden hash'leme, deneme kaydi ve ASAGIDAKI IMZALAMA ANI —
+    // parola girisine ozeldir ve DEGISMEDI.
+    const tokens = issueSessionTokens(this.deps, { userId: user.id, now: context.now });
 
-    await this.#persistSession({ context, user, credential, rehashed, family, refreshToken });
+    await this.#persistSession({ context, user, credential, rehashed, tokens });
 
     // Token, oturum COMMIT OLDUKTAN SONRA imzalanir: var olmayan bir oturuma
     // isaret eden token dagitilmaz.
     const identityToken = await this.deps.tokenSigner.signIdentityToken({
       userId: user.id.value,
-      sessionId: family.id.value,
+      sessionId: tokens.family.id.value,
     });
 
-    return { identityToken, refreshToken: rawRefreshToken };
+    return { identityToken, refreshToken: tokens.rawRefreshToken };
   }
 
   /** Basari yolu: hepsi ya birlikte olur ya hic olmaz. */
@@ -280,10 +270,9 @@ export class LoginUseCase {
     readonly user: User;
     readonly credential: Credential;
     readonly rehashed: PasswordHash | null;
-    readonly family: TokenFamily;
-    readonly refreshToken: RefreshToken;
+    readonly tokens: SessionTokens;
   }): Promise<void> {
-    const { context, user, credential, rehashed, family, refreshToken } = input;
+    const { context, user, credential, rehashed, tokens } = input;
 
     await this.deps.transactionManager.runInTransaction(async () => {
       if (rehashed !== null) {
@@ -292,10 +281,14 @@ export class LoginUseCase {
         await this.deps.credentialRepository.save(credential);
       }
 
-      await this.deps.tokenFamilyRepository.save(family);
-      await this.deps.refreshTokenRepository.save(refreshToken);
+      // ⚠️ Yalnizca IKI SATIRLIK yazma paylasiliyor; deneme kaydi ve olay
+      // AYNI transaction'da kalmaya devam ediyor — bu sira parola girisine
+      // ozeldir (sinif yorumu).
+      await persistSessionTokens(this.deps, tokens);
       await this.deps.loginAttemptRepository.save(this.#buildAttempt(context, true));
-      await this.deps.eventPublisher.publish(this.#buildLoggedInEvent(context, user, family));
+      await this.deps.eventPublisher.publish(
+        this.#buildLoggedInEvent(context, user, tokens.family),
+      );
     });
   }
 

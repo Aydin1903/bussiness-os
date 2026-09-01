@@ -2176,6 +2176,58 @@ Faz 5 kapanış denetiminde öğrenildi ve **oturum başında bilinmesi gerekir*
 > göndericisidir (yukarıda); gerçek bir adrese e-posta gitmesi için alan
 > adı doğrulaması **önkoşuldur**.
 
+### ⚠️⚠️ PROD ARTIK BOŞ DEĞİL — 3 KULLANICI, 2 TENANT (2026-09-01)
+
+⚠️ **Yukarıdaki "sıfır kullanıcı / sıfır tenant" kaydı ARTIK GEÇERSİZDİR.**
+Metin silinmiyor — ne zaman doğru olduğu ve ne zaman yanlışlaştığı ancak
+yerinde durduğu için okunabilir.
+
+| | 2026-08-26 temizliği sonrası | ⚠️ **2026-09-01 ölçümü** |
+| --- | :---: | :---: |
+| `platform.users` | 0 | ⚠️ **3** |
+| `platform.tenants` | 0 | ⚠️ **2** |
+| `platform.federated_identities` | (tablo yoktu) | **0** |
+
+⚠️ **Bu bir test artığı DEĞİL, GERÇEK KULLANIMDIR.** ADR-0053'ün prod
+doğrulaması sırasında Railway log'unda görüldü: **2026-09-01 08:29**'da
+`app.kobiwise.com` üzerinden, gerçek bir tarayıcıdan (Chrome 152, Linux,
+`sec-fetch-site: same-site`) kayıt zinciri uçtan uca koştu:
+
+| Saat | İstek | Sonuç |
+| --- | --- | :---: |
+| 08:29:36 | `POST /auth/register` | **422** (ilk deneme — parola politikası) |
+| 08:29:37 | `POST /auth/register` | **202** |
+| 08:29:39 | outbox teslimatı | **1 event teslim edildi** |
+| 08:30:09 | `POST /auth/verify-email` | **200** |
+| 08:30:14 | `POST /auth/login` | **200** (+ `Set-Cookie`) |
+| 08:30:14 | `GET /me/memberships` | **200** |
+
+⚠️ **İlk isteğin 422 olması kayda değer**: parola politikası (ADR-0018) prod'da
+**gerçek bir kullanıcı üzerinde** ilk kez tetiklendi ve kullanıcı ikinci
+denemede geçti — yani hata mesajı işe yaradı.
+
+### ⚠️ BUNDAN SONRAKİ HER MIGRATION FARKLI BİR RİSK TAŞIYOR
+
+⚠️ **Artık kaybedilecek GERÇEK VERİ var.** Bugüne kadarki tüm migration'lar
+—`0040` dahil— boş ya da yalnızca test verisi olan bir veritabanına uygulandı;
+bir `down` dosyası çalıştırmak "hiçbir şey kaybetmemek" demekti. **Bu artık
+doğru değil.**
+
+Bağlayıcı sonuçlar:
+
+1. ⚠️ **`down` dosyaları artık bir GERİ ALMA PLANI değil, bir VERİ KAYBI
+   planıdır.** `0040`'ın kendi down dosyası bunu zaten yazıyordu (_"yalnızca
+   migration henüz üretime çıkmadı durumu içindir"_) — o cümle bugün **tüm
+   migration'lar için** geçerli hale geldi.
+2. ⚠️ **Yıkıcı migration'lar (`DROP COLUMN`, `DROP TABLE`, tip daraltma, kısıt
+   ekleme) artık Product Owner onayı gerektirir** — push, `preDeployCommand`
+   üzerinden onları **doğrudan** uygular ve arada bir insan adımı yoktur.
+3. ⚠️ **Yedek stratejisi yazılı DEĞİL.** Railway volume'ünün otomatik yedeği
+   olup olmadığı bu projede hiç doğrulanmadı; ilk gerçek veri geldiğine göre
+   bu artık **açık bir borçtur** ve Faz 6'dan önce cevaplanmalıdır.
+4. ⚠️ **Kayıt akışı artık dışarıya açık ve kullanılıyor** — yani prod'da
+   "kimse yok, denesem de olur" varsayımı **kalktı**.
+
 > **Kalıcı ders:** cross-cutting middleware **sırası** kompozisyon kökünde
 > (`app.module.ts`) tek `apply(auth, tenant-context)` çağrısıyla kurulur —
 > NestJS'te FARKLI modüllerin middleware'leri arasındaki sıra güvenilir değildir

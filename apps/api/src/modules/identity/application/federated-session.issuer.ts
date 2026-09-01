@@ -1,19 +1,14 @@
 import { type Clock } from '../../../shared/clock.port';
 import { type DomainEventPublisher } from '../../../shared/domain-event-publisher.port';
 import { type IdGenerator } from '../../../shared/id-generator.port';
-import { REFRESH_TOKEN_TTL_DAYS, RefreshToken } from '../domain/refresh-token.entity';
-import { RefreshTokenId } from '../domain/refresh-token-id.value-object';
-import { TokenFamily } from '../domain/token-family.entity';
-import { TokenFamilyId } from '../domain/token-family-id.value-object';
 import { type User } from '../domain/user.entity';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
 import { type RefreshTokenGenerator } from './refresh-token-generator.port';
 import { type RefreshTokenHasher } from './refresh-token-hasher.port';
 import { type RefreshTokenRepository } from './refresh-token.repository.port';
+import { issueSessionTokens, persistSessionTokens } from './session-tokens';
 import { type TokenFamilyRepository } from './token-family.repository.port';
 import { type TokenSigner } from './token-signer.port';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface IssuedSession {
   /** KIMLIK token'i — `tenant` claim'i YOK (ADR-0020). */
@@ -46,20 +41,19 @@ export interface FederatedSessionIssuerDependencies {
  * uzerinden okunur.
  *
  * ============================================================================
- * ⚠️ BILINEN BORC: `LoginUseCase#issueSession` ILE AYNI ISI YAPIYOR
+ * ✅ KOPYA BORCU KAPANDI (PO talimati) — ORTAK ARITMETIK PAYLASILIYOR
  * ============================================================================
- * Iki yerde ayni oturum acma adimlari var ve bu DURUSTCE kaydediliyor.
- * Birlestirmek `LoginUseCase`i degistirmeyi gerektirir — CLAUDE.md Mutlak
- * Kural 2 (_"istenmedikce refactor yapma"_) bu iste ona dokunmayi yasakliyor
- * ve parola girisi projenin en cok test edilmis yolu.
+ * ADR-0053 bu dosyayi yazarken `LoginUseCase#issueSession`in adimlarini
+ * KOPYALAMISTI ve borc acikca kaydedilmisti: _"iki kopya AYRISIRSA hata SESSIZ
+ * olur — ornegin refresh omru birinde degisip digerinde degismezse,
+ * kullanicinin oturumu NASIL GIRDIGINE gore farkli surer ve kimse fark
+ * etmez."_
  *
- * ⚠️ Ama bu bir "sonra bakariz" degil: iki kopya AYRISIRSA hata SESSIZ olur —
- * ornegin refresh omru birinde degisip digerinde degismezse, kullanicinin
- * oturumu NASIL GIRDIGINE gore farkli surer ve kimse fark etmez. Birlestirme
- * ayri bir is olarak, PO onayiyla yapilmalidir.
- *
- * Bu dosyanin TEK savunmasi, omru tek bir yerden (`REFRESH_TOKEN_TTL_DAYS`)
- * okumasidir — yani ayrisabilecek sey mantik, sabit DEGIL.
+ * Bugun token ciftini KURMA ve YAZMA adimlari `session-tokens.ts`te
+ * PAYLASILIYOR. ⚠️ Paylasilan sey bilerek DAR: transaction sahipligi, olay
+ * yayini ve TOKEN IMZALAMA ANI iki akista FARKLIDIR ve ayri kaldi —
+ * `LoginUseCase` token'i COMMIT SONRASI imzalar, bu sinif ise cagiranin
+ * transaction'i icinde. Ortak dosyanin yorumu bu ayrimi tek tek yaziyor.
  * ============================================================================
  */
 export class FederatedSessionIssuer {
@@ -77,27 +71,15 @@ export class FederatedSessionIssuer {
   }): Promise<IssuedSession> {
     const { user, now, correlationId } = input;
 
-    const family = TokenFamily.start({
-      id: TokenFamilyId.create(this.deps.idGenerator.nextId()),
-      userId: user.id,
-      createdAt: now,
-    });
+    // ⚠️ Parola girisiyle PAYLASILAN aritmetik (`session-tokens.ts`).
+    const tokens = issueSessionTokens(this.deps, { userId: user.id, now });
 
-    const rawRefreshToken = this.deps.refreshTokenGenerator.generate();
-    const refreshToken = RefreshToken.issue({
-      id: RefreshTokenId.create(this.deps.idGenerator.nextId()),
-      familyId: family.id,
-      tokenHash: this.deps.refreshTokenHasher.hash(rawRefreshToken),
-      expiresAt: new Date(now.getTime() + REFRESH_TOKEN_TTL_DAYS * DAY_MS),
-    });
-
-    await this.deps.tokenFamilyRepository.save(family);
-    await this.deps.refreshTokenRepository.save(refreshToken);
+    await persistSessionTokens(this.deps, tokens);
     await this.deps.eventPublisher.publish(
       UserLoggedIn.create({
         eventId: this.deps.idGenerator.nextId(),
         userId: user.id,
-        sessionId: family.id,
+        sessionId: tokens.family.id,
         occurredAt: now,
         correlationId,
       }),
@@ -105,9 +87,9 @@ export class FederatedSessionIssuer {
 
     const identityToken = await this.deps.tokenSigner.signIdentityToken({
       userId: user.id.value,
-      sessionId: family.id.value,
+      sessionId: tokens.family.id.value,
     });
 
-    return { identityToken, refreshToken: rawRefreshToken };
+    return { identityToken, refreshToken: tokens.rawRefreshToken };
   }
 }
