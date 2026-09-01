@@ -9,8 +9,10 @@ import type { MyMembershipItem } from '@business-os/contracts';
 import { AuthScreen } from '@/components/auth/auth-screen';
 import { FormError } from '@/components/ui/form-error';
 import { errorMessage } from '@/lib/api/error-message';
+import { ApiError } from '@/lib/api/problem';
 import { listMyMemberships } from '@/lib/api/tenants';
 import { selectTenant } from '@/lib/session/select-tenant';
+import { clearSessionHint } from '@/lib/session/session-hint';
 
 /** Rol etiketleri — teknik değerleri kullanıcı diline çevirir. */
 const ROLE_LABELS: Record<string, string> = {
@@ -25,6 +27,22 @@ const ROLE_LABELS: Record<string, string> = {
  *
  * Mount'ta `/me/memberships` çağrılır; bir şirkete tıklanınca `switch-tenant` +
  * `/app`. Liste yalnızca switchable tenant'ları içerir (backend filtresi).
+ *
+ * ============================================================================
+ * ⚠️ SAYFA YENİLEMEYE DAYANIKLIDIR — ve bir zamanlar DEĞİLDİ
+ * ============================================================================
+ * Memory session sayfa yenilemede kaybolur (FRONTEND §3.3). `listMyMemberships`
+ * artık memory boşsa kimliği refresh cookie'siyle TAZELER (`lib/api/tenants`),
+ * yani F5 sonrası liste yeniden yüklenir.
+ *
+ * Cookie de yoksa/geçersizse oturum gerçekten bitmiştir: hata mesajı göstermek
+ * kullanıcıyı ÇIKIŞI OLMAYAN bir ekranda bırakırdı (bu sayfada login'e giden
+ * bir bağlantı yok). Bu yüzden 401'de `/login`e yönlendirilir — `tenants.ts`in
+ * kendi yorumunun ("yoksa oturum düşmüştür → login'e") ilk kez UYGULANMASI.
+ *
+ * ⚠️ `replace` kullanılır, `push` değil: geri tuşu ölü bir oturumla bu sayfaya
+ * dönmemeli. Ve `bo_session_hint` temizlenir — aksi halde middleware
+ * kullanıcının hâlâ girişli olduğunu sanar (§3.2).
  */
 export default function SelectTenantPage() {
   const router = useRouter();
@@ -41,14 +59,23 @@ export default function SelectTenantPage() {
         }
       })
       .catch((caught: unknown) => {
-        if (active) {
-          setError(errorMessage(caught, 'Şirketler yüklenemedi.'));
+        if (!active) {
+          return;
         }
+
+        // Oturum kurtarılamadı (refresh cookie de yok/geçersiz) → login.
+        if (caught instanceof ApiError && caught.status === 401) {
+          clearSessionHint();
+          router.replace('/login');
+          return;
+        }
+
+        setError(errorMessage(caught, 'Şirketler yüklenemedi.'));
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   async function choose(tenantId: string): Promise<void> {
     setError(null);

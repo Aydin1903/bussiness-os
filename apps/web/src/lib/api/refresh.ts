@@ -40,6 +40,47 @@ const switchTenantResponseSchema = z.object({ accessToken: z.string().min(1) });
 let inFlight: Promise<string> | null = null;
 
 /**
+ * ⚠️ KİMLİK TAZELEMESİ DE SINGLE-FLIGHT — ve bu, yukarıdaki kuralın EKSİK
+ * KALMIŞ YARISIDIR.
+ *
+ * `inFlight` yalnızca `refreshSession()`in İKİ ADIMLI akışını birleştiriyordu.
+ * `refreshIdentityToken()` ise (tenant seçimi ve bootstrap tarafından
+ * çağrılır) doğrudan `refreshIdentity()`ye gidiyordu — yani iki yol aynı anda
+ * koştuğunda AYNI refresh cookie'si backend'e İKİ KEZ sunuluyordu.
+ *
+ * Dosyanın kendi başlığı bunun sonucunu zaten yazıyor: **yeniden kullanım
+ * tespiti tüm token ailesini iptal eder ve kullanıcı sebepsiz düşer**
+ * (ADR-0021). Yani kural yazılıydı ama yalnızca bir yolda uygulanıyordu.
+ *
+ * ⚠️ Birleştirme `refreshIdentity()` SEVİYESİNDE yapılır, export başına değil:
+ * `refreshSession()` de bu paylaşılan promise'i kullanır. Export başına iki
+ * ayrı `inFlight` olsaydı, `refreshSession()` ile `refreshIdentityToken()`
+ * eşzamanlı çağrıldığında yine iki istek çıkardı — yani hatanın kendisi
+ * kapanmazdı.
+ */
+let identityInFlight: Promise<string> | null = null;
+
+/**
+ * Kimlik token'ını tazeler ve memory'ye yazar — eşzamanlı çağrılar TEK isteği
+ * paylaşır.
+ *
+ * `setSession` burada yapılır, çağıranlarda değil: iki çağıranın da aynı şeyi
+ * yazması gerekiyordu ve biri unutulsa hata SESSİZ olurdu (token tazelenir ama
+ * memory'ye geçmez, bir sonraki istek yine 401 alır).
+ */
+function sharedIdentityRefresh(): Promise<string> {
+  identityInFlight ??= refreshIdentity()
+    .then((identityToken) => {
+      setSession({ identityToken });
+      return identityToken;
+    })
+    .finally(() => {
+      identityInFlight = null;
+    });
+  return identityInFlight;
+}
+
+/**
  * Oturumu yeniler ve YENİ access token'ı döndürür. Başarısızlıkta oturumu
  * temizler ve fırlatır (çağıran login'e yönlendirir).
  *
@@ -54,8 +95,9 @@ export function refreshSession(): Promise<string> {
 
 async function runRefresh(): Promise<string> {
   // 1) Kimlik oturumunu yenile — refresh token cookie'den otomatik gider.
-  const identityToken = await refreshIdentity();
-  setSession({ identityToken });
+  //    ⚠️ Paylaşılan tazeleme: `refreshIdentityToken()` ile eşzamanlı
+  //    çalışırsa TEK istek çıkar (yukarıdaki not).
+  const identityToken = await sharedIdentityRefresh();
 
   // 2) Tenant-scoped access token yalnızca seçili bir tenant varsa türetilebilir.
   const tenantId = getCurrentTenantId();
@@ -113,15 +155,16 @@ export function hasIdentity(): boolean {
 /**
  * YALNIZCA kimlik token'ını tazeler (refresh cookie ile) ve memory'ye yazar.
  *
- * İki kullanım (Dashboard):
+ * Üç kullanım:
  * - Sayfa yenileme sonrası session bootstrap (memory sıfırlanır, cookie durur).
  * - Uzun oturumda tenant değiştirirken identity 5 dk'da dolduysa retry.
+ * - ⚠️ Tenant-öncesi uçlar (`/me/memberships`, `POST /tenants`) — sayfa
+ *   yenilendiğinde memory boştur ama cookie durur (`tenants.ts`).
  *
+ * ⚠️ SINGLE-FLIGHT: eşzamanlı çağrılar tek isteği paylaşır (yukarıdaki not).
  * Başarısızlıkta (`refreshIdentity` içinde) session temizlenir ve fırlatır;
  * çağıran login'e yönlendirir.
  */
-export async function refreshIdentityToken(): Promise<string> {
-  const identityToken = await refreshIdentity();
-  setSession({ identityToken });
-  return identityToken;
+export function refreshIdentityToken(): Promise<string> {
+  return sharedIdentityRefresh();
 }
