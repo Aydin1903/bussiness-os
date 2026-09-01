@@ -992,6 +992,22 @@ video **girmez**. Video hicbir auth ekraninda kullanilmaz (§6.4).
 
 ## 6. Sosyal giris — Google · Microsoft · Apple
 
+> ### 🟡 BU BOLUMUN KARARLARINI [ADR-0053](0053-sosyal-giris-oauth.md) DEGISTIRMEYI ONERIYOR
+>
+> ADR-0053 (**2026-09-01, ONERILDI — PO onayi bekliyor**) §6.1'in "render
+> edilmez" kosulunu (_"Faz 8'in backend'i gelene kadar"_) karsilar ve uc
+> maddeyi degistirmeyi onerir:
+>
+> | Bu ADR'de yazan                             | ADR-0053'un onerisi                                                                      |
+> | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+> | §6.1 Dugmeler **render edilmez**            | `login` ve `register`de **render edilir** (ADR-0053 §11)                                 |
+> | §6.2 Sira: Google · Microsoft · **Apple**   | Google · Microsoft · **LinkedIn · Facebook** — ⚠️ **Apple v1 disi** (ADR-0053 §9.3, §15) |
+> | §6.3/3 Federe kullanicinin parola ekranlari | `GET /me/identities` + e-posta icerigi ile **kapatilir** (ADR-0053 §7)                   |
+>
+> ⚠️ **Bu bolumun metni SILINMEZ ve DEGISTIRILMEZ.** ADR-0053 kabul edilirse
+> yerine gecen not burada kalir; reddedilirse asagidaki karar **aynen
+> gecerlidir**.
+
 ### 6.1 ⚠️ TASARLANIR, AMA BUGUN RENDER EDILMEZ
 
 **Backend'de OAuth YOKTUR.** ROADMAP §6 onu **Faz 8** olarak tanimlar ve

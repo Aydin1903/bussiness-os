@@ -474,7 +474,17 @@ Tasarım zaten yapıldı ve backend ona göre yazıldı; bu faz onu **kullanan**
 
 ---
 
-## 6. Faz 8 — OAuth (Google / Microsoft)
+## 6. Faz 8 — OAuth (Google / Microsoft / LinkedIn / Facebook)
+
+> ### 🟡 TASARIM KARARI YAZILDI — [ADR-0053](adr/0053-sosyal-giris-oauth.md), 2026-09-01, **ONERILDI**
+>
+> Faz "öne alındı" değil; yalnızca **kararı yazıldı** ve Product Owner onayı bekliyor. Kod tarafında hâlâ **hiçbir şey yok**.
+>
+> ⚠️ **Başlıktaki iki sağlayıcı dörde çıktı** (PO kararı): Google · Microsoft · **LinkedIn · Facebook**. ⚠️ **Apple v1 dışında** — Developer Program kaydı tamamlanmadı.
+>
+> ADR-0053'ün ağırlık merkezi bir düğme değil bir **eşitlik kararıdır**: _"aynı e-posta" ne zaman "aynı insan" demektir?_ Cevap — ⚠️ **hiçbir zaman kendi başına**; kimliğin çapası sağlayıcının `sub` değeridir. Gerekçe **nOAuth** (2023): Microsoft Entra'da saldırgan kendi tenant'ında `mail` alanını kurbanın adresine yazabilir ve e-postayı kimlik anahtarı sayan uygulamada **tam hesap devri** olur.
+>
+> ⚠️ ADR-0053, [ADR-0052](adr/0052-giris-kayit-tasarimi.md) §6.1/§6.2'nin kararlarını **değiştirmeyi önerir** (düğmeler render edilecek; sıralama değişiyor) ve §6.3'ün üçüncü kısıtını kapatır.
 
 **Bağımsız kalem — herhangi bir noktada öne alınabilir.**
 
