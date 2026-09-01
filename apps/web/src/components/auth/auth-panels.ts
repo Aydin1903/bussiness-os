@@ -16,28 +16,33 @@
  * ============================================================================
  * ÜÇ KADEME — iskelet aynı, panelin İŞİ farklı
  * ============================================================================
- * | Kademe            | Ekranlar                              | Panel            |
- * | ----------------- | ------------------------------------- | ---------------- |
- * | A — Kapı          | login · register                      | fotoğraf + slogan|
- * | B — Akış          | verify-email · forgot · reset         | FOTOĞRAF YOK     |
- * | C — Eşiğin içi    | create-tenant · select-tenant         | fotoğraf + slogan|
+ * | Kademe            | Ekranlar                              | Panel             |
+ * | ----------------- | ------------------------------------- | ----------------- |
+ * | A — Kapı          | login · register                      | fotoğraf + slogan |
+ * | B — Akış          | verify-email · forgot · reset         | fotoğraf, SLOGAN YOK |
+ * | C — Eşiğin içi    | create-tenant · select-tenant         | fotoğraf + slogan |
  *
- * ⚠️ Sahnesi olan dört ekranın dördü de KENDİ cümlesini taşır; Kademe B'nin
- * üçünde slogan YOKTUR (aşağıdaki not).
+ * ⚠️ **KADEME B ARTIK FOTOĞRAF TAŞIR** (Product Owner, 2026-09-01 — ADR-0052
+ * düzeltmesi). Önceki karar "fotoğraf yok, yalnızca gradyan" idi ve gerekçesi
+ * yazılıydı; canlı ekran görülünce **çok sade kaldığı** görüldü ve karar
+ * değiştirildi.
+ *
+ * ⚠️ Değişen yalnızca FOTOĞRAFTIR: **slogan hâlâ yoktur.** İki karar ayrıdır
+ * ve ayrı ayrı verildi — sahne "burada bir marka var" der, slogan ise bir şey
+ * ANLATIR. Mekanik bir ekranda anlatı hâlâ geciktirir.
  *
  * ⚠️ Panelde MARKA ÖĞESİ YOKTUR — yazılı logo sağ sütunun üstündedir
  * (ADR-0052 §5.2 düzeltmesi, 2026-08-31). Panelin taşıdığı tek metin
  * slogandır.
  *
- * ⚠️ Kademe B'de `scene` DE `slogan` DA yoktur ve bu bir eksiklik DEĞİLDİR:
- * o ekranlar mekaniktir (gelen kutusundan altı hane taşımak), çoğunlukla
- * telefonda açılır ve orada dekoratif bir anlatı ikna etmez GECİKTİRİR.
- * Panel kaybolmaz — Mars zemini ve taneciği kalır; susan şey METİNDİR.
+ * ⚠️ Ve Kademe B **`preload` ETMEZ**: sabırsız kullanıcı endişesi duruyor,
+ * yalnızca artık bir görsel var. Fotoğraf `<1024px`'te zaten hiç indirilmez
+ * (`auth-surface.css`); ≥1024'te de yükleme önceliği ALMAZ.
  *
- * ⚠️ `mascot-portrait` varlığı HENÜZ ÜRETİLMEDİ (ADR-0052 §2.3) ve bir sahne
- * kırpılıp "portre" diye KULLANILMAZ: kırpma arka plandaki Mars zeminini de
- * taşır ve panelin kendi gradyanıyla üst üste binerdi. Kademe B bugün
- * yalnızca gradyanla çalışır; bu, kabul edilmiş bir geri düşüştür.
+ * ⚠️ `mascot-portrait` (saydam zeminli, sahnesiz maskot) HÂLÂ ÜRETİLMEDİ —
+ * ama ARTIK GEREKMİYOR: Kademe B kendi sahnesini aldı. ADR-0052 §2.3'ün
+ * "portre üretilene kadar gradyan" geri düşüşü böylece kapandı; portre bir
+ * ihtiyaç değil, olsa iyi olacak bir varlık.
  */
 
 /**
@@ -140,12 +145,38 @@ export const AUTH_PANELS = {
     slogan: 'Sen büyü / o hatırlasın.',
   },
   /*
-   * ⚠️ ÜÇÜ DE BOŞ — Kademe B. `slogan` alanı YAZILMAZ (yukarıdaki not):
-   * mekanik ekranda dekoratif anlatı yoktur.
+   * ============================================================================
+   * KADEME B — SAHNE VAR, SLOGAN YOK
+   * ============================================================================
+   * ⚠️ SAHNE, GELDİĞİ ZİNCİRDEN MİRAS ALINIR — ekrana göre seçilmez.
+   *
+   * Yeni bir sahne üretilmedi (klasörde kullanılmamış görsel yoktu: dört
+   * sahnenin dördü de zaten kullanımdaydı). Üçüne ayrı ayrı sahne dağıtmak da
+   * REDDEDİLDİ — ADR-0052'nin "Değerlendirilen alternatifler" tablosu bunu
+   * zaten eliyor: _"akış ekranlarında her adımda yeni sahne bir SLAYT
+   * GÖSTERİSİNE döner"_. O gerekçe "fotoğraf yok" kararı ters çevrilince
+   * ORTADAN KALKMADI; hâlâ geçerlidir.
+   *
+   * Bunun yerine sahne, kullanıcının GELDİĞİ zincirin sahnesini sürdürür:
+   *
+   *   register (path) → verify-email (path)          ← kayıt hunisi
+   *   login (walk) → forgot-password (walk) → reset-password (walk)
+   *
+   * Böylece iki baskın zincirde de panel adım değiştirirken YERİNDE KALIR;
+   * kullanıcı gelen kutusuna gidip döndüğünde ekranın "değiştiğini" görmez —
+   * §1.2'nin "başka bir siteye düştüm" gerekçesinin aynısı, tek ekran yerine
+   * ADIM ARASINDA uygulanmış hâli.
+   *
+   * ⚠️ Bilinen tek istisna: `verify-email`e `login`den de gelinebilir
+   * (403 → "E-postanı doğrula →" bağlantısı). O yolda sahne walk → path
+   * değişir. Tek bir geçiş için ikinci bir kural yazmak, kuralı kuralın
+   * çözdüğü sorundan daha karmaşık yapardı.
+   *
+   * ⚠️ `preload` HİÇBİRİNDE YOK (bilinçli, yukarıdaki not).
    */
-  'verify-email': {},
-  'forgot-password': {},
-  'reset-password': {},
+  'verify-email': { scene: 'path' },
+  'forgot-password': { scene: 'walk' },
+  'reset-password': { scene: 'walk' },
   'create-tenant': {
     scene: 'orbit',
     slogan: 'Şirketini kur / merkezini oluştur.',

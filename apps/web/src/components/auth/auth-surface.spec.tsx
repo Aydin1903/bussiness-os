@@ -35,6 +35,10 @@ const SCREENS = AUTH_SCREEN_KEYS;
  *
  * ⚠️ Elle iki liste yazmak yerine tablodan TÜRETİLİR: bir ekranın sloganı
  * eklenip listeler unutulursa test sessizce yanlış kümeyi sınardı.
+ *
+ * ⚠️ Ayrım artık SAHNEYE göre DEĞİL, yalnızca SLOGANA göredir: 2026-09-01'den
+ * beri yedi ekranın yedisi de sahne taşır (Kademe B'nin fotoğrafsızlığı geri
+ * alındı), ama slogan hâlâ yalnızca dördünde vardır.
  */
 const SLOGANLI = SCREENS.filter((k) => 'slogan' in AUTH_PANELS[k]);
 const SLOGANSIZ = SCREENS.filter((k) => !('slogan' in AUTH_PANELS[k]));
@@ -174,14 +178,14 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     expect([...SCREENS].sort()).toEqual(Object.keys(AUTH_PANELS).sort());
   });
 
-  it('dört sahneli ekranın dördü de kendi sloganını taşır', () => {
-    // Sahnesi olan her ekranın sloganı vardır; ikisi birlikte gider.
+  it('dört ekran slogan taşır, üçü taşımaz', () => {
+    /*
+     * ⚠️ Eskiden bu test "sahnesi olanın sloganı da vardır" diyordu; artık
+     * yedi ekranın yedisinde de sahne var, yani o eşleme koptu. Kalan iddia
+     * sayılardır: dört sloganlı, üç sloganısız.
+     */
     expect(SLOGANLI).toHaveLength(4);
     expect(SLOGANSIZ).toHaveLength(3);
-
-    for (const key of SLOGANLI) {
-      expect(AUTH_PANELS[key], `${key}: sahnesi var ama sloganı yok`).toHaveProperty('scene');
-    }
   });
 
   it.each(SLOGANLI)('%s — slogan DOM’da', (key) => {
@@ -296,21 +300,55 @@ describe('ADR-0052 · 3. slogan GERÇEKTEN DOM metnidir', () => {
     expect(panel?.querySelector('img')).toBeNull();
   });
 
-  it('KADEME B fotoğrafsızdır — `data-scene` hiç yazılmaz', () => {
+  it.each(SLOGANSIZ)('%s — ⚠️ KADEME B ARTIK FOTOĞRAF TAŞIR', (key) => {
     /*
-     * ⚠️ `mascot-portrait` henüz üretilmedi ve bir sahne kırpılıp "portre"
-     * diye KULLANILMAZ (ADR-0052 §2.3). Bu test o kararı kilitler: birine
-     * `data-scene` eklemek, Kademe B'yi sessizce Kademe A'ya çevirirdi.
+     * ⚠️ BU TEST, BİR ÖNCEKİNİN TERSİDİR ve bu kayda değer.
+     *
+     * Burada bir zamanlar şu duruyordu: _"KADEME B fotoğrafsızdır —
+     * `data-scene` hiç yazılmaz"_. O test, `data-scene` eklenmesini
+     * "Kademe B'yi sessizce Kademe A'ya çevirir" diye engelliyordu.
+     *
+     * Product Owner canlı ekranı görüp kararı değiştirdi (2026-09-01): üç
+     * mekanik ekran da sahne taşıyacak. Eski test, yeni kararın tam tersini
+     * savunur hâlde kalırdı — silinmedi, TERSİNE ÇEVRİLDİ.
+     *
+     * ⚠️ Değişen yalnızca fotoğraftır: slogan hâlâ yoktur (yukarıdaki test).
      */
-    for (const key of ['verify-email', 'forgot-password', 'reset-password'] as const) {
-      const { container, unmount } = render(
-        <AuthScreen screen={key}>
-          <span />
-        </AuthScreen>,
-      );
+    const { container } = render(
+      <AuthScreen screen={key}>
+        <span />
+      </AuthScreen>,
+    );
 
-      expect(container.querySelector('.auth-panel')?.hasAttribute('data-scene')).toBe(false);
-      unmount();
+    expect(container.querySelector('.auth-panel')?.getAttribute('data-scene')).toBeTruthy();
+  });
+
+  it('⚠️ KADEME B `preload` ETMEZ — sabırsız kullanıcı endişesi duruyor', () => {
+    /*
+     * ⚠️ Sahne eklendi ama YÜKLEME ÖNCELİĞİ eklenmedi (Product Owner kısıtı).
+     * `preload` bir `<link rel="preload">` üretir ve tarayıcıya "bunu önce
+     * indir" der; mekanik bir ekranda LCP zaten formdadır.
+     *
+     * Hata sessiz olurdu: `preload: true` eklemek hiçbir testi kırmaz, ekran
+     * çalışmaya devam eder — yalnızca kullanıcı beklerken bayt harcanır.
+     */
+    for (const key of SLOGANSIZ) {
+      expect(AUTH_PANELS[key], `${key} preload ediyor`).not.toHaveProperty('preload');
+    }
+
+    const { container } = render(
+      <AuthScreen screen="verify-email">
+        <span />
+      </AuthScreen>,
+    );
+
+    expect(container.querySelector('link[rel="preload"]')).toBeNull();
+  });
+
+  it('YEDİ EKRANIN YEDİSİ de bir sahne taşır', () => {
+    // Sahnesiz bir panel artık yalnızca gradyandır; bu, geri alınmış bir karar.
+    for (const key of SCREENS) {
+      expect(AUTH_PANELS[key], `${key} sahnesiz`).toHaveProperty('scene');
     }
   });
 

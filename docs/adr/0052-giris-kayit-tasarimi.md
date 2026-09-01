@@ -1,15 +1,17 @@
 # 0052 — Giris / Kayit ekranlarinin tasarimi: SPLIT-SCREEN + marka maskotu
 
 - **Durum:** ✅ **KABUL EDILDI ve UYGULANDI** (dort PO kalemi A/B/C/D onaylandi, 2026-08-31)
-  — ⚠️ **DOKUZ DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
+  — ⚠️ **ON DUZELTME ile** (ayni gun, gercek ekran referansla karsilastirildiktan sonra):
   §D **tersine cevrildi** (logo sag sutuna) · panel **yuzen karta** cevrildi (inset + yaricap)
   · panel metni **tek cumleye** indirildi · ⚠️ **metin panelin ALTINDAN USTUNE** alindi
   ve **scrim'in yonu onunla birlikte cevrildi** · slogan **iki yarima + `/` ayracina**
   gecti · ⚠️ **MARKANIN SLOGANI VERILDI** ve yedi ayri cumlenin yerini
   **tek slogan** aldi: _"Sen buyu / o hatirlasin."_ · slogan **TEK SATIR** ve
   **ITALIK** · slogan **ORTALANDI** · ⚠️ **"tek marka slogani" GERI ALINDI**:
-  sahnesi olan dort ekran KENDI cumlesini tasir, Kademe B'de metin **HIC YOK**.
-  Hepsi asagida, uzeri cizili eski kararlariyla birlikte.
+  sahnesi olan dort ekran KENDI cumlesini tasir, Kademe B'de metin **HIC YOK**
+  · ⚠️ **KADEME B'NIN "FOTOGRAF YOK" KARARI DA TERSINE CEVRILDI** (2026-09-01):
+  uc mekanik ekran da sahne tasir, slogan hala tasimaz. Hepsi asagida, uzeri
+  cizili eski kararlariyla birlikte.
 - **Tarih:** 2026-08-31
 - **Karar veren:** Product Owner
 - **Faz:** 9 (Landing Page + Marka Kimligi) — ⚠️ landing page'in KENDISI bu ADR'nin **kapsami disindadir**
@@ -103,11 +105,11 @@ Yedi karar, sirayla.
 Tek iskelet, uc kademe. `(auth)/layout.tsx` iki sutunlu izgarayi kurar; hangi
 kademede oldugunu **her sayfa kendi deklare eder** (§5.1).
 
-| Kademe                       | Ekranlar                                              | Sol panel                                        |
-| ---------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
-| **A — Kapi** (karar ani)     | `login` · `register`                                  | **Tam kaplayan fotograf** + slogan               |
-| **B — Akis** (mekanik adim)  | `verify-email` · `forgot-password` · `reset-password` | **Fotograf YOK** — Mars zemini + maskot portresi |
-| **C — Esigin ici** (kurulum) | `create-tenant` · `select-tenant`                     | **Tam kaplayan fotograf** + slogan               |
+| Kademe                       | Ekranlar                                              | Sol panel                                                     |
+| ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| **A — Kapi** (karar ani)     | `login` · `register`                                  | **Tam kaplayan fotograf** + slogan                            |
+| **B — Akis** (mekanik adim)  | `verify-email` · `forgot-password` · `reset-password` | ~~**Fotograf YOK**~~ → ⚠️ **fotograf VAR, slogan YOK** (§1.3) |
+| **C — Esigin ici** (kurulum) | `create-tenant` · `select-tenant`                     | **Tam kaplayan fotograf** + slogan                            |
 
 ### 1.2 Neden tek iskelet — "hepsi ya da bazilari" sorusunun cevabi
 
@@ -150,9 +152,40 @@ Iskelet ayni, **panelin isi ayni degil**:
   **kuruluyordur**. Panelin isi bu yuzden ikna degil **yer duygusu** vermektir
   — fotograf var, ama sahne farkli (§2).
 
-⚠️ **Kademe B'de "fotograf yok" bir eksiklik degil, panelin SUSMASIDIR.** Panel
+~~⚠️ **Kademe B'de "fotograf yok" bir eksiklik degil, panelin SUSMASIDIR.** Panel
 kaybolmaz — Mars zemini, ince tanecik, yazili logo ve maskotun kucuk portresi
-kalir. Iskelet, ritim ve renk aynidir; degisen sey **sesin yuksekligidir**.
+kalir. Iskelet, ritim ve renk aynidir; degisen sey **sesin yuksekligidir**.~~
+
+> ### ⚠️ DUZELTME — KADEME B'YE DE FOTOGRAF EKLENDI (Product Owner, 2026-09-01)
+>
+> **Yukaridaki paragraf silinmedi, uzeri cizildi.** Projenin kurali: bir kararin
+> degistigi ancak neyin degistigi gorulerek okunabilir.
+>
+> **Gerekce, bir OLCUM degil bir GORME:** ⚠️ _"canli ekran gorulunce cok sade
+> kaldigi goruldu"_ — Product Owner karari. Yukaridaki argumanin mantigi
+> yanlis degildi (mekanik ekranda anlati geciktirir); yanlis olan, o mantigin
+> **gradyan-yalnizca bir panelin nasil gorunecegi** hakkinda verdigi ortuk
+> tahmindi. Uc ekran yan yana konunca panel bos degil **eksik** duruyordu.
+>
+> ⚠️ **DEGISEN YALNIZCA FOTOGRAFTIR — SLOGAN HALA YOKTUR.** Iki karar ayridir
+> ve ayri ayri verildi:
+>
+> |             | Sahne                      | Slogan              |
+> | ----------- | -------------------------- | ------------------- |
+> | Ne yapar    | "burada bir marka var" der | bir sey ANLATIR     |
+> | Kademe B'de | ⚠️ **VAR** (2026-09-01)    | **YOK** (degismedi) |
+>
+> Mekanik bir ekranda anlati hala geciktirir; bir zemin geciktirmez.
+>
+> ⚠️ **`preload` DE EKLENMEDI.** Sabirsiz kullanici endisesi (§1.3'un kendi
+> gerekcesi) duruyor: fotograf `<1024px`'te zaten HIC indirilmez ve ≥1024'te de
+> yukleme onceligi ALMAZ. Yani ekranda bir gorsel var ama kullanicinin bekledigi
+> sirada onun onune gecmiyor. Bir test bunu kilitliyor.
+>
+> ⚠️ **md seridi (768–1023) DEGISMEDI:** orada fotograf kurali zaten
+> `@media (min-width: 1024px)` icindedir, yani yedi ekranin yedisi de o
+> genislikte gradyan seridi gosterir. §4.4'un "maskotun tamami gorunur" kabul
+> olcutu bu yuzden bozulmadi.
 
 ---
 
@@ -167,9 +200,9 @@ durumla ayni olmalidir.** Esleme rastgele degil, bu olcutle yapildi:
 | ----------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
 | `register`        | **M1 — Yol**     | Yeni gelen. Maskot **el salliyor** ve sehre giden isikli yol goruntude: _"yol buradan basliyor"_. |
 | `login`           | **M3 — Yuruyus** | Donen kullanici. Yuruyus = sureklilik; sahne **yumusak ve dusuk kontrastli** — §2.2.              |
-| `verify-email`    | portre           | Kademe B — sahne yok                                                                              |
-| `forgot-password` | portre           | Kademe B — sahne yok                                                                              |
-| `reset-password`  | portre           | Kademe B — sahne yok                                                                              |
+| `verify-email`    | **M1 — Yol**     | ⚠️ 2026-09-01: `register`in sahnesini SURDURUR (asagidaki not)                                    |
+| `forgot-password` | **M3 — Yuruyus** | ⚠️ 2026-09-01: `login`in sahnesini SURDURUR                                                       |
+| `reset-password`  | **M3 — Yuruyus** | ⚠️ 2026-09-01: `forgot-password`u SURDURUR                                                        |
 | `create-tenant`   | **M4 — Yorunge** | Sirketini kuruyor. Yukaridan bakis: _"buradan hepsini gorursun"_.                                 |
 | `select-tenant`   | **M2 — Sahne**   | ⚠️ Goruntude **birden fazla podyum** var; kullanici da birden fazla sirket arasindan **seciyor**. |
 
@@ -185,16 +218,69 @@ secimi belirledi: M1'in yuksek doygunluklu gun batimi bir kez **etkileyicidir**,
 her sabah **yorucudur**. M3 ayni palettedir ama isigi dagilmis ve kontrasti
 dusuktur — ⚠️ **gunluk tekrara dayanikli tek Mars sahnesi odur.**
 
-### 2.3 Kademe B: maskot var, sahne yok — ve bu YENI BIR VARLIK GEREKTIRIR
+### 2.3 ~~Kademe B: maskot var, sahne yok~~ → ⚠️ KADEME B DE SAHNE ALDI
 
-Kademe B'nin paneli su ucudur: **Mars gradyan zemini + ince tanecik + yazili
-logo + maskotun sahnesiz portresi** (saydam zeminli, bas ve govde).
+~~Kademe B'nin paneli su ucudur: **Mars gradyan zemini + ince tanecik + yazili
+logo + maskotun sahnesiz portresi** (saydam zeminli, bas ve govde).~~
 
-⚠️ **BU VARLIK BUGUN YOKTUR.** Elimizdeki dordu de **sahneli** JPEG'dir. Portre
-bir uretim isidir (M3 veya M2'den kesim, saydam PNG/WebP). ⚠️ **Uretilene kadar
-Kademe B paneli yalnizca gradyan + logo ile calisir ve bu kabul edilebilir bir
-geri dusustur** — bir sahneyi kirpip "portre" diye kullanmak degil, cunku kirpma
-arka plandaki Mars zeminini de tasir ve panelin kendi gradyaniyla ust uste biner.
+~~⚠️ **BU VARLIK BUGUN YOKTUR.** Elimizdeki dordu de **sahneli** JPEG'dir.
+Portre bir uretim isidir (M3 veya M2'den kesim, saydam PNG/WebP). ⚠️ **Uretilene
+kadar Kademe B paneli yalnizca gradyan + logo ile calisir ve bu kabul edilebilir
+bir geri dusustur.**~~
+
+> ### ⚠️ DUZELTME (2026-09-01) — VE BIR BORC KENDILIGINDEN KAPANDI
+>
+> Kademe B artik kendi sahnesini tasiyor, yani `mascot-portrait` **bir ihtiyac
+> olmaktan cikti**. Hala uretilmedi ama artik hicbir seyi engellemiyor: "portre
+> gelene kadar gradyan" geri dususu kapandi.
+>
+> #### ⚠️ ENVANTER: KULLANILMAMIS GORSEL YOKTU
+>
+> Uc ekrana yeni sahne uretmek icin once klasor sayildi
+> (`logo ve fotograflar/`, 2026-09-01):
+>
+> | Dosya            | Ne                               | Durum                       |
+> | ---------------- | -------------------------------- | --------------------------- |
+> | `…21.17.56.jpeg` | Mars sirti, isikli yol, sehir    | **M1 `path`** — kullanimda  |
+> | `…(1).jpeg`      | Koyu sahne, podyumlar, grafikler | **M2 `stage`** — kullanimda |
+> | `…(2).jpeg`      | Mars yuruyus, kesif araci        | **M3 `walk`** — kullanimda  |
+> | `…(3).jpeg`      | Yorunge platformu, Dunya         | **M4 `orbit`** — kullanimda |
+> | 2 × `2026-08-06` | Yazili logo + K isareti          | marka (ADR-0038)            |
+> | `ornek_logo.png` | TradingView referansi            | referans                    |
+> | `… .mp4` (1 MB)  | Hareketli maskot                 | §6.4: auth'ta kullanilmaz   |
+>
+> ⚠️ **Dort sahnenin dordu de zaten kullanimdaydi; kullanilmamis gorsel YOK.**
+> Yani secim "yeni sahne mi, mevcut sahne mi" degil, **mevcut dordunu nasil
+> dagitacagimizdi**.
+>
+> #### ⚠️ KARAR: SAHNE, GELDIGI ZINCIRDEN MIRAS ALINIR
+>
+> Uc ekrana ayri ayri sahne dagitmak **REDDEDILDI** — ve gerekce yeni degil,
+> bu ADR'nin kendi "Degerlendirilen alternatifler" tablosunda zaten yaziliydi:
+> _"akis ekranlarinda her adimda yeni sahne bir SLAYT GOSTERISINE doner"_.
+> ⚠️ O gerekce, "fotograf yok" karari ters cevrilince **ORTADAN KALKMADI**;
+> hala gecerlidir. Bir karari geri almak, ona komsu her karari da geri almaz.
+>
+> Bunun yerine sahne **kullanicinin GELDIGI zincirin** sahnesini surdurur:
+>
+> ```
+> register (path) → verify-email (path)                    ← kayit hunisi
+> login (walk) → forgot-password (walk) → reset-password (walk)
+> ```
+>
+> Boylece iki baskin zincirde de panel adim degistirirken **YERINDE KALIR**;
+> kullanici gelen kutusuna gidip dondugunde ekranin "degistigini" gormez. Bu,
+> §1.2'nin _"baska bir siteye dustum"_ gerekcesinin **ekranlar arasi** degil
+> **adimlar arasi** uygulanmis halidir.
+>
+> ⚠️ **Bilinen tek istisna:** `verify-email`e `login`den de gelinebilir
+> (403 → _"E-postani dogrula →"_ baglantisi); o yolda sahne `walk` → `path`
+> degisir. Tek bir gecis icin ikinci bir kural yazmak, kurali cozdugu sorundan
+> karmasik yapardi.
+>
+> ⚠️ **Sifir yeni varlik, sifir yeni bayt:** `path` ve `walk` zaten uretilmis,
+> zaten butce icinde (48.4 KB / 28.1 KB AVIF), zaten konumu ayarlanmis
+> (§4.4) ve zaten kontrasti olculmus sahnelerdir.
 
 ### 2.4 Maskot bir marka ISARETI DEGILDIR — uc sinir
 
@@ -414,8 +500,10 @@ kalmadigi icin listeden dustu; panel yalnizca zemindir.
 ⚠️ **En kotu deger 10.49** (`stage`) — WCAG AA'nin 4.5 esiginin iki katindan
 fazla, ve bu bir ortalama degil **en kotu tek piksel**.
 
-⚠️ **Kademe B'de fotograf yoktur**, zemin bizim yazdigimiz determinist bir
-gradyandir — yani bu bolumun kendi gerekcesi (_"fotograf degisirse metin
+~~⚠️ **Kademe B'de fotograf yoktur**~~ ⚠️ **ARTIK VARDIR** (2026-09-01, §2.3) —
+ama Kademe B'de **metin de yoktur**, yani orada olculecek bir kontrast kalmadi;
+asagidaki satir tarihsel kayittir. Eski hesabin dayandigi zemin bizim
+yazdigimiz determinist bir gradyandi — yani bu bolumun kendi gerekcesi (_"fotograf degisirse metin
 sessizce okunmaz olur"_) orada GECERSIZDIR. Yine de ⚠️ **metin uste alindiktan
 sonra o gradyanin EN ACIK bolgesine dustugu icin** olcum orada da piksel piksel
 yapildi (39 026 nokta, iki radyal dahil).
@@ -460,7 +548,7 @@ oldugu (§Sonuclari) olculdu.
 | Genislik          | Duzen                                                                                                          |
 | ----------------- | -------------------------------------------------------------------------------------------------------------- |
 | **≥ 1024px** (lg) | Iki sutun `1fr / 1fr`. Form sutununun **icerigi 380 px'te kapanir** ve kendi sutununda optik olarak ortalanir. |
-| **768–1023** (md) | Tek sutun. Panel **ustte ~208 px serit** — ⚠️ **FOTOGRAFSIZ**, Kademe B'nin paneli (asagida).                  |
+| **768–1023** (md) | Tek sutun. Panel **ustte ~208 px serit** — ⚠️ **FOTOGRAFSIZ** (yedi ekranin yedisinde de).                     |
 | **< 768** (sm)    | ⚠️ **Panel TAMAMEN KALKAR.** Form tek basina; yazili logo formun ustune doner (§5.2).                          |
 
 ⚠️ **≥ 1536px (2xl)**: form sutunu 380 px'te sabit kalir, **panel buyur**. Aksi
@@ -476,8 +564,10 @@ bugun `max-w-sm` ile onlenen sey, iki sutunlu duzende **yeniden** onlenmelidir.
 > kirpmasi maskotun basini KESER. Bandi ~420 px yapmak tabletin ekraninin
 > neredeyse yarisini yerdi.
 >
-> **Karar:** md'de panel Kademe B'nin panelidir (gradyan + logo + slogan,
-> fotograf yok). Kural boylece basitlesir ve GUCLENIR:
+> **Karar:** md'de panel gradyan seridi olur (fotograf yok). ⚠️ 2026-09-01'de
+> Kademe B fotograf alinca bu DEGISMEDI: fotograf kurali zaten
+> `@media (min-width: 1024px)` icindedir, yani md'de yedi ekranin yedisi de
+> gradyan gosterir. Kural boylece basitlesir ve GUCLENIR:
 > **maskot gorundugu her yerde tamami gorunur.**
 >
 > ⚠️ Yan kazanci olculebilir: fotograf artik yalnizca ≥1024'te istenir — yani
@@ -1036,9 +1126,9 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
 
 **Olumsuz / bedeli**
 
-- ⚠️ **Dort sahne uretilecek + bir portre HENUZ YOK.** `mascot-portrait` bugun
-  mevcut degildir ve uretilene kadar Kademe B'nin paneli gradyan + logo ile
-  calisir (§2.3). Bu bir eksiktir ve gizlenmiyor.
+- ~~⚠️ **Dort sahne uretilecek + bir portre HENUZ YOK.**~~ ✅ **KAPANDI
+  (2026-09-01)** — Kademe B kendi sahnesini aldi (§2.3), yani `mascot-portrait`
+  bir ihtiyac olmaktan cikti. Hala uretilmedi ama hicbir seyi engellemiyor.
 - ⚠️ **Sosyal giris dugmeleri bugun EKRANDA OLMAYACAK.** Product Owner uc
   saglayici belirtti; karar onlari **tasarliyor ama ertelemektedir**. Bedeli
   acik: kullanici bugun yalnizca e-posta ile girer.
@@ -1066,21 +1156,21 @@ _"eklemedik"_ degil, **"bakildi ve yoktu"**.
 
 ## Degerlendirilen alternatifler
 
-| Alternatif                                                         | Neden secilmedi                                                                                                                                                   |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Yalnizca `login`/`register` split, kalan bes ekran mevcut kart** | Zincirin ortasinda duzen degisirdi — kullanici "baska siteye dustum" hissi yasardi; ayrica iki ayri iskelet, ADR-0038'in ODA oncesi oranti hatasinin tam kaynagi. |
-| **Yedi ekranda da ayni fotograf**                                  | Sahne kullanicinin durumunu anlatmali (§2.1). Tek fotograf, `select-tenant`'ta "sec" fikrini ve `register`'da "basla" fikrini ayni anda **soyleyemez**.           |
-| **Her ekranda farkli fotograf (Kademe B dahil)**                   | Akis ekranlarinda her adimda yeni sahne bir **slayt gosterisine** doner; ayrica mobilde ~250 KB'lik dekoratif indirme.                                            |
-| **Birincil dugme Mars turuncusu**                                  | Teritorya kuralini kurdugu anda kirardi; dolgulu vurgu dugmesi tam olarak `--accent`'in uygulamadaki isidir ve terracotta ile **rol** cakismasi yeniden dogardi.  |
-| **Terracottayi auth'ta birakip Mars'i yalnizca fotografa vermek**  | Ekranda iki sicak turuncu kalirdi; kullanici auth'ta "turuncu = marka" ogrenip `/app`'te "turuncu = asistan" ile karsilasirdi — ayni renk iki sey soyleyemez.     |
-| **Maskotu yazili logonun yerine koymak**                           | Maskot markanin **karakteridir, adi degildir**. Giris ekrani adin ogrenildigi tek yerdir (ADR-0038 §7.2'nin kendi gerekcesi).                                     |
-| **Maskotu favicon / koridor ikonu yapmak**                         | O boyutta okunmaz ve K isaretinin isini calar (ADR-0038 §7.2). Iki isaret ayni isi yaparsa ikisi de zayiflar.                                                     |
-| **Video panelde otomatik oynasin**                                 | 1 MB, giris ekraninda; `prefers-reduced-motion` ile catisir; ve giris bir **islemdir**, gosteri degil. Yeri landing page.                                         |
-| **Sosyal dugmeleri simdi cizip "yakinda" demek**                   | Faz 2'nin `503` kaydinin tersi: calismayan bir sey **calisiyormus gibi** durur. Giris ekrani guvenin kuruldugu ekrandir.                                          |
-| **Sosyal dugmeler e-posta formunun USTUNDE**                       | Ekranin ilk gorunen seyi uc baska sirketin logosu olurdu; ayrica bugun calisan birincil yol e-postadir.                                                           |
-| **`hidden lg:block` ile mobilde paneli gizlemek**                  | Goruntu yine **indirilirdi**. Gizlemek ile indirmemek ayni sey degildir.                                                                                          |
-| **Auth kapsamini `module-colors.css`'e eklemek**                   | O dosya on iki **is modulunun** SSOT'udur; auth bir modul degildir. Karistirmak, on ucuncu modul geldiginde yanlis dosyada aranmasina yol acardi.                 |
-| **Her sahnenin koyu tema varyantini uretmek**                      | Varlik sayisi ikiye katlanir ve senkron kalmasi gereken ikinci bir kopya dogar — ADR-0038'in "ayni paletin uc kopyasi sapmaya aciktir" uyarisi.                   |
+| Alternatif                                                         | Neden secilmedi                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Yalnizca `login`/`register` split, kalan bes ekran mevcut kart** | Zincirin ortasinda duzen degisirdi — kullanici "baska siteye dustum" hissi yasardi; ayrica iki ayri iskelet, ADR-0038'in ODA oncesi oranti hatasinin tam kaynagi.                                                                                                                                            |
+| **Yedi ekranda da ayni fotograf**                                  | Sahne kullanicinin durumunu anlatmali (§2.1). Tek fotograf, `select-tenant`'ta "sec" fikrini ve `register`'da "basla" fikrini ayni anda **soyleyemez**.                                                                                                                                                      |
+| **Her ekranda farkli fotograf (Kademe B dahil)**                   | Akis ekranlarinda her adimda yeni sahne bir **slayt gosterisine** doner; ayrica mobilde ~250 KB'lik dekoratif indirme. ⚠️ **BU SATIR HALA GECERLI:** 2026-09-01'de Kademe B fotograf aldi ama uc AYRI sahne DEGIL — geldigi zincirin sahnesi (§2.3). Bir karari geri almak, ona komsu her karari geri almaz. |
+| **Birincil dugme Mars turuncusu**                                  | Teritorya kuralini kurdugu anda kirardi; dolgulu vurgu dugmesi tam olarak `--accent`'in uygulamadaki isidir ve terracotta ile **rol** cakismasi yeniden dogardi.                                                                                                                                             |
+| **Terracottayi auth'ta birakip Mars'i yalnizca fotografa vermek**  | Ekranda iki sicak turuncu kalirdi; kullanici auth'ta "turuncu = marka" ogrenip `/app`'te "turuncu = asistan" ile karsilasirdi — ayni renk iki sey soyleyemez.                                                                                                                                                |
+| **Maskotu yazili logonun yerine koymak**                           | Maskot markanin **karakteridir, adi degildir**. Giris ekrani adin ogrenildigi tek yerdir (ADR-0038 §7.2'nin kendi gerekcesi).                                                                                                                                                                                |
+| **Maskotu favicon / koridor ikonu yapmak**                         | O boyutta okunmaz ve K isaretinin isini calar (ADR-0038 §7.2). Iki isaret ayni isi yaparsa ikisi de zayiflar.                                                                                                                                                                                                |
+| **Video panelde otomatik oynasin**                                 | 1 MB, giris ekraninda; `prefers-reduced-motion` ile catisir; ve giris bir **islemdir**, gosteri degil. Yeri landing page.                                                                                                                                                                                    |
+| **Sosyal dugmeleri simdi cizip "yakinda" demek**                   | Faz 2'nin `503` kaydinin tersi: calismayan bir sey **calisiyormus gibi** durur. Giris ekrani guvenin kuruldugu ekrandir.                                                                                                                                                                                     |
+| **Sosyal dugmeler e-posta formunun USTUNDE**                       | Ekranin ilk gorunen seyi uc baska sirketin logosu olurdu; ayrica bugun calisan birincil yol e-postadir.                                                                                                                                                                                                      |
+| **`hidden lg:block` ile mobilde paneli gizlemek**                  | Goruntu yine **indirilirdi**. Gizlemek ile indirmemek ayni sey degildir.                                                                                                                                                                                                                                     |
+| **Auth kapsamini `module-colors.css`'e eklemek**                   | O dosya on iki **is modulunun** SSOT'udur; auth bir modul degildir. Karistirmak, on ucuncu modul geldiginde yanlis dosyada aranmasina yol acardi.                                                                                                                                                            |
+| **Her sahnenin koyu tema varyantini uretmek**                      | Varlik sayisi ikiye katlanir ve senkron kalmasi gereken ikinci bir kopya dogar — ADR-0038'in "ayni paletin uc kopyasi sapmaya aciktir" uyarisi.                                                                                                                                                              |
 
 ---
 
