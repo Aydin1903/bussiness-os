@@ -773,6 +773,11 @@ soyluyordu.
 
 ## 10. ⚠️ Google kisisellestirilmis dugme — ve olculmus bir KISIT
 
+> ⚠️ **BU BOLUMUN UYGULAMA KARARI [EK-1](#ek-1-2026-09-02--10un-uygulama-karari-post-authoauthgoogleone-tap)'DEDIR** (2026-09-02, hemen §10.5'in altinda).
+> §10 kutunun **ne olacagini** tanimlar; EK-1 **nasil calisacagini**. Uygulamaya
+> gecildiginde ortaya cikti ki kisisellestirilmis kutu **saf frontend degildir**
+> — bu ADR'nin kendi boslugu ve EK-1'de kayda geciriliyor.
+
 PO'nun istedigi: tarayicida Google oturumu aciksa **ad/e-posta/avatar** ile
 _"X olarak devam et"_ kutusu, digerlerinin **ustunde ayri bir satir**.
 
@@ -834,6 +839,340 @@ ekrana** kontrol etmedigimiz bir betik ekleniyor.
   vazgecilirse geri kalan her sey aynen calisir.
 
 ---
+
+---
+
+## EK-1 (2026-09-02) — §10'un UYGULAMA KARARI: `POST /auth/oauth/google/one-tap`
+
+> **Durum:** 🟡 **ONERILDI — Product Owner onayi bekliyor.** §9 (dugme satiri)
+> uygulandi ve prod'a cikti (`00aedd6`); §10 ve CSP **cikmadi**.
+>
+> ⚠️ **Bu ek, mevcut §10 metnini SILMEZ ve DEGISTIRMEZ.** §10 kisisellestirilmis
+> kutunun _ne olacagini_ ve _neden iki kez gorunecegini_ tanimliyordu; ek onun
+> **nasil calisacagini** tanimlar. §10'un kararlari (FedCM acik · betik
+> engellenirse hic mount edilmez · Google iki kez gorunur · yalnizca login ve
+> register) **aynen gecerlidir**.
+
+### EK-1.0 ⚠️ NEDEN BU EK GEREKTI — ADR'NIN KENDI BOSLUGU
+
+§10 uygulanmaya calisildiginda ortaya cikti: **kisisellestirilmis kutu saf bir
+frontend isi DEGILDIR.** ADR-0053 bunu yazmamisti ve bu, ADR'nin kendi
+eksigidir — kayda geciriliyor.
+
+Sebep mekaniktir: kisisellestirme YALNIZCA `google.accounts.id.renderButton`
+ile gelir; o da bir **ID token** (`credential`) uretir. Redirect akisinin
+`code`u ile bu token AYNI SEY DEGILDIR:
+
+|                   | Redirect akisi (bugun canli)                                     | One Tap / kisisellestirilmis dugme                     |
+| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Tarayicidan gelen | `code` (tek kullanimlik, bize ozel)                              | **ID token** (JWT, Google imzali)                      |
+| Sunucu ne yapar   | `code` → token exchange (⚠️ **client secret** burada kullanilir) | Token'i **dogrular**; exchange YOK, secret KULLANILMAZ |
+| Giris noktasi     | `GET /auth/oauth/:provider/callback`                             | ⚠️ **YOK — bu ek onu tanimliyor**                      |
+
+⚠️ Yani ozellik, **ikinci bir kimlik dogrulama girisi** acar. CLAUDE.md
+"Danisilmasi Zorunlu" listesinde **Authentication** vardir; bu yuzden
+implementasyon durduruldu ve karar buraya yazildi.
+
+⚠️ **Degerlendirilen ve REDDEDILEN alternatif (b):** GIS yalnizca "kimi
+gosterecegini" soylesin, giris yine mevcut redirect akisiyla olsun
+(`/start`e `login_hint` gecirmek). Reddedildi cunku **kullaniciya iki kez
+Google gosterir**: GIS penceresi cozulur, ardindan tam sayfa Google
+navigasyonu baslar. Kisisellestirilmis kutunun tek gerekcesi **hizlandirmakti**;
+iki turlu bir akis onu YAVASLATIR ve ozelligi anlamsiz kilar.
+
+⚠️ Bedeli durustce: (a) ikinci bir auth yuzeyi acar. Asagidaki EK-1.1–EK-1.5
+o yuzeyin **tamamini** tanimlar; hicbir adim "sonra bakariz"a birakilmaz.
+
+---
+
+### EK-1.1 UC NOKTA CIFTI — ve neden IKI tane
+
+| Uc                                          | Metot  | Isi                                                           |
+| ------------------------------------------- | ------ | ------------------------------------------------------------- |
+| `/api/v1/auth/oauth/:provider/one-tap/init` | `GET`  | `nonce` + `clientId` doner; **imzali `HttpOnly` cerez** yazar |
+| `/api/v1/auth/oauth/:provider/one-tap`      | `POST` | GIS `credential`ini dogrular, D1/D2/D3'u kosar, oturum acar   |
+
+⚠️ **`init` NEDEN AYRI BIR UC — ve neden `nonce`u ISTEMCI URETMEZ**
+
+GIS'e verilen `nonce`, uretilen ID token'in icine `nonce` claim'i olarak girer
+ve replay korumasinin tamamidir. Istemci uretseydi hicbir sey kanitlamazdi:
+saldirgan kendi urettigi `nonce`la kendi token'ini olusturur ve sunucuya
+sunardi — dogrulama **kendi kendini onaylayan** bir dongu olurdu.
+
+Bu yuzden `nonce` **SUNUCUDA** uretilir (`OAuthStateGenerator`, 32 bayt CSPRNG —
+`state`/`nonce` ile ayni port) ve iki yere birden gider:
+
+1. **Yanit govdesine** — istemci JS'inin GIS'i yapilandirmasi icin gereklidir.
+   ⚠️ Bu bir sizinti DEGILDIR: `nonce` bir SIR degil bir **baglayicidir**;
+   degeri gizli olmasindan degil, sunucunun onu **kendisinin urettigini
+   bilmesinden** gelir.
+2. **`HttpOnly` imzali cereze** — sunucunun "bu `nonce`u BU TARAYICI icin ben
+   urettim" diyebilmesinin tek yolu. JS okuyamaz, degistiremez.
+
+⚠️ **`clientId` de govdede doner ve bu bir karardir.** Alternatif
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` idi ve REDDEDILDI: ayni degeri iki yerde
+tutmak (Railway + Vercel) **ayrisabilir** ve ayristigi gun hata SESSIZ olur —
+GIS yanlis `aud` ile token uretir, sunucu reddeder, kullanici sebebi
+anlasilmayan bir "giris tamamlanamadi" gorur. ⚠️ Ayrica `NEXT_PUBLIC_*` DERLEME
+ZAMANINDA gomulur (CLAUDE.md'nin kendi uyarisi): degiskeni degistirmek yeniden
+derleme gerektirir. Tek kaynak sunucudur.
+
+### EK-1.2 ⚠️ DOGRULAMA — bes kontrolun BESI DE zorunlu
+
+`POST /auth/oauth/google/one-tap` govdesinde tek alan vardir: `credential`.
+Adapter onu su sirayla dogrular ve **herhangi biri duserse** akis
+`OAuthProviderFailedError` ile biter:
+
+| #   | Kontrol     | Deger                                                  | Atlanirsa ne olur                                                               |
+| --- | ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| 1   | **imza**    | Google JWKS (`googleapis.com/oauth2/v3/certs`)         | ⚠️ Herkes kendi imzaladigi token'la **istedigi kisi olarak** girer              |
+| 2   | **`iss`**   | `accounts.google.com` \| `https://accounts.google.com` | Baska bir IdP'nin token'i kabul edilir                                          |
+| 3   | **`aud`**   | **bizim** `clientId`                                   | ⚠️ **BASKA BIR SITENIN** Google token'i bizde gecerli olur — en sinsi olani     |
+| 4   | **`exp`**   | `Clock` port'undan (`new Date()` DEGIL)                | Suresi dolmus token sonsuza kadar kullanilir                                    |
+| 5   | **`nonce`** | ⚠️ **cerezdeki degerle birebir**                       | ⚠️ Calinan bir ID token **yeniden oynatilir** — replay korumasinin tamami budur |
+
+⚠️ **3. ve 5. satir en kritik ikisidir ve ikisi de "unutulunca sessiz" siniftadir**:
+token gecerli gorunur, imza tutar, kullanici girer — yalnizca **yanlis kisi**
+girer. Bu yuzden her biri icin **ayri bir test** yazilir (EK-1.6).
+
+⚠️ **`nonce` TEK KULLANIMLIKTIR.** Uc, dogrulama sonucundan BAGIMSIZ olarak
+cerezi ilk isinde siler — `callback`in `clearOAuthStateCookie`i koşulsuz
+cagirmasiyla **birebir ayni disiplin** (ve 2026-09-01'de o disiplinin
+`?error=state` uretmesinin sebebi tam olarak buydu; orada dogru davranisti,
+burada da dogrudur).
+
+⚠️ **Adapter yeteneginin yeri:** `verifyIdToken`, `OAuthProviderPort`a
+**EKLENMEZ**. Sebep: One Tap Google'a ozgudur ve Microsoft/LinkedIn/Facebook
+adapter'lari onu **implemente edemez**; port'a koymak uc adapter'i
+`throw new Error('desteklenmiyor')` yazmaya zorlardi — yani arayuz, tasiyamayan
+uc uygulayiciya yalan soylerdi. Bunun yerine **ayri ve istege bagli** bir
+yetenek arayuzu:
+
+```ts
+export const OAUTH_ID_TOKEN_VERIFIER = Symbol('OAUTH_ID_TOKEN_VERIFIER');
+
+export interface OAuthIdTokenVerifier {
+  readonly key: OAuthProviderKey;
+  /** Basarisizlikta `OAuthProviderFailedError`; `null` DONMEZ (§3 ile ayni kural). */
+  verifyIdToken(input: { idToken: string; nonce: string }): Promise<OAuthIdentity>;
+}
+```
+
+Registry ikinci bir arama sunar: `findIdTokenVerifier(key)`. ⚠️ Yalnizca
+Google implemente eder; digerleri icin `null` doner ve uc **404**tur — §3.3'un
+_"yapilandirilmamis saglayici = olmayan saglayici"_ kuralinin aynisi, bu kez
+_"bu yetenegi olmayan saglayici = olmayan uc"_ olarak.
+
+### EK-1.3 ⚠️ D1/D2/D3 YENIDEN KULLANILIR — yeni dallanma ICAT EDILMEZ
+
+Bu, ekin **en baglayici** maddesidir. `CompleteOAuthUseCase` bugun sunu yapar:
+
+```
+execute() → #verifyState() → provider.exchange() → #resolve(identity)
+                                                    └── D1 / D2 / D3
+```
+
+⚠️ One Tap yolu **`#resolve`u AYNEN kullanir**; D1/D2/D3'un ikinci bir kopyasi
+YAZILMAZ. Kopya cikarilsaydi hata SESSIZ olurdu — ornegin nOAuth savunmasi
+(D3'e dusme kurali) bir yolda degisip digerinde degismezse, kimse fark etmeden
+bir giris yolu korumasiz kalirdi. ⚠️ Bu, `FederatedSessionIssuer` kopyasinin
+`session-tokens.ts` ile birlestirilmesiyle **ayni derstir** ve bu kez bastan
+uygulanir.
+
+Uygulama sekli — `session-tokens.ts` deseninin aynisi:
+
+1. `#resolve` bir isbirlikcisine cikarilir: `ResolveFederatedIdentity`
+   (girdi `OAuthIdentity` + `correlationId`, cikti `signed-in` |
+   `verification-required`).
+2. `CompleteOAuthUseCase` onu cagirir — **davranisi degismez**.
+3. Yeni `CompleteOneTapUseCase` **ayni isbirlikciyi** cagirir; tek farki
+   girdiyi nasil elde ettigidir (`verifyIdToken`, `exchange` degil).
+
+⚠️ **PAYLASILAN SEY DAR TUTULUR** (yine ayni ders): transaction sahipligi,
+oturum acma ve cerez yazma iki uctadir; paylasilan tek sey **karar mantigidir**.
+
+⚠️ **D3 One Tap'te de gecerlidir ve bu onemlidir:** Google'in
+`email_verified` claim'i `false` gelirse akis yine kendi 6 haneli kodumuza
+duser. Kullanici bir GIS kutusuna tikladi diye hukum gevsemez — hukum
+adapter'in, dal `#resolve`un isidir.
+
+### EK-1.4 ⚠️ ORAN SINIRI — ve mevcut IKI mekanizmanin DA KULLANILAMAZ oldugu
+
+Bu uc, `/start`tan **kategorik olarak farklidir** ve fark olculdu:
+
+|                                  | `GET /start`             | `POST /one-tap`                                            |
+| -------------------------------- | ------------------------ | ---------------------------------------------------------- |
+| Saldirganin uretmesi gereken sey | — (yalnizca yonlendirme) | ⚠️ Bizim `aud`umuzla **gecerli bir Google ID token**       |
+| Bunu uretebilir mi               | —                        | ⚠️ **EVET** — herhangi bir Google hesabiyla, GIS uzerinden |
+| Sunucuda ne tetikler             | cerez + 302              | JWKS dogrulama + ⚠️ **KULLANICI OLUSTURABILIR** (D2/D3)    |
+
+⚠️ Yani `/start` icin yazilan _"oran siniri yok, cunku pahali adim gecerli bir
+`code` ister"_ gerekcesi **burada GECERSIZDIR**: bariyer "bizim kodumuza sahip
+olmak"tan "bir Google hesabina sahip olmak"a duser.
+
+**Mevcut iki mekanizma da kullanilamaz — ikisi de olculdu:**
+
+1. ⚠️ **`platform.rate_limits` KULLANILAMAZ.** Tablo `tenant_id uuid NOT NULL
+REFERENCES platform.tenants` tasir, RLS politikasi
+   `current_setting('app.current_tenant_id')`e dayanir ve `enforceRateLimit`
+   imzasi `tenantId` **ister**. Bu uc ise **kimlik oncesidir**: tenant yoktur.
+2. ⚠️ **`login_attempts` (ADR-0022 defteri) KULLANILMAMALIDIR** — ve bu bir
+   uslup tercihi degil, **bir saldiri yuzeyidir**: defter `(email, ip)` ile
+   anahtarlidir ve Katman 1 esigi **5 hatada kilitler**. One Tap hatalari oraya
+   yazilsaydi, saldirgan kurbanin e-postasiyla bes basarisiz One Tap istegi
+   gondererek ⚠️ **kurbanin PAROLA girisini kilitleyebilirdi.** Iki sayacin
+   karistirilmasi, bir yolu digerini bozmak icin kullanilabilir kilar.
+
+**Karar:** ⚠️ `platform.verification_code_requests` **DESENI** (ADR-0019 §7.4)
+tekrarlanir — o tablo tenant'siz, `ip_address` ile anahtarli ve zaten bu isi
+yapiyor. Yeni ve **dar** bir tablo: `platform.one_tap_attempts`
+(`ip_address` · `attempted_at`), tek migration, tek index.
+
+- **IP basina saatlik ust sinir** (baslangic: 20). Asilirsa **429**.
+- ⚠️ **Hesap bazli sayac YOKTUR** — yukaridaki kilitleme saldirisini yeniden
+  uretmemek icin. Sinir yalnizca **kaynak** tarafindadir.
+- ⚠️ Sinir **`init` ucuna DEGIL** `one-tap` ucuna konur: `init` bir cerez yazip
+  32 bayt dondurur, `one-tap` ise JWKS dogrular ve kullanici olusturabilir.
+- ⚠️ Bu tablo **retention listesine girer** (ROADMAP §8.5 olcutu: satir zamanla
+  cogalir) ve liste **24 → 25** olur.
+
+### EK-1.5 ⚠️ TOKEN TURU AYRIMI — B3 disiplini, artik BES TUR
+
+`init` ucu **ucuncu bir OAuth cerezi** yazar (`oauth_one_tap`) ve bu, imzalayan
+port'a **besinci** token turunu ekler:
+
+| #   | `typ`                | Oturum token'i mi | Dogrulayici                |
+| --- | -------------------- | :---------------: | -------------------------- |
+| 1   | `identity`           |        ✅         | `verify()`                 |
+| 2   | `access`             |        ✅         | `verify()`                 |
+| 3   | `oauth-state`        |        ❌         | `verifyOAuthState()`       |
+| 4   | `oauth-pending-link` |        ❌         | `verifyOAuthPendingLink()` |
+| 5   | **`oauth-one-tap`**  |        ❌         | **`verifyOAuthOneTap()`**  |
+
+⚠️ **AYRIM TESTI BIR MATRISE DONUSUR.** Bugunku test alti kombinasyonu tek tek
+sinar; bes tur ile bu **yirmi** kombinasyondur (5 dogrulayici × kendi turu
+disindaki 4 tur) ve tek tek yazmak hem eksik kalir hem okunmaz.
+
+**Karar:** test **tablo surumlu** hale getirilir — her `(uretici, dogrulayici)`
+cifti otomatik uretilir ve `uretici !== dogrulayici` olan **her** cift icin
+`InvalidTokenError` beklenir. ⚠️ Boylece **altinci tur eklendigi gun test
+KENDILIGINDEN buyur**; bugunku bicimde ise yeni turun kombinasyonlari
+**yazilmadigi surece sessizce eksik kalirdi.**
+
+⚠️ **`oauth_one_tap` cerezi de `SameSite=Lax` DEGIL `Strict` olur** — ve bu,
+`state` cereziyle **bilincli bir ayrimdir**: state cerezi bir **ust seviye
+cross-site navigasyonda** (Google → biz) geri gelmek zorundaydi, bu yuzden
+`Lax`ti. One Tap cerezi ise yalnizca **kendi sayfamizdan atilan bir XHR**'de
+kullanilir; cross-site bir navigasyon yoktur, dolayisiyla daha dar olan
+`Strict` **bedelsizdir**. `Path=/api/v1/auth/oauth`, 10 dk.
+
+### EK-1.6 KABUL OLCUTLERI — hepsi testle kilitlenir
+
+1. Imzasi bozuk / `iss` yanlis / **`aud` BASKA BIR SITENIN** / suresi dolmus /
+   **`nonce` eslesmeyen** token → **her biri ayri testle** reddedilir.
+2. `nonce` cerezi yoksa → red. Cerez **ilk kullanimda silinir**; ayni credential
+   ikinci kez sunulunca → red (**replay**).
+3. D1/D2/D3 dallari One Tap yolunda da **ayni isbirlikciden** gecer — bir
+   entegrasyon testi ayni kullanicinin hem redirect hem One Tap yoluyla
+   girdiginde ⚠️ **ikinci bir `federated_identities` satiri olusmadigini**
+   kanitlar.
+4. Token turu matrisi: yirmi kombinasyonun yirmisi de reddedilir.
+5. IP saatlik sinir asilinca **429**; ⚠️ ayni anda `login_attempts` sayaci
+   **artmamis** olur (kilitleme saldirisinin yokluğunun kaniti).
+6. `findIdTokenVerifier` `null` donen saglayici icin uc **404**.
+
+---
+
+## EK-2 (2026-09-02) — CSP: ⚠️ GENISLETILECEK BIR POLITIKA YOK, SIFIRDAN EKLENIYOR
+
+### EK-2.1 ⚠️ OLCULEN GERCEK
+
+ADR-0053 §10.5 _"CSP'de yalnizca `https://accounts.google.com` icin `script-src`
+acilir"_ diyor. ⚠️ **Bu cumle bir yanlis oncule dayaniyordu ve olculerek
+duzeltildi:** `https://app.kobiwise.com` bugun **hicbir CSP gondermiyor** —
+yanitta yalnizca Vercel'in `Strict-Transport-Security`si var.
+
+Yani yapilacak is bir **genisletme** degil, **sifirdan bir politika
+eklemektir** — ve bu, ozelligin kendisinden daha riskli olabilecek bir
+altyapi degisikligidir.
+
+### EK-2.2 ⚠️ RISKIN SEKLI: BUILD YESIL, TARAYICI KIRIK
+
+Yanlis bir CSP'nin hatasi **derlemede ve testte gorunmez**: `pnpm verify` yesil
+yanar, birim testleri gecer, SSR HTML doner — ⚠️ ve sayfa **yalnizca gercek
+tarayicida** bozulur (konsolda `Refused to execute inline script`). Bu, tam
+olarak bu projenin surekli isaretledigi **sessiz hata** sinifidir.
+
+⚠️ Ve bedeli artik daha yuksek: prod'da **gercek kullanici var** (CLAUDE.md,
+2026-09-01). Bir CSP hatasi giris ekranini komple kullanilamaz kilabilir.
+
+### EK-2.3 KARAR: `script-src` NONCE TABANLI, `style-src` icin DAR ISTISNA
+
+| Direktif          | Deger                                                         | Gerekce                                                                  |
+| ----------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `script-src`      | `'self' 'nonce-<istek basina>' https://accounts.google.com`   | ⚠️ `'unsafe-inline'` **YOK** — XSS'e karsi asil degeri veren satir budur |
+| `style-src`       | `'self' 'unsafe-inline'`                                      | ⚠️ **Bilincli ve DAR istisna** — asagida                                 |
+| `connect-src`     | `'self' https://api.kobiwise.com https://accounts.google.com` | Uygulama API'si + GIS'in kendi cagrilari                                 |
+| `frame-src`       | `https://accounts.google.com`                                 | ⚠️ GIS kutusu bir **iframe**tir; yazilmazsa kutu SESSIZCE bos kalir      |
+| `img-src`         | `'self' data: https://lh3.googleusercontent.com`              | ⚠️ Kisisellestirilmis kutudaki **avatar** oradan gelir                   |
+| `default-src`     | `'self'`                                                      | Fail-closed taban                                                        |
+| `object-src`      | `'none'`                                                      | Eklenti yuzeyi kapali                                                    |
+| `base-uri`        | `'self'`                                                      | `<base>` ile taban adres kacirma kapali                                  |
+| `frame-ancestors` | `'none'`                                                      | Clickjacking                                                             |
+
+⚠️ **`style-src`de neden `'unsafe-inline'` KABUL EDILIYOR:** Next.js ve Tailwind
+satir ici stil enjekte eder ve bunlarin hepsi nonce'lanamaz. Risk asimetriktir
+ve bu **olculebilir bir fark**tir: enjekte edilen bir **script** kod calistirir,
+enjekte edilen bir **stil** en fazla gorunumu bozar. ⚠️ Bu bir "gecici cozum"
+degil, bilincli ve sinirlari yazili bir istisnadir — `script-src`e ASLA
+tasinmaz.
+
+⚠️ **`'strict-dynamic'` KULLANILMAZ.** Kullanilsaydi host beyaz listesi
+destekleyen tarayicilarda **YOK SAYILIRDI** ve `accounts.google.com` satiri
+yaniltici bir sus haline gelirdi — okuyan biri kisitin durdugunu sanardi.
+Bugun tek bir dis kaynak var; acik host listesi hem yeterli hem **okunabilir**.
+
+⚠️ **Nonce'un bedeli durustce yazilir:** istek basina nonce, sayfalari
+**dinamik** kilar (statik optimizasyon kaybi). Auth ekranlari zaten dinamiktir
+(`searchParams` okurlar), yani bugunku bedel **sifira yakindir**; landing page
+(Faz 9) geldiginde bu yeniden tartilmali — ⚠️ o sayfa statik kalmali ve
+gerekirse CSP'si nonce'suz, daha dar bir varyant olmalidir.
+
+### EK-2.4 ⚠️ UYGULAMA SIRASI BAGLAYICIDIR — once RAPOR-YALNIZ
+
+Politika **dogrudan zorlayici olarak** yayina alinmaz. Iki asama:
+
+1. **`Content-Security-Policy-Report-Only`** ile cikilir. Sayfa **hicbir kosulda
+   bozulmaz**; ihlaller yalnizca tarayici konsoluna duser.
+2. ⚠️ **Gercek tarayicida** yedi auth ekrani + `/app` gezilir ve konsolda
+   **sifir** ihlal goruldugu **dogrulanir**. Ancak ondan sonra baslik
+   `Content-Security-Policy`ye cevrilir.
+
+⚠️ **Kabul olcutu acikca yazilir:** _"`pnpm verify` yesil"_ bu is icin **YETERLI
+DEGILDIR**. Kanit **tarayici konsoludur** — CLAUDE.md'nin kalici dersinin
+(_"bir ciktinin YOKLUGU, o adimin gectiginin kaniti degildir"_) bu isteki
+karsiligi budur.
+
+⚠️ **CSP, EK-1 ile AYNI SLICE'TADIR ve ayrilamaz:** yuklemedigimiz bir betik
+icin `script-src`e `accounts.google.com` yazmak, okuyan birine orada bir betik
+oldugunu soyleyen **yaniltici bir satir** olurdu. Ikisi birlikte cikar ya da
+hicbiri cikmaz.
+
+---
+
+## EK-1/EK-2 — Product Owner onayi gereken kalemler
+
+| #     | Kalem                                                                                                       | Neden onaya sunuluyor                                                                                                       |
+| ----- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **G** | ⚠️ **Ikinci bir kimlik dogrulama girisi** aciliyor (`POST /auth/oauth/google/one-tap`).                     | CLAUDE.md "Danisilmasi Zorunlu: Authentication". Alternatif (b) reddedildi (kullaniciya iki kez Google gosterirdi).         |
+| **H** | ⚠️ **Yeni tablo + migration**: `platform.one_tap_attempts` (IP bazli oran siniri).                          | Mevcut iki mekanizma da kullanilamaz; biri (`login_attempts`) kullanilsa **kilitleme saldirisi** acardi.                    |
+| **I** | ⚠️ **Sifirdan CSP** — `script-src` nonce tabanli, `style-src`de dar `'unsafe-inline'` istisnasi.            | Genisletilecek politika **yok**; yanlisi build/test yesilken **yalnizca tarayicida** kirar ve prod'da gercek kullanici var. |
+| **J** | ⚠️ **Ayrim testi matrise donusuyor** (6 → 20 kombinasyon) ve `TokenSigner` **besinci** token turunu aliyor. | B3'un onay kosulunun genislemesi. ⚠️ Altinci tur gelirse port'un kendisi yeniden dusunulmelidir.                            |
+
+⚠️ **Bir esik yaziliyor:** `TokenSigner` besinci turu aliyor. **Altinci** bir tur
+gundeme gelirse, port'a bir tur daha eklemek yerine **kisa omurlu imzali cerez**
+kavrami ayri bir soyutlamaya cikarilmalidir. Bu, ADR-0036'nin esik desenidir:
+sinir bugun asilmiyor ama **yazilmadan gecilmiyor**.
 
 ## 11. ⚠️ HANGI EKRANLARDA GORUNUR — ADR-0052 §6.1 DEGISIYOR
 
