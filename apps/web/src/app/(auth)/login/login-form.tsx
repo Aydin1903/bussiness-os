@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { SocialSignIn } from '@/components/auth/social-sign-in';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { FormError } from '@/components/ui/form-error';
@@ -162,6 +163,16 @@ export function LoginForm({
       <Button type="submit" loading={loading}>
         Giriş yap
       </Button>
+
+      {/*
+        ⚠️ SOSYAL GİRİŞ E-POSTA FORMUNUN ALTINDA (ADR-0052 §6.2, ADR-0053 §9.3).
+        Üste konsaydı ekranın ilk görünen şeyi BAŞKA ŞİRKETLERİN logosu olurdu;
+        ayrıca birincil yol e-postadır ve görsel olarak da birincil olmalıdır.
+
+        ⚠️ Bu satırın eklenmesiyle form BİR KEZ AŞAĞI KAYAR — ADR-0052 §6.1'in
+        önceden kabul ettiği, bir kerelik ve geri alınmayacak görsel değişiklik.
+      */}
+      <SocialSignIn next={next} />
 
       <div className="flex flex-col gap-2 text-center text-sm text-fg-muted">
         <Link href="/forgot-password" className="underline-offset-2 hover:text-fg hover:underline">

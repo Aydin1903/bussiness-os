@@ -85,3 +85,30 @@ export type LoginResponse = z.infer<typeof loginResponseSchema>;
  */
 export const switchTenantResponseSchema = z.object({ accessToken: z.string().min(1) });
 export type SwitchTenantResponse = z.infer<typeof switchTenantResponseSchema>;
+
+/**
+ * `GET /auth/oauth/providers` yanıtı — YAPILANDIRILMIŞ sosyal giriş
+ * sağlayıcıları, gösterim sırasıyla (ADR-0053 §3.3, §9.4).
+ *
+ * ============================================================================
+ * ⚠️ İSTEMCİ BU LİSTEYİ SABİT KODLAMAZ
+ * ============================================================================
+ * Sağlayıcı yapılandırılmamışsa sunucunun registry'sinde HİÇ YOKTUR ve bu
+ * listede de görünmez. Arayüz düğmeleri buradan çizer; aksi halde
+ * yapılandırılmamış bir sağlayıcının düğmesi ekranda durur ve tıklanınca
+ * **404** verir — ADR-0052 §6.1'in açıkça reddettiği şey (_"tıklandığında
+ * hiçbir şey yapmayan düğme"_).
+ *
+ * ⚠️ Sıra ANLAMLIDIR ve sunucudan gelir (ADR-0053 §9.3: yaygın kullanım —
+ * Google · Microsoft · LinkedIn · Facebook). İstemci yeniden SIRALAMAZ.
+ *
+ * ⚠️ Şema `enum` DEĞİL `string` kullanır ve bu bilinçlidir: sunucu bir gün
+ * beşinci sağlayıcıyı (Apple) eklediğinde, istemci güncellenmeden önce bir
+ * yanıt gelirse `enum` onu REDDEDER ve giriş ekranındaki TÜM düğmeler
+ * kaybolurdu. Bilinmeyen bir anahtar sessizce atlanır (`SOCIAL_PROVIDERS`
+ * sözlüğünde karşılığı yoksa çizilmez) — bozulma yerine daralma.
+ */
+export const oauthProvidersResponseSchema = z.object({
+  providers: z.array(z.string().min(1)),
+});
+export type OAuthProvidersResponse = z.infer<typeof oauthProvidersResponseSchema>;

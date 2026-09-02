@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { SocialSignIn } from '@/components/auth/social-sign-in';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { FormError } from '@/components/ui/form-error';
@@ -88,6 +89,17 @@ export default function RegisterPage() {
         <Button type="submit" loading={loading}>
           Hesap oluştur
         </Button>
+
+        {/*
+          ⚠️ AYNI UÇ, FARKLI METİN. Ayrı bir "kayıt" ucu YOKTUR: akış
+          "bağla ya da aç"tır (ADR-0053 §11) — sunucu `(provider, sub)` bağlı
+          değilse hesabı kendisi açar. Bu yüzden burada da `SocialSignIn`
+          kullanılır, kopyası değil.
+
+          ⚠️ `next` YOK: kayıt sonrası hedef her zaman akışın kendi devamıdır
+          (ADR-0028'in yönlendirmesi), bir sayfa değil.
+        */}
+        <SocialSignIn />
 
         <p className="text-center text-sm text-fg-muted">
           Zaten hesabın var mı?{' '}

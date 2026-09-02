@@ -40,6 +40,7 @@ export {
   messageResponseSchema,
   loginResponseSchema,
   switchTenantResponseSchema,
+  oauthProvidersResponseSchema,
 } from './auth/auth.contract';
 export type {
   RegisterRequest,
@@ -52,6 +53,7 @@ export type {
   MessageResponse,
   LoginResponse,
   SwitchTenantResponse,
+  OAuthProvidersResponse,
 } from './auth/auth.contract';
 
 export {
