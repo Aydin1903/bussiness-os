@@ -42,6 +42,9 @@ export { identityOutbox } from './identity-outbox.schema';
 // Sosyal giris (Faz 8, ADR-0053). ⚠️ Ayni istisna listesinde ve AYNI gerekceyle:
 // OAuth callback'i tenant context'i kurulmadan ONCE calisir.
 export { federatedIdentities } from './federated-identities.schema';
+// One Tap oran siniri defteri (ADR-0053 EK-1.4). ⚠️ Ayni istisna listesinde:
+// uc kimlik oncesidir, tenant context'i yoktur.
+export { oneTapAttempts } from './one-tap-attempts.schema';
 
 // Knowledge (Faz 4) — `platform` disindaki ILK modul semasi (ADR-0029, ADR-0030).
 // Hepsi tenant-scoped: RLS ENABLE + FORCE, standart sablon (MT §12.2).

@@ -6,6 +6,7 @@ import {
   type ExchangeInput,
   type OAuthAuthorization,
   type OAuthIdentity,
+  type OAuthIdTokenVerifier,
   type OAuthProviderPort,
 } from '../../shared/oauth-provider.port';
 import { OAuthProviderFailedError } from '../../modules/identity/domain/identity.error';
@@ -57,7 +58,7 @@ export interface GoogleOAuthAdapterOptions {
  * calinmis bir ID token yeniden oynatılabilir.
  * ============================================================================
  */
-export class GoogleOAuthAdapter implements OAuthProviderPort {
+export class GoogleOAuthAdapter implements OAuthProviderPort, OAuthIdTokenVerifier {
   readonly key = 'google' as const;
 
   /**
@@ -97,8 +98,30 @@ export class GoogleOAuthAdapter implements OAuthProviderPort {
 
   async exchange(input: ExchangeInput): Promise<OAuthIdentity> {
     const idToken = await this.#exchangeCodeForIdToken(input);
-    const claims = await this.#verifyIdToken(idToken, input.nonce);
 
+    return this.#toIdentity(await this.#verifyIdToken(idToken, input.nonce));
+  }
+
+  /**
+   * `OAuthIdTokenVerifier` — One Tap yolu (ADR-0053 EK-1.2).
+   *
+   * ⚠️ `exchange` ile AYNI dogrulama fonksiyonunu kullanir ve bu bilinclidir:
+   * bes kontrolun (imza · `iss` · `aud` · `exp` · `nonce`) IKI YOLDA DA ayni
+   * kodla yapilmasi, birinin digerinden ayrisamamasini garanti eder. Ayri
+   * yazilsalardi bir gun biri `aud`u kaybeder ve hata SESSIZ olurdu.
+   *
+   * ⚠️ Tek fark girdinin nereden geldigidir: burada ID token DOGRUDAN
+   * istemciden gelir (token exchange YOK, client secret KULLANILMAZ).
+   */
+  async verifyIdToken(input: {
+    readonly idToken: string;
+    readonly nonce: string;
+  }): Promise<OAuthIdentity> {
+    return this.#toIdentity(await this.#verifyIdToken(input.idToken, input.nonce));
+  }
+
+  /** Dogrulanmis claim'leri saglayici-bagimsiz kimlige cevirir. */
+  #toIdentity(claims: JWTPayload): OAuthIdentity {
     const subject = claims.sub;
     if (typeof subject !== 'string' || subject.length === 0) {
       throw new OAuthProviderFailedError();

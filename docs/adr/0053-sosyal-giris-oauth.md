@@ -1078,7 +1078,14 @@ kullanilir; cross-site bir navigasyon yoktur, dolayisiyla daha dar olan
    entegrasyon testi ayni kullanicinin hem redirect hem One Tap yoluyla
    girdiginde ⚠️ **ikinci bir `federated_identities` satiri olusmadigini**
    kanitlar.
-4. Token turu matrisi: yirmi kombinasyonun yirmisi de reddedilir.
+4. Token turu matrisi: **on sekiz** kombinasyonun on sekizi de reddedilir.
+   > ⚠️ **Tasarim aninda "yirmi" yazilmisti; uygulamada OLCULEN sayi 18.**
+   > Fark bir eksiklik degil, matrisin dogru eksende kurulmasidir: bes token
+   > turu vardir ama **dort DOGRULAYICI** — `identity` ve `access` ayni
+   > `verify` metodundan gecer (ikisini birbirinden ayiran sey imza degil,
+   > `tenantId` claim'idir). Matris tur bazinda kurulsaydi bir tur kendi
+   > dogrulayicisiyla eslesir ve test **kendi kendini yanlislardi**; bu yuzden
+   > eleme `verifierId` uzerinden yapilir ve 5×4 − 2 = **18** cikar.
 5. IP saatlik sinir asilinca **429**; ⚠️ ayni anda `login_attempts` sayaci
    **artmamis** olur (kilitleme saldirisinin yokluğunun kaniti).
 6. `findIdTokenVerifier` `null` donen saglayici icin uc **404**.
@@ -1164,12 +1171,12 @@ hicbiri cikmaz.
 
 ## ✅ EK-1/EK-2 — Product Owner onayi: **DORDU DE ONAYLANDI (2026-09-02)**
 
-| #     | Kalem                                                                                                       | Neden onaya sunuldu                                                                                                         | Durum |
-| ----- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | :---: |
-| **G** | ⚠️ **Ikinci bir kimlik dogrulama girisi** aciliyor (`POST /auth/oauth/google/one-tap`).                     | CLAUDE.md "Danisilmasi Zorunlu: Authentication". Alternatif (b) reddedildi (kullaniciya iki kez Google gosterirdi).         |  ✅   |
-| **H** | ⚠️ **Yeni tablo + migration**: `platform.one_tap_attempts` (IP bazli oran siniri).                          | Mevcut iki mekanizma da kullanilamaz; biri (`login_attempts`) kullanilsa **kilitleme saldirisi** acardi.                    |  ✅   |
-| **I** | ⚠️ **Sifirdan CSP** — `script-src` nonce tabanli, `style-src`de dar `'unsafe-inline'` istisnasi.            | Genisletilecek politika **yok**; yanlisi build/test yesilken **yalnizca tarayicida** kirar ve prod'da gercek kullanici var. |  ✅   |
-| **J** | ⚠️ **Ayrim testi matrise donusuyor** (6 → 20 kombinasyon) ve `TokenSigner` **besinci** token turunu aliyor. | B3'un onay kosulunun genislemesi. ⚠️ Altinci tur gelirse port'un kendisi yeniden dusunulmelidir.                            |  ✅   |
+| #     | Kalem                                                                                                                                                                              | Neden onaya sunuldu                                                                                                         | Durum |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | :---: |
+| **G** | ⚠️ **Ikinci bir kimlik dogrulama girisi** aciliyor (`POST /auth/oauth/google/one-tap`).                                                                                            | CLAUDE.md "Danisilmasi Zorunlu: Authentication". Alternatif (b) reddedildi (kullaniciya iki kez Google gosterirdi).         |  ✅   |
+| **H** | ⚠️ **Yeni tablo + migration**: `platform.one_tap_attempts` (IP bazli oran siniri).                                                                                                 | Mevcut iki mekanizma da kullanilamaz; biri (`login_attempts`) kullanilsa **kilitleme saldirisi** acardi.                    |  ✅   |
+| **I** | ⚠️ **Sifirdan CSP** — `script-src` nonce tabanli, `style-src`de dar `'unsafe-inline'` istisnasi.                                                                                   | Genisletilecek politika **yok**; yanlisi build/test yesilken **yalnizca tarayicida** kirar ve prod'da gercek kullanici var. |  ✅   |
+| **J** | ⚠️ **Ayrim testi matrise donusuyor** (6 → **18** kombinasyon; tasarimda "20" yaziyordu — olculen deger 18, gerekcesi §EK-1.5'te) ve `TokenSigner` **besinci** token turunu aliyor. | B3'un onay kosulunun genislemesi. ⚠️ Altinci tur gelirse port'un kendisi yeniden dusunulmelidir.                            |  ✅   |
 
 > ⚠️ **ONAY, IMPLEMENTASYON DEGILDIR.** Bu tablo kararin verildigini soyler;
 > kod **yazilmadi**. EK-1 + EK-2 TEK SLICE'ta uygulanir (ikisi ayrilamaz —

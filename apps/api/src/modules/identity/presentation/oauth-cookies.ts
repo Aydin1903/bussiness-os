@@ -50,6 +50,7 @@ import type { CookieOptions, Request, Response } from 'express';
 
 export const OAUTH_STATE_COOKIE_NAME = 'oauth_state';
 export const OAUTH_PENDING_LINK_COOKIE_NAME = 'oauth_pending_link';
+export const OAUTH_ONE_TAP_COOKIE_NAME = 'oauth_one_tap';
 
 const OAUTH_COOKIE_PATH = '/api/v1/auth/oauth';
 
@@ -57,6 +58,8 @@ const OAUTH_COOKIE_PATH = '/api/v1/auth/oauth';
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 /** `signOAuthPendingLink` TTL'i ile ayni (15 dk). */
 const PENDING_LINK_MAX_AGE_MS = 15 * 60 * 1000;
+/** `signOAuthOneTap` TTL'i ile ayni (10 dk). */
+const ONE_TAP_MAX_AGE_MS = 10 * 60 * 1000;
 
 function baseOptions(secure: boolean): CookieOptions {
   return {
@@ -91,6 +94,42 @@ export function setOAuthPendingLinkCookie(
  * aksi halde tarayici farkli bir cerez sanip eskisini birakir —
  * `clearRefreshCookie`in ayni kurali.
  */
+/**
+ * One Tap `nonce` baglayicisi (ADR-0053 EK-1.1, EK-1.5).
+ *
+ * ============================================================================
+ * ⚠️ BU CEREZ `SameSite=Strict` — DIGER IKISINDEN FARKLI, VE BILINCLI
+ * ============================================================================
+ * `state` ve `bekleyen baglama` cerezleri `Lax`tir cunku ⚠️ **ust seviye
+ * cross-site bir navigasyonda** (Google -> biz) geri gelmek ZORUNDADIRLAR.
+ *
+ * One Tap cerezi ise yalnizca ⚠️ **kendi sayfamizdan atilan bir XHR**'de
+ * kullanilir: `POST /auth/oauth/google/one-tap` bir navigasyon degildir.
+ * Cross-site bir gelis SENARYOSU YOKTUR, dolayisiyla daha dar olan `Strict`
+ * BEDELSIZDIR — ve bedelsiz olan daha dar secenek alinir.
+ *
+ * ⚠️ Bu ayrim yazilmasaydi biri "tutarlilik" adina ucunu de ayni yapardi:
+ * `Lax`a cekmek bu cerezi gereksiz yere genisletir, `Strict`e cekmek ise
+ * DIGER IKISINI %100 kirardi.
+ * ============================================================================
+ */
+export function setOAuthOneTapCookie(response: Response, token: string, secure: boolean): void {
+  response.cookie(OAUTH_ONE_TAP_COOKIE_NAME, token, {
+    ...baseOptions(secure),
+    sameSite: 'strict',
+    maxAge: ONE_TAP_MAX_AGE_MS,
+  });
+}
+
+/**
+ * ⚠️ Silme, yazmayla AYNI ozniteliklerle yapilir — `sameSite: 'strict'` dahil.
+ * Farkli bir `sameSite` ile silinseydi tarayici onu BASKA bir cerez sanip
+ * eskisini birakirdi ve `nonce` TEK KULLANIMLIK olmaktan cikardi.
+ */
+export function clearOAuthOneTapCookie(response: Response, secure: boolean): void {
+  response.clearCookie(OAUTH_ONE_TAP_COOKIE_NAME, { ...baseOptions(secure), sameSite: 'strict' });
+}
+
 export function clearOAuthStateCookie(response: Response, secure: boolean): void {
   response.clearCookie(OAUTH_STATE_COOKIE_NAME, baseOptions(secure));
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { listOAuthProviders, oauthStartUrl } from '@/lib/api/oauth';
 
+import { GoogleOneTap } from './google-one-tap';
 import { PROVIDER_MARKS } from './provider-marks';
 
 /**
@@ -90,6 +91,21 @@ export function SocialSignIn({ next }: { readonly next?: string | undefined }) {
         <span className="text-xs text-fg-muted">veya şununla devam et</span>
         <span className="h-px flex-1 bg-border" />
       </div>
+
+      {/*
+        ⚠️ KİŞİSELLEŞTİRİLMİŞ KUTU İKON SIRASININ ÜSTÜNDE, AYRI BİR SATIRDA
+        (ADR-0053 §10). Bu bir yerleşim tercihi değil bir ZORUNLULUKTUR:
+        Google'ın kuralı gereği kişiselleştirilmiş düğme `type=icon` olamaz ve
+        genişliği 200 px'in altına inemez — yani yuvarlak ikonla aynı düğme
+        OLAMAZ (§10.1).
+
+        ⚠️ Google BURADA VE SIRADA, yani İKİ KEZ görünür (§10.2): düzenimiz
+        kontrol etmediğimiz bir betiğe bağımlı olamaz ve iki kontrol aynı
+        soruyu sormuyor ("bu hesapla" / "bir Google hesabıyla").
+
+        ⚠️ Betik engellenirse bileşen HİÇBİR ŞEY çizmez — yer ayrılmaz.
+      */}
+      <GoogleOneTap enabled={drawable.includes('google')} />
 
       {/*
         ⚠️ TEK SIRA, ORTALANMIŞ (ADR-0053 §9.3). Düğmeler 44 px'tir — mobil

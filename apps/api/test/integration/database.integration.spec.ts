@@ -80,6 +80,10 @@ describe('veritabani migration hatti', () => {
       'login_attempts',
       'memberships',
       'messages',
+      // ⚠️ 0041 (ADR-0053 EK-1.4). Liste ALFABETIKTIR ve TAM ESITLIKLE
+      // karsilastirilir — yeni bir platform tablosu buraya yazilmazsa test
+      // KIRMIZI yanar.
+      'one_tap_attempts',
       'outbox',
       'password_reset_codes',
       'rate_limits',
@@ -124,6 +128,15 @@ describe('veritabani migration hatti', () => {
     // yakaladigi ilk sey tam olarak buydu. Identity tablolari (0003) tenant
     // tablolarina FK vermez; yine de konvansiyon geregi en yeni once alinir.
     const downFiles = [
+      // ⚠️ 0041, `platform.one_tap_attempts` (ADR-0053 EK-1.4).
+      //
+      // ⚠️ `0040`TAN DA DAHA BASIT: o tablonun `platform.users`a giden bir
+      // FK'si vardi; bunun HICBIR referansi yoktur — ne verir ne alir. Down
+      // dosyasi tek satirdir ve sira acisindan nereye konsa calisirdi;
+      // konvansiyon geregi yine EN YENI ONCE.
+      //
+      // ⚠️ BU SATIR MIGRATION ILE AYNI COMMIT'TE EKLENDI (`0019`un dersi).
+      '0041_one_tap_attempts.down.sql',
       // ⚠️ 0040, `platform.federated_identities` (ADR-0053 §2).
       //
       // ⚠️ TEK KADEMELI ve `0039`dan ayrildigi nokta budur: orada sema ici
@@ -377,6 +390,8 @@ describe('veritabani migration hatti', () => {
       'login_attempts',
       'memberships',
       'messages',
+      // ⚠️ 0041 — geri alma sonrasi YENIDEN uygulandiginda da burada olmali.
+      'one_tap_attempts',
       'outbox',
       'password_reset_codes',
       'rate_limits',

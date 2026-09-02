@@ -27,6 +27,7 @@ import { User } from '../domain/user.entity';
 import { UserLoggedIn } from '../domain/user-logged-in.event';
 import { VerificationCodeHash } from '../domain/verification-code-hash.value-object';
 import { CompleteOAuthUseCase } from './complete-oauth.use-case';
+import { ResolveFederatedIdentity } from './resolve-federated-identity';
 import { type EmailVerificationCodeRepository } from './email-verification-code.repository.port';
 import { type FederatedIdentityRepository } from './federated-identity.repository.port';
 import { type FederatedSessionIssuer, type IssuedSession } from './federated-session.issuer';
@@ -34,6 +35,7 @@ import {
   type OAuthPendingLinkTokenInput,
   type OAuthStateTokenInput,
   type TokenSigner,
+  type VerifiedOAuthOneTap,
   type VerifiedOAuthPendingLink,
   type VerifiedOAuthState,
   type VerifiedToken,
@@ -212,6 +214,12 @@ class FakeTokenSigner implements TokenSigner {
   verifyOAuthPendingLink(): Promise<VerifiedOAuthPendingLink> {
     throw new Error('kullanilmaz');
   }
+  signOAuthOneTap(): Promise<string> {
+    throw new Error('redirect akisi one-tap token i imzalamaz');
+  }
+  verifyOAuthOneTap(): Promise<VerifiedOAuthOneTap> {
+    throw new Error('redirect akisi one-tap token i dogrulamaz');
+  }
 }
 
 /** Saglayici adapter'i: `exchange` verilen kimligi aynen doner. */
@@ -234,6 +242,10 @@ class FakeRegistry implements OAuthProviderRegistry {
   constructor(private readonly provider: OAuthProviderPort | null) {}
   find(key: string): OAuthProviderPort | null {
     return this.provider !== null && key === this.provider.key ? this.provider : null;
+  }
+  /** ⚠️ Redirect akisi bu yetenegi KULLANMAZ; One Tap'in kendi testi var. */
+  findIdTokenVerifier(): null {
+    return null;
   }
   configuredKeys(): readonly OAuthProviderKey[] {
     return this.provider === null ? [] : [this.provider.key];
@@ -270,8 +282,16 @@ function build(identity: OAuthIdentity = identityOf()): Harness {
   const sessions = new FakeSessionIssuer();
   const adapter = new FakeGoogleAdapter(identity);
 
-  const useCase = new CompleteOAuthUseCase({
-    registry: new FakeRegistry(adapter),
+  /*
+   * ⚠️ RESOLVER SAHTELENMEZ, GERCEGI KURULUR (ADR-0053 EK-1.3).
+   *
+   * D1/D2/D3 karari artik `ResolveFederatedIdentity`tedir. Sahte bir resolver
+   * verilseydi bu dosyadaki testler yalnizca "delege edildi mi"yi sinar,
+   * KARARIN KENDISINI sinamazdi. Gercegini kurmak hem davranisi hem BAGLANTIYI
+   * birlikte kanitlar — ve One Tap yolu ayni sinifi kullandigi icin buradaki
+   * her test onun icin de gecerlidir.
+   */
+  const resolver = new ResolveFederatedIdentity({
     userRepository: users,
     federatedIdentityRepository: links,
     verificationCodeRepository: codes,
@@ -280,9 +300,15 @@ function build(identity: OAuthIdentity = identityOf()): Harness {
     sessionIssuer: sessions as unknown as FederatedSessionIssuer,
     tokenSigner: new FakeTokenSigner(),
     eventPublisher: events,
-    transactionManager: new FakeTransactionManager(),
     idGenerator: new FakeIdGenerator(),
     clock: new FakeClock(),
+  });
+
+  const useCase = new CompleteOAuthUseCase({
+    registry: new FakeRegistry(adapter),
+    resolver,
+    tokenSigner: new FakeTokenSigner(),
+    transactionManager: new FakeTransactionManager(),
   });
 
   return { useCase, users, links, codes, events, sessions, adapter };

@@ -41,6 +41,8 @@ export {
   loginResponseSchema,
   switchTenantResponseSchema,
   oauthProvidersResponseSchema,
+  oneTapInitResponseSchema,
+  oneTapResponseSchema,
 } from './auth/auth.contract';
 export type {
   RegisterRequest,
@@ -54,6 +56,8 @@ export type {
   LoginResponse,
   SwitchTenantResponse,
   OAuthProvidersResponse,
+  OneTapInitResponse,
+  OneTapResponse,
 } from './auth/auth.contract';
 
 export {

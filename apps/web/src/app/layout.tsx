@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Newsreader } from 'next/font/google';
+import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 
 import { THEME_NO_FLASH_SCRIPT } from '@/lib/theme/theme';
@@ -76,7 +77,35 @@ export const metadata: Metadata = {
   description: 'İşletmeniz için yapay zekâ işletim sistemi',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * ⚠️ NONCE'U OKUMAK BU LAYOUT'U ASENKRON VE DINAMIK YAPAR — VE BU BEDEL
+ * BILEREK ODENIR.
+ *
+ * ============================================================================
+ * ⚠️ BU SATIR GERCEK BIR KUSURDAN DOGDU (ADR-0053 EK-2.4 dogrulamasi)
+ * ============================================================================
+ * CSP `Report-Only` iken sunulan HTML olculdu ve yedi auth ekraninin YEDISINDE
+ * de asagidaki tema script'i **nonce TASIMIYORDU**. Next kendi urettigi
+ * script'lere nonce'u otomatik dagitir, ama `dangerouslySetInnerHTML` ile ELLE
+ * yazilan bir etiket ona gorunmez — nonce'u yazmak BIZIM isimizdir.
+ *
+ * ⚠️ Kusurun sekli bu projenin surekli isaretledigi sinif: zorlayici CSP
+ * altinda script SESSIZCE engellenirdi, sayfa calismaya devam ederdi ve tek
+ * belirti koyu temanin her acilista BIR KARE BEYAZ PARLAMASI olurdu. Ne lint,
+ * ne tip denetimi, ne de `pnpm verify` bunu gorurdu — cunku uclu de tarayiciyi
+ * hic calistirmaz. ⚠️ Kusuru bulan sey, ADR'nin "once gercek tarayicida olc"
+ * diye yazdigi ve ATLANMAYAN adimdir.
+ *
+ * ⚠️ Bedeli durustce: `headers()` okumak her sayfayi DINAMIK yapar (statik
+ * uretim kapanir). Auth ekranlari zaten dinamiktir (`searchParams` okurlar),
+ * yani bugunku bedel sifira yakindir — ama Faz 9'un landing page'i geldiginde
+ * bu YENIDEN TARTILMALIDIR (middleware'in kendi yorumu da bunu yaziyor).
+ */
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // ⚠️ Middleware'in ISTEGE yazdigi nonce; ayni deger cevabin CSP basligina da
+  // yazilir, yani ikisi TANIM GEREGI ayni istekten gelir ve ayrisamaz.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     /*
      * ⚠️ `suppressHydrationWarning` — TEMA SCRIPT'İNİN ZORUNLU EŞLİKÇİSİ.
@@ -114,7 +143,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           durur ve biri değişince hata SESSİZ olurdu — tema kaydedilir ama
           açılışta okunmazdı.
         */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }} />
+        {/*
+          ⚠️ `suppressHydrationWarning` BURADA DA ZORUNLU — VE `<html>`DEKI YETMEZ.
+          O bayrak YALNIZCA uzerinde durdugu ogeye ve BIR SEVIYE derinlige
+          uygulanir; bu script `<head>`in icinde, yani kapsam DISINDA.
+
+          ⚠️ Uyusmazligin sebebi bizim kodumuz degil, TARAYICININ KENDISI:
+          `nonce` icerik attribute'u ayristirmadan hemen sonra BOSALTILIR (deger
+          yalnizca IDL ozelliginden okunur) — boylece bir CSS secicisiyle
+          sizdirilamaz. Sunucu `nonce="..."` yazar, istemci `nonce=""` gorur ve
+          React her yuklemede bir hidrasyon HATASI basar.
+
+          ⚠️ Bedeli gorunur bir bozulma degil, GURULTUDUR: bu dosyanin kendi
+          yorumunun yazdigi gibi, gercek bir hidrasyon hatasi o gurultunun icinde
+          KAYBOLUR. Bayrak bu yuzden tam olarak BU ogeye konur — daha yukari ya
+          da daha asagi tasimak, gercek hatalari da susturmak olurdu.
+        */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }}
+        />
       </head>
       <body className="min-h-screen bg-bg font-sans text-fg antialiased">
         <Providers>{children}</Providers>

@@ -24,3 +24,26 @@ export const verifyOAuthEmailSchema = z
   .strict();
 
 export type VerifyOAuthEmailBody = z.infer<typeof verifyOAuthEmailSchema>;
+
+/**
+ * `POST /auth/oauth/:provider/one-tap` govdesi (ADR-0053 EK-1.2).
+ *
+ * ⚠️ TEK ALAN VARDIR ve bu bilinclidir: `nonce`, `provider` ve `sub` govdeden
+ * KABUL EDILMEZ. `nonce` imzali cerezden, `provider` yol parcasindan, `sub` ise
+ * DOGRULANMIS token'dan gelir. Govdeden alinsalardi kullanici kendi kimligini
+ * BEYAN ETMIS olurdu (DEVELOPMENT_RULES 4.5).
+ *
+ * `.strict()` bu yuzden burada ozellikle degerlidir: fazladan alan gonderen bir
+ * istek SESSIZCE yok sayilmaz, 422 alir.
+ */
+export const oneTapSchema = z
+  .object({
+    /**
+     * GIS'in urettigi ID token. ⚠️ Uzunluk siniri bir DoS elemesidir, bicim
+     * dogrulamasi DEGIL — imza/`aud`/`nonce` kontrolu adapter'in isidir.
+     */
+    credential: z.string().min(1, 'credential bos olamaz').max(4096, 'credential cok uzun'),
+  })
+  .strict();
+
+export type OneTapBody = z.infer<typeof oneTapSchema>;

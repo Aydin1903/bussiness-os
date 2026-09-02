@@ -34,6 +34,7 @@ import {
   type AccessTokenInput,
   type IdentityTokenInput,
   type TokenSigner,
+  type VerifiedOAuthOneTap,
   type VerifiedOAuthPendingLink,
   type VerifiedOAuthState,
   type VerifiedToken,
@@ -188,6 +189,12 @@ class FakeTokenSigner implements TokenSigner {
   }
   verifyOAuthPendingLink(): Promise<VerifiedOAuthPendingLink> {
     throw new Error('parola girisi bekleyen baglama token i dogrulamaz');
+  }
+  signOAuthOneTap(): Promise<string> {
+    throw new Error('parola girisi one-tap token i imzalamaz');
+  }
+  verifyOAuthOneTap(): Promise<VerifiedOAuthOneTap> {
+    throw new Error('parola girisi one-tap token i dogrulamaz');
   }
 }
 

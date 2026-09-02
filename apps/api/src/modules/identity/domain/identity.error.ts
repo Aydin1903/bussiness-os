@@ -539,3 +539,19 @@ export class LastSignInMethodError extends IdentityDomainError {
     super('Bu, hesabinizdaki tek giris yontemi. Kaldirmadan once baska bir yontem ekleyin.');
   }
 }
+
+/**
+ * One Tap oran siniri asildi — 429 (ADR-0053 EK-1.4).
+ *
+ * ⚠️ `TooManyLoginAttemptsError`TAN AYRI BIR TIPTIR ve bu bir ayrinti degil:
+ * iki sayac AYRI defterlerdedir ve karistirilmalari bir saldiri yuzeyi acardi
+ * (saldirgan One Tap ile kurbanin PAROLA girisini kilitlerdi). Ayri hata tipi,
+ * o ayrimin kod tarafindaki gorunur karsiligidir.
+ */
+export class TooManyOneTapAttemptsError extends IdentityDomainError {
+  readonly code = 'TOO_MANY_ONE_TAP_ATTEMPTS';
+
+  constructor() {
+    super('Cok fazla deneme yapildi; lutfen daha sonra tekrar deneyin.');
+  }
+}

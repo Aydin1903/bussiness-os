@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Ip,
   Param,
   Post,
   Query,
@@ -23,20 +24,30 @@ import {
   type OAuthProviderRegistry,
 } from '../../../shared/oauth-provider.port';
 import { BeginOAuthUseCase } from '../application/begin-oauth.use-case';
+import { BeginOneTapUseCase } from '../application/begin-one-tap.use-case';
+import { CompleteOneTapUseCase } from '../application/complete-one-tap.use-case';
 import { CompleteOAuthUseCase } from '../application/complete-oauth.use-case';
 import { VerifyOAuthEmailUseCase } from '../application/verify-oauth-email.use-case';
 import { InvalidCredentialsError } from '../domain/identity.error';
 import { IdentityDomainExceptionFilter } from './identity-domain-exception.filter';
 import {
+  clearOAuthOneTapCookie,
   clearOAuthPendingLinkCookie,
   clearOAuthStateCookie,
+  OAUTH_ONE_TAP_COOKIE_NAME,
   OAUTH_PENDING_LINK_COOKIE_NAME,
   OAUTH_STATE_COOKIE_NAME,
   readOAuthCookie,
+  setOAuthOneTapCookie,
   setOAuthPendingLinkCookie,
   setOAuthStateCookie,
 } from './oauth-cookies';
-import { verifyOAuthEmailSchema, type VerifyOAuthEmailBody } from './oauth.dto';
+import {
+  oneTapSchema,
+  verifyOAuthEmailSchema,
+  type OneTapBody,
+  type VerifyOAuthEmailBody,
+} from './oauth.dto';
 import { setRefreshCookie } from './refresh-cookie';
 
 /** ⚠️ Site-ici, sabit yollar. Kullanici girdisi bunlara KARISMAZ. */
@@ -55,6 +66,21 @@ type CallbackError = 'state' | 'provider' | 'cancelled' | 'email_required' | 'un
 interface IdentityTokenResponse {
   readonly identityToken: string;
 }
+
+/**
+ * One Tap yaniti — ⚠️ AYRIMLI (discriminated), cunku IKI MESRU SONUC vardir.
+ *
+ * ⚠️ D3 BIR HATA DEGILDIR ve bir exception ile bildirilmemelidir: kullanici
+ * dogru bir sey yapti, yalnizca saglayicinin e-posta hukmu `false` geldi ve
+ * kendi kodumuz gonderildi. 401 dondurmek "giris basarisiz" demek olurdu ve
+ * istemci kullaniciyi kod ekranina yonlendiremezdi.
+ *
+ * ⚠️ 200 + ayrimli govde secildi, 202 DEGIL: 202 "kabul edildi, sonra
+ * islenecek" demektir; burada islem BITTI, yalnizca sonuc iki turden biri.
+ */
+type OneTapResponse =
+  | { readonly status: 'signed-in'; readonly identityToken: string }
+  | { readonly status: 'verification-required' };
 
 /**
  * Sosyal giris uclari (ADR-0053 §4.1).
@@ -82,10 +108,16 @@ interface IdentityTokenResponse {
 @Controller({ path: 'auth/oauth', version: '1' })
 @UseFilters(IdentityDomainExceptionFilter)
 export class OAuthController {
+  // NestJS controller'i bagimliliklarini constructor'dan alir; uc sayisiyla
+  // birlikte artar (DEVELOPMENT_RULES 2.5 siniri is nesneleri icindir, DI icin
+  // degil) — `AuthController` ile ayni muafiyet.
+  // eslint-disable-next-line max-params
   constructor(
     private readonly beginOAuth: BeginOAuthUseCase,
     private readonly completeOAuth: CompleteOAuthUseCase,
     private readonly verifyOAuthEmail: VerifyOAuthEmailUseCase,
+    private readonly beginOneTap: BeginOneTapUseCase,
+    private readonly completeOneTap: CompleteOneTapUseCase,
     @Inject(OAUTH_PROVIDER_REGISTRY) private readonly registry: OAuthProviderRegistry,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -208,6 +240,87 @@ export class OAuthController {
     // D3 — kod gonderildi; HENUZ hicbir baglanti ve hicbir oturum yok.
     setOAuthPendingLinkCookie(response, result.pendingLinkToken, secure);
     this.#redirectToWeb(response, VERIFY_PATH, { next: result.next });
+  }
+
+  /**
+   * One Tap akisini baslatir: `nonce` + `clientId` doner, cerezi yazar
+   * (ADR-0053 EK-1.1).
+   *
+   * ⚠️ KIMLIKSIZDIR ve olmasi gerekir: giris ekrani henuz kimliksiz bir
+   * kullanicidadir. Sizdirdigi tek sey "bu kurulumda One Tap acik mi"dir ve o
+   * zaten ekrana bakarak gorulur.
+   *
+   * ⚠️ ORAN SINIRI YOKTUR (EK-1.4): uc yalnizca 32 bayt uretip bir cerez yazar.
+   * Pahali ve DURUM DEGISTIREN adim `POST /one-tap`tir ve sinir oradadir.
+   */
+  @Get(':provider/one-tap/init')
+  @ApiOperation({ summary: 'One Tap icin nonce ve istemci kimligi' })
+  @ApiResponse({ status: 200, description: 'Nonce uretildi; cerez yazildi.' })
+  @ApiResponse({ status: 404, description: 'Bu saglayicida One Tap yok.' })
+  async initOneTap(
+    @Param('provider') provider: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ readonly nonce: string; readonly clientId: string }> {
+    const result = await this.beginOneTap.execute({ provider });
+
+    setOAuthOneTapCookie(response, result.stateToken, this.config.isProduction);
+
+    // ⚠️ `stateToken` GOVDEDE DONMEZ — yalnizca cerezde. Donseydi istemci JS'i
+    // onu okuyabilir ve `nonce`un sunucu tarafindaki BAGLAYICILIGI kaybolurdu.
+    return { nonce: result.nonce, clientId: result.clientId };
+  }
+
+  /**
+   * One Tap `credential`ini isler — ⚠️ **IKINCI KIMLIK DOGRULAMA GIRISI**
+   * (ADR-0053 EK-1).
+   *
+   * ⚠️ Callback'ten farkli olarak bu bir XHR'dir, navigasyon degil: yanit bir
+   * yonlendirme degil GOVDE tasir ve kimlik token'i dogrudan donebilir.
+   *
+   * ⚠️ TUM REDLER AYNI 401'i uretir (kod gecersiz / `nonce` eslesmiyor / cerez
+   * yok / hesap kilitli) — hangisinin gerceklestigi SIZDIRILMAZ. Tek istisna
+   * oran siniridir: **429** ayirt edilebilir ve olmalidir, cunku kullaniciya
+   * "sonra tekrar dene" demek gerekir.
+   */
+  @Post(':provider/one-tap')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'One Tap kimlik dogrulamasi' })
+  @ApiResponse({ status: 200, description: 'Giris yapildi ya da kod dogrulamasi gerekiyor.' })
+  @ApiResponse({ status: 401, description: 'Kimlik dogrulanamadi.' })
+  @ApiResponse({ status: 429, description: 'Cok fazla deneme.' })
+  async oneTap(
+    @Param('provider') provider: string,
+    @Body(new ZodValidationPipe(oneTapSchema)) body: OneTapBody,
+    @Ip() ipAddress: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<OneTapResponse> {
+    const secure = this.config.isProduction;
+
+    // ⚠️ CEREZ TEK KULLANIMLIKTIR ve SONUCTAN BAGIMSIZ silinir — `callback`in
+    // `clearOAuthStateCookie`i kosulsuz cagirmasiyla birebir ayni desen.
+    // Birakilsaydi ayni `nonce` ikinci bir credential ile yeniden kullanilirdi.
+    const stateToken = readOAuthCookie(request, OAUTH_ONE_TAP_COOKIE_NAME);
+    clearOAuthOneTapCookie(response, secure);
+
+    const result = await this.completeOneTap.execute({
+      provider,
+      credential: body.credential,
+      stateToken,
+      ipAddress,
+      correlationId: getCorrelationId() ?? 'unknown',
+    });
+
+    // ⚠️ D3 BURADA DA MUMKUNDUR: Google `email_verified: false` dondugunde akis
+    // kendi kodumuza duser. Hukum GEVSEMEZ — kullanici GIS kutusuna tikladi
+    // diye dogrulanmamis bir e-posta dogrulanmis sayilmaz.
+    if (result.outcome === 'verification-required') {
+      setOAuthPendingLinkCookie(response, result.pendingLinkToken, secure);
+      return { status: 'verification-required' };
+    }
+
+    setRefreshCookie(response, result.session.refreshToken, secure);
+    return { status: 'signed-in', identityToken: result.session.identityToken };
   }
 
   /**

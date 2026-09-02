@@ -1,0 +1,23 @@
+-- 0041_one_tap_attempts — GERI ALMA
+--
+-- DEVELOPMENT_RULES 6: her migration geri alinabilir olur.
+--
+-- ⚠️ TEK KADEMELI: sema ici FK YOKTUR (tablo hicbir seye referans vermez ve
+-- hicbir sey ona referans vermez), trigger ve fonksiyon da yoktur. `0040`in
+-- `platform.users`a giden FK'si burada bile yok — bu tablo TAMAMEN BAGIMSIZDIR.
+--
+-- ⚠️ `DROP TABLE` index'i de goturur; ayrica dusurulmesine gerek yoktur.
+--
+-- ⚠️ YETKILER AYRICA GERI ALINMAZ: `REVOKE`/`GRANT` tabloya baglidir
+-- (`pg_class` ACL) ve tablo dusunce giderler — `0040` ile ayni gerekce,
+-- `0033`/`0034`ten ayrildigi nokta da yine burasi (onlar MEVCUT tablolarin
+-- yetkisini daraltmisti ve geri vermek zorundaydilar).
+--
+-- ⚠️ NE KAYBEDILIR, DURUSTCE: yalnizca oran siniri SAYACI. Kimlik verisi
+-- KAYBEDILMEZ — bu tabloda kullanici, e-posta ya da token yoktur. Tablo
+-- dusurulurse One Tap ucu oran sinirsiz kalir (uc de calismaz, cunku
+-- repository'si patlar). ⚠️ Prod'da gercek veri oldugu icin (CLAUDE.md,
+-- 2026-09-01) bu down dosyasi yine de yalnizca "migration henuz uretime
+-- cikmadi" durumu icindir.
+
+DROP TABLE IF EXISTS platform.one_tap_attempts;

@@ -80,6 +80,11 @@ const STATUS_BY_CODE: Readonly<Record<string, HttpStatus>> = {
   // Yaris durumu: iki es zamanli callback ayni anda baglamaya calisti.
   FEDERATED_IDENTITY_CONFLICT: HttpStatus.CONFLICT,
 
+  // ⚠️ One Tap oran siniri (ADR-0053 EK-1.4). `TOO_MANY_LOGIN_ATTEMPTS`TAN
+  // AYRI BIR KODDUR: iki sayac ayri defterlerdedir ve karistirilmalari bir
+  // saldirgana kurbanin PAROLA girisini kilitleme imkani verirdi.
+  TOO_MANY_ONE_TAP_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
+
   FEDERATED_IDENTITY_NOT_FOUND: HttpStatus.NOT_FOUND,
 
   // ⚠️ Son giris yontemi kaldirilamaz. Burada P2 GECERLI DEGILDIR: kullanicinin

@@ -16,7 +16,9 @@ import {
   type TransactionManager,
 } from '../../shared/transaction-manager.port';
 import { BeginOAuthUseCase } from './application/begin-oauth.use-case';
+import { BeginOneTapUseCase } from './application/begin-one-tap.use-case';
 import { CompleteOAuthUseCase } from './application/complete-oauth.use-case';
+import { CompleteOneTapUseCase } from './application/complete-one-tap.use-case';
 import {
   CREDENTIAL_REPOSITORY,
   type CredentialRepository,
@@ -39,6 +41,11 @@ import {
   OAUTH_STATE_GENERATOR,
   type OAuthStateGenerator,
 } from './application/oauth-state-generator.port';
+import {
+  ONE_TAP_ATTEMPT_REPOSITORY,
+  type OneTapAttemptRepository,
+} from './application/one-tap-attempt.repository.port';
+import { ResolveFederatedIdentity } from './application/resolve-federated-identity';
 import {
   REFRESH_TOKEN_GENERATOR,
   type RefreshTokenGenerator,
@@ -67,6 +74,7 @@ import {
 } from './application/verification-code-hasher.port';
 import { VerifyOAuthEmailUseCase } from './application/verify-oauth-email.use-case';
 import { CryptoOAuthStateGenerator } from './infrastructure/crypto-oauth-state-generator.adapter';
+import { DrizzleOneTapAttemptRepository } from './infrastructure/drizzle-one-tap-attempt.repository';
 
 /**
  * Sosyal giris (OAuth) baglantilari — ADR-0053.
@@ -152,10 +160,14 @@ const beginOAuthProvider: Provider = {
   ): BeginOAuthUseCase => new BeginOAuthUseCase({ registry, stateGenerator, tokenSigner }),
 };
 
-const completeOAuthProvider: Provider = {
-  provide: CompleteOAuthUseCase,
+/**
+ * ⚠️ D1/D2/D3'un TEK SAHIBI (ADR-0053 EK-1.3) — iki giris de BUNU paylasir.
+ * Kopya cikarilsaydi nOAuth savunmasi bir yolda degisip digerinde
+ * degismeyebilirdi ve hata SESSIZ olurdu.
+ */
+const resolverProvider: Provider = {
+  provide: ResolveFederatedIdentity,
   inject: [
-    OAUTH_PROVIDER_REGISTRY,
     USER_REPOSITORY,
     FEDERATED_IDENTITY_REPOSITORY,
     EMAIL_VERIFICATION_CODE_REPOSITORY,
@@ -164,13 +176,11 @@ const completeOAuthProvider: Provider = {
     FederatedSessionIssuer,
     TOKEN_SIGNER,
     IDENTITY_EVENT_PUBLISHER,
-    TRANSACTION_MANAGER,
     ID_GENERATOR,
     CLOCK,
   ],
   // eslint-disable-next-line max-params
   useFactory: (
-    registry: OAuthProviderRegistry,
     userRepository: UserRepository,
     federatedIdentityRepository: FederatedIdentityRepository,
     verificationCodeRepository: EmailVerificationCodeRepository,
@@ -179,12 +189,10 @@ const completeOAuthProvider: Provider = {
     sessionIssuer: FederatedSessionIssuer,
     tokenSigner: TokenSigner,
     eventPublisher: DomainEventPublisher,
-    transactionManager: TransactionManager,
     idGenerator: IdGenerator,
     clock: Clock,
-  ): CompleteOAuthUseCase =>
-    new CompleteOAuthUseCase({
-      registry,
+  ): ResolveFederatedIdentity =>
+    new ResolveFederatedIdentity({
       userRepository,
       federatedIdentityRepository,
       verificationCodeRepository,
@@ -193,10 +201,72 @@ const completeOAuthProvider: Provider = {
       sessionIssuer,
       tokenSigner,
       eventPublisher,
+      idGenerator,
+      clock,
+    }),
+};
+
+const beginOneTapProvider: Provider = {
+  provide: BeginOneTapUseCase,
+  inject: [OAUTH_PROVIDER_REGISTRY, OAUTH_STATE_GENERATOR, TOKEN_SIGNER, APP_CONFIG],
+  useFactory: (
+    registry: OAuthProviderRegistry,
+    stateGenerator: OAuthStateGenerator,
+    tokenSigner: TokenSigner,
+    config: AppConfig,
+  ): BeginOneTapUseCase =>
+    new BeginOneTapUseCase({
+      registry,
+      stateGenerator,
+      tokenSigner,
+      // ⚠️ Yalnizca YAPILANDIRILMIS saglayicilar. `clientId` sunucudan doner;
+      // `NEXT_PUBLIC_*` reddedildi (EK-1.1: iki yerde tutulan deger ayrisir).
+      clientIds: config.oauth.google === null ? {} : { google: config.oauth.google.clientId },
+    }),
+};
+
+const completeOneTapProvider: Provider = {
+  provide: CompleteOneTapUseCase,
+  inject: [
+    OAUTH_PROVIDER_REGISTRY,
+    ResolveFederatedIdentity,
+    ONE_TAP_ATTEMPT_REPOSITORY,
+    TOKEN_SIGNER,
+    TRANSACTION_MANAGER,
+    ID_GENERATOR,
+    CLOCK,
+  ],
+  // eslint-disable-next-line max-params
+  useFactory: (
+    registry: OAuthProviderRegistry,
+    resolver: ResolveFederatedIdentity,
+    oneTapAttemptRepository: OneTapAttemptRepository,
+    tokenSigner: TokenSigner,
+    transactionManager: TransactionManager,
+    idGenerator: IdGenerator,
+    clock: Clock,
+  ): CompleteOneTapUseCase =>
+    new CompleteOneTapUseCase({
+      registry,
+      resolver,
+      oneTapAttemptRepository,
+      tokenSigner,
       transactionManager,
       idGenerator,
       clock,
     }),
+};
+
+const completeOAuthProvider: Provider = {
+  provide: CompleteOAuthUseCase,
+  inject: [OAUTH_PROVIDER_REGISTRY, ResolveFederatedIdentity, TOKEN_SIGNER, TRANSACTION_MANAGER],
+  useFactory: (
+    registry: OAuthProviderRegistry,
+    resolver: ResolveFederatedIdentity,
+    tokenSigner: TokenSigner,
+    transactionManager: TransactionManager,
+  ): CompleteOAuthUseCase =>
+    new CompleteOAuthUseCase({ registry, resolver, tokenSigner, transactionManager }),
 };
 
 const verifyOAuthEmailProvider: Provider = {
@@ -286,10 +356,14 @@ const unlinkFederatedIdentityProvider: Provider = {
 
 export const identityOAuthProviders: readonly Provider[] = [
   { provide: OAUTH_STATE_GENERATOR, useClass: CryptoOAuthStateGenerator },
+  { provide: ONE_TAP_ATTEMPT_REPOSITORY, useClass: DrizzleOneTapAttemptRepository },
   oauthRegistryProvider,
+  resolverProvider,
   sessionIssuerProvider,
   beginOAuthProvider,
   completeOAuthProvider,
+  beginOneTapProvider,
+  completeOneTapProvider,
   verifyOAuthEmailProvider,
   listSignInMethodsProvider,
   unlinkFederatedIdentityProvider,

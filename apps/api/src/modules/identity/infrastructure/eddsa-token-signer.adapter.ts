@@ -8,10 +8,12 @@ import {
   OAUTH_STATE_TOKEN_TYPE,
   type AccessTokenInput,
   type IdentityTokenInput,
+  type OAuthOneTapTokenInput,
   type OAuthPendingLinkTokenInput,
   type OAuthStateTokenInput,
   type TokenSigner,
   type TokenType,
+  type VerifiedOAuthOneTap,
   type VerifiedOAuthPendingLink,
   type VerifiedOAuthState,
   type VerifiedToken,
@@ -34,6 +36,10 @@ const OAUTH_PENDING_LINK_TTL_SECONDS = 15 * 60;
 
 /** ⚠️ `TokenType`tan AYRI tutulur — bunlar oturum token'i DEGILDIR. */
 const OAUTH_PENDING_LINK_TOKEN_TYPE = 'oauth-pending-link';
+
+/** ⚠️ BESINCI tur (ADR-0053 EK-1.5). One Tap `nonce` baglayicisi, 10 dk. */
+const OAUTH_ONE_TAP_TOKEN_TYPE = 'oauth-one-tap';
+const OAUTH_ONE_TAP_TTL_SECONDS = 10 * 60;
 
 /**
  * Imzalama yapilandirmasi. Anahtarlar secret manager'dan gelir ve ASLA repoda
@@ -177,6 +183,27 @@ export class EddsaTokenSigner implements TokenSigner {
       provider: requireStringClaim(payload.provider, 'provider'),
       subject: requireStringClaim(payload.psub, 'psub'),
       email: requireStringClaim(payload.email, 'email'),
+    };
+  }
+
+  signOAuthOneTap(input: OAuthOneTapTokenInput): Promise<string> {
+    return this.#sign(
+      { typ: OAUTH_ONE_TAP_TOKEN_TYPE, provider: input.provider, nonce: input.nonce },
+      undefined,
+      OAUTH_ONE_TAP_TTL_SECONDS,
+    );
+  }
+
+  async verifyOAuthOneTap(token: string): Promise<VerifiedOAuthOneTap> {
+    const payload = await this.#verifiedPayload(token);
+
+    if (payload.typ !== OAUTH_ONE_TAP_TOKEN_TYPE) {
+      throw new InvalidTokenError('bu token bir OAuth one-tap token i degil');
+    }
+
+    return {
+      provider: requireStringClaim(payload.provider, 'provider'),
+      nonce: requireStringClaim(payload.nonce, 'nonce'),
     };
   }
 

@@ -112,3 +112,32 @@ export const oauthProvidersResponseSchema = z.object({
   providers: z.array(z.string().min(1)),
 });
 export type OAuthProvidersResponse = z.infer<typeof oauthProvidersResponseSchema>;
+
+/**
+ * `GET /auth/oauth/:provider/one-tap/init` yaniti (ADR-0053 EK-1.1).
+ *
+ * ⚠️ `nonce` govdede doner ve bu bir sizinti DEGILDIR: `nonce` bir SIR degil
+ * bir BAGLAYICIDIR — gucu gizli olmasindan degil, sunucunun onu KENDISININ
+ * urettigini bilmesinden gelir. Imzali kopyasi `HttpOnly` cerezdedir.
+ *
+ * ⚠️ `clientId` de sunucudan gelir; `NEXT_PUBLIC_*` REDDEDILDI (iki yerde
+ * tutulan deger ayrisir ve hata sessiz olur).
+ */
+export const oneTapInitResponseSchema = z.object({
+  nonce: z.string().min(1),
+  clientId: z.string().min(1),
+});
+export type OneTapInitResponse = z.infer<typeof oneTapInitResponseSchema>;
+
+/**
+ * `POST /auth/oauth/:provider/one-tap` yaniti — ⚠️ AYRIMLI.
+ *
+ * D3 (saglayicinin e-posta hukmu `false`) bir HATA DEGILDIR: kullanici dogru
+ * bir sey yapti, yalnizca kendi kodumuzla dogrulanmasi gerekiyor. Bu yuzden
+ * 401 degil, 200 + `status` alani.
+ */
+export const oneTapResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('signed-in'), identityToken: z.string().min(1) }),
+  z.object({ status: z.literal('verification-required') }),
+]);
+export type OneTapResponse = z.infer<typeof oneTapResponseSchema>;

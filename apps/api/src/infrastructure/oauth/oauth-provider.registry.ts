@@ -1,5 +1,6 @@
 import {
   isOAuthProviderKey,
+  type OAuthIdTokenVerifier,
   type OAuthProviderKey,
   type OAuthProviderPort,
   type OAuthProviderRegistry,
@@ -54,7 +55,27 @@ export class DefaultOAuthProviderRegistry implements OAuthProviderRegistry {
     return this.#providers.get(key) ?? null;
   }
 
+  /**
+   * ⚠️ YAPISAL KONTROL, BAYRAK DEGIL: saglayicinin `verifyIdToken` metodunu
+   * GERCEKTEN tasiyip tasimadigina bakilir. Bir `supportsOneTap: boolean`
+   * alani olsaydi, metodu olmayan bir adapter onu `true` yazip calisma
+   * aninda patlayabilirdi — burada tip ve gerceklik ayni sey.
+   */
+  findIdTokenVerifier(key: string): OAuthIdTokenVerifier | null {
+    const provider = this.find(key);
+    if (provider === null || !hasIdTokenVerifier(provider)) {
+      return null;
+    }
+    return provider;
+  }
+
   configuredKeys(): readonly OAuthProviderKey[] {
     return [...this.#providers.keys()];
   }
+}
+
+function hasIdTokenVerifier(
+  provider: OAuthProviderPort,
+): provider is OAuthProviderPort & OAuthIdTokenVerifier {
+  return typeof Reflect.get(provider, 'verifyIdToken') === 'function';
 }

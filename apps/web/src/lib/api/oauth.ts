@@ -1,4 +1,10 @@
-import { oauthProvidersResponseSchema, type OAuthProvidersResponse } from '@business-os/contracts';
+import {
+  oauthProvidersResponseSchema,
+  oneTapInitResponseSchema,
+  oneTapResponseSchema,
+  type OAuthProvidersResponse,
+  type OneTapInitResponse,
+} from '@business-os/contracts';
 
 import { apiFetch } from './client';
 import { apiBaseUrl } from './config';
@@ -58,4 +64,45 @@ export function oauthStartUrl(provider: string, next?: string): string {
   }
 
   return url.toString();
+}
+
+/**
+ * One Tap akisini baslatir: `nonce` + `clientId` (ADR-0053 EK-1.1).
+ *
+ * ⚠️ Cerezi sunucu yazar; istemci onu HIC GORMEZ (`HttpOnly`). Bu cagrinin tek
+ * ciktisi GIS'i yapilandirmak icin gereken iki degerdir.
+ */
+export function initGoogleOneTap(provider: string): Promise<OneTapInitResponse> {
+  return apiFetch(`/auth/oauth/${provider}/one-tap/init`, oneTapInitResponseSchema, {
+    noRetry: true,
+  });
+}
+
+/**
+ * GIS `credential`ini sunucuya gonderir ve akisi tamamlar.
+ *
+ * ⚠️ `fetch` KULLANILIR (navigasyon DEGIL) ve bu, redirect akisindan farkli
+ * olmasinin sebebidir: burada saglayiciya gitmek YOKTUR — GIS token'i zaten
+ * uretti. Yanit bir govde tasir.
+ *
+ * ⚠️ Basarida sayfa `/oauth/complete`e yonlendirilir ki oturum kurma ve
+ * ADR-0028 yonlendirmesi TEK YERDE kalsin — redirect akisiyla ayni sayfa, ayni
+ * kod. Ikinci bir yonlendirme mantigi yazilsaydi ikisi ayrisabilirdi.
+ */
+export async function submitGoogleOneTap(credential: string): Promise<void> {
+  const result = await apiFetch('/auth/oauth/google/one-tap', oneTapResponseSchema, {
+    body: { credential },
+    noRetry: true,
+  }).catch(() => null);
+
+  if (result === null) {
+    window.location.assign('/oauth/complete?error=unavailable');
+    return;
+  }
+
+  // ⚠️ D3: kod ekranina gidilir. Redirect akisinda callback bunu sunucu
+  // tarafinda yapiyordu; burada istemci yapar cunku bu bir XHR'dir.
+  window.location.assign(
+    result.status === 'signed-in' ? '/oauth/complete?status=ok' : '/oauth/verify',
+  );
 }

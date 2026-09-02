@@ -165,6 +165,53 @@ export interface OAuthProviderPort {
 }
 
 /**
+ * ⚠️ ISTEGE BAGLI YETENEK: bir saglayicinin URETTIGI ID TOKEN'I dogrulamak
+ * (ADR-0053 EK-1.2).
+ *
+ * ============================================================================
+ * ⚠️ NEDEN `OAuthProviderPort`A EKLENMEDI
+ * ============================================================================
+ * One Tap (kisisellestirilmis kutu) **Google'a ozgudur**. Microsoft, LinkedIn
+ * ve Facebook adapter'lari bu metodu IMPLEMENTE EDEMEZ. Port'a konsaydi uc
+ * adapter `throw new Error('desteklenmiyor')` yazmak zorunda kalirdi — yani
+ * arayuz, tasiyamayan uc uygulayiciya **yalan soylerdi**.
+ *
+ * Ayri bir arayuz olmasi ayni zamanda 404'u dogal kilar: yetenegi olmayan bir
+ * saglayici icin uc GERCEKTEN yoktur — §3.3'un _"yapilandirilmamis saglayici =
+ * olmayan saglayici"_ kuralinin ikinci sekli.
+ *
+ * ============================================================================
+ * ⚠️ `code` DEGISIMINDEN FARKI — VE NEDEN AYRI BIR GIRIS
+ * ============================================================================
+ * `exchange()` bir `code` alir ve **client secret** ile token degisimi yapar.
+ * Burada degisim YOKTUR: gelen sey zaten Google imzali bir ID token'dir ve
+ * secret HIC KULLANILMAZ. Ikisi ayni sey degildir; ayni metoda sigdirmak
+ * "hangi girdi hangi dogrulamadan gecti" sorusunu belirsizlestirirdi.
+ */
+export interface OAuthIdTokenVerifier {
+  readonly key: OAuthProviderKey;
+
+  /**
+   * ID token'i dogrular ve kimlige cevirir.
+   *
+   * ⚠️ BES KONTROLUN BESI DE ZORUNLUDUR (ADR-0053 EK-1.2):
+   * imza (saglayici JWKS) · `iss` · **`aud`** · `exp` · **`nonce`**.
+   *
+   * ⚠️ `aud` ve `nonce` "unutulunca SESSIZ" siniftadir: token gecerli gorunur,
+   * imza tutar, kullanici girer — yalnizca **YANLIS KISI** girer. `aud`
+   * atlanirsa BASKA BIR SITENIN Google token'i bizde gecerli olur; `nonce`
+   * atlanirsa calinmis bir token yeniden oynatilir.
+   *
+   * Basarisizlikta `OAuthProviderFailedError` firlatir — `null` DONMEZ.
+   */
+  verifyIdToken(input: {
+    readonly idToken: string;
+    /** ⚠️ SUNUCUNUN urettigi ve imzali cerezde tasidigi deger. */
+    readonly nonce: string;
+  }): Promise<OAuthIdentity>;
+}
+
+/**
  * Yapilandirilmis saglayicilarin kaydi.
  *
  * ⚠️ YAPILANDIRILMAMIS SAGLAYICI = OLMAYAN SAGLAYICI (ADR-0053 §3.3).
@@ -178,6 +225,14 @@ export interface OAuthProviderPort {
 export interface OAuthProviderRegistry {
   /** Yapilandirilmamis ya da bilinmeyen anahtar icin `null`. */
   find(key: string): OAuthProviderPort | null;
+
+  /**
+   * ID token dogrulama YETENEGI olan saglayiciyi bulur; yoksa `null`.
+   *
+   * ⚠️ Bugun yalnizca Google doner. `null` donen bir anahtar icin One Tap ucu
+   * **404**tur — "devre disi" diye bir bayrak yoktur.
+   */
+  findIdTokenVerifier(key: string): OAuthIdTokenVerifier | null;
 
   /**
    * Arayuzun hangi dugmeleri cizecegini belirler.

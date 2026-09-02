@@ -32,6 +32,15 @@ export type TokenType = 'identity' | 'access';
  * OAuth akisinin `state` / `nonce` / PKCE `code_verifier` uclusu imzali bir
  * `HttpOnly` cerezde tasinir ve o imza BU PORT'TAN gelir.
  *
+ * ⚠️ BUGUN UC OAuth TURU VARDIR (`oauth-state` · `oauth-pending-link` ·
+ * `oauth-one-tap`) ve UCU DE `TokenType`a EKLENMEZ — o birlik yalnizca OTURUM
+ * token'larini (kimlik/erisim) adlandirir.
+ *
+ * ⚠️ **ESIK YAZILDI (ADR-0053 EK-1.5):** port bugun BES tur tasiyor. ALTINCI
+ * bir tur gundeme gelirse, port'a bir tur daha eklemek yerine "kisa omurlu
+ * imzali cerez" kavrami AYRI BIR SOYUTLAMAYA cikarilmalidir. Sinir bugun
+ * asilmiyor ama yazilmadan gecilmiyor (ADR-0036'nin esik deseni).
+ *
  * ⚠️ BU BIR OTURUM TOKEN'I DEGILDIR ve `TokenType`a EKLENMEZ. Ayrim tipte
  * baslar: `signOAuthState`/`verifyOAuthState` AYRI metotlardir ve `verify()`
  * bir state token'ini GORDUGUNDE REDDEDER. Iki yon de testle kilitlidir
@@ -79,6 +88,24 @@ export interface OAuthPendingLinkTokenInput {
 }
 
 export type VerifiedOAuthPendingLink = OAuthPendingLinkTokenInput;
+
+/**
+ * ⚠️ BESINCI TOKEN TURU — One Tap `nonce` baglayicisi (ADR-0053 EK-1.1).
+ *
+ * `google.accounts.id`e verilen `nonce`, uretilen ID token'in icine bir claim
+ * olarak girer ve replay korumasinin TAMAMIDIR. Bu token, sunucunun
+ * _"bu `nonce`u BU TARAYICI icin BEN urettim"_ diyebilmesinin tek yoludur.
+ *
+ * ⚠️ `nonce` ISTEMCIYE de doner (GIS'i yapilandirmak icin gerekir) ve bu bir
+ * sizinti DEGILDIR: `nonce` bir SIR degil bir BAGLAYICIDIR. Degeri gizli
+ * olmasindan degil, sunucunun onu kendisinin urettigini BILMESINDEN gelir.
+ */
+export interface OAuthOneTapTokenInput {
+  readonly provider: string;
+  readonly nonce: string;
+}
+
+export type VerifiedOAuthOneTap = OAuthOneTapTokenInput;
 
 export interface IdentityTokenInput {
   readonly userId: string;
@@ -142,4 +169,16 @@ export interface TokenSigner {
 
   /** ⚠️ Kimlik/erisim/state token'larinin hicbirini kabul ETMEZ. */
   verifyOAuthPendingLink(token: string): Promise<VerifiedOAuthPendingLink>;
+
+  /** One Tap `nonce` baglayicisini imzalar (10 dk). Oturum ACMAZ. */
+  signOAuthOneTap(input: OAuthOneTapTokenInput): Promise<string>;
+
+  /**
+   * ⚠️ Diger DORT turun hicbirini kabul ETMEZ.
+   *
+   * Ayrim artik BES turludur ve testi bir MATRISTIR (ADR-0053 EK-1.5):
+   * her `(uretici, dogrulayici)` cifti icin `uretici !== dogrulayici` olan
+   * HER kombinasyon reddedilmelidir — yirmi kombinasyon.
+   */
+  verifyOAuthOneTap(token: string): Promise<VerifiedOAuthOneTap>;
 }

@@ -95,6 +95,14 @@ const EXPECTED_APP_GRANTS: readonly (readonly [string, readonly string[], string
   ['login_attempts', FULL, 'retention temizligi (ROADMAP §8.5)'],
   ['memberships', FULL, 'rol/durum degisikligi -> UPDATE; uyelik kaldirma -> DELETE'],
   ['messages', FULL, 'retention temizligi — EN HIZLI BUYUYEN tablo'],
+  // ⚠️ ADR-0053 EK-1.4: One Tap oran siniri defteri. EKLEME-YALNIZ —
+  // `federated_identities`ten FARKLI olarak kolon bazli bir istisna da YOKTUR:
+  // burada mesru TEK BIR mutasyon bile yoktur. DELETE retention icin kalir.
+  [
+    'one_tap_attempts',
+    APPEND_AND_DELETE,
+    'retention temizligi -> DELETE; guncelleme HICBIR kolonda yok',
+  ],
   ['outbox', FULL, 'yayin damgasi + attempt_count -> UPDATE; olu mektup -> DELETE'],
   ['password_reset_codes', FULL, 'tuketilen kod -> UPDATE/DELETE'],
   ['rate_limits', FULL, 'UPSERT -> UPDATE; retention -> DELETE (migration 0014)'],
@@ -182,7 +190,7 @@ describe('platform semasi yetki matrisi (gercek PostgreSQL)', () => {
     expect(auditLog?.privs).toBe('INSERT,SELECT');
   });
 
-  it('⚠️ TABLO SEVIYESINDE UPDATE tasimayan tablolar TAM OLARAK IKISIDIR', async () => {
+  it('⚠️ TABLO SEVIYESINDE UPDATE tasimayan tablolar TAM OLARAK UCTUR', async () => {
     // 2026-08-24 denetimi: on alti tablo tek tek sorgulandi ve `audit_log`
     // disinda UPDATE/DELETE tasiyan HER tablo icin o yetki GEREKLIDIR
     // (gerekceler `EXPECTED_APP_GRANTS`ta satir satir yazili).
@@ -194,10 +202,18 @@ describe('platform semasi yetki matrisi (gercek PostgreSQL)', () => {
     //   `federated_identities`  -> TEK kolon degisir (`last_login_at`) ve o
     //                              yetki KOLON SEVIYESINDEDIR, yani bu tablo
     //                              seviyesi listesinde gorunmez.
+    //   `one_tap_attempts`      -> ⚠️ HICBIR kolon degismez ve kolon bazli bir
+    //                              istisna da YOKTUR (2026-09-02, EK-1.4).
+    //                              `audit_log`a en yakin olan budur; farki
+    //                              yalnizca DELETE tasimasidir (retention).
     const rows = await grantsFor(APP_ROLE, 'platform');
     const restricted = rows.filter((row) => !row.privs.includes('UPDATE'));
 
-    expect(restricted.map((row) => row.table_name)).toEqual(['audit_log', 'federated_identities']);
+    expect(restricted.map((row) => row.table_name)).toEqual([
+      'audit_log',
+      'federated_identities',
+      'one_tap_attempts',
+    ]);
   });
 
   /**
@@ -223,6 +239,28 @@ describe('platform semasi yetki matrisi (gercek PostgreSQL)', () => {
     );
 
     expect(result.rows.map((row) => row.column_name)).toEqual(['last_login_at']);
+  });
+
+  /**
+   * ⚠️ `one_tap_attempts` KOLON BAZLI BIR ISTISNA DA TASIMAZ.
+   *
+   * `federated_identities`te tablo seviyesi UPDATE yoktu ama bir kolonda vardi;
+   * burada HICBIR kolonda yoktur. Bu testin isi o ayrimi kilitlemek: biri
+   * ileride "digeriyle ayni yapalim" deyip `GRANT UPDATE (...)` eklerse
+   * EKLEME-YALNIZ iddiasi sessizce cozulurdu.
+   */
+  it('⚠️ `one_tap_attempts`te UPDATE edilebilen HICBIR kolon yoktur', async () => {
+    const result = await ownerPool.query<{ column_name: string }>(
+      `SELECT column_name
+         FROM information_schema.column_privileges
+        WHERE grantee = $1
+          AND table_schema = 'platform'
+          AND table_name = 'one_tap_attempts'
+          AND privilege_type = 'UPDATE'`,
+      [APP_ROLE],
+    );
+
+    expect(result.rows).toHaveLength(0);
   });
 
   // ==========================================================================
