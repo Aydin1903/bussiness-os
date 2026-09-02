@@ -1,7 +1,8 @@
 # 0053 — Sosyal giris (OAuth): Google · Microsoft · LinkedIn · Facebook
 
-- **Durum:** ✅ **KABUL EDILDI** (2026-09-01) — ⚠️ **onay kalemlerinin TAMAMI onaylandi:**
-  A · **B (B1–B5)** · C · D · E · F
+- **Durum:** ✅ **KABUL EDILDI** (2026-09-01; ⚠️ **EK-1/EK-2 2026-09-02'de eklendi**)
+  — onay kalemlerinin TAMAMI onaylandi: A · **B (B1–B5)** · C · D · E · F
+  · **G · H · I · J** (EK-1/EK-2)
 - **Tarih:** 2026-09-01
 - **Karar veren:** Product Owner
 - **Faz:** 8 (ROADMAP §6 — _"bagimsiz kalem, herhangi bir noktada one alinabilir"_)
@@ -844,8 +845,9 @@ ekrana** kontrol etmedigimiz bir betik ekleniyor.
 
 ## EK-1 (2026-09-02) — §10'un UYGULAMA KARARI: `POST /auth/oauth/google/one-tap`
 
-> **Durum:** 🟡 **ONERILDI — Product Owner onayi bekliyor.** §9 (dugme satiri)
-> uygulandi ve prod'a cikti (`00aedd6`); §10 ve CSP **cikmadi**.
+> **Durum:** ✅ **KABUL EDILDI** (2026-09-02) — **G · H · I · J onaylandi.**
+> ⚠️ Karar alindi, **implementasyon HENUZ YAPILMADI**: §9 (dugme satiri)
+> uygulandi ve prod'a cikti (`00aedd6`), §10 ve CSP **cikmadi**.
 >
 > ⚠️ **Bu ek, mevcut §10 metnini SILMEZ ve DEGISTIRMEZ.** §10 kisisellestirilmis
 > kutunun _ne olacagini_ ve _neden iki kez gorunecegini_ tanimliyordu; ek onun
@@ -1160,14 +1162,24 @@ hicbiri cikmaz.
 
 ---
 
-## EK-1/EK-2 — Product Owner onayi gereken kalemler
+## ✅ EK-1/EK-2 — Product Owner onayi: **DORDU DE ONAYLANDI (2026-09-02)**
 
-| #     | Kalem                                                                                                       | Neden onaya sunuluyor                                                                                                       |
-| ----- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **G** | ⚠️ **Ikinci bir kimlik dogrulama girisi** aciliyor (`POST /auth/oauth/google/one-tap`).                     | CLAUDE.md "Danisilmasi Zorunlu: Authentication". Alternatif (b) reddedildi (kullaniciya iki kez Google gosterirdi).         |
-| **H** | ⚠️ **Yeni tablo + migration**: `platform.one_tap_attempts` (IP bazli oran siniri).                          | Mevcut iki mekanizma da kullanilamaz; biri (`login_attempts`) kullanilsa **kilitleme saldirisi** acardi.                    |
-| **I** | ⚠️ **Sifirdan CSP** — `script-src` nonce tabanli, `style-src`de dar `'unsafe-inline'` istisnasi.            | Genisletilecek politika **yok**; yanlisi build/test yesilken **yalnizca tarayicida** kirar ve prod'da gercek kullanici var. |
-| **J** | ⚠️ **Ayrim testi matrise donusuyor** (6 → 20 kombinasyon) ve `TokenSigner` **besinci** token turunu aliyor. | B3'un onay kosulunun genislemesi. ⚠️ Altinci tur gelirse port'un kendisi yeniden dusunulmelidir.                            |
+| #     | Kalem                                                                                                       | Neden onaya sunuldu                                                                                                         | Durum |
+| ----- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | :---: |
+| **G** | ⚠️ **Ikinci bir kimlik dogrulama girisi** aciliyor (`POST /auth/oauth/google/one-tap`).                     | CLAUDE.md "Danisilmasi Zorunlu: Authentication". Alternatif (b) reddedildi (kullaniciya iki kez Google gosterirdi).         |  ✅   |
+| **H** | ⚠️ **Yeni tablo + migration**: `platform.one_tap_attempts` (IP bazli oran siniri).                          | Mevcut iki mekanizma da kullanilamaz; biri (`login_attempts`) kullanilsa **kilitleme saldirisi** acardi.                    |  ✅   |
+| **I** | ⚠️ **Sifirdan CSP** — `script-src` nonce tabanli, `style-src`de dar `'unsafe-inline'` istisnasi.            | Genisletilecek politika **yok**; yanlisi build/test yesilken **yalnizca tarayicida** kirar ve prod'da gercek kullanici var. |  ✅   |
+| **J** | ⚠️ **Ayrim testi matrise donusuyor** (6 → 20 kombinasyon) ve `TokenSigner` **besinci** token turunu aliyor. | B3'un onay kosulunun genislemesi. ⚠️ Altinci tur gelirse port'un kendisi yeniden dusunulmelidir.                            |  ✅   |
+
+> ⚠️ **ONAY, IMPLEMENTASYON DEGILDIR.** Bu tablo kararin verildigini soyler;
+> kod **yazilmadi**. EK-1 + EK-2 TEK SLICE'ta uygulanir (ikisi ayrilamaz —
+> EK-2.4) ve o slice ⚠️ **MIGRATION TASIR** (`platform.one_tap_attempts`),
+> yani push oncesi ayrica haber verilir.
+>
+> ⚠️ Ve EK-2.4'un kabul olcutu hatirlatilir: CSP once **Report-Only** cikar;
+> gercek tarayicida yedi auth ekrani + `/app` gezilip **sifir ihlal**
+> goruldukten sonra zorlayiciya cevrilir. _"`pnpm verify` yesil" bu is icin
+> YETERLI DEGILDIR._
 
 ⚠️ **Bir esik yaziliyor:** `TokenSigner` besinci turu aliyor. **Altinci** bir tur
 gundeme gelirse, port'a bir tur daha eklemek yerine **kisa omurlu imzali cerez**
