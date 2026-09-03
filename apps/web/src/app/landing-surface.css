@@ -1,0 +1,1949 @@
+/*
+ * LANDING YÜZEYİ — ADR-0054.
+ *
+ * ============================================================================
+ * BU DOSYA NEDEN `auth-surface.css` DEĞİL, NEDEN `module-colors.css` DEĞİL
+ * ============================================================================
+ * Projede artık ÜÇ tasarım dili var ve üçü de aynı mekanizmayı kullanır
+ * (kapsam attribute'u + token override, bileşen değişmez):
+ *
+ *   | Yüzey   | Kapsam                     | Dil                             |
+ *   | ------- | -------------------------- | ------------------------------- |
+ *   | app     | `[data-module='…']`        | ODA — soğuk-nötr, sessiz        |
+ *   | auth    | `[data-surface='auth']`    | Mars — sıcak, maskotlu          |
+ *   | landing | `[data-surface='landing']` | ⚠️ BU DOSYA — beyaz, kontrastlı |
+ *
+ * Üçünü tek dosyada toplamak, ADR-0052'nin auth için verdiği kararla aynı
+ * gerekçeyle reddedildi: `module-colors.css` on iki İŞ MODÜLÜNÜN SSOT'udur ve
+ * landing bir modül değildir (şeması, izni, katkıcısı yok). Aynı dosyaya
+ * koymak on üçüncü modül geldiğinde paletin yanlış yerde aranmasına yol
+ * açardı.
+ *
+ * ============================================================================
+ * ⚠️ KAYNAK: ONAYLANMIŞ PROTOTİP — YENİDEN YORUMLANMADI
+ * ============================================================================
+ * Değerlerin tamamı Product Owner'ın onayladığı statik prototipten (Viza
+ * tarzı) BİREBİR taşındı. Prototipin kendi ölçüm yorumları da taşındı, çünkü
+ * onlar bir tercihin değil bir ÖLÇÜMÜN kaydıdır (ör. `.oda .nokta`nın satır
+ * içi olduğu için on iki modülün renginin ekranda HİÇ görünmediği bulgusu).
+ *
+ * ⚠️ Prototip Google Fonts'a bir `<link>` atıyordu; burada `next/font`
+ * kullanılır ve bu bir üslup tercihi DEĞİL bir ZORUNLULUKTUR: ADR-0053
+ * EK-2'nin CSP'si `style-src 'self' 'unsafe-inline'` yazar —
+ * `fonts.googleapis.com` orada YOKTUR, yani `<link>` sessizce engellenir ve
+ * sayfa fallback fontla çizilirdi. Hata görünür ama sebebi görünmez olurdu.
+ *
+ * ============================================================================
+ * ⚠️ TEK TEMA — VE BU BİR EKSİK DEĞİL, BİR KARAR
+ * ============================================================================
+ * Onaylanan tasarımın koyu varyantı YOKTUR. `color-scheme` bu yüzden kapsamda
+ * `light` olarak SABİTLENİR: kök `light dark` der ve o hâliyle bırakılsaydı
+ * koyu tercihli bir ziyaretçide kaydırma çubuğu ve form kontrolleri koyu
+ * çizilir, beyaz sayfanın üstünde yamalı görünürdü.
+ */
+
+/*
+ * ⚠️ `scroll-behavior` KÖK ÖĞEYE YAZILMAK ZORUNDA — kapsama yazmak İŞE YARAMAZ.
+ *
+ * Sayfa içi bağlantıların (`/#nasil`) yumuşak kaydırması, kaydırmayı YAPAN
+ * öğeye bağlıdır ve o öğe `<html>`dir. `[data-surface='landing']` bir kaydırma
+ * kabı değildir; oraya yazmak hiçbir şey yapmazdı ve hata SESSİZ olurdu —
+ * bağlantı çalışır, yalnızca zıplayarak.
+ *
+ * `:has()` kapsamı korur: kural yalnızca landing sayfası açıkken uygulanır,
+ * `/app` ve auth ekranları etkilenmez.
+ */
+html:has([data-surface='landing']) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-surface='landing']) {
+    scroll-behavior: auto;
+  }
+}
+
+[data-surface='landing'] {
+  /*
+   * ==========================================================================
+   * 1. PALET — prototipten ölçülerek çıkarıldı, göz kararıyla değil
+   * ==========================================================================
+   * Referans sistemin ölçülen imzası: beyaz zemin · `#131313` mürekkep ·
+   * `#f2f2f2` gri · TEK yüksek kromalı vurgu, çok az yerde · kart 12–24 px /
+   * dev kap 80 px yarıçap · gölge pratikte YOK · mono versal etiket · bento
+   * düzen.
+   *
+   * ⚠️ TEK BİLİNÇLİ SAPMA: vurgu rengi referanstaki limon değil, MASKOTUN
+   * KENDİ NANESİDİR. Rol birebir aynı (bir kart, bir düğme); değişen yalnızca
+   * hangi markanın rengi olduğu — limonu almak KobiWise'ı değil referansı
+   * kopyalamak olurdu.
+   *
+   * ⚠️ BİLİNEN AYRIŞMA, KAYDA GEÇTİ: `auth-surface.css` maskotun nanesini
+   * `--bot-mint: #8ee3b6` diye tanımlar; buradaki değer `#7be0b4`. İkisi aynı
+   * şeyin (maskotun ışığı) iki ayrı ölçümüdür. Bugün ZARARSIZDIR ve sebebi
+   * ölçülebilir: `--bot-mint` auth'ta TANIMLI AMA HİÇ KULLANILMIYOR — panel
+   * onu hiçbir yerde boyamaz (arandı). Onaylanan piksel bu dosyadakidir; auth
+   * o token'ı gerçekten kullanmaya başladığı gün ikisi TEK değere çekilmelidir
+   * ve o iş bu işin kapsamı DIŞINDADIR (Mutlak Kural 1 — auth'a dokunulmadı).
+   */
+  --nane: #7be0b4;
+  --nane-koyu: #0d5740;
+  --lila: #bda6ec;
+
+  --lp-bg: #ffffff;
+  --lp-gri: #f2f2f2;
+  --lp-gri-2: #e2e2e2;
+  --lp-ink: #131313;
+  --lp-ink-2: #5a5f66;
+  --lp-ink-3: #8b9096;
+
+  --r-s: 12px;
+  --r-m: 24px;
+  --r-l: 80px;
+  --pill: 100px;
+
+  --olcu: min(1320px, 92vw);
+  --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /*
+   * ==========================================================================
+   * 2. SİSTEME BAĞLANMA — `auth-surface.css` §2'nin birebir aynısı
+   * ==========================================================================
+   * Kökte `--accent` = `--ai-accent` = terracottadır.
+   *
+   * ⚠️ `--accent`i landing mürekkebine çekmenin somut kazancı `globals.css`in
+   * `:focus-visible { outline: 2px solid var(--accent) }` kuralıdır: tek satır
+   * yazmadan odak halkası doğru renge gelir. Ezilmeseydi beyaz sayfanın
+   * üstünde terracotta bir halka kalırdı — ekran çalışır, hata SESSİZ olurdu.
+   *
+   * ⚠️ `--ai-*` BİLEREK dokunulmadan bırakılır: landing'de AI konuşmaz, yani
+   * o token'ların tüketicisi yoktur (ADR-0052 §2'nin auth için verdiği aynı
+   * karar). Ezmek, olmayan bir sesi susturmak olurdu.
+   */
+  --accent: var(--lp-ink);
+  --accent-fg: var(--lp-bg);
+  --ink: var(--lp-ink);
+  --tint: rgb(19 19 19 / 5%);
+  --tint-2: rgb(19 19 19 / 8%);
+  --glow: rgb(19 19 19 / 14%);
+
+  /*
+   * ==========================================================================
+   * 3. ZEMİN — ⚠️ IŞIK KAPATILMAZ, ÖRTÜLÜR
+   * ==========================================================================
+   * `globals.css`in terracotta zemin ışığı (`--bg-warm`) ve kağıt taneciği
+   * `body::before` / `body::after` üzerindedir ve bu kapsamın DIŞINDADIR —
+   * yani bir token ezmek onları KALDIRMAZ. İkisi de `position: fixed;
+   * z-index: 0` taşır; akıştaki konumlandırılmamış bir blok onların ALTINDA
+   * boyanır. Kapsam bu yüzden kendi yığın bağlamını kurar (`auth-surface.css`
+   * §3 ve `.room-canvas > *` ile aynı teknik).
+   *
+   * ⚠️ `overflow-x: clip`, `hidden` DEĞİL: `hidden` bu öğeyi bir KAYDIRMA KABI
+   * yapar (dikeyde de) ve sayfanın içinde ikinci bir kaydırıcı doğardı; `clip`
+   * yalnızca kırpar, kap oluşturmaz.
+   */
+  position: relative;
+  z-index: 1;
+  overflow-x: clip;
+  color-scheme: light;
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-family:
+    var(--font-jakarta),
+    -apple-system,
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--lp-ink);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  .kap {
+    width: var(--olcu);
+    margin: 0 auto;
+  }
+
+  /*
+   * ⚠️ `letter-spacing` BURADA YENİDEN YAZILMAK ZORUNDA: `globals.css`
+   * `h1,h2,h3 { letter-spacing: -0.02em }` diyor, landing -0.03em ister.
+   * Kapsam özgüllüğü (0,1,1) kökün (0,0,1) üstündedir.
+   */
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.06;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  .d1 {
+    font-size: clamp(32px, 3.5vw, 48px);
+  }
+
+  .d2 {
+    font-size: clamp(30px, 3.4vw, 46px);
+  }
+
+  .d3 {
+    font-size: clamp(19px, 1.6vw, 22px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .alt {
+    font-size: clamp(15.5px, 1.15vw, 18px);
+    line-height: 1.6;
+    color: var(--lp-ink-2);
+  }
+
+  .kucuk {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--lp-ink-3);
+  }
+
+  /*
+   * ETİKET — referansın imzası: küçük dolu kare + geniş aralıklı mono versal.
+   *
+   * ⚠️ Metin ELLE büyük harf yazılır; `text-transform` bu belgede (`lang="tr"`)
+   * "Business OS"u "BUSİNESS OS" yapardı — `brand.tsx`in tarayıcıda görüp
+   * kaydettiği tuzağın aynısı.
+   */
+  .etiket {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: var(--lp-ink-2);
+  }
+
+  .etiket::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    flex: none;
+  }
+
+  /* ------------------------------------------------------------------ düğme */
+  .dg {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    border: 0;
+    border-radius: var(--pill);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    transition:
+      transform 0.25s var(--lp-ease),
+      background 0.2s;
+  }
+
+  .dg-koyu {
+    background: var(--lp-ink);
+    color: #fff;
+    padding: 21px 38px;
+  }
+
+  .dg-koyu:hover {
+    transform: translateY(-2px);
+    background: #000;
+  }
+
+  /* Vurgu düğmesi: hap + içinde siyah dairesel ok rozeti (referansın deseni). */
+  .dg-nane {
+    background: var(--nane);
+    color: #06301e;
+    padding: 9px 9px 9px 26px;
+  }
+
+  .dg-nane:hover {
+    transform: translateY(-2px);
+  }
+
+  /*
+   * ⚠️ Rozetin fontu AÇIKÇA yazılır. Prototipte `font-family: var(--sans)`
+   * duruyordu ve gerekçesi vardı: `.dg` mono'dur, ok işareti mono kesimde
+   * dar ve cılız çizilir. Burada `inherit` YAZILAMAZ (mono'yu miras alırdı);
+   * `font-weight` de yazılır çünkü `<b>` UA varsayılanı `bolder`dır ve
+   * değişken font altında 700'e sıçrar.
+   */
+  .dg-nane b {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--lp-ink);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-family: var(--font-jakarta), system-ui, sans-serif;
+    font-weight: 500;
+  }
+
+  .dg-ac {
+    background: rgb(255 255 255 / 14%);
+    color: #fff;
+    padding: 21px 38px;
+    backdrop-filter: blur(6px);
+  }
+
+  .dg-ac:hover {
+    background: rgb(255 255 255 / 22%);
+  }
+
+  .dg-s {
+    height: 48px;
+    padding: 0 24px;
+    font-size: 12px;
+  }
+
+  .dg-nane.dg-s {
+    padding: 0 6px 0 22px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dg {
+      transition: none;
+    }
+
+    .dg:hover {
+      transform: none;
+    }
+  }
+
+  /*
+   * ==========================================================================
+   * ÜST ÇUBUK — ÜÇ KADEME, ÜÇ FARKLI MUAMELE
+   * ==========================================================================
+   * ⚠️ Önceki hâlde GEZİNME ile GİRİŞ aynı görünüyordu (ikisi de gri dolgulu
+   * hap) ve bu kafa karıştırıcıydı: biri sayfanın içinde BİR YERE GÖTÜRÜR,
+   * diğeri bir EYLEM başlatır. Aynı görünen iki şey aynı şey sanılır.
+   *
+   *   1. GEZİNME  → tek bir gri kapsülün içinde bölmeler (bir KÜME olduğu
+   *                 anlaşılsın diye); üzerine gelince beyaz çip.
+   *   2. GİRİŞ    → çerçeveli, dolgusuz (ikincil eylem).
+   *   3. ÜCRETSİZ → nane dolgulu (tek birincil eylem).
+   *
+   * Kademeler DOLGU MİKTARIYLA ayrışır: küme < çerçeve < dolgu. Üçü de 48 px
+   * yüksekliğinde, yani hiçbiri erişilebilirlikten ödün vermez.
+   */
+  .ust {
+    padding: 20px 0;
+  }
+
+  .ust-in {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* Logo yazılı markadır — koridordaki en büyük tek marka işareti odur. */
+  .ust-logo img {
+    height: 44px;
+    width: auto;
+  }
+
+  .ust-nav {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    align-items: center;
+    background: var(--lp-gri);
+    border-radius: var(--pill);
+    padding: 5px;
+  }
+
+  .ust-nav a {
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 17px;
+    border-radius: var(--pill);
+    color: var(--lp-ink-2);
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .ust-nav a:hover,
+  .ust-nav a[aria-current='page'] {
+    background: #fff;
+    color: var(--lp-ink);
+  }
+
+  .ust-act {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /*
+   * ⚠️ Çerçeve `border` ile DEĞİL `inset box-shadow` ile çizilir: `border`
+   * kutu ölçüsünü değiştirir ve düğme komşularından 3 px kısa kalırdı.
+   */
+  .dg-cizgi {
+    background: transparent;
+    color: var(--lp-ink);
+    box-shadow: inset 0 0 0 1.5px var(--lp-gri-2);
+    transition:
+      box-shadow 0.2s,
+      background 0.2s;
+  }
+
+  .dg-cizgi:hover {
+    box-shadow: inset 0 0 0 1.5px var(--lp-ink);
+    background: transparent;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ust-nav a {
+      transition: none;
+    }
+  }
+
+  @media (width <= 1080px) {
+    .ust-nav {
+      display: none;
+    }
+
+    .ust-act {
+      margin-left: auto;
+    }
+  }
+
+  /*
+   * ⚠️ Dar ekranda düğme metni iki satıra kırılıyordu (ölçüldü, 390 px).
+   * `nowrap` yazmak taşmayı görünmez bir yere taşırdı; onun yerine SÖZCÜK
+   * DÜŞÜRÜLÜR — "BAŞLA ↗" tek başına da eylemi anlatıyor.
+   */
+  @media (width <= 460px) {
+    .dg-s {
+      padding: 0 14px;
+    }
+
+    .dg-nane.dg-s {
+      padding: 0 5px 0 16px;
+    }
+
+    .ust-in {
+      gap: 10px;
+    }
+
+    .ust-act .uzun {
+      display: none;
+    }
+  }
+
+  @media (width <= 560px) {
+    .ust-logo img {
+      height: 36px;
+    }
+  }
+
+  /*
+   * ==========================================================================
+   * HERO — dev yuvarlak kap içinde fotoğraf; başlık üstünde
+   * ==========================================================================
+   */
+  .hero {
+    position: relative;
+    border-radius: var(--r-l);
+    overflow: hidden;
+    background: #b4653a;
+    padding: clamp(56px, 7vw, 104px) clamp(24px, 4vw, 64px) clamp(40px, 5vw, 72px);
+    color: #fff;
+    min-height: clamp(600px, 62vw, 860px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  @media (width <= 700px) {
+    .hero {
+      border-radius: 34px;
+    }
+  }
+
+  /*
+   * ⚠️ SADE HERO — metinsiz, yalnızca fotoğraf ("Hakkında" odası). Ana sayfanın
+   * hero'su bir İDDİA taşır ve o yükseklikte durur; buradaki yalnızca bir
+   * SOLUKLANMADIR, o yüzden daha alçaktır.
+   */
+  .hero-sade {
+    min-height: clamp(420px, 42vw, 620px);
+  }
+
+  .hero-foto {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 58%;
+  }
+
+  /*
+   * ⚠️ PERDE YÖNÜ METNİN HİZASIYLA AYNI (ADR-0052 §3.7'nin scrim kuralının
+   * landing'deki karşılığı). Metin SOLA yaslı, dolayısıyla karartma soldan
+   * sağa açılır: yazının arkası koyu, maskotun durduğu sağ yarı TEMİZ kalır.
+   *
+   * ⚠️ Bu yalnızca okunabilirlik değil, Product Owner'ın açık talebidir:
+   * "maskotların üzerinde slogan olmamalı".
+   */
+  .hero-foto::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        96deg,
+        rgb(26 10 3 / 90%) 0%,
+        rgb(26 10 3 / 78%) 30%,
+        rgb(26 10 3 / 34%) 52%,
+        rgb(26 10 3 / 0%) 72%
+      ),
+      linear-gradient(to top, rgb(26 10 3 / 42%) 0%, rgb(26 10 3 / 0%) 30%);
+  }
+
+  /*
+   * ⚠️ `.hero-foto` DIŞARIDA BIRAKILIR. Genel `.hero > *` kuralı fotoğraf
+   * katmanının `position: absolute` değerini EZİYOR ve fotoğraf akışa girip
+   * kabı şişiriyordu (tarayıcıda görüldü). Sonra gelen genel kural, önce
+   * yazılmış özel kuralı sessizce bozuyordu.
+   */
+  .hero > *:not(.hero-foto) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Metin sütunu — kabın yalnızca sol yarısını kullanır. */
+  .hero-ic {
+    width: min(100%, 680px);
+  }
+
+  /*
+   * ==========================================================================
+   * ⚠️ DAR EKRANDA BİNDİRME YOK — FOTOĞRAF ÜSTTE, METİN ALTTA.
+   * ==========================================================================
+   * Ölçülen sebep: kare bir kaynak DİKEY bir kapta `cover` ile YÜKSEKLİĞE göre
+   * ölçeklenir, yani kırpma YATAY olur ve `object-position`ın Y bileşeni
+   * hiçbir şey yapmaz. Maskot bu yüzden her yükseklikte kabın %35–90 bandına
+   * düşüyor ve metinle çakışıyordu — kadraj oynatarak çözülemezdi.
+   *
+   * ⚠️ Bindirmeyi zorlamak, "maskotun üzerinde slogan olmasın" kuralını dar
+   * ekranda çiğnemek olurdu; o yüzden düzen değişir.
+   */
+  @media (width <= 860px) {
+    .hero {
+      display: block;
+      padding: 0;
+      min-height: 0;
+      background: var(--lp-ink);
+    }
+
+    .hero-foto {
+      position: relative;
+      inset: auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    /* Tablette kare bant 860 px yüksekliğe çıkıyordu — oran basıklaştırılır. */
+    @media (width >= 620px) {
+      .hero-foto {
+        aspect-ratio: 16 / 11;
+      }
+    }
+
+    .hero-foto img {
+      object-position: 74% 50%;
+    }
+
+    /* Yalnızca DİPTE yumuşak bir geçiş — maskotun üstünde perde YOK. */
+    .hero-foto::after {
+      background: linear-gradient(
+        to bottom,
+        rgb(19 19 19 / 0%) 72%,
+        rgb(19 19 19 / 55%) 88%,
+        var(--lp-ink) 100%
+      );
+    }
+
+    .hero-ic {
+      width: 100%;
+      padding: 4px 26px 46px;
+    }
+
+    .hero-dg {
+      margin-top: 28px;
+    }
+
+    .hero-dg .dg {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+  }
+
+  .hero .etiket {
+    color: rgb(255 255 255 / 72%);
+  }
+
+  .hero h1 {
+    margin-top: 26px;
+    color: #fff;
+    text-wrap: balance;
+  }
+
+  /*
+   * ⚠️ SÖNÜK KELİME — referansın başlık deseni: cümlenin ikinci yarısı
+   * saydamlaşarak geri çekilir, gözü ilk yarıya çeker.
+   */
+  .hero h1 i {
+    font-style: normal;
+    color: rgb(255 255 255 / 50%);
+  }
+
+  .hero .alt {
+    margin-top: 22px;
+    max-width: 46ch;
+    color: rgb(255 255 255 / 84%);
+  }
+
+  .hero-dg {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 34px;
+  }
+
+  .hero-not {
+    margin-top: 26px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: rgb(255 255 255 / 62%);
+  }
+
+  /* -------------------------------------------------------------- ölçü şeridi */
+  .serit {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px 46px;
+    margin-top: 40px;
+    padding: 26px 0;
+    border-top: 1px solid var(--lp-gri-2);
+    border-bottom: 1px solid var(--lp-gri-2);
+  }
+
+  .serit span {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+  }
+
+  .serit b {
+    color: var(--lp-ink);
+    font-weight: 500;
+  }
+
+  @media (width <= 700px) {
+    .serit {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px 20px;
+      justify-content: stretch;
+    }
+
+    .serit span {
+      font-size: 11px;
+    }
+  }
+
+  /*
+   * ==========================================================================
+   * BENTO — farklı işlemli kartlar bir arada (referansın deseni)
+   * ==========================================================================
+   */
+  .bento {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 26px;
+  }
+
+  @media (width >= 760px) {
+    .bento {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (width >= 1080px) {
+    .bento {
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: minmax(0, auto);
+    }
+  }
+
+  .kart {
+    border-radius: var(--r-m);
+    padding: 34px 32px 36px;
+  }
+
+  .kart .rakam {
+    font-size: clamp(46px, 4.6vw, 68px);
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .kart p {
+    margin-top: 16px;
+    font-size: 15.5px;
+    line-height: 1.55;
+  }
+
+  /* Gri kart bir sütundur; ölçü satırı DİBE yapışır, altta ölü boşluk kalmaz. */
+  .k-gri {
+    display: flex;
+    flex-direction: column;
+    background: var(--lp-gri);
+  }
+
+  .k-gri .dip {
+    margin-top: auto;
+    padding-top: 28px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+  }
+
+  .k-foto {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    min-height: 300px;
+  }
+
+  .k-foto img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .k-foto .ic {
+    position: absolute;
+    left: 22px;
+    right: 22px;
+    top: 22px;
+    background: #fff;
+    border-radius: var(--r-s);
+    padding: 26px 24px 28px;
+  }
+
+  /*
+   * ⚠️ Beyaz kutu fotoğrafın üstündedir ve `.kart`ın rengini MİRAS ALMAZ olması
+   * gerekir: prototipte bu iki satır `style="color:var(--ink)"` diye satır içi
+   * yazılıydı. Satır içi kalsaydı token adı (`--ink-2`) uygulamanın kök
+   * kümesinde bulunmadığı için SESSİZCE çözülemez olurdu — metin miras alınan
+   * beyaz renkte, beyaz kutunun üstünde görünmez kalırdı.
+   */
+  .k-foto .ic .rakam {
+    color: var(--lp-ink);
+  }
+
+  .k-foto .ic p {
+    color: var(--lp-ink-2);
+  }
+
+  .k-nane {
+    background: var(--nane);
+    color: #06301e;
+  }
+
+  .k-koyu {
+    background: var(--lp-ink);
+    color: #fff;
+  }
+
+  .k-gri p {
+    color: var(--lp-ink-2);
+  }
+
+  .k-koyu p {
+    color: rgb(255 255 255 / 66%);
+  }
+
+  .k-satir {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 26px 32px;
+  }
+
+  .k-satir .ad {
+    font-size: 15.5px;
+    font-weight: 500;
+  }
+
+  .k-satir .rakam {
+    font-size: clamp(34px, 3vw, 44px);
+  }
+
+  .yigin {
+    display: grid;
+    gap: 14px;
+    grid-template-rows: 1fr auto;
+  }
+
+  /*
+   * ==========================================================================
+   * BÖLÜM BAŞLIĞI — ortalanmış, referansın deseni
+   * ==========================================================================
+   */
+  .bolum {
+    padding: clamp(80px, 9vw, 140px) 0 0;
+  }
+
+  .bolum-bas {
+    text-align: center;
+    max-width: 940px;
+    margin: 0 auto;
+  }
+
+  .bolum-bas h2 {
+    margin-top: 22px;
+    max-width: 22ch;
+    margin-inline: auto;
+    text-wrap: balance;
+  }
+
+  .bolum-bas .alt {
+    margin: 18px auto 0;
+    max-width: 52ch;
+    text-wrap: pretty;
+  }
+
+  .bolum-bas .alt b {
+    color: var(--lp-ink);
+    font-weight: 600;
+  }
+
+  /* Listeye doğrudan bağlanan başlık — altındaki tablo nefes payını kendi verir. */
+  .bolum-bas-sik {
+    margin-bottom: 8px;
+  }
+
+  /* Başlığın altındaki tek eylem (ör. "Sorular"daki e-posta düğmesi). */
+  .bolum-bas .eylem {
+    margin-top: 30px;
+  }
+
+  /* Bölüm başlığı olmayan, yalnızca aralık isteyen kesitler (ör. alıntı). */
+  .aralik-ust {
+    margin-top: clamp(80px, 9vw, 140px);
+  }
+
+  /* -------------------------------------------------------------- oda kartları */
+  .odalar {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 46px;
+  }
+
+  @media (width >= 760px) {
+    .odalar {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (width >= 1080px) {
+    .odalar {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .oda {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-m);
+    background: var(--lp-gri);
+    padding: 26px 24px 30px;
+    min-height: 148px;
+    transition: background 0.25s var(--lp-ease);
+  }
+
+  /*
+   * ⚠️ SESSİZ KUSUR (prototipte ölçüldü ve düzeltildi): `.nokta` bir `<span>`,
+   * yani SATIR İÇİ — `width`/`height` satır içi öğede UYGULANMAZ. On iki
+   * modülün imza rengi (CLAUDE.md'nin bağlayıcı kuralı) bu yüzden ekranda HİÇ
+   * görünmüyordu. Hata sessizdi: kart çalışıyor, lint susuyor, hiçbir test
+   * kırmızı yanmıyor.
+   */
+  .oda .nokta {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+
+  /*
+   * ⚠️ Renk TEK BAŞINA bilgi taşımaz (renk körlüğü — FRONTEND §4.8): her
+   * kartın ayrıca adı, sorusu ve sıra numarası vardır. Renk yalnızca ODAYI
+   * hatırlatır, onu tanımlamaz.
+   */
+  .oda::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--c);
+    opacity: 0;
+    transition: opacity 0.25s var(--lp-ease);
+  }
+
+  .oda > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .oda:hover::before {
+    opacity: 0.09;
+  }
+
+  .oda:hover .no {
+    color: var(--c);
+  }
+
+  .oda:hover .ad {
+    color: var(--lp-ink-2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .oda,
+    .oda::before {
+      transition: none;
+    }
+  }
+
+  /*
+   * ⚠️ HİYERARŞİ TERSİNE ÇEVRİLDİ ve sebebi bölümün KENDİ BAŞLIĞIDIR:
+   * "Her modül bir hafıza, HER KAPI BİR SORU." Önceki kartta modülün ADI
+   * büyük, sorusu küçüktü — yani başlığın söylediğinin tersi. Artık kahraman
+   * satır SORUDUR; ad, rengiyle birlikte küçük bir künyedir.
+   */
+  .oda .ad {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--lp-ink-3);
+  }
+
+  .oda p {
+    margin-top: auto;
+    padding-top: 22px;
+    font-size: 17px;
+    line-height: 1.35;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--lp-ink);
+    text-wrap: pretty;
+  }
+
+  .oda .no {
+    position: absolute;
+    right: 22px;
+    top: 24px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--lp-ink-3);
+    transition: color 0.25s;
+  }
+
+  /* ------------------------------------------------------------------ üç adım */
+  .adimlar {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 900px) {
+    .adimlar {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .adim {
+    border-radius: var(--r-m);
+    background: var(--lp-gri);
+    padding: 34px 32px 36px;
+  }
+
+  .adim .no {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+  }
+
+  .adim h3 {
+    margin-top: 18px;
+  }
+
+  .adim p {
+    margin-top: 12px;
+    font-size: 15.5px;
+    color: var(--lp-ink-2);
+    line-height: 1.55;
+  }
+
+  .adim:nth-child(2) {
+    background: var(--lp-ink);
+    color: #fff;
+  }
+
+  .adim:nth-child(2) p {
+    color: rgb(255 255 255 / 66%);
+  }
+
+  .adim:nth-child(2) .no {
+    color: var(--nane);
+  }
+
+  /* -------------------------------------------------------------------- cevap */
+  .cevap {
+    border-radius: var(--r-l);
+    background: var(--lp-ink);
+    color: #fff;
+    padding: clamp(38px, 5vw, 74px);
+    margin-top: 46px;
+  }
+
+  @media (width <= 700px) {
+    .cevap {
+      border-radius: 34px;
+    }
+  }
+
+  .cevap .soru {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--nane);
+  }
+
+  .cevap .metin {
+    margin-top: 26px;
+    font-size: clamp(20px, 2.2vw, 30px);
+    font-weight: 300;
+    line-height: 1.45;
+    max-width: 42ch;
+  }
+
+  .cevap .kaynak {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid rgb(255 255 255 / 14%);
+  }
+
+  .cevap .kaynak em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: rgb(255 255 255 / 50%);
+    margin-right: 8px;
+  }
+
+  .cevap .kaynak i {
+    font-style: normal;
+    font-size: 13px;
+    padding: 8px 15px;
+    border-radius: var(--pill);
+    background: rgb(255 255 255 / 9%);
+  }
+
+  /*
+   * ------------------------------------------------------------------ sorular
+   * ⚠️ AÇILIR KAPANIR YAPI İÇİN JS YOK — `<details>`/`<summary>` yerlisi.
+   * Klavye, ekran okuyucu ve sayfa içi arama (Ctrl+F) kendiliğinden çalışır;
+   * elle yazılmış bir akordeon üçünü de ayrı ayrı üstlenmek zorunda kalırdı.
+   */
+  .sorular {
+    max-width: 900px;
+    margin: 46px auto 0;
+  }
+
+  .sss {
+    border-top: 1px solid var(--lp-gri-2);
+  }
+
+  .sss:last-child {
+    border-bottom: 1px solid var(--lp-gri-2);
+  }
+
+  .sss summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    padding: 26px 4px;
+    list-style: none;
+    font-size: clamp(17px, 1.5vw, 20px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .sss summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sss summary::after {
+    content: '+';
+    margin-left: auto;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--lp-gri);
+    display: grid;
+    place-items: center;
+    font-size: 19px;
+    font-weight: 400;
+    color: var(--lp-ink-2);
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .sss[open] summary::after {
+    content: '–';
+    background: var(--lp-ink);
+    color: #fff;
+  }
+
+  .sss summary:hover::after {
+    background: var(--lp-gri-2);
+  }
+
+  .sss .cv {
+    padding: 0 58px 30px 4px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--lp-ink-2);
+  }
+
+  .sss .cv b {
+    color: var(--lp-ink);
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sss summary::after {
+      transition: none;
+    }
+  }
+
+  /* ------------------------------------------------------------- sahne şeridi */
+  .sahneler {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 860px) {
+    .sahneler {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .sahneler-tek {
+    grid-template-columns: 1fr;
+  }
+
+  .sahne {
+    border-radius: var(--r-m);
+    overflow: hidden;
+    aspect-ratio: 4/5;
+    background: #b4653a;
+  }
+
+  .sahne-genis {
+    aspect-ratio: 16/7;
+  }
+
+  .sahne img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Oynatılabilir maskot kutusu — üç sahnenin ilki. */
+  .bot-kutu {
+    position: relative;
+    background: #14171b;
+  }
+
+  .bot-kutu video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.35s var(--lp-ease);
+  }
+
+  .bot-kutu video.live {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bot-kutu video {
+      transition: none;
+    }
+  }
+
+  .bot-ip {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    color: var(--lp-ink);
+    background: var(--nane);
+    padding: 7px 14px;
+    border-radius: var(--pill);
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 0.3s,
+      transform 0.3s;
+  }
+
+  .bot-kutu:hover .bot-ip {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ⚠️ Dokunmatikte video HİÇ kurulmaz; "üstüne gelin" yazmak yalan olurdu. */
+  @media (hover: none), (width <= 759px) {
+    .bot-ip {
+      display: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------ kapanış */
+  .kapanis {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-l);
+    background: var(--nane);
+    color: #06301e;
+    padding: clamp(44px, 6vw, 86px);
+    margin-top: clamp(80px, 9vw, 140px);
+    text-align: center;
+  }
+
+  @media (width <= 700px) {
+    .kapanis {
+      border-radius: 34px;
+    }
+  }
+
+  .kapanis h2 {
+    max-width: 18ch;
+    margin: 22px auto 0;
+  }
+
+  .kapanis .alt {
+    color: #14513a;
+    max-width: 44ch;
+    margin: 18px auto 0;
+  }
+
+  .kapanis .dg-koyu {
+    margin-top: 32px;
+  }
+
+  .kapanis .etiket {
+    color: #14513a;
+  }
+
+  .kapanis .kucuk {
+    margin-top: 16px;
+    color: #14513a;
+  }
+
+  /* ------------------------------------------------------------------- footer */
+  footer {
+    padding: 70px 0 0;
+  }
+
+  .foot {
+    display: grid;
+    gap: 30px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (width >= 860px) {
+    .foot {
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+    }
+  }
+
+  .foot img {
+    height: 40px;
+    width: auto;
+  }
+
+  .foot h4 {
+    margin: 0 0 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+    font-weight: 500;
+  }
+
+  .foot a,
+  .foot .yok {
+    display: block;
+    padding: 4px 0;
+    font-size: 14.5px;
+    color: var(--lp-ink-2);
+  }
+
+  .foot a:hover {
+    color: var(--lp-ink);
+  }
+
+  .foot .ozet {
+    margin-top: 14px;
+    max-width: 34ch;
+  }
+
+  /*
+   * ⚠️ `.yok` BİR BAĞLANTI DEĞİLDİR ve öyle GÖRÜNMEMELİDİR: KVKK, Gizlilik ve
+   * Fiyatlandırma metinleri henüz yazılmadı. Prototipte bunlar `href="#"`
+   * taşıyordu; üretimde ölü bir bağlantı, tıklayan kullanıcıyı hiçbir yere
+   * götürmeyip sayfanın başına atardı — bir hata gibi okunur.
+   */
+  .yz {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--lp-ink-3);
+  }
+
+  .foot-alt {
+    margin-top: 56px;
+    padding: 24px 0 30px;
+    border-top: 1px solid var(--lp-gri-2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 26px;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--lp-ink-3);
+  }
+
+  .foot-alt .sag {
+    margin-left: auto;
+  }
+
+  /*
+   * ==========================================================================
+   * GİRİŞ ANİMASYONU — ⚠️ JS'SİZ GERİ DÜŞÜŞÜ `layout.tsx`TE
+   * ==========================================================================
+   * Öğeler `opacity: 0` başlar ve yalnızca IntersectionObserver onları açar.
+   * JS çalışmazsa sayfa BOŞ görünürdü — içerik HTML'de olduğu için tarayıcı
+   * onu çizer ama saydamdır. `<noscript>` içindeki bir `<style>` bunu kapatır
+   * (CSP `style-src 'self' 'unsafe-inline'` buna izin verir).
+   */
+  .gir {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.8s var(--lp-ease),
+      transform 0.8s var(--lp-ease);
+  }
+
+  .gir.ic {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gir {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /*
+   * ==========================================================================
+   * ODA SAYFALARI — hakkinda · moduller · blog · sorular
+   * ==========================================================================
+   * ⚠️ Bir oda ANA SAYFANIN KÜÇÜLTÜLMÜŞ HÂLİ DEĞİLDİR. Ana sayfanın hero'su
+   * bir İDDİA taşır (dev fotoğraf, iki kademeli başlık, iki düğme); odanın
+   * başlığı bir KONUM bildirir — "buradasın". Bu yüzden oda başlığı
+   * fotoğrafsızdır ve sola yaslıdır: koridorda nerede olduğunuzu söylemek
+   * gösteriş istemez.
+   */
+  .oda-bas {
+    padding: clamp(46px, 6vw, 86px) 0 clamp(38px, 4.5vw, 62px);
+  }
+
+  .oda-bas .geri {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: var(--pill);
+    background: var(--lp-gri);
+    color: var(--lp-ink-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.13em;
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .oda-bas .geri:hover {
+    background: var(--lp-gri-2);
+    color: var(--lp-ink);
+  }
+
+  .oda-bas .etiket {
+    display: flex;
+    margin-top: 34px;
+  }
+
+  .oda-bas h1 {
+    margin-top: 20px;
+    max-width: 15ch;
+    text-wrap: balance;
+  }
+
+  .oda-bas .alt {
+    margin-top: 22px;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+
+  /*
+   * Odanın imza rengi: başlığın altındaki tek çizgi. Renk TEK bilgi taşıyıcısı
+   * değildir — etiket ayrıca odanın adını yazar.
+   */
+  .oda-bas::after {
+    content: '';
+    display: block;
+    height: 3px;
+    width: 84px;
+    margin-top: 34px;
+    border-radius: 3px;
+    background: var(--c, var(--lp-ink));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .oda-bas .geri {
+      transition: none;
+    }
+  }
+
+  /* ----------------------------------------------------------- numaralı liste */
+  .satirlar {
+    margin-top: 46px;
+    border-top: 1px solid var(--lp-gri-2);
+  }
+
+  .satir {
+    display: grid;
+    gap: 4px 26px;
+    align-items: baseline;
+    grid-template-columns: 1fr;
+    padding: 26px 4px;
+    border-bottom: 1px solid var(--lp-gri-2);
+  }
+
+  @media (width >= 860px) {
+    .satir {
+      grid-template-columns: 54px 210px 1fr 220px;
+      gap: 26px;
+    }
+
+    .satir .rol {
+      text-align: right;
+    }
+  }
+
+  .satir .no {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--lp-ink-3);
+  }
+
+  .satir h3 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .satir h3 .nokta {
+    display: block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--c);
+    flex: none;
+  }
+
+  .satir .soru {
+    font-size: 16px;
+    color: var(--lp-ink-2);
+  }
+
+  .satir .aciklama {
+    margin-top: 4px;
+  }
+
+  .satir .rol {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--lp-ink-3);
+  }
+
+  /* ---------------------------------------------------------- ilke/soru kartı */
+  .uclu {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 900px) {
+    .uclu {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .ikili {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 760px) {
+    .ikili {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .tas {
+    border-radius: var(--r-m);
+    background: var(--lp-gri);
+    padding: 32px 30px 34px;
+  }
+
+  .tas .no {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+  }
+
+  .tas h3 {
+    margin-top: 16px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .tas p {
+    margin-top: 12px;
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--lp-ink-2);
+  }
+
+  .tas b {
+    color: var(--lp-ink);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------------- alıntı */
+  .alinti {
+    border-radius: var(--r-l);
+    background: var(--lp-ink);
+    color: #fff;
+    padding: clamp(44px, 5.5vw, 84px);
+    margin-top: 46px;
+    text-align: center;
+  }
+
+  @media (width <= 700px) {
+    .alinti {
+      border-radius: 34px;
+    }
+  }
+
+  .alinti q {
+    display: block;
+    quotes: '“' '”';
+    max-width: 20ch;
+    margin: 0 auto;
+    font-size: clamp(24px, 3vw, 42px);
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    line-height: 1.18;
+    text-wrap: balance;
+  }
+
+  .alinti .kim {
+    margin-top: 26px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--nane);
+  }
+
+  /* ------------------------------------------------------------- yazı kartları */
+  .yazilar {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 760px) {
+    .yazilar {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (width >= 1080px) {
+    .yazilar {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .yazi {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--r-m);
+    background: var(--lp-gri);
+    padding: 28px 26px 30px;
+  }
+
+  .yazi .ust-sat {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: var(--lp-ink-3);
+  }
+
+  .yazi h3 {
+    margin-top: 20px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.28;
+    text-wrap: pretty;
+  }
+
+  .yazi p {
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--lp-ink-2);
+  }
+
+  .yazi .dip {
+    margin-top: auto;
+    padding-top: 24px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    color: var(--lp-ink-3);
+  }
+
+  /* Öne çıkan yazı — koyu, iki sütun genişliğinde. */
+  .yazi-one {
+    background: var(--lp-ink);
+    color: #fff;
+  }
+
+  @media (width >= 760px) {
+    .yazi-one {
+      grid-column: span 2;
+    }
+  }
+
+  .yazi-one .ust-sat,
+  .yazi-one .dip {
+    color: var(--nane);
+  }
+
+  .yazi-one p {
+    color: rgb(255 255 255 / 70%);
+  }
+
+  .yazi-one h3 {
+    font-size: clamp(22px, 2.4vw, 32px);
+    font-weight: 500;
+  }
+
+  /* --------------------------------------------------------------- koridor */
+  .koridor {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 700px) {
+    .koridor {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /*
+   * ⚠️ BEŞ kapı var (dört oda + başla) — dört sütun beşinciyi tek başına alt
+   * satıra düşürüyordu. Sütun sayısı içerikten türetilir, alışkanlıktan değil.
+   */
+  @media (width >= 1080px) {
+    .koridor {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+
+  @media (700px <= width <= 1079px) {
+    .koridor > :last-child {
+      grid-column: span 2;
+    }
+  }
+
+  .kapi {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-m);
+    background: var(--lp-gri);
+    padding: 26px 24px 28px;
+    transition: background 0.25s var(--lp-ease);
+  }
+
+  .kapi::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--c, var(--lp-ink));
+    opacity: 0;
+    transition: opacity 0.25s var(--lp-ease);
+  }
+
+  .kapi > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .kapi:hover::before {
+    opacity: 0.09;
+  }
+
+  .kapi h3 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .kapi p {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--lp-ink-3);
+    line-height: 1.45;
+  }
+
+  .kapi .git {
+    margin-top: 22px;
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--lp-ink-2);
+  }
+
+  .kapi-nane {
+    background: var(--nane);
+  }
+
+  .kapi-nane p {
+    color: #14513a;
+  }
+
+  .kapi-nane .git {
+    color: #06301e;
+  }
+
+  .kapi-nane:hover::before {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .kapi,
+    .kapi::before {
+      transition: none;
+    }
+  }
+
+  /*
+   * ==========================================================================
+   * KARŞITLIK — "chatbot değil"
+   * ==========================================================================
+   * ⚠️ Ürünün en ayırt edici iddiası bugüne kadar yalnızca SÖYLENİYORDU.
+   * Burada YAN YANA KONUR, çünkü bir fark ancak karşısında bir şey varsa
+   * görülür. Solda soluk/gri olan reddedilen şey, sağda koyu olan bizimki.
+   */
+  .karsit {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    margin-top: 46px;
+  }
+
+  @media (width >= 860px) {
+    .karsit {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .karsit > div {
+    border-radius: var(--r-m);
+    padding: 36px 34px 40px;
+  }
+
+  .karsit .hayir {
+    background: var(--lp-gri);
+  }
+
+  .karsit .evet {
+    background: var(--lp-ink);
+    color: #fff;
+  }
+
+  .karsit .bas {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--lp-ink-3);
+  }
+
+  .karsit .evet .bas {
+    color: var(--nane);
+  }
+
+  .karsit h3 {
+    margin-top: 18px;
+    font-size: clamp(21px, 2.1vw, 27px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .karsit ul {
+    margin: 26px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .karsit li {
+    padding: 14px 0;
+    border-top: 1px solid var(--lp-gri-2);
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: var(--lp-ink-2);
+  }
+
+  .karsit li b {
+    color: var(--lp-ink);
+    font-weight: 600;
+  }
+
+  .karsit .evet li {
+    border-color: rgb(255 255 255 / 14%);
+    color: rgb(255 255 255 / 72%);
+  }
+
+  .karsit .evet li b {
+    color: #fff;
+  }
+}

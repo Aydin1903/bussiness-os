@@ -466,10 +466,13 @@ change-password) · **Panel** (`/app`) · **arşiv** (`/app/knowledge`) ·
 **onboarding** (`/app/onboarding`) · **on modülün ekranları** (`/app/crm` ·
 `/app/projects` · `/app/finance` · `/app/appointments` · `/app/documents` ·
 `/app/inventory` · `/app/suppliers` · `/app/invoicing` · `/app/hr` ·
-`/app/feedback` · `/app/loyalty`) — ⚠️ **on iki odanın on ikisi de canlı**. Riskli
-runtime akışları
+`/app/feedback` · `/app/loyalty`) — ⚠️ **on iki odanın on ikisi de canlı** —
+ve ⚠️ **beş PAZARLAMA sayfası** (`/` · `/moduller` · `/sorular` · `/hakkinda` ·
+`/blog`; ADR-0054). Riskli runtime akışları
 (bootstrap, tenant değiştirme, tüm auth zinciri) gerçek tarayıcıda doğrulandı.
-Vitest + RTL **571 test**; **kalan borç: Playwright e2e yok.**
+Vitest + RTL **728 test** (⚠️ bu sayı 2026-09-03'te ölçüldü; öncesinde
+**571** yazıyordu ve bayattı — landing'den ÖNCE bile 682'ydi);
+**kalan borç: Playwright e2e yok.**
 SSOT: `docs/architecture/FRONTEND_ARCHITECTURE.md`.
 
 ⚠️ **VE ARTIK PROD'DA YAYINDA — https://app.kobiwise.com** (Vercel, 2026-08-31).
@@ -1907,6 +1910,76 @@ Gerçekten yeni **altı** karar:
 >   `hr.compensation_records` listeye **girmedi** ve gerekçeleri **farklıdır**
 >   (biri çoğalmaz, diğeri **silinemez**) — ROADMAP §8.5.
 
+### Faz 9 / Landing page — beş pazarlama sayfası (**bitti**, 2026-09-03)
+
+Karar: **ADR-0054**. ROADMAP §7'nin _asıl işi_. Migration **yok**, backend'e
+**tek satır** dokunulmadı.
+
+Onaylanmış statik prototip (Viza tarzı, `~/Desktop/kobiwise-v2/`) gerçek
+Next.js rotalarına dönüştü: **`/` · `/moduller` · `/sorular` · `/hakkinda` ·
+`/blog`**. Beşi de Server Component (FRONTEND §3.1).
+
+⚠️ Bu iş **beş ilk** taşıyor:
+
+1. ⚠️ **ÜÇÜNCÜ TASARIM YÜZEYİ** — `[data-surface='landing']`. Mekanizma
+   ADR-0038'in `[data-module]` deseninin **birebir aynısı** ve üçüncü kez
+   **hiçbir bileşen değiştirilmeden** çalıştı. Somut kazanç:
+   `landing-surface.css` `--accent`i landing mürekkebine çekiyor ve
+   `globals.css`in `:focus-visible` kuralı **tek satır yazmadan** doğru renge
+   geliyor.
+2. ⚠️ **KÖK ROTA İLK KEZ BİR SAYFA** — Faz 1'de sağlık kartıydı (ortam, uptime,
+   db gecikmesi **kimliksiz** yayınlıyordu), 2026-08-27'de `/login`e
+   yönlendirildi. ⚠️ **O gün 308 yerine 307 seçilmiş olması bugün karşılığını
+   verdi:** hiçbir tarayıcının önbelleğini temizlemesi gerekmedi. Eski testin
+   **sağlık verisi sızdırmama** iddiası silinmedi, `landing.spec.tsx`e taşındı.
+3. ⚠️ **KAYIT AKIŞINA GİDEN GENEL KAPI AÇILDI** — her sayfada "GİRİŞ" →
+   `/login`, "ÜCRETSİZ BAŞLA" → `/register`. ROADMAP §7'nin dışarıdan kimsenin
+   kaydolamadığı hâli kapandı.
+4. ⚠️ **ON İKİ MODÜL RENGİ İLK KEZ `/app` DIŞINDA kullanıldı.** Bir Server
+   Component CSS değişkeni **çözemez** ve landing kartları `[data-module]`
+   kapsamına **giremez** (girselerdi mekanizma on iki kez iç içe kurulur, her
+   kart `--accent`i ezerdi) — bu yüzden renkler `modules.ts`te **ikinci kez**
+   yazılı. ⚠️ Sapma sessiz olurdu (uygulama yeni, pazarlama eski rengi
+   gösterirdi); risk bir yorumla değil **bir testle** kapatıldı.
+5. ⚠️ **`<noscript>` İLK KEZ KULLANILDI.** `.gir` öğeleri `opacity: 0` başlar;
+   JS çalışmazsa içerik HTML'de **durur** (tarayıcı ve arama motoru görür) ama
+   **görünmez**. `<noscript>` içindeki bir `<style>` bunu kapatır ve CSP'ye
+   **uyar** — ⚠️ ama aynı istisnanın `script-src`te **olmadığı** unutulmamalı;
+   o satır oraya taşınamaz.
+
+⚠️ **YENİ BORÇ: LANDING STATİK DEĞİL, DİNAMİK.** Sebep landing'in kendisi
+değil, kök layout'un ADR-0053 EK-2 nonce'unu `headers()` ile okumasıdır —
+`headers()` okuyan bir sayfa derleme anında üretilemez. FRONTEND §3.1'in
+_"Pazarlama/public → statik"_ sınıflandırması bugün **karşılanmıyor**.
+⚠️ Çözüm kök layout'u değiştirmeyi gerektirir ve o zincir **prod'da
+doğrulanmıştır**; ayrı bir iştir (ADR-0054 §3).
+
+⚠️ **İKİ BİLİNEN AYRIŞMA — gizlenmedi, kayda geçti:** maskotun nanesi iki
+farklı hex (`--bot-mint` `#8ee3b6` auth'ta **tanımlı ama hiç kullanılmıyor** ·
+landing `#7be0b4`), ve yazılı logonun iki uygulaması (auth **metin**, landing
+**görsel**). İkisi de auth'a dokunmayı gerektirdiği için kapatılmadı.
+
+⚠️ **Prototipin ÖLÇÜLMÜŞ bir kusuru üretim koduna taşındı:** `.oda .nokta` bir
+`<span>`, yani **satır içi** — `width`/`height` satır içi öğede **uygulanmaz**
+ve on iki modülün imza rengi ekranda **hiç görünmüyordu**. Hata sessizdi: kart
+çalışıyor, lint susuyor, hiçbir test kırmızı yanmıyor.
+
+**Kapanış denetimi (2026-09-03, üretim derlemesi + gerçek tarayıcı):**
+beş sayfa **200**, olmayan yol **404** · `pnpm verify` **çıkış kodu 0**
+(14/14 görev; web **728** birim test) · **nonce'suz script 0/5 sayfa** ·
+nonce'suz enjekte edilen script **çalıştırılmadı** (CSP zorluyor) · üretim
+CSP'sinde `'unsafe-eval'` **yok** · konsol **temiz** — ⚠️ ve bu, izleyicinin
+çalıştığı **ayırt edici bir işaretle** kanıtlandı (boş çıktı tek başına delil
+sayılmadı) · **367 px**'te (istenen 390'ın **altında**) beş sayfanın beşinde
+de **yatay taşma yok**, iç taşan öğe **0**, 340 px üstü sabit genişlikli öğe
+**0**.
+
+> **Kapsam dışı (bilinçli):** blog **yazı detayı** (içerik hattı kararı yok) ·
+> **fiyatlandırma** (Faz 6'nın plan/kota kararına bağlı) · **KVKK/gizlilik**
+> metinleri (ROADMAP §8.2). ⚠️ Üçü de üretimde **bağlantı değil**, `[yazılacak]`
+> işaretli düz metindir — ölü bir `href="#"` tıklandığında sayfayı **başa atar**
+> ve kullanıcı bunu bir arıza olarak okur.
+
 ### ⚠️ WEB PROD'DA CANLI — app.kobiwise.com (2026-08-31)
 
 **`apps/web` Vercel'e dağıtıldı.** Bugüne kadar prod'da yalnızca API vardı;
@@ -2007,9 +2080,11 @@ bayrak bir UX ipucudur, yetki taşımaz.
   kullanılacak adres **app.kobiwise.com**tur.
 - ⚠️ **Kök alan `kobiwise.com` bağlı DEĞİL** — yalnızca iki alt domain var.
   Landing page yayına girdiğinde apex kaydı ayrıca eklenecek.
-- ⚠️ **Landing page hâlâ YOK**: `/` bugün de **307** ile `/login`e gidiyor
+- ~~⚠️ **Landing page hâlâ YOK**: `/` bugün de **307** ile `/login`e gidiyor
   (2026-08-27'nin geçici düzeltmesi). Pazarlama içeriği, fiyatlandırma ve
-  KVKK/gizlilik metni **yazılmadı**.
+  KVKK/gizlilik metni **yazılmadı**.~~ ✅ **LANDING YAZILDI** (2026-09-03,
+  ADR-0054 — aşağıdaki bölüm). ⚠️ Ama **fiyatlandırma ve KVKK/gizlilik metni
+  hâlâ YOK**.
 - ⚠️ **Playwright e2e yok** — bu işte de yazılmadı; doğrulama gerçek tarayıcı
   ve prod log'u üzerinden **elle** yapıldı.
 - ⚠️ **Gözlem, kovalanmadı:** panel açılışında `GET /me/memberships` kısa

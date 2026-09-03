@@ -2,9 +2,9 @@
 
 Business OS — Faz Sıralaması ve Kapı Koşulları
 
-> **Durum:** ✅ **Faz 5 TAMAMEN KAPANDI** (2026-08-27) — on iki iş modülünün on ikisi de canlı ([§3.5](#35-modül-sıralaması--on-iki-modül-product-owner-kararı)). Sıradaki iş **Faz 9'un landing page'i**; ⚠️ Faz 6 (Faturalama) "başlanabilir" ama **sırası landing'in arkasındadır** ([§7](#7-faz-9--landing-page--marka-kimliği))
-> **Sürüm:** 2.4
-> **Son güncelleme:** 2026-08-31
+> **Durum:** ✅ **Faz 5 TAMAMEN KAPANDI** (2026-08-27) · ✅ **Faz 9'un landing page'i YAZILDI** (2026-09-03, [ADR-0054](adr/0054-landing-page.md) — beş sayfa canlı, `/`in 307 yönlendirmesi kalktı). ⚠️ Faz 9 **tamamen kapanmadı**: fiyatlandırma ve KVKK/gizlilik metinleri hâlâ yok ([§7](#7-faz-9--landing-page--marka-kimliği)). Faz 6 (Faturalama) "başlanabilir" — ⚠️ ama §7'nin **yedek stratejisi borcu** ondan önce cevaplanmalıdır
+> **Sürüm:** 2.5
+> **Son güncelleme:** 2026-09-03
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
 
 > ⚠️ **Bu satır 2026-08-13'ten 2026-08-31'e kadar bayat kaldı** ve _"Faz 5 sürüyor — ilk dört modül bitti, sıradaki 5. modül Belge/Sözleşme"_ diyordu. Kayıt bırakılıyor çünkü bir belgenin BAŞLIĞI, en çok okunan ve en az güncellenen yeridir: sekiz modül bitip iki faz sırası değiştiği hâlde başlık hiç değişmemişti.
@@ -541,8 +541,8 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 > | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 > | Auth ekranları (`register` · `verify-email` · `login` · `forgot`/`reset-password` · `create-tenant` · `select-tenant`)                  | ✅ **YAZILI ve API'ye bağlı** (~920 satır); login sonrası yönlendirme kuralı da uygulanmış ([FRONTEND](architecture/FRONTEND_ARCHITECTURE.md) §3.1)                                                                                                                |
 > | Backend auth uçları (register · verify-email · resend · login · refresh · logout · forgot/reset-password · switch-tenant · tenant açma) | ✅ **HEPSİ CANLI** — eksik uç yok                                                                                                                                                                                                                                  |
-> | ⚠️ Genel giriş noktası (`/`)                                                                                                            | ⚠️ **YOK** — 2026-08-27'de geçici olarak `/login`'e yönlendirildi (aşağıda)                                                                                                                                                                                        |
-> | ⚠️ Pazarlama içeriği: ne yaptığı, fiyatlandırma, KVKK/gizlilik metni                                                                    | ⚠️ **YOK**                                                                                                                                                                                                                                                         |
+> | ~~⚠️ Genel giriş noktası (`/`)~~                                                                                                        | ✅ **AÇILDI** (2026-08-27'nin 307 yönlendirmesi kaldırıldı; `/` artık landing page — ADR-0054)                                                                                                                                                                     |
+> | ⚠️ Pazarlama içeriği: ne yaptığı, fiyatlandırma, KVKK/gizlilik metni                                                                    | 🟡 **KISMEN** — _"ne yaptığı"_ ✅ yazıldı (beş sayfa); **fiyatlandırma** ve **KVKK/gizlilik** ⚠️ hâlâ **YOK**                                                                                                                                                      |
 > | ~~⚠️ **E-posta teslimatı**~~                                                                                                            | ✅ **ÇÖZÜLDÜ** (2026-08-31) — `noreply@mail.kobiwise.com`; zincir prod'da koştu, aşağıda                                                                                                                                                                           |
 > | ~~⚠️ **Web'in PROD'A DAĞITILMASI**~~                                                                                                    | ✅ **YAPILDI** (2026-08-31) — `apps/web` **Vercel**'de, **https://app.kobiwise.com**; API **https://api.kobiwise.com** (Railway). ⚠️ İki alt domain zorunluydu: `SameSite=Strict` refresh çerezi `*.vercel.app` ↔ `*.up.railway.app` arasında **hiç gönderilmez**. |
 >
@@ -593,9 +593,45 @@ Diğer fazlarla bağımlılığı yoktur; sıradaki yerine değil, bir talep vey
 > yazılı gerekçesi. Ayrıntı ve kanıt zinciri [`CLAUDE.md`](../CLAUDE.md)
 > "⚠️ WEB PROD'DA CANLI" bölümündedir.
 >
-> ⚠️ **Kapanmayan:** landing page **hâlâ yok** — `/` bugün de 307 ile `/login`e
+> ~~⚠️ **Kapanmayan:** landing page **hâlâ yok** — `/` bugün de 307 ile `/login`e
 > gidiyor; pazarlama içeriği, fiyatlandırma ve KVKK/gizlilik metni yazılmadı.
-> Bu fazın **asıl işi** odur ve sıradaki adımdır.
+> Bu fazın **asıl işi** odur ve sıradaki adımdır.~~
+>
+> ### ✅ LANDING PAGE YAZILDI — beş sayfa canlı (2026-09-03, [ADR-0054](adr/0054-landing-page.md))
+>
+> Onaylanmış statik prototip `apps/web` içinde gerçek Next.js rotalarına
+> dönüştü: **`/` · `/moduller` · `/sorular` · `/hakkinda` · `/blog`**. Beşi de
+> Server Component; `[data-surface='landing']` projedeki **üçüncü** token
+> kapsamıdır (ODA · auth · landing) ve mekanizma üçüncü kez **hiçbir bileşen
+> değiştirilmeden** çalıştı.
+>
+> ⚠️ **`/`in 307 yönlendirmesi KALKTI** — ve 2026-08-27'de `permanentRedirect`
+> (308) yerine `redirect` (307) seçilmiş olması **tam da bugün** karşılığını
+> verdi: hiçbir tarayıcının önbelleğini temizlemesi gerekmedi. Eski testin
+> **sağlık verisi sızdırmama** iddiası silinmedi, `landing.spec.tsx`e taşındı.
+>
+> ⚠️ **Kayıt akışına giden genel kapı ARTIK VAR:** her sayfada "GİRİŞ" →
+> `/login`, "ÜCRETSİZ BAŞLA" → `/register`.
+>
+> **Kapanış denetimi** (üretim derlemesi, gerçek tarayıcı): beş sayfa **200**,
+> olmayan yol **404** · konsol **temiz** (izleyicinin çalıştığı ayırt edici bir
+> işaretle kanıtlandı) · nonce'suz script **0/5 sayfa** · nonce'suz enjekte
+> edilen script **çalıştırılmadı** (CSP zorluyor) · **367 px**'te (istenen
+> 390'ın altında) beş sayfanın beşinde de **yatay taşma yok**.
+>
+> ⚠️ **Bu fazda hâlâ KAPANMAYAN üç kalem:**
+>
+> | Kalem                     | Neden açık                                                                                   |
+> | ------------------------- | -------------------------------------------------------------------------------------------- |
+> | **Fiyatlandırma**         | §4'ün (Faz 6) plan/kota kararına bağlı — bugün yazmak tahmine dayanırdı                      |
+> | **KVKK / gizlilik metni** | [§8.2](#82-kvkkgdpr-neden-faz-6-öncesi)'nin kontrol noktasının işi                           |
+> | **Blog yazı detayı**      | İçerik hattı kararı (CMS mi, MDX mi) verilmedi; kartlar bu yüzden bilerek **bağlantı değil** |
+>
+> ⚠️ **Ve bir YENİ borç doğdu:** landing **statik değil, dinamik**. Sebep
+> landing'in kendisi değil, kök layout'un ADR-0053 EK-2 nonce'unu `headers()`
+> ile okumasıdır — [§3.1](#31-sayfa-sınıflandırması)'in _"Pazarlama/public →
+> statik"_ sınıflandırması bugün karşılanmıyor. Çözüm ayrı bir iştir
+> (ADR-0054 §3).
 >
 > ⚠️ ~~Test hesabı ve tenant'ı temizlendi (tek transaction, `ON_ERROR_STOP`,
 > sayımla teyit): prod yine **sıfır kullanıcı / sıfır tenant**.~~
