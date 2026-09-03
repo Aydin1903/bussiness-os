@@ -1,7 +1,9 @@
 import {
+  loginResponseSchema,
   oauthProvidersResponseSchema,
   oneTapInitResponseSchema,
   oneTapResponseSchema,
+  type LoginResponse,
   type OAuthProvidersResponse,
   type OneTapInitResponse,
 } from '@business-os/contracts';
@@ -105,4 +107,31 @@ export async function submitGoogleOneTap(credential: string): Promise<void> {
   window.location.assign(
     result.status === 'signed-in' ? '/oauth/complete?status=ok' : '/oauth/verify',
   );
+}
+
+/**
+ * D3'ün ikinci adımı: 6 haneli kodu doğrular ve bağlamayı tamamlar
+ * (ADR-0053 §1.3, §4.1).
+ *
+ * ============================================================================
+ * ⚠️ GÖVDEDE YALNIZCA `code` VAR — VE BU BİR KARARDIR
+ * ============================================================================
+ * `email`, `provider` ve `subject` sunucunun yazdığı **imzalı, `HttpOnly`
+ * bekleyen-bağlama çerezinden** gelir; istemci onları **hiç görmez**. Gövdeden
+ * gönderilselerdi kullanıcı kendi kimliğini **beyan etmiş** olurdu ve D3'ün
+ * tüm anlamı ortadan kalkardı.
+ *
+ * ⚠️ `noRetry`: uç **kimliksizdir**. `apiFetch`in varsayılanı 401'de token
+ * yenileyip isteği tekrarlamaktır; ⚠️ burada bu **zararlı** olurdu — yanlış
+ * bir kod 401 döner ve sessiz bir tekrar, kodun deneme sayacını (ADR-0019)
+ * **iki kat hızlı** tüketirdi.
+ *
+ * ⚠️ Dönen `identityToken` çağıranın **memory'sine** yazılır, hiçbir yere
+ * kaydedilmez (ADR-0026: "token DOM'a ve disk'e değmez").
+ */
+export function verifyOAuthEmail(code: string): Promise<LoginResponse> {
+  return apiFetch('/auth/oauth/verify-email', loginResponseSchema, {
+    body: { code },
+    noRetry: true,
+  });
 }

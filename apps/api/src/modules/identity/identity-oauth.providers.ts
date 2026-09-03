@@ -1,7 +1,10 @@
 import { type Provider } from '@nestjs/common';
 
 import { APP_CONFIG, type AppConfig } from '../../infrastructure/config/app.config';
+import { FacebookOAuthAdapter } from '../../infrastructure/oauth/facebook-oauth.adapter';
 import { GoogleOAuthAdapter } from '../../infrastructure/oauth/google-oauth.adapter';
+import { LinkedInOAuthAdapter } from '../../infrastructure/oauth/linkedin-oauth.adapter';
+import { MicrosoftOAuthAdapter } from '../../infrastructure/oauth/microsoft-oauth.adapter';
 import { DefaultOAuthProviderRegistry } from '../../infrastructure/oauth/oauth-provider.registry';
 import { CLOCK, type Clock } from '../../shared/clock.port';
 import { type DomainEventPublisher } from '../../shared/domain-event-publisher.port';
@@ -91,9 +94,14 @@ import { DrizzleOneTapAttemptRepository } from './infrastructure/drizzle-one-tap
  * yoklugu kararin kendisidir.
  *
  * ⚠️ SIRA ONEMLIDIR — `configuredKeys()` arayuzun dugme sirasini besler ve
- * ADR-0053 §9.3 onu gerekcelendirir (yaygin kullanim: Google · Microsoft ·
- * LinkedIn · Facebook). Bugun yalnizca Google var; digerleri eklendiginde bu
- * dizinin SIRASINA eklenmelidirler.
+ * ADR-0053 §9.3 onu gerekcelendirir: **Google · Microsoft · LinkedIn ·
+ * Facebook** (yaygin kullanim sirasi; Google en yaygin, Facebook en genis
+ * kitle ama en dusuk is bagi). ⚠️ Bu dizinin sirasi DEGISTIRILIRSE ekrandaki
+ * dugme sirasi da degisir — arayuz yeniden SIRALAMAZ.
+ *
+ * ⚠️ DORDU DE AYNI KAPIDAN GECER ve `LinkOrCreateFederatedUser` tarafinda
+ * TEK SATIR DEGISMEDI — ADR-0053 §15'in ("soyutlamanin sinavi") kimlik
+ * tarafindaki karsiligi. Yeni saglayici = yeni adapter + burada bir blok.
  */
 const oauthRegistryProvider: Provider = {
   provide: OAUTH_PROVIDER_REGISTRY,
@@ -107,6 +115,40 @@ const oauthRegistryProvider: Provider = {
           clientId: config.oauth.google.clientId,
           clientSecret: config.oauth.google.clientSecret,
           clock,
+        }),
+      );
+    }
+
+    if (config.oauth.microsoft !== null) {
+      providers.push(
+        new MicrosoftOAuthAdapter({
+          clientId: config.oauth.microsoft.clientId,
+          clientSecret: config.oauth.microsoft.clientSecret,
+          tenant: config.oauth.microsoft.tenant,
+          clock,
+        }),
+      );
+    }
+
+    if (config.oauth.linkedin !== null) {
+      providers.push(
+        new LinkedInOAuthAdapter({
+          clientId: config.oauth.linkedin.clientId,
+          clientSecret: config.oauth.linkedin.clientSecret,
+          clock,
+        }),
+      );
+    }
+
+    // ⚠️ `clock` ALMAZ ve bu bir unutkanlik DEGILDIR: Facebook'ta dogrulanacak
+    // bir ID token — dolayisiyla bir `exp` kontrolu — YOKTUR (Graph yolu,
+    // `facebook-oauth.adapter.ts`). Zamana ihtiyaci olmayan bir adapter'a
+    // `Clock` vermek, orada bir zaman karari oldugunu ima ederdi.
+    if (config.oauth.facebook !== null) {
+      providers.push(
+        new FacebookOAuthAdapter({
+          clientId: config.oauth.facebook.clientId,
+          clientSecret: config.oauth.facebook.clientSecret,
         }),
       );
     }

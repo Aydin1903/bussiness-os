@@ -3,6 +3,18 @@ import type { ZodError } from 'zod';
 import { envSchema, type Env } from './env.schema';
 
 /**
+ * Bir OAuth saglayicisinin kimlik bilgileri (ADR-0053 §3.3).
+ *
+ * ⚠️ `null` ile "bos alanlarla dolu bir nesne" ARASINDAKI FARK ANLAMLIDIR:
+ * `null` saglayicinin YOK oldugunu soyler ve registry'ye hic girmez. Bir
+ * `enabled: false` bayragi YOKTUR — yapilandirmanin yoklugu kararin kendisidir.
+ */
+export interface OAuthProviderCredentials {
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
+/**
  * Uygulamanin dogrulanmis yapilandirmasi.
  *
  * Kod hicbir yerde process.env okumaz; bu nesneyi enjekte eder. Boylece
@@ -52,7 +64,11 @@ export interface AppConfig {
     readonly apiPublicUrl: string;
     /** Callback isini bitirince kullaniciyi buraya yollar. */
     readonly webPublicUrl: string;
-    readonly google: { readonly clientId: string; readonly clientSecret: string } | null;
+    readonly google: OAuthProviderCredentials | null;
+    /** ⚠️ `tenant` UCUNCU bir zorunlu alandir — env semasi onu zorlar. */
+    readonly microsoft: (OAuthProviderCredentials & { readonly tenant: string }) | null;
+    readonly linkedin: OAuthProviderCredentials | null;
+    readonly facebook: OAuthProviderCredentials | null;
   };
 
   readonly auth: {
@@ -463,22 +479,45 @@ function toOutboxRelayConfig(env: Env): AppConfig['outboxRelay'] {
 
 /** Identity sirlarini yapilandirmaya tasir. Deger DONUSTURMEZ; yalnizca eslestirir. */
 /**
- * ⚠️ Bir saglayici ancak IKI degiskeni de doluysa yapilandirilmis sayilir.
- * Yarim yapilandirma env semasinda zaten reddedilir; buradaki kontrol o
- * kuralin KOD TARAFINDAKI KARSILIGIDIR — ikisi ayrisirsa `undefined` bir
- * secret ile istek atilir ve hata saglayici tarafinda gorunurdu.
+ * ⚠️ DORT SAGLAYICI, AYNI KURAL: bir saglayici ancak iki degiskeni de doluysa
+ * yapilandirilmis sayilir (Microsoft'ta UC — dizin secimi de sart).
+ *
+ * ⚠️ Buradaki SIRA anlamsizdir; gosterim sirasini `identity-oauth.providers.ts`
+ * belirler (ADR-0053 §9.3). Ikisini karistirmamak icin: bu dosya "hangileri
+ * VAR" sorusunu, o dosya "hangi SIRAYLA cizilir" sorusunu cevaplar.
  */
 function toOAuthConfig(env: Env): AppConfig['oauth'] {
-  const google =
-    env.GOOGLE_OAUTH_CLIENT_ID !== undefined && env.GOOGLE_OAUTH_CLIENT_SECRET !== undefined
-      ? { clientId: env.GOOGLE_OAUTH_CLIENT_ID, clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET }
-      : null;
+  const microsoft = pairOrNull(env.MICROSOFT_OAUTH_CLIENT_ID, env.MICROSOFT_OAUTH_CLIENT_SECRET);
 
   return {
     apiPublicUrl: withoutTrailingSlash(env.API_PUBLIC_URL),
     webPublicUrl: withoutTrailingSlash(env.WEB_PUBLIC_URL),
-    google,
+    google: pairOrNull(env.GOOGLE_OAUTH_CLIENT_ID, env.GOOGLE_OAUTH_CLIENT_SECRET),
+    // ⚠️ `tenant` da bos olamaz: env semasi Microsoft yapilandirildiginda onu
+    // ZORUNLU kilar, ama burada bir kez daha aranir — iki taraf ayrisirsa
+    // `undefined` bir tenant ile `https://login.microsoftonline.com/undefined`
+    // adresine istek atilirdi ve hata SAGLAYICI TARAFINDA gorunurdu.
+    microsoft:
+      microsoft !== null && env.MICROSOFT_OAUTH_TENANT !== undefined
+        ? { ...microsoft, tenant: env.MICROSOFT_OAUTH_TENANT }
+        : null,
+    linkedin: pairOrNull(env.LINKEDIN_OAUTH_CLIENT_ID, env.LINKEDIN_OAUTH_CLIENT_SECRET),
+    facebook: pairOrNull(env.FACEBOOK_OAUTH_CLIENT_ID, env.FACEBOOK_OAUTH_CLIENT_SECRET),
   };
+}
+
+/**
+ * ⚠️ IKI DEGISKEN DE DOLU DEGILSE saglayici YOKTUR (ADR-0053 §3.3).
+ *
+ * Yarim yapilandirma env semasinda zaten reddedilir; buradaki kontrol o
+ * kuralin KOD TARAFINDAKI KARSILIGIDIR — ikisi ayrisirsa `undefined` bir
+ * secret ile istek atilir ve hata saglayici tarafinda gorunurdu.
+ */
+function pairOrNull(
+  clientId: string | undefined,
+  clientSecret: string | undefined,
+): OAuthProviderCredentials | null {
+  return clientId !== undefined && clientSecret !== undefined ? { clientId, clientSecret } : null;
 }
 
 /**

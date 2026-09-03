@@ -47,17 +47,59 @@ describe('SocialSignIn — liste SUNUCUDAN gelir (ADR-0053 §9.4)', () => {
   /**
    * ⚠️ BU TESTIN KORUDUGU SEY BIR DAVRANIS DEGIL BIR MIMARIDIR: Microsoft
    * yapilandirildiginda `social-sign-in.tsx`e DOKUNULMADAN dugmesi cikmali.
-   * (Sozlukte karsiligi olmadigi icin bugun cizilmez — bir sonraki test.)
+   *
+   * ⚠️ VE BU ARTIK OLCULDU: uc saglayicinin adapter'lari yazildiginda bu
+   * dosyaya TEK SATIR dokunulmadi — degisen yalnizca `provider-marks.tsx`
+   * sozlugu ve sunucunun registry'si oldu.
    */
   it('sunucu yeni bir saglayici eklediginde BU DOSYA degismeden calisir', async () => {
     listOAuthProviders.mockResolvedValue({ providers: ['google', 'microsoft'] });
 
     render(<SocialSignIn />);
 
-    // Google cizildi; bilesen listeyi sorgulamaya devam ediyor.
     expect(await screen.findByRole('link', { name: 'Google ile giriş yap' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Microsoft ile giriş yap' })).toBeInTheDocument();
     expect(listOAuthProviders).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * ⚠️ SIRA SUNUCUDAN GELIR VE ISTEMCI ONU YENIDEN SIRALAMAZ (ADR-0053 §9.3:
+   * Google · Microsoft · LinkedIn · Facebook — yaygin kullanim sirasi).
+   *
+   * ⚠️ Bu test sirayi TERSTEN vererek sinar: bilesen kendi tercihini
+   * dayatsaydi (alfabetik, sabit bir dizi, ya da sozlugun yazim sirasi) cikti
+   * DUZELIRDI ve test kirmizi yanardi. Sunucunun sirasi korunuyorsa cikti da
+   * terstir.
+   */
+  it('⚠️ SUNUCUNUN sirasini korur — istemci YENIDEN SIRALAMAZ', async () => {
+    listOAuthProviders.mockResolvedValue({
+      providers: ['facebook', 'linkedin', 'microsoft', 'google'],
+    });
+
+    render(<SocialSignIn />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('link')).toHaveLength(4);
+    });
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('aria-label'))).toEqual([
+      'Facebook ile giriş yap',
+      'LinkedIn ile giriş yap',
+      'Microsoft ile giriş yap',
+      'Google ile giriş yap',
+    ]);
+  });
+
+  it.each(['microsoft', 'linkedin', 'facebook'])(
+    '`%s` dugmesi kendi `/start` adresine gider',
+    async (provider) => {
+      listOAuthProviders.mockResolvedValue({ providers: [provider] });
+
+      render(<SocialSignIn />);
+
+      const link = await screen.findByRole('link');
+      expect(link.getAttribute('href')).toContain(`/auth/oauth/${provider}/start`);
+    },
+  );
 
   /**
    * ⚠️ DARALMA, BOZULMA DEGIL: sunucu bizden once guncellenirse bilinmeyen

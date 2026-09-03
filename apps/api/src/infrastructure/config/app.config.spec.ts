@@ -405,5 +405,108 @@ describe('createAppConfig', () => {
         'https://api.kobiwise.com/api/v1/auth/oauth/google/callback',
       );
     });
+
+    /**
+     * =========================================================================
+     * ⚠️ DORT SAGLAYICI — VE HER BIRI DIGERLERINDEN BAGIMSIZ
+     * =========================================================================
+     * ADR-0052 §6.3'un ikinci kisiti: _"uc saglayici ayni anda hazir
+     * olmayabilir; tasarim ikisi acik biri kapaliyken de ayakta durmalidir."_
+     * Asagidaki testler o kisiti yapilandirma katmaninda kilitler.
+     */
+    const withAll = {
+      ...withGoogle,
+      MICROSOFT_OAUTH_CLIENT_ID: 'ms-id',
+      MICROSOFT_OAUTH_CLIENT_SECRET: 'ms-secret',
+      MICROSOFT_OAUTH_TENANT: 'common',
+      LINKEDIN_OAUTH_CLIENT_ID: 'li-id',
+      LINKEDIN_OAUTH_CLIENT_SECRET: 'li-secret',
+      FACEBOOK_OAUTH_CLIENT_ID: 'fb-id',
+      FACEBOOK_OAUTH_CLIENT_SECRET: 'fb-secret',
+    };
+
+    it('dordu de yapilandirilabilir', () => {
+      const config = createAppConfig(withAll);
+
+      expect(config.oauth.microsoft).toEqual({
+        clientId: 'ms-id',
+        clientSecret: 'ms-secret',
+        tenant: 'common',
+      });
+      expect(config.oauth.linkedin).toEqual({ clientId: 'li-id', clientSecret: 'li-secret' });
+      expect(config.oauth.facebook).toEqual({ clientId: 'fb-id', clientSecret: 'fb-secret' });
+    });
+
+    it('⚠️ biri acik ucu kapaliyken de yapilandirma AYAKTA KALIR', () => {
+      const config = createAppConfig({
+        ...validEnv,
+        API_PUBLIC_URL: 'https://api.kobiwise.com',
+        WEB_PUBLIC_URL: 'https://app.kobiwise.com',
+        LINKEDIN_OAUTH_CLIENT_ID: 'li-id',
+        LINKEDIN_OAUTH_CLIENT_SECRET: 'li-secret',
+      });
+
+      expect(config.oauth.google).toBeNull();
+      expect(config.oauth.microsoft).toBeNull();
+      expect(config.oauth.linkedin).not.toBeNull();
+      expect(config.oauth.facebook).toBeNull();
+    });
+
+    /**
+     * ⚠️ YARIM YAPILANDIRMA SUREC BASLATMAZ — ve bu, her saglayici icin AYRI
+     * AYRI gecerlidir. Reddedilmeseydi hata calisma aninda DEGIL, HIC
+     * GORUNMEDEN olusurdu: saglayici registry'ye girmez, dugmesi cizilmez ve
+     * kimse bir sey yazmadigimizi fark etmez.
+     */
+    it.each([
+      ['MICROSOFT_OAUTH_CLIENT_ID', { MICROSOFT_OAUTH_CLIENT_ID: 'ms-id' }],
+      ['LINKEDIN_OAUTH_CLIENT_ID', { LINKEDIN_OAUTH_CLIENT_ID: 'li-id' }],
+      ['FACEBOOK_OAUTH_CLIENT_SECRET', { FACEBOOK_OAUTH_CLIENT_SECRET: 'fb-secret' }],
+    ])('⚠️ yarim yapilandirma REDDEDILIR: %s', (_name, partial) => {
+      expect(() =>
+        createAppConfig({
+          ...validEnv,
+          API_PUBLIC_URL: 'https://api.kobiwise.com',
+          WEB_PUBLIC_URL: 'https://app.kobiwise.com',
+          ...partial,
+        }),
+      ).toThrow();
+    });
+
+    /**
+     * ⚠️ MICROSOFT'UN UCUNCU ZORUNLU DEGISKENI: dizin secimi.
+     *
+     * Varsayilani YOKTUR ve olmamalidir — `common` HER Entra dizinini VE
+     * kisisel Microsoft hesaplarini kabul eder. Varsayilan `common` olsaydi,
+     * degiskeni yazmayi unutan bir kurulum SESSIZCE en genis kapiyi acardi.
+     */
+    it('⚠️ Microsoft yapilandirildiysa TENANT zorunludur (varsayilani YOK)', () => {
+      expect(() =>
+        createAppConfig({
+          ...validEnv,
+          API_PUBLIC_URL: 'https://api.kobiwise.com',
+          WEB_PUBLIC_URL: 'https://app.kobiwise.com',
+          MICROSOFT_OAUTH_CLIENT_ID: 'ms-id',
+          MICROSOFT_OAUTH_CLIENT_SECRET: 'ms-secret',
+        }),
+      ).toThrow();
+    });
+
+    /**
+     * ⚠️ Aydin'in konsollara GIRECEGI degerler burada sabitlenir. Kod bu
+     * yollari degistirirse test kirmizi yanar ve konsollardaki kayitlarin da
+     * guncellenmesi gerektigi HATIRLATILIR — aksi halde hata yalnizca
+     * uretimde, `redirect_uri_mismatch` olarak gorulurdu.
+     */
+    it.each(['google', 'microsoft', 'linkedin', 'facebook'])(
+      '⚠️ %s icin URETILEN redirect_uri tam olarak beklenen adrestir',
+      (provider) => {
+        const config = createAppConfig(withAll);
+
+        expect(`${config.oauth.apiPublicUrl}/api/v1/auth/oauth/${provider}/callback`).toBe(
+          `https://api.kobiwise.com/api/v1/auth/oauth/${provider}/callback`,
+        );
+      },
+    );
   });
 });

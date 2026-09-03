@@ -78,6 +78,29 @@ const baseEnvSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
 
+  MICROSOFT_OAUTH_CLIENT_ID: z.string().optional(),
+  MICROSOFT_OAUTH_CLIENT_SECRET: z.string().optional(),
+  /**
+   * Microsoft dizin (tenant) secimi — ⚠️ VARSAYILANI YOKTUR VE OLMAMALIDIR.
+   *
+   * `common` HER Entra dizinini VE kisisel Microsoft hesaplarini kabul eder;
+   * tek bir sirkete acilan bir kurulum icin bu COK GENISTIR. Varsayilan
+   * `common` olsaydi, degiskeni yazmayi unutan bir kurulum SESSIZCE en genis
+   * kapiyi acardi — bu projenin surekli isaretledigi "yanlis gittiginde bedeli
+   * buyuk olan yon".
+   *
+   * ⚠️ Bu yuzden saglayici yapilandirildiginda bu deger de ZORUNLUDUR
+   * (`requireOAuthUrlsWhenProviderConfigured`) ve secim ACIKCA yazilir:
+   * `common` · `organizations` · `consumers` ya da bir dizin GUID'i.
+   */
+  MICROSOFT_OAUTH_TENANT: z.string().optional(),
+
+  LINKEDIN_OAUTH_CLIENT_ID: z.string().optional(),
+  LINKEDIN_OAUTH_CLIENT_SECRET: z.string().optional(),
+
+  FACEBOOK_OAUTH_CLIENT_ID: z.string().optional(),
+  FACEBOOK_OAUTH_CLIENT_SECRET: z.string().optional(),
+
   /**
    * Varsayilan KAPALI (fail-closed).
    *
@@ -789,8 +812,61 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
  * ama saglayici adressiz tanimlanamaz.
  */
 function requireOAuthUrlsWhenProviderConfigured(env: RawEnv, ctx: RefinementContext): void {
-  const anyProviderConfigured =
-    !isBlank(env.GOOGLE_OAUTH_CLIENT_ID) || !isBlank(env.GOOGLE_OAUTH_CLIENT_SECRET);
+  /**
+   * ⚠️ TABLO — her yeni saglayici BIR SATIRDIR.
+   *
+   * Kurallar tek tek yazilsaydi (Google icin bir `if`, Microsoft icin bir
+   * daha…) dorduncusunde biri unutulurdu ve hata SESSIZ olurdu: yarim
+   * yapilandirilmis saglayici registry'ye girmez, dugmesi hic cizilmez ve
+   * kimse bir sey yazmadigimizi FARK ETMEZ.
+   */
+  const providers = [
+    { key: 'GOOGLE', id: env.GOOGLE_OAUTH_CLIENT_ID, secret: env.GOOGLE_OAUTH_CLIENT_SECRET },
+    {
+      key: 'MICROSOFT',
+      id: env.MICROSOFT_OAUTH_CLIENT_ID,
+      secret: env.MICROSOFT_OAUTH_CLIENT_SECRET,
+    },
+    { key: 'LINKEDIN', id: env.LINKEDIN_OAUTH_CLIENT_ID, secret: env.LINKEDIN_OAUTH_CLIENT_SECRET },
+    { key: 'FACEBOOK', id: env.FACEBOOK_OAUTH_CLIENT_ID, secret: env.FACEBOOK_OAUTH_CLIENT_SECRET },
+  ];
+
+  const anyProviderConfigured = providers.some(
+    (provider) => !isBlank(provider.id) || !isBlank(provider.secret),
+  );
+
+  // ⚠️ YARIM YAPILANDIRMA HER SAGLAYICI ICIN AYRI AYRI ELENIR ve bu kontrol
+  // adreslerden ONCE calisir: yalnizca ID ya da yalnizca secret yazilmis bir
+  // saglayici registry'de "yok" sayilir ve dugme SESSIZCE kaybolur — yani
+  // hata calisma aninda DEGIL, hic gorunmeden olusur.
+  for (const provider of providers) {
+    if (isBlank(provider.id) === isBlank(provider.secret)) {
+      continue;
+    }
+    ctx.addIssue({
+      code: 'custom',
+      path: [`${provider.key}_OAUTH_CLIENT_SECRET`],
+      message:
+        `${provider.key}_OAUTH_CLIENT_ID ve ${provider.key}_OAUTH_CLIENT_SECRET ` +
+        'birlikte tanimlanmalidir.',
+    });
+  }
+
+  // ⚠️ Microsoft'un UCUNCU zorunlu degiskeni: dizin secimi. Varsayilani
+  // YOKTUR (bkz. `MICROSOFT_OAUTH_TENANT` yorumu) — unutulan bir deger
+  // sessizce EN GENIS kapiyi acardi.
+  const microsoftConfigured =
+    !isBlank(env.MICROSOFT_OAUTH_CLIENT_ID) && !isBlank(env.MICROSOFT_OAUTH_CLIENT_SECRET);
+  if (microsoftConfigured && isBlank(env.MICROSOFT_OAUTH_TENANT)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['MICROSOFT_OAUTH_TENANT'],
+      message:
+        'Microsoft yapilandirildiginda MICROSOFT_OAUTH_TENANT zorunludur ' +
+        '(common | organizations | consumers | dizin GUID’i). Varsayilani YOKTUR: ' +
+        'unutulan bir deger sessizce en genis kapiyi acardi.',
+    });
+  }
 
   if (!anyProviderConfigured) {
     return;
@@ -812,19 +888,6 @@ function requireOAuthUrlsWhenProviderConfigured(env: RawEnv, ctx: RefinementCont
       message:
         'Bir OAuth saglayicisi yapilandirildiginda WEB_PUBLIC_URL zorunludur ' +
         '(callback kullaniciyi buraya geri yonlendirir).',
-    });
-  }
-
-  // ⚠️ YARIM YAPILANDIRMA DA HATADIR: yalnizca ID ya da yalnizca secret
-  // yazilmis bir saglayici, registry'de "yok" sayilir ve dugme sessizce
-  // kaybolur — yani hata calisma aninda DEGIL, hic gorunmeden olusur.
-  const googleHalf =
-    isBlank(env.GOOGLE_OAUTH_CLIENT_ID) !== isBlank(env.GOOGLE_OAUTH_CLIENT_SECRET);
-  if (googleHalf) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['GOOGLE_OAUTH_CLIENT_SECRET'],
-      message: 'GOOGLE_OAUTH_CLIENT_ID ve GOOGLE_OAUTH_CLIENT_SECRET birlikte tanimlanmalidir.',
     });
   }
 }

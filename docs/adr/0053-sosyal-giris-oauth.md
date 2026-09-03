@@ -704,6 +704,49 @@ Bu, `POST /api/v1/me/change-password`in halihazirda izledigi desendir.
 | **Microsoft** | ❌ **HAYIR**                                                  | ⚠️ _"Microsoft logosu ile **'Sign in with Microsoft' terimlerinin BIRLIKTELIGI**"_ sart kosuluyor; yer yoksa **"Sign in"**e kisaltilabilir. Yayinlanan varliklarin **hepsi dikdortgen**, ikon-modu varlik **yok**.                                                                                               |
 | **LinkedIn**  | ⚠️ **PRATIKTE HAYIR**                                         | `[in]` logosu giris islevi icin kullanilabilir; ⚠️ ama _"gorsel varliklar (dugme, rozet, ikon) **yalnizca LinkedIn'in sagladigi gibi** kullanilir; ortaklar bunlari degistiremez veya **kendi gorsellerini uretemez**"_ ve resmi giris varliklari **dikdortgendir**. Logonun **rengi ve BICIMI degistirilemez**. |
 
+#### ⚠️ 9.1-EK (2026-09-03) — LinkedIn kilavuzu YENIDEN OLCULDU: konum DEGISMEDI, SAPMA GENISLEDI
+
+> ⚠️ **Bu ek §9.1'in tablosunu SILMEZ ve DEGISTIRMEZ.** Tablodaki
+> _"pratikte hayir"_ hukmu **dogruydu ve dogru kalir**; asagidaki olcum onu
+> **sertlestirir**. Metin yerinde duruyor ki neyin ne zaman olculdugu gorulsun.
+>
+> ⚠️ **Neden olculdu:** ADR-0053'un uygulanmasinda (Microsoft · LinkedIn ·
+> Facebook adapter'lari) PO acikca _"LinkedIn'in GUNCEL kilavuzunu ARASTIR —
+> daha once kontrol edilmemisti"_ dedi. Google/Microsoft/Facebook icin §9.1
+> zaten yeterliydi.
+
+**Olcum (2026-09-03, birincil kaynaklar):**
+
+| #   | Bulgu                                                                                                                                                                                                                                           | Kaynak                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | brand.linkedin.com **yalnizca IKI** varlik yayinlar: `[in]` logosu ve LinkedIn wordmark'i. ⚠️ **"Sign In with LinkedIn" DUGME VARLIK SETI YOKTUR.**                                                                                             | `brand.linkedin.com/downloads`             |
+| 2   | ⚠️ `[in]` logosunun **izin verilen kullanim listesinde SIGN-IN ARTIK GECMEZ**: profil/sirket/grup baglantisi · kartvizit · e-posta imzasi · sosyal ikon serisi · API gelistiricileri icin paylas/takip widget'i.                                | `brand.linkedin.com/in-logo`               |
+| 3   | Acik yasaklar: _"Modify the color or the **shape** of the [in] Logo"_ · _"**Combine** the [in] Logo with any other symbol, logo, words, images, or designs"_ · ⚠️ _"**Never attempt to recreate the logo** — always use the artwork provided."_ | `brand.linkedin.com/in-logo` · `/policies` |
+| 4   | Renk: mavi · siyah · beyaz; tercih **beyaz zeminde mavi**. Clearspace **2x** (x = "i" harfinin dikey govde kalinligi).                                                                                                                          | `brand.linkedin.com/in-logo`               |
+| 5   | ⚠️ Guncel **OIDC gelistirici dokumani** (learn.microsoft.com, 2024-08-08) **BRANDING BOLUMU TASIMIYOR** — §9.1'in alintiladigi dugme-varligi paragrafi **deprecated v1 sayfasinda** kalmis.                                                     | `.../self-serve/sign-in-with-linkedin-v2`  |
+
+⚠️ **SONUC: sapma IKI KATMANLIDIR** ve ikisi de kayda geciyor:
+
+1. **Resmi dugme varligi kullanilmiyor** (yuvarlak yalnizca-ikon dugme).
+   ⚠️ Bu katmanda bir **nuans** vardir ve durustce yazilir: yuvarlak **DUGME**,
+   logonun **SEKLI DEGILDIR** — logo cerceve icinde degistirilmeden durur ve
+   Google'in kendi "icon mode" varliginin yaptigi sey de tam olarak budur.
+   Yani 3. maddedeki _"shape"_ yasagi buraya **dogrudan** vurmaz.
+2. ⚠️ **SVG ELLE CIZILMISTIR** (`provider-marks.tsx`) — ve _"never attempt to
+   recreate the logo"_ yasaginin **tam hedefi budur**. ⚠️ Bu katmanda nuans
+   **YOKTUR**; birinci katmandan daha agirdir ve §9.1 yazilirken
+   **gorulmemisti**.
+
+⚠️ **KARAR DEGISMIYOR** (PO Kalem D onayli, 2026-09-01 — ve uygulama sirasinda
+2026-09-03'te bu olcumle birlikte **yeniden teyit edildi**). §9.2'nin dort
+hafifletmesi aynen gecerlidir ve ⚠️ **geri donus yolu da aynen gecerlidir**:
+LinkedIn itiraz eder ya da ortak incelemesi talep ederse **satirin TAMAMI**
+resmi dikdortgen varliklara gecer — tek bir dugme sirdan cikarilmaz.
+
+⚠️ **Ve §9.2'nin cumlesi burada tekrarlanir:** bu bir **hukuki gorus degildir**.
+TradingView gibi buyuk urunlerin ayni deseni kullanmasi bir **tolere edilme
+kaniti**dir, bir **IZIN kaniti degil**.
+
 ### 9.2 ⚠️ KARAR: tek sira yuvarlak ikon — Microsoft ve LinkedIn icin YAZILI SAPMA
 
 Dort dugme de **ayni boyutta, ayni yuvarlaklikta, tek sirada** cizilir.

@@ -3,9 +3,11 @@
 Business OS — Kimlik Doğrulama Mimarisi
 
 > **Durum:** Faz 3 girişi — ✅ **Kabul edildi**
-> **Sürüm:** 1.6
-> **Son güncelleme:** 2026-08-02
+> **Sürüm:** 1.7
+> **Son güncelleme:** 2026-09-03
 > **Sahip:** Lead Software Engineer · **Onay:** Product Owner
+>
+> **1.7 (2026-09-03):** ⚠️ **[Ek C](#ek-c--sosyal-giriş-sağlayıcı-kurulumu-adr-0053-62) eklendi** — sosyal giriş sağlayıcılarının konsol kurulumu, ADR-0053 §6.2'nin _"ADR'nin ekinde değil, `AUTH_ARCHITECTURE.md`'de **kalıcı bir bölüm**"_ borcu. ⚠️ O güne kadar **hiçbir yerde yazılı değildi**; Google kurulumu borç açıkken yapılmıştı. En kritik kalem Microsoft'un **`xms_edov` opsiyonel claim'idir**: açılmazsa akış kırılmaz ama **her** Microsoft kullanıcısı ilk girişinde kod ekranına düşer ve sebebi yanlış yerde aranır.
 >
 > **1.6 (2026-08-02):** Parola **değiştirme** akışı eklendi ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil)): `POST /api/v1/me/change-password`, mevcut oturum hariç tüm aileler düşer, ret `400` (`401` değil), kaba kuvvet defteri girişle ortak. §12.2 iptal tablosu sıfırlama/değiştirme ayrımını yansıtacak şekilde güncellendi. Yeni ADR yok.
 >
@@ -1193,14 +1195,206 @@ Numaralar `0016`'ya kadar dolu olduğu için `0017`'den devam eder. **Sekizi de 
 
 ---
 
+## Ek C — Sosyal giriş sağlayıcı kurulumu (ADR-0053 §6.2)
+
+> ⚠️ **BU BÖLÜM BİR ADR EKİNDE DEĞİL, BURADA DURUR — VE BU BİR KARARDIR.**
+> ADR-0053 §6.2: _"kurulum adımları ADR'nin ekinde değil, `AUTH_ARCHITECTURE.md`'de
+> **kalıcı bir bölüm** olarak yazılır."_ Gerekçe: bir ADR **o günün kararını**
+> anlatır ve dondurulur; konsol kurulumu ise **yaşayan bir işlemdir** —
+> sağlayıcılar arayüzlerini değiştirir, claim'ler eklenir, ürünler yeniden
+> adlandırılır.
+>
+> ⚠️ **Bu bölüm ADR-0053'ün kalan üç sağlayıcısı uygulanırken (2026-09-03)
+> yazıldı ve o güne kadar YOKTU** — yani §6.2'nin borcuydu. Google kurulumu o
+> borç açıkken, hiçbir yere kaydedilmeden yapılmıştı.
+
+### C.1 Ortak kural — `redirect_uri` BİREBİR eşleşir
+
+Dört sağlayıcının dördü de `redirect_uri`nin konsolda kayıtlı değerle
+**karakter karakter** eşleşmesini ister. Adres tek bir yerden türetilir
+(`API_PUBLIC_URL`, `oauth.controller.ts#redirectUri`):
+
+```
+<API_PUBLIC_URL>/api/v1/auth/oauth/<sağlayıcı>/callback
+```
+
+Üretimde (`API_PUBLIC_URL=https://api.kobiwise.com`) konsollara girilecek
+**tam** değerler:
+
+| Sağlayıcı | Redirect URI                                                    |
+| --------- | --------------------------------------------------------------- |
+| Google    | `https://api.kobiwise.com/api/v1/auth/oauth/google/callback`    |
+| Microsoft | `https://api.kobiwise.com/api/v1/auth/oauth/microsoft/callback` |
+| LinkedIn  | `https://api.kobiwise.com/api/v1/auth/oauth/linkedin/callback`  |
+| Facebook  | `https://api.kobiwise.com/api/v1/auth/oauth/facebook/callback`  |
+
+⚠️ **`API_PUBLIC_URL` sondaki eğik çizgiyle yazılmamalıdır** — sonuç çift slash
+içerir (`https://api.kobiwise.com//api/v1/...`) ve akış `redirect_uri_mismatch`
+ile kırılır. ⚠️ Hata **sessiz değildir ama yanlış yerde görünür**: kullanıcı
+sağlayıcının hata ekranını görür ve sorun bizim yapılandırmamızdayken
+sağlayıcıda sanılır. Kod tarafında `withoutTrailingSlash` kırpar ve bir test
+üretilen adresi dört sağlayıcı için birden sabitler; yine de konsola girilen
+değer elle kontrol edilmelidir.
+
+⚠️ **Lokal geliştirme:** aynı adresler `http://localhost:3001` tabanıyla ayrıca
+kaydedilir. Google ve Microsoft `http://localhost`a izin verir; ⚠️ **LinkedIn ve
+Facebook `https` ister** — lokalde bu ikisi ancak bir tünel (ör. ngrok) ile
+denenebilir.
+
+⚠️ **Bir sağlayıcı, iki değişkeni de yazılana kadar YOKTUR** (ADR-0053 §3.3):
+registry'ye girmez, ucu **404** döner, arayüz düğmesini **hiç çizmez**. Yarım
+yapılandırma (yalnızca ID ya da yalnızca secret) süreci **başlatmaz** — env
+doğrulaması reddeder.
+
+### C.2 Google
+
+1. Google Cloud Console → **APIs & Services → Credentials** → _Create
+   credentials_ → **OAuth client ID** → _Web application_.
+2. **Authorized redirect URIs**: C.1'deki Google satırı.
+3. **OAuth consent screen**: `openid`, `email`, `profile` kapsamları
+   (⚠️ hassas kapsam yok, doğrulama süreci gerekmez).
+4. `GOOGLE_OAUTH_CLIENT_ID` · `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+⚠️ **Hüküm:** `email_verified` claim'inin **kendisi**. Google adresi ya kendisi
+verir (Gmail) ya da alan adı Workspace'te doğrulanmıştır.
+
+⚠️ **One Tap (ADR-0053 EK-1) için ek koşul:** _Authorized JavaScript origins_
+listesine **web** adresi (`https://app.kobiwise.com`) eklenir — redirect akışı
+bunu gerektirmez, One Tap gerektirir. Ayrıca **FedCM açık** kurulur; kapalıysa
+üçüncü taraf çerezleri engellenmiş tarayıcılarda kişiselleştirilmiş kutu
+**hiç çizilmez** ve bu **sessiz** bir bozulmadır.
+
+### C.3 Microsoft — ⚠️ `xms_edov` ADIMI ATLANAMAZ
+
+1. Microsoft Entra admin center → **App registrations** → _New registration_.
+2. **Supported account types**: kuruluşun kararına göre; seçim
+   `MICROSOFT_OAUTH_TENANT` ile **tutarlı olmalıdır** (aşağıdaki tablo).
+3. **Redirect URI**: platform _Web_, C.1'deki Microsoft satırı.
+4. **Certificates & secrets** → _New client secret_ → değer
+   `MICROSOFT_OAUTH_CLIENT_SECRET`. ⚠️ Secret'ın **son kullanma tarihi vardır**;
+   dolduğu gün her Microsoft girişi 502 döner ve bunu **hatırlatan bir şey
+   yoktur** — takvime yazılmalıdır.
+5. **API permissions**: `openid`, `email`, `profile` (Microsoft Graph,
+   delegated). ⚠️ `offline_access` **istenmez** — sağlayıcı token'ları
+   saklanmıyor (ADR-0053 §3.4).
+6. ⚠️ **Token configuration → Add optional claim → Token type: `ID` →
+   `xms_edov`.** Portal _"tanınmıyor / geçersiz"_ uyarısı verebilir; **güvenle
+   yok sayılır** — claim desteklenir ve dokümantedir.
+
+⚠️ **6. ADIM ATLANIRSA NE OLUR:** akış **kırılmaz**, ama hüküm her zaman
+`false` olur ve **her Microsoft kullanıcısı ilk girişinde 6 haneli kod ekranına
+düşer**. ⚠️ Sessiz bir bozulma değildir (akış çalışır, bir adım uzar) ama fark
+edilmezse _"Microsoft neden hep kod soruyor"_ diye **yanlış yerde** aranır.
+
+⚠️ **Neden bu kadar önemli:** `email` claim'i **nOAuth**'un (2023) istismar
+ettiği alandır — saldırgan kendi Entra tenant'ında `mail` alanına kurbanın
+adresini yazabilir ve Entra bunun sahipliğini **doğrulamaz**. `xms_edov`,
+Microsoft'un tam olarak bu iş için eklediği claim'dir. Bizde `email` claim'i
+**tek başına asla** yeterli sayılmaz ve dört birim testi bunu kilitler
+(claim yok · `false` · `"true"` dizesi · `1`).
+
+| `MICROSOFT_OAUTH_TENANT` | Kimler girebilir                                                      |
+| ------------------------ | --------------------------------------------------------------------- |
+| `common`                 | Her Entra dizini **ve** kişisel Microsoft hesapları — ⚠️ **en geniş** |
+| `organizations`          | Yalnızca iş/okul hesapları                                            |
+| `consumers`              | Yalnızca kişisel hesaplar                                             |
+| `<dizin GUID'i>`         | ⚠️ Yalnızca **o** dizin — adapter ayrıca `tid` eşitliğini arar        |
+
+⚠️ Bu değişkenin **varsayılanı yoktur ve olmamalıdır**: varsayılan `common`
+olsaydı, değişkeni yazmayı unutan bir kurulum **sessizce en geniş kapıyı**
+açardı. Env doğrulaması Microsoft yapılandırıldığında bu değeri **zorunlu** kılar.
+
+⚠️ **`iss` elle doğrulanır** (ADR-0053 uygulaması, Karar C): `common` uçlarında
+`iss` **tenant başına değişir** (`https://login.microsoftonline.com/{tid}/v2.0`),
+yani sabit bir issuer verilemez. Adapter üç koşulu birden arar — `tid` UUID'dir ·
+`iss` **tam olarak o `tid`den** kurulmuştur · sabit bir tenant yapılandırıldıysa
+`tid` ona eşittir.
+
+### C.4 LinkedIn
+
+1. LinkedIn Developers → _Create app_. ⚠️ Bir **LinkedIn Şirket Sayfası**
+   gerekir — kişisel profil yetmez ve bu adım sürpriz olur.
+2. **Products** sekmesi → **"Sign In with LinkedIn using OpenID Connect"**
+   ürününü talep et. ⚠️ Bu ürün eklenmeden `openid` kapsamı **verilmez** ve
+   token yanıtında `id_token` **hiç gelmez** — adapter bunu 502 sayar ve
+   `userinfo`ya **sessizce düşmez** (imzasız bir kaynaktan kimlik okumak olurdu).
+   Bir birim testi bu davranışı kilitler.
+3. **Auth** sekmesi → _Authorized redirect URLs_: C.1'deki LinkedIn satırı
+   (⚠️ **`https` zorunlu**).
+4. `LINKEDIN_OAUTH_CLIENT_ID` · `LINKEDIN_OAUTH_CLIENT_SECRET`.
+
+⚠️ **Hüküm:** `email_verified === true`; alan **opsiyoneldir** ve LinkedIn'in
+kendi dokümantasyonu _"may not be included in all responses"_ der —
+⚠️ **yokluğu onay değildir** → `false`.
+
+⚠️ **`nonce` doğrulaması yumuşaktır ve bu bir karardır** (ADR-0053 uygulaması,
+Karar A): LinkedIn `nonce`u dokümante etmez, bu yüzden **gönderilir; ID
+token'da varsa doğrulanır, yoksa akış sürer**. ⚠️ Var ama **eşleşmiyorsa
+reddedilir** — "varsa doğrula", "hiç doğrulama" **değildir**. Gerekçe kanaldadır:
+ID token ön kanaldan hiç gelmez, `client_secret` ile bizim arka kanal
+isteğimize cevaben döner; enjekte edilecek bir yüzey yoktur.
+
+### C.5 Facebook — ⚠️ EN YAVAŞ DÜĞME, VE BU BİR HÜKÜMDÜR
+
+1. Meta for Developers → _Create App_ → **Facebook Login** ürünü.
+2. **Facebook Login → Settings → Valid OAuth Redirect URIs**: C.1'deki
+   Facebook satırı (⚠️ **`https` zorunlu**).
+3. **App Review**: `public_profile` ve `email` izinleri. ⚠️ `email` **standart
+   erişimdedir** ama uygulama **Live** moduna alınmadan yalnızca uygulamanın
+   rolleri (geliştirici / test kullanıcısı) giriş yapabilir.
+4. `FACEBOOK_OAUTH_CLIENT_ID` (App ID) · `FACEBOOK_OAUTH_CLIENT_SECRET`.
+5. **Önerilir:** _Settings → Advanced → Require App Secret_ **açık**. Adapter
+   `appsecret_proof`u zaten **her istekte** gönderir, yani ayarı açmak akışı
+   **kırmaz** — çalınmış bir access token, app secret'ı olmayan biri tarafından
+   kullanılamaz hale gelir.
+
+⚠️ **Hüküm: HER ZAMAN `false`** — ve bu bir varsayılan değil, **ölçülmüş bir
+gerçektir**: Meta'nın OIDC discovery belgesinin `claims_supported` listesinde
+`email` **var**, `email_verified` **yok**; Graph `/me` de böyle bir alan
+döndürmez. Yani soru eksik cevaplanmıyor, ⚠️ **protokol seviyesinde hiç
+sorulamıyor**.
+
+⚠️ **Somut sonucu ve bedeli:** her Facebook kullanıcısı **ilk girişinde** bizim
+6 haneli kodumuzu girer. Sonraki her giriş D1'dir ve kod **bir daha hiç**
+sorulmaz. Facebook, dört düğmenin **en yavaşıdır** (ADR-0053 §6.1, PO Kalem C).
+
+⚠️ **Facebook'ta ID token yolu YOKTUR ve bu bizim tercihimiz değildir:** Meta'nın
+discovery'si `response_types_supported: ["id_token","token id_token"]` der —
+`code` **listede yoktur**, yani ID token ancak URL **fragment'inde** dönebilir
+ve ADR-0053 §5 bunu açıkça reddetmiştir. Bu yüzden Facebook, dokümante edilmiş
+**Graph akışını** kullanır (`code` → arka kanal `access_token` → `GET /me`) ve
+⚠️ **PKCE göndermez** (Meta'nın dialog parametre tablosunda `code_challenge`
+hiç geçmez); koruma `state` + `client_secret` + birebir `redirect_uri`dir.
+
+### C.6 Kurulumdan sonra — ⚠️ DOĞRULAMA ADIMI
+
+Bir sağlayıcı yapılandırıldığında ilk kontrol **arayüz değil uçtur**:
+
+```
+GET /api/v1/auth/oauth/providers   →   {"providers":["google","microsoft",...]}
+```
+
+⚠️ Bu liste arayüzün düğme sırasını **doğrudan** besler (ADR-0053 §9.3:
+Google · Microsoft · LinkedIn · Facebook) ve istemci onu **yeniden sıralamaz**.
+Bir sağlayıcı listede **yoksa** düğmesi de yoktur — o zaman aranacak yer
+konsol değil **env değişkenleridir**.
+
+⚠️ İkinci kontrol **gerçek bir giriştir**: hüküm `false` gelen bir sağlayıcı
+kullanıcıyı `/oauth/verify` ekranına düşürür ve bu **beklenen davranıştır**
+(Facebook'ta **her zaman**). Kod ekranını görmek bir arıza belirtisi değildir;
+⚠️ **404 görmek** arıza belirtisidir.
+
+---
+
 ## Değişiklik geçmişi
 
-| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.1   | 2026-07-21 | İlk taslak — Faz 3 girişi. Altı çelişki/boşluk işaretlendi ([§0](#0-çözülmesi-gereken-çelişkiler--okumadan-geçmeyin)); ikisi bloke edici. ADR-0017…0023 önerildi. **Onay bekliyor.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| 1.1   | 2026-07-22 | E-posta gönderimi karara bağlandı: **`EmailPort` + Resend adapter** ([§7.7](#77-e-posta-gönderimi--emailport)). Pepper için geçici çözüm (`.env`) ve kalıcı çözümün ne zaman geleceği [Ek A / U3](#ek-a--karara-bağlanan-açık-maddeler)'e yazıldı.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 1.2   | 2026-07-23 | Refresh token rotation + yeniden kullanım tespiti kod olarak yazıldı (ADR-0021); ailenin **90 günlük mutlak ömrü** eklendi. Sunucu tarafı çıkış (`/logout`, `/logout-all`, ADR-0023). **[§11.5](#115-114-kontrollerinin-yeri--refresh-değil-switch-tenant) borçtan çözüme:** §11.4 membership/tenant kontrolleri refresh'e değil **switch-tenant'a** yerleşti; refresh `identityToken` döndürür.                                                                                                                                                                                                                                                                 |
-| 1.3   | 2026-07-24 | **[§16.1](#161-teslimat-hatası-yeniden-deneme-backoff-ve-dead-letter) borcu kapatıldı:** outbox teslimatına `attempt_count` + `last_error` + üstel backoff + dead-letter eklendi (migration `0006`) ve **Resend adapter'ı** canlıya bağlandı. Kalıcı/geçici hata ayrımı `EmailPort`'a taşındı.                                                                                                                                                                                                                                                                                                                                                                   |
-| 1.4   | 2026-07-24 | **E-posta tasarımı bilinçli olarak ertelendi** ([§7.7](#77-e-posta-gönderimi--emailport)): şablonlar düz metin/minimal, marka kimliği belirlenince yalnızca `htmlBody` değişir — mimari sabit. switch-tenant + tenant-context + RBAC (ADR-0025) uçtan uca çalışır; Faz 3 kapanış denetimi geçildi.                                                                                                                                                                                                                                                                                                                                                               |
-| 1.5   | 2026-07-24 | **Parola sıfırlama kod olarak yazıldı** ([§7.6](#76-parola-sıfırlama), ADR-0024, migration `0007`): `forgot-password`/`reset-password`, 10 dk / 3 deneme / 120 sn, başarıda tüm oturumlar düşer + bildirim e-postası. Oran-sınırı defteri doğrulama akışıyla paylaşılır (Seçenek A). `change-password` kapsam dışı.                                                                                                                                                                                                                                                                                                                                              |
-| 1.6   | 2026-08-02 | **Parola değiştirme kod olarak yazıldı** ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil), migration YOK): `POST /api/v1/me/change-password`. Sıfırlamadan iki bilinçli fark — **istek yapan oturum ayakta kalır** ([§12.2](#122-i̇ptal-nedenleri) tablosu güncellendi) ve oran-sınırı defteri `login_attempts`'tir (girişle ortak; 5 yanlış deneme girişi de kilitler). Ret `400`, `401` değil: `401` bu bağlamda "token süresi doldu" demektir ve istemcinin yenile-tekrar-dene mekanizmasını yanlış tetiklerdi. §7.6'nın "kapsam dışı" notu kaldırıldı. **Yeni ADR yok** — var olan desenlerin (ADR-0017/0018/0021/0022/0023) uygulanması. |
+| Sürüm | Tarih      | Değişiklik                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.1   | 2026-07-21 | İlk taslak — Faz 3 girişi. Altı çelişki/boşluk işaretlendi ([§0](#0-çözülmesi-gereken-çelişkiler--okumadan-geçmeyin)); ikisi bloke edici. ADR-0017…0023 önerildi. **Onay bekliyor.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 1.1   | 2026-07-22 | E-posta gönderimi karara bağlandı: **`EmailPort` + Resend adapter** ([§7.7](#77-e-posta-gönderimi--emailport)). Pepper için geçici çözüm (`.env`) ve kalıcı çözümün ne zaman geleceği [Ek A / U3](#ek-a--karara-bağlanan-açık-maddeler)'e yazıldı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 1.2   | 2026-07-23 | Refresh token rotation + yeniden kullanım tespiti kod olarak yazıldı (ADR-0021); ailenin **90 günlük mutlak ömrü** eklendi. Sunucu tarafı çıkış (`/logout`, `/logout-all`, ADR-0023). **[§11.5](#115-114-kontrollerinin-yeri--refresh-değil-switch-tenant) borçtan çözüme:** §11.4 membership/tenant kontrolleri refresh'e değil **switch-tenant'a** yerleşti; refresh `identityToken` döndürür.                                                                                                                                                                                                                                                                                                                                                                       |
+| 1.3   | 2026-07-24 | **[§16.1](#161-teslimat-hatası-yeniden-deneme-backoff-ve-dead-letter) borcu kapatıldı:** outbox teslimatına `attempt_count` + `last_error` + üstel backoff + dead-letter eklendi (migration `0006`) ve **Resend adapter'ı** canlıya bağlandı. Kalıcı/geçici hata ayrımı `EmailPort`'a taşındı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 1.4   | 2026-07-24 | **E-posta tasarımı bilinçli olarak ertelendi** ([§7.7](#77-e-posta-gönderimi--emailport)): şablonlar düz metin/minimal, marka kimliği belirlenince yalnızca `htmlBody` değişir — mimari sabit. switch-tenant + tenant-context + RBAC (ADR-0025) uçtan uca çalışır; Faz 3 kapanış denetimi geçildi.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 1.5   | 2026-07-24 | **Parola sıfırlama kod olarak yazıldı** ([§7.6](#76-parola-sıfırlama), ADR-0024, migration `0007`): `forgot-password`/`reset-password`, 10 dk / 3 deneme / 120 sn, başarıda tüm oturumlar düşer + bildirim e-postası. Oran-sınırı defteri doğrulama akışıyla paylaşılır (Seçenek A). `change-password` kapsam dışı.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 1.6   | 2026-08-02 | **Parola değiştirme kod olarak yazıldı** ([§7.6.1](#761-parola-değiştirme--sıfırlamanın-kardeşi-aynısı-değil), migration YOK): `POST /api/v1/me/change-password`. Sıfırlamadan iki bilinçli fark — **istek yapan oturum ayakta kalır** ([§12.2](#122-i̇ptal-nedenleri) tablosu güncellendi) ve oran-sınırı defteri `login_attempts`'tir (girişle ortak; 5 yanlış deneme girişi de kilitler). Ret `400`, `401` değil: `401` bu bağlamda "token süresi doldu" demektir ve istemcinin yenile-tekrar-dene mekanizmasını yanlış tetiklerdi. §7.6'nın "kapsam dışı" notu kaldırıldı. **Yeni ADR yok** — var olan desenlerin (ADR-0017/0018/0021/0022/0023) uygulanması.                                                                                                       |
+| 1.7   | 2026-09-03 | **Sosyal giriş sağlayıcı kurulumu belgelendi** ([Ek C](#ek-c--sosyal-giriş-sağlayıcı-kurulumu-adr-0053-62)) — ADR-0053'ün kalan üç sağlayıcısı (Microsoft · LinkedIn · Facebook) uygulanırken. ⚠️ ADR-0053 §6.2 bu bölümü **şart koşmuştu ve yazılmamıştı**. Üç ölçülmüş kalem kayda geçti: Microsoft'ta **`xms_edov`** açılmazsa hüküm her zaman `false` olur (nOAuth savunması), LinkedIn'de **`nonce` dokümante değildir** (gönderilir, varsa doğrulanır, eşleşmezse reddedilir), Facebook'ta **`email_verified` protokol seviyesinde hiç yoktur** ve OIDC discovery `code` akışını desteklemez — bu yüzden Graph yolu kullanılır ve PKCE gönderilmez. Kod tarafında **migration yok**; `platform.federated_identities` dört sağlayıcıyı ilk günden kabul ediyordu. |

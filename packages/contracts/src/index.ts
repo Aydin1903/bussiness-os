@@ -41,6 +41,7 @@ export {
   loginResponseSchema,
   switchTenantResponseSchema,
   oauthProvidersResponseSchema,
+  oauthVerifyEmailRequestSchema,
   oneTapInitResponseSchema,
   oneTapResponseSchema,
 } from './auth/auth.contract';
@@ -56,6 +57,7 @@ export type {
   LoginResponse,
   SwitchTenantResponse,
   OAuthProvidersResponse,
+  OAuthVerifyEmailRequest,
   OneTapInitResponse,
   OneTapResponse,
 } from './auth/auth.contract';

@@ -114,6 +114,24 @@ export const oauthProvidersResponseSchema = z.object({
 export type OAuthProvidersResponse = z.infer<typeof oauthProvidersResponseSchema>;
 
 /**
+ * `POST /auth/oauth/verify-email` gövdesi — **D3'ün ikinci adımı** (ADR-0053 §1.3).
+ *
+ * ============================================================================
+ * ⚠️ TEK ALAN VARDIR — VE EKSİK GÖRÜNENLERİN HER BİRİ BİR KARARDIR
+ * ============================================================================
+ * `email`, `provider` ve `subject` gövdede **YOKTUR**. Üçü de sunucunun kendi
+ * yazdığı **imzalı, `HttpOnly` bekleyen-bağlama çerezinden** gelir. Gövdeden
+ * kabul edilselerdi kullanıcı **kendi kimliğini beyan etmiş** olurdu — yani
+ * D3'ün tüm anlamı (üçüncü bir tarafın doğrulanmamış iddiasını **bizim**
+ * birinci elden doğrulamamıza çevirmek) ortadan kalkardı.
+ *
+ * ⚠️ Bu, `verifyEmailRequestSchema`dan **bilinçli sapmadır**: orada `email`
+ * gövdededir çünkü o akışın taşıyıcı bir çerezi yoktur.
+ */
+export const oauthVerifyEmailRequestSchema = z.object({ code: verificationCode }).strict();
+export type OAuthVerifyEmailRequest = z.infer<typeof oauthVerifyEmailRequestSchema>;
+
+/**
  * `GET /auth/oauth/:provider/one-tap/init` yaniti (ADR-0053 EK-1.1).
  *
  * ⚠️ `nonce` govdede doner ve bu bir sizinti DEGILDIR: `nonce` bir SIR degil
