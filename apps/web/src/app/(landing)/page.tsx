@@ -159,6 +159,33 @@ export default function LandingPage() {
       </section>
 
       {/* ===================== BENTO ===================== */}
+      {/*
+        ⚠️ BENTO KARTLARININ DİLİ DE KOBİ SAHİBİNE ÇEVRİLDİ (Product Owner,
+        2026-09-09) — şeritte yapılan işin AYNISI, aynı gerekçeyle.
+
+        Şeritten iki kalem KALDIRILMIŞTI (bkz. `.serit` yorumu); burada
+        kaldırma seçeneği yoktu, çünkü bento bir istatistik listesi değil bir
+        DÜZENDİR: bir kartı çıkarmak ızgarayı bozar. O yüzden üç kalem
+        çevrildi, hiçbiri silinmedi:
+
+        · ~~"Şemanın on üçünde de satır bazlı izolasyon"~~ → muhatabı bir
+          MÜHENDİSTİ. "Şema", "satır bazlı izolasyon", "sorgu", "kapsam" —
+          dördü de bir KOBİ sahibinin sözlüğünde yok. ⚠️ GÜVENCE
+          KAYBOLMADI, dili değişti: aynı cümle artık kilidin NEREDE
+          olduğunu da söylüyor ("bir vaat değil, sistemin kendi kuralı").
+        · ~~"Sağlayıcı kilidi"~~ → okuyan kişi "sağlayıcı kilidi" diye bir
+          SORUNU olduğunu bilmiyorsa, olmadığının söylenmesi ona hiçbir şey
+          ifade etmez. Aynı olgu ("hiçbir LLM sağlayıcısına bağımlı değiliz")
+          sorunun kendisini tarif ederek yazılır.
+        · ~~"10 ANLATISAL · 8 YAPISAL"~~ → bu ikisi ÜRÜNÜN İÇ SÖZLÜĞÜDÜR
+          (anlamsal katkıcı / yapısal katkıcı). Kullanıcı tarafındaki
+          karşılıkları "yazdıklarınız" ve "güncel durum"dur.
+
+        ⚠️ ÜÇ RAKAMIN ÜÇÜ DE (13 · 0 · 10/8) OLDUĞU GİBİ DURUYOR ve bu
+        bilinçlidir: hepsi GERÇEK SAYIMLARDIR (on üç iş şeması · sıfır
+        sağlayıcı bağımlılığı · on anlamsal + sekiz yapısal kaynak). Çeviri
+        kelimelere yapılır; rakamı "yumuşatmak" onu uydurmak olurdu.
+      */}
       <section className="kap">
         <div className="bento gir">
           <div className="kart k-foto">
@@ -182,19 +209,19 @@ export default function LandingPage() {
               Tek bir soru sorulduğunda on sekiz hafıza kaynağı aynı anda taranır; en alakalı
               olanlar cevaba girer ve <b>hangi kaynaktan geldiği yazılır</b>.
             </p>
-            <p className="dip">10 ANLATISAL &nbsp;·&nbsp; 8 YAPISAL</p>
+            <p className="dip">10 YAZDIKLARINIZDAN &nbsp;·&nbsp; 8 GÜNCEL DURUMDAN</p>
           </div>
 
           <div className="yigin">
             <div className="kart k-nane">
               <div className="rakam">13</div>
               <p>
-                Şemanın on üçünde de satır bazlı izolasyon. Her sorgu şirket kapsamında çalışır —
-                sınır uygulamada değil, veritabanında.
+                Kayıtlarınızın durduğu on üç bölümün hepsinde aynı kilit var: verilerinize başka
+                hiçbir şirket erişemez. Bu bir vaat değil, sistemin kendi kuralı.
               </p>
             </div>
             <div className="kart k-koyu k-satir">
-              <span className="ad">Sağlayıcı kilidi</span>
+              <span className="ad">Tek bir yapay zeka firmasına bağımlılık</span>
               <span className="rakam">0</span>
             </div>
           </div>

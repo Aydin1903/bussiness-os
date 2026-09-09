@@ -695,3 +695,140 @@ describe('ADR-0054 · 10. şapkalı "â" ekranda GEÇMEZ', () => {
     expect(metin).not.toMatch(/[âÂ]/u);
   });
 });
+
+/**
+ * ============================================================================
+ * ⚠️ 11. BENTO KARTLARI DA KOBİ DİLİNDE (Product Owner, 2026-09-09)
+ * ============================================================================
+ * Şeritte yapılan iş (9. blok) bento'ya da uygulandı. ⚠️ Fark şudur: şeritten
+ * iki kalem KALDIRILMIŞTI, bentodan hiçbiri kaldırılmadı — bento bir liste
+ * değil bir DÜZENDİR, bir kartı çıkarmak ızgarayı bozardı. O yüzden burada
+ * iddia "yok" değil, "başka dilde var"dır.
+ */
+describe('ADR-0054 · 11. bento kartları KOBİ dilinde', () => {
+  /** ⚠️ Türkçe küçültme: `toLowerCase()` "İ"yi "i̇" yapar, "i" değil. */
+  function kucuk(metin: string): string {
+    return metin.toLocaleLowerCase('tr-TR');
+  }
+
+  function bento(): string {
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    return container.querySelector('.bento')?.textContent ?? '';
+  }
+
+  it('⚠️ mühendis sözlüğü bentoya GERİ GELMEZ', () => {
+    const metin = kucuk(bento());
+
+    expect(metin.length).toBeGreaterThan(100);
+
+    for (const jargon of ['şema', 'izolasyon', 'sağlayıcı', 'anlatısal', 'yapısal', 'sorgu']) {
+      expect(metin, `bentoda jargon: ${jargon}`).not.toContain(jargon);
+    }
+  });
+
+  /**
+   * ⚠️ ÇEVİRİ RAKAMA DOKUNAMAZ. Bentonun dört sayısı da GERÇEK SAYIMLARDIR
+   * (on iki modül · on sekiz kaynak · on üç iş şeması · sıfır sağlayıcı
+   * bağımlılığı). Bir cümleyi sadeleştirirken sayıyı düşürmek ya da
+   * "yuvarlamak" en sessiz hata olurdu: metin doğru okunur, iddia yanlışlaşır.
+   */
+  it('⚠️ dört gerçek sayım da yerinde duruyor', () => {
+    /*
+     * ⚠️ İDDİA `textContent` ÜZERİNDE DEĞİL `.rakam` ÖĞELERİ ÜZERİNDEDİR — ve
+     * bu bir üslup tercihi değil, ölçülmüş bir zorunluluk: `textContent`
+     * boşluk KOYMADAN birleştirir ("12Müşteriden…"), yani sayıyı bir kelime
+     * sınırıyla aramak SESSİZCE başarısız olurdu — bu test tam olarak öyle
+     * yazıldı ve öyle kırmızı yandı. Ayrıca kahraman rakamın YERİ de iddianın
+     * parçasıdır: sayfa metninin ortasında geçen bir "13" bu testi
+     * geçirmemelidir.
+     */
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    // `??` YAZILMAZ: `textContent` burada `string`tir ve lint gereksiz koşulu
+    // HATA sayar (`no-unnecessary-condition` — 9. bloğun aynı dersi).
+    const rakamlar = [...container.querySelectorAll('.bento .rakam')].map((el) => el.textContent);
+
+    expect(rakamlar).toEqual(['12', '18', '13', '0']);
+  });
+});
+
+/**
+ * ============================================================================
+ * ⚠️ 12. KART HAREKETİ ERİŞİLEBİLİRLİK KAPISININ İÇİNDE KALIR
+ * ============================================================================
+ * Kartlar imleç üzerindeyken hafifçe eğilir ve büyür. ⚠️ `prefers-reduced-
+ * motion` açık bir kullanıcıda bu hareket HİÇ OLMAMALIDIR — geriye yalnızca
+ * gölge gibi hareketsiz bir hover durumu kalır.
+ *
+ * ⚠️ TEST DERECEYİ DEĞİL, HAREKETİN NEREDE TANIMLANDIĞINI kilitler. Derece bir
+ * TASARIM tercihidir ve gerçek tarayıcıda ayarlanır; kapının içinde olup
+ * olmaması ise bir ERİŞİLEBİLİRLİK sınırıdır ve sessizce delinebilir: kapının
+ * dışına yazılan tek bir `transform` hiçbir şeyi kırmaz, hiçbir lint uyarmaz
+ * ve yalnızca o tercihi açmış kullanıcıda görünür — yani bizim hiç
+ * bakmadığımız yerde.
+ */
+describe('ADR-0054 · 12. kart hareketi `prefers-reduced-motion` kapısında', () => {
+  const CSS = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  /** `@media (…) {` başlangıcından süslü parantez sayarak blok gövdesini çıkarır. */
+  function blok(basSirasi: RegExp): string {
+    const eslesme = basSirasi.exec(CSS);
+
+    expect(eslesme, 'hareket medya sorgusu bulunamadi').not.toBeNull();
+
+    const govdeBas = (eslesme?.index ?? 0) + (eslesme?.[0].length ?? 0);
+    let derinlik = 1;
+    let i = govdeBas;
+
+    while (i < CSS.length && derinlik > 0) {
+      if (CSS[i] === '{') derinlik += 1;
+      if (CSS[i] === '}') derinlik -= 1;
+      i += 1;
+    }
+
+    return CSS.slice(govdeBas, i - 1);
+  }
+
+  const KAPI = /@media \(prefers-reduced-motion: no-preference\)[^{]*\{/u;
+
+  it('⚠️ hover eğimlerinin TAMAMI kapının içindedir', () => {
+    const icerisi = blok(KAPI);
+    const tumu = [...CSS.matchAll(/transform:\s*rotate\([^;]*;/gu)].map((m) => m[0]);
+    const kapali = [...icerisi.matchAll(/transform:\s*rotate\([^;]*;/gu)].map((m) => m[0]);
+
+    expect(tumu.length).toBeGreaterThan(0);
+    expect(kapali.length, 'kapi disinda kalan egim var').toBe(tumu.length);
+  });
+
+  /**
+   * ⚠️ Dokunmatik ekranda `:hover` bir dokunuştan sonra ÜZERİNDE KALIR — kart
+   * eğik donardı ve kullanıcı onu düzeltemezdi.
+   */
+  it('⚠️ kapı dokunmatik cihazları da dışarıda bırakır', () => {
+    expect(CSS).toMatch(/no-preference\) and \(hover: hover\) and \(pointer: fine\)/u);
+  });
+
+  /**
+   * ⚠️ HAREKETSİZ HÂL KAPININ DIŞINDADIR — ve olmak zorundadır: hareket
+   * azaltma tercihi açık kullanıcıda hover'dan geriye kalan TEK ŞEY odur.
+   * İçeri alınsaydı o kullanıcı için kartlar hiçbir tepki vermezdi.
+   */
+  it('⚠️ gölgeli hover durumu kapının DIŞINDA tanımlıdır', () => {
+    const icerisi = blok(KAPI);
+
+    expect(CSS).toMatch(/box-shadow:\s*var\(--lp-kalk\)/u);
+    expect(icerisi).not.toMatch(/box-shadow:\s*var\(--lp-kalk\)/u);
+  });
+});

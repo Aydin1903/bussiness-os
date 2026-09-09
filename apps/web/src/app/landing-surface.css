@@ -106,6 +106,17 @@ html:has([data-surface='landing']) {
   --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /*
+   * ⚠️ TEK GÖLGE TOKEN'I — VE PALETİN "gölge pratikte YOK" ÖLÇÜMÜNE
+   * AYKIRI DEĞİL: bu gölge sayfanın DURAĞAN hâlinde hiçbir yerde
+   * kullanılmaz, yalnızca imleç bir kartın üzerindeyken görünür.
+   *
+   * ⚠️ Y ekseni 22px ama yayılma NEGATİF (-26px): gölge kartın altından
+   * taşmaz, yalnızca kalktığı hissini verir. Referans sistemin sert-beyaz
+   * dilinde geniş bir bulanıklık "2010 material" gibi okunurdu.
+   */
+  --lp-kalk: 0 22px 44px -26px rgb(19 19 19 / 34%);
+
+  /*
    * ==========================================================================
    * 2. SİSTEME BAĞLANMA — `auth-surface.css` §2'nin birebir aynısı
    * ==========================================================================
@@ -994,7 +1005,17 @@ html:has([data-surface='landing']) {
     background: var(--lp-gri);
     padding: 26px 24px 30px;
     min-height: 148px;
-    transition: background 0.25s var(--lp-ease);
+    /*
+     * ⚠️ GEÇİŞ LİSTESİ BURADA, İKİNCİ BİR `.oda { transition: … }`
+     * KURALINDA DEĞİL: `transition` TEK bir özelliktir — dosyanın altındaki
+     * hareket bölümünde ayrı bir kural yazılsaydı buradaki `background`
+     * SESSİZCE düşerdi (oda kartının rengi hover'da zıplardı, hiçbir test
+     * kırmızı yanmazdı). Hareketin kendisi aşağıda, geçiş burada.
+     */
+    transition:
+      background 0.25s var(--lp-ease),
+      transform 0.42s var(--lp-ease),
+      box-shadow 0.42s var(--lp-ease);
   }
 
   /*
@@ -2065,5 +2086,135 @@ html:has([data-surface='landing']) {
 
   .karsit .evet li b {
     color: #fff;
+  }
+
+  /*
+   * ==========================================================================
+   * KART HAREKETİ — imleç üzerindeyken hafif eğim + büyüme
+   * ==========================================================================
+   * ⚠️ SAF CSS, JS YOK — VE BU BİR KOLAYLIK DEĞİL, `reveal.tsx`İN YAZILI
+   * GEREKÇESİNİN AYNISI. İmlecin konumunu takip eden gerçek bir 3B eğim
+   * (`mousemove` → `rotateX/rotateY`) mümkündü ama bedeli şudur: bento,
+   * on iki oda kartı ve karşıtlık bloğu bir CLIENT COMPONENT'a sarılırdı ve
+   * pazarlama sayfasının tanımı gereği Server Component olma kuralı
+   * (FRONTEND §3.1) yalnızca bir SÜS için delinirdi. `reveal.tsx` aynı
+   * tercihi aynı cümleyle yapmıştı: "sunucunun ürettiği HTML'e tek bayt
+   * eklemez".
+   *
+   * ⚠️ İkinci kazanç CSP'dir (ADR-0053 EK-2): hiç script eklenmediği için
+   * nonce zincirine hiç dokunulmaz — eklenmeyen bir script'in nonce'u da
+   * unutulamaz.
+   *
+   * ==========================================================================
+   * ⚠️ DERECE KARTIN EN UZUN KENARIYLA TERS ORANTILIDIR — ALANIYLA DEĞİL
+   * ==========================================================================
+   * ⚠️ BU CÜMLENİN İLK HALİ YANLIŞTI VE GERÇEK TARAYICIDA ÖLÇÜLEREK
+   * DÜZELTİLDİ. İlk yazımda açı kartın BÜYÜKLÜĞÜNE göre seçilmişti ve
+   * `.k-satir` — setin en KISA kartı — en büyük açıyı (2.6°) almıştı.
+   * Ölçüm bunu çürüttu: o kart kısa ama nane kartla AYNI GENİŞLİKTEDİR
+   * (427px) ve gözün eğim olarak okuduğu şey köşenin yer değiştirmesidir
+   * (≈ en uzun kenar/2 × sin θ) — yani aynı açı orada DAHA SERT görünüyordu,
+   * daha yumuşak değil. ⚠️ Kaba duran hareket "premium" değil "ucuz"
+   * okunur; düzeltme 2.6° → 1.8°.
+   *
+   * Bugünkü bant, genİşlİk sırasıyla: ~660px karşıtlık blokları **1.2°** ·
+   * ~427px bento kartları **1.5–1.8°** · ~317px oda kartları **2.2°**.
+   * ⚠️ ÜST SINIR ÖLÇÜLEREK SEÇİLDİ: 14px'lik ızgara boşluğunda, bir kartın
+   * köşesi komşusunun üstüne binmeden kalabildiği bant budur.
+   *
+   * ⚠️ `z-index` hover'da yükseltilir: eğilen kart yine de komşusunun
+   * ALTINDA çizilseydi köşesi kırpılmış görünürdü — hareket "premium"
+   * değil "bozuk" okunurdu.
+   */
+
+  .kart,
+  .karsit > div {
+    position: relative;
+    transition:
+      transform 0.42s var(--lp-ease),
+      box-shadow 0.42s var(--lp-ease);
+  }
+
+  /*
+   * ⚠️ HAREKETSİZ HÂL AYRI YAZILIR — çünkü `prefers-reduced-motion` açık
+   * kullanıcıda hover'dan geriye SADECE bu kalır. Gölge bir hareket değil,
+   * bir durum bildirimidir: kartın "canlı" olduğunu söyler.
+   * ⚠️ `.oda`nın hareketsiz hâli zaten VARDI (`::before` renk yıkaması) ve
+   * ona dokunulmadı; gölge onun da üstüne binerek aynı dili konuşur.
+   */
+  .kart:hover,
+  .oda:hover,
+  .karsit > div:hover {
+    box-shadow: var(--lp-kalk);
+  }
+
+  /*
+   * ⚠️ ÜÇ KOŞUL BİRDEN — VE ÜÇÜ DE GEREKLİ:
+   *
+   * · `prefers-reduced-motion: no-preference` → ⚠️ KURALIN VARLIĞINI kapıya
+   *   bağlar, sonradan `transition: none` ile İPTAL ETMEZ. Fark sessiz
+   *   hatanın yönüdür: iptal deseninde unutulan tek bir özellik hareketi
+   *   erişilebilirlik tercihi açık kullanıcıya SIZDIRIR ve kimse fark
+   *   etmez; burada unutulan bir şey olursa hareket HİÇ KİMSEDE olmaz —
+   *   görünür ve zararsız.
+   * · `hover: hover` + `pointer: fine` → dokunmatik ekranda `:hover` bir
+   *   dokunuştan sonra ÜZERİNDE KALIR; kart eğik donardı.
+   */
+  @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+    /* Fotoğraflı ve gri kart — bento'nun iki geniş yüzeyi. */
+    .k-foto:hover {
+      transform: rotate(-1.6deg) scale(1.018);
+      z-index: 2;
+    }
+
+    .k-gri:hover {
+      transform: rotate(1.5deg) scale(1.018);
+      z-index: 2;
+    }
+
+    /* Nane kart daha KISA (genişliği aynı) — açı yalnızca bir tık büyür. */
+    .k-nane:hover {
+      transform: rotate(1.8deg) scale(1.022);
+      z-index: 2;
+    }
+
+    /*
+     * ⚠️ Tek satırlık koyu kart setin en KISASI ama en DARI DEĞİL — yukarıdaki
+     * ölçümün kaynağı bu kart. Nane kartla aynı açıyı paylaşır.
+     */
+    .k-satir:hover {
+      transform: rotate(-1.8deg) scale(1.03);
+      z-index: 2;
+    }
+
+    /*
+     * ⚠️ ODA KARTLARI DÖNÜŞÜMLÜ EĞİLİR (`nth-child(even)`): dördü yan yana
+     * dururken hepsi aynı yöne eğilseydi ızgara tek bir yöne "kaymış" gibi
+     * okunurdu. Dönüşümlü açı, kartları birbirinden BAĞIMSIZ nesneler
+     * gibi gösterir.
+     */
+    .oda:hover {
+      transform: rotate(-2.2deg) scale(1.035);
+      z-index: 2;
+    }
+
+    .oda:nth-child(even):hover {
+      transform: rotate(2.2deg) scale(1.035);
+    }
+
+    /*
+     * ⚠️ KARŞITLIK BLOKLARI EN AZ EĞİLİR ve YÖNLERİ İÇE BAKAR: iki blok
+     * sayfanın en geniş yüzeyleridir ve bölümün anlamı ikisinin YAN YANA
+     * durmasıdır. Dışa savrulan bir eğim o karşılaştırmayı gevşetirdi.
+     */
+    .karsit .hayir:hover {
+      transform: rotate(-1.2deg) scale(1.012);
+      z-index: 2;
+    }
+
+    .karsit .evet:hover {
+      transform: rotate(1.2deg) scale(1.012);
+      z-index: 2;
+    }
   }
 }
