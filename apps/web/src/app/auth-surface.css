@@ -503,3 +503,357 @@
     align-items: flex-start;
   }
 }
+
+/*
+ * ============================================================================
+ * 4. FORM YÜZEYİ — sağ sütunun iç zarafeti (2026-09-09)
+ * ============================================================================
+ * ⚠️ BU BÖLÜMÜN VAR OLMA SEBEBİ BİR KAPSAM SINAVIDIR.
+ *
+ * İstenen iş "giriş/kayıt ekranlarının SAĞ tarafı"ydı. Doğal refleks
+ * `Input`/`Button`/`Field` bileşenlerini güzelleştirmekti — ve ⚠️ **ÖLÇÜNCE
+ * O REFLEKSİN SINIRI DELDİĞİ GÖRÜLDÜ**: `Input` dokuz yerde kullanılıyor,
+ * **ikisi `/app` altında** (`change-password`, `onboarding/wizard`);
+ * `Button` on bir yerde, **dördü `/app` altında**. Bileşeni değiştirmek
+ * uygulamanın içindeki ekranları da boyardı ve bu, işin açıkça çizilmiş
+ * sınırının dışıdır.
+ *
+ * **Karar:** hiçbir bileşene dokunulmaz; cila `[data-surface='auth']`
+ * kapsamında CSS olarak yaşar. ⚠️ Mekanizma yeni değil — ADR-0052'nin kendi
+ * deseni (§1 ve `module-colors.css`'in `[data-module]`'ü). Üç ölçülebilir
+ * kazancı var:
+ *
+ *   1. `Input`/`Button`/`Field` dosyaları **byte olarak değişmedi** → `/app`
+ *      altındaki altı kullanım **etkilenmedi**.
+ *   2. Auth zincirinin **yedi ekranı da** aynı anda düzeldi — ADR-0052 §1.2'nin
+ *      _"zincir tek iskelettir"_ kuralı gereği doğru olan da budur; yalnızca
+ *      ikisini güzelleştirmek zinciri ORTASINDAN ayırırdı.
+ *   3. Geri alınabilirlik: bu bölüm silinince ekran eski hâline döner.
+ *
+ * ⚠️ ÖZGÜLLÜK BİR TESADÜF DEĞİL, BU BÖLÜMÜN ÇALIŞMA KOŞULUDUR. Tailwind'in
+ * utility'leri (0,1,0)'dır (`rounded-lg`, `bg-bg`, `text-lg`). Buradaki her
+ * kural en az bir eleman/öznitelik daha taşır — `[data-surface='auth'] input`
+ * = (0,1,1) — yani **kazanır**. Tek istisna Tailwind'in `hover:`/`focus:`
+ * varyantlarıdır: onlar (0,2,0)'dır ve bu yüzden karşılıkları burada
+ * `:hover` / `:focus` ile YAZILIR, düz seçiciyle değil.
+ *
+ * ⚠️ MARS'A DOKUNULMADI, `--accent` NÖTR KALDI. ADR-0052 §3.2'nin kararı —
+ * _"ekranda TAM OLARAK BİR turuncu bölge vardır"_ — bu bölümde de geçerlidir:
+ * odak halkası, düğme dolgusu ve kenarlıklar **nötr mürekkepten** türer
+ * (`--as-ink`), Mars'tan değil. Aşağıda hiçbir yerde `--mars-*` okunmaz.
+ */
+
+/*
+ * Form yüzeyinin kendi token'ları — üç blok, `--as-ink` ile AYNI üçleme.
+ *
+ * ⚠️ `--surface` / `--raised` / `--fg-2` gibi SİSTEM token'ları burada yeniden
+ * tanımlanmaz, doğrudan okunur: onlar zaten temayla dönüyor. Yalnızca temaya
+ * göre YÖN değiştirmesi gereken üç şey burada yaşıyor — iç gölge (açıkta
+ * koyu, koyuda daha koyu), odak halkasının alfası, ve ikon mürekkebi.
+ */
+[data-surface='auth'] {
+  /* ⚠️ İç gölge `--as-ink-rgb`den TÜRETİLEMEZ: koyu temada o değer AÇIKTIR
+     ve içeri düşen açık bir gölge alanı çukur değil ŞİŞKİN gösterirdi. */
+  --as-field-inset: inset 0 1px 1.5px rgba(20, 23, 27, 0.055);
+  --as-field-ring: rgba(20, 23, 27, 0.13);
+  --as-danger-ring: rgba(176, 42, 23, 0.16);
+  /* Birincil düğmenin hover mürekkebi — `--as-ink`ten bir kademe AÇIK. */
+  --as-ink-hover: #23272d;
+  --as-icon-email: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa0a8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2.5'/%3E%3Cpath d='m3.6 7.3 8.4 5.9 8.4-5.9'/%3E%3C/svg%3E");
+  --as-icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa0a8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2.5'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-surface='auth'] {
+    --as-field-inset: inset 0 1px 1.5px rgba(0, 0, 0, 0.32);
+    --as-field-ring: rgba(240, 242, 243, 0.16);
+    --as-danger-ring: rgba(240, 160, 148, 0.2);
+    --as-ink-hover: #dfe3e5;
+    --as-icon-email: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f7883' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2.5'/%3E%3Cpath d='m3.6 7.3 8.4 5.9 8.4-5.9'/%3E%3C/svg%3E");
+    --as-icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f7883' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2.5'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+  }
+}
+
+:root[data-theme='dark'] [data-surface='auth'] {
+  --as-field-inset: inset 0 1px 1.5px rgba(0, 0, 0, 0.32);
+  --as-field-ring: rgba(240, 242, 243, 0.16);
+  --as-danger-ring: rgba(240, 160, 148, 0.2);
+  --as-ink-hover: #dfe3e5;
+  --as-icon-email: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f7883' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2.5'/%3E%3Cpath d='m3.6 7.3 8.4 5.9 8.4-5.9'/%3E%3C/svg%3E");
+  --as-icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f7883' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2.5'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * 4.1 TİPOGRAFİ HİYERARŞİSİ — ölçülen kusur: BEŞ ROLDEN DÖRDÜ AYNI PUNTODAYDI
+ * ----------------------------------------------------------------------------
+ * Eski hâl ölçüldü ve şuydu: başlık 18px/600 · alt metin 14px/400 · etiket
+ * 14px/500 · düğme 14px/500 · bağlantılar 14px/400. ⚠️ Yani **beş rolün
+ * dördü 14px**ti ve ağırlıklar 400–600 arasında sıkışmıştı; göz hangisinin
+ * önce okunacağını söyleyen bir işaret bulamıyordu.
+ *
+ * Yeni ölçek rolleri AYIRIR: 22/600 → 14/400 → 13/500 → 15/600.
+ * ⚠️ Sayılar keyfi değil: başlık `--radius-panel`in (22) puntolu karşılığı
+ * değil ama sistemin kendi `text-*` ailesinden bir kademe yukarı; etiket ise
+ * 14'ün ALTINA indirildi ki alanın kendisiyle (14px) yarışmasın — etiket
+ * alanı TANITIR, onunla eşit ağırlıkta olmamalıdır.
+ */
+[data-surface='auth'] h1 {
+  font-size: 1.375rem;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/*
+ * ⚠️ `header p` — yalnızca başlığın ALT METNİ. Formun içindeki diğer `<p>`
+ * öğeleri (bilgi şeritleri, "Hesabın yok mu?") bu kuralın DIŞINDADIR;
+ * `header` kapsamı onları eler.
+ *
+ * Renk `--fg-muted`ten (`--fg-2`, 7.5:1) `--fg-3`e (5.0:1) çekildi: hâlâ
+ * AA'nın üstünde ama başlıktan görünür biçimde geride. ⚠️ Daha ileri
+ * gidilmedi — `--fg-4` yalnızca 11px+ metin içindir ve bu satır 14px'tir.
+ */
+[data-surface='auth'] header p {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--fg-3);
+}
+
+[data-surface='auth'] label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--fg-2);
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * 4.2 GİRİŞ ALANLARI — ölçülen kusur: ALANIN DOLGUSU SAYFA ZEMİNİYLE AYNIYDI
+ * ----------------------------------------------------------------------------
+ * ⚠️ Eski hâl `bg-bg` idi, yani `#f6f6f7` — ve sağ sütunun zemini de tam
+ * olarak `--bg`dir. Alanı sayfadan ayıran TEK şey %9 alfalı bir saç
+ * çizgisiydi. "Jenerik/düz duruyor" izlenimi bir zevk meselesi değil, bunun
+ * ölçülebilir karşılığıydı: ortada bir YÜZEY yoktu.
+ *
+ * Üç değişiklik, üçü de sistemin kendi token'larından:
+ *   · dolgu `--surface` → alan sayfadan **ayrılır** (açıkta daha beyaz,
+ *     koyuda daha açık; ikisi de zaten temayla dönüyor)
+ *   · `--radius-field` (18px) → ⚠️ eski `rounded-lg` (8px) sistemin köşe
+ *     ailesinin DIŞINDAYDI; panelin 22px'i yanında 8px yabancı duruyordu.
+ *     `globals.css` bu token'ı zaten "field" adıyla tanımlamıştı ve
+ *     **hiç kullanılmıyordu**.
+ *   · ince iç gölge → alan bir kutu değil bir OYUK olur (derinlik).
+ */
+[data-surface='auth'] input {
+  border-radius: var(--radius-field);
+  padding: 0.75rem 0.875rem;
+  background-color: var(--surface);
+  box-shadow: var(--as-field-inset);
+  transition:
+    border-color 140ms var(--ease-rise),
+    box-shadow 140ms var(--ease-rise),
+    background-color 140ms var(--ease-rise);
+}
+
+/*
+ * ⚠️ ODAK: BELİRGİN AMA NÖTR. ADR-0052 §3.2 auth kapsamında `--accent`i nötr
+ * mürekkebe çekmişti; bu kural onu KORUR — halka `--as-field-ring`ten gelir
+ * ve o da nötr siyahtan/beyazdan türer. Mars turuncusu buraya GİREMEZ.
+ *
+ * Odakta alan "yükselir": iç gölge kalkar, dolgu `--raised`e çıkar. Yani
+ * derinlik bir SÜS değil bir DURUM göstergesidir — oyuk olan alan, üzerinde
+ * çalışılırken düzleşir.
+ */
+[data-surface='auth'] input:focus {
+  border-color: var(--accent);
+  background-color: var(--raised);
+  box-shadow: 0 0 0 3px var(--as-field-ring);
+}
+
+[data-surface='auth'] input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+[data-surface='auth'] input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--as-danger-ring);
+}
+
+/*
+ * ⚠️ ALAN İÇİ İKONLAR — BİLEŞENE DOKUNMADAN, `type` ÜZERİNDEN.
+ *
+ * Bir `leadingIcon` prop'u eklemek `Input`u değiştirmek demekti ve bu bölümün
+ * tüm gerekçesi tam olarak onu YAPMAMAKTIR. Öznitelik seçicisi aynı işi
+ * yapıyor ve bir yan kazancı var: ikon **anlamdan** türüyor (`type='email'`
+ * → zarf), bir çağıranın hatırlamasından değil.
+ *
+ * ⚠️ Doğrulama kodu alanları (`verify-email`, `/oauth/verify`) `type='text'`
+ * taşır — yani ikon ALMAZ ve dolguları da değişmez. Bu doğrudur: o alanlar
+ * ortalanmış ve harf aralıklı bir kod kutusudur, soluna ikon girerse
+ * ortalanmış metin görsel olarak kayar.
+ *
+ * ⚠️ İkonlar `background-image`dır, ayrı bir DOM düğümü değil — yani
+ * erişilebilirlik ağacına HİÇBİR ŞEY eklemezler. Dekoratiftirler ve alanın
+ * anlamı zaten `<label>`dadır.
+ */
+[data-surface='auth'] input[type='email'],
+[data-surface='auth'] input[type='password'] {
+  padding-left: 2.75rem;
+  background-repeat: no-repeat;
+  background-position: 0.875rem center;
+  background-size: 18px 18px;
+}
+
+[data-surface='auth'] input[type='email'] {
+  background-image: var(--as-icon-email);
+}
+
+[data-surface='auth'] input[type='password'] {
+  background-image: var(--as-icon-lock);
+}
+
+/*
+ * ⚠️ OTOMATİK DOLDURMA — cilanın en kolay unutulan hâli.
+ *
+ * Tarayıcı `:-webkit-autofill` durumunda kendi dolgusunu (soluk sarı/mavi)
+ * ZORLAR ve `background-color` onu EZMEZ. Yukarıdaki yüzey kararı bu durumda
+ * sessizce kaybolurdu — ve giriş formu, otomatik doldurmanın EN SIK
+ * görüldüğü ekrandır.
+ *
+ * ⚠️ İLK YAZIMDA "İÇERİ DÜŞEN DEV GÖLGE" KULLANILDI VE İKONLARI GİZLEDİ —
+ * gerçek tarayıcıda ölçülerek bulundu.
+ *
+ * `inset` bir `box-shadow`, `background-image`in ÜSTÜNE boyanır; yani
+ * otomatik doldurulan her alanda zarf/kilit ikonu **kayboluyordu**. ⚠️ Kusur
+ * en sık görülen durumda ortaya çıkıyordu: giriş formu, otomatik doldurmanın
+ * EN SIK yaşandığı ekrandır.
+ *
+ * ⚠️ Ve hata SESSİZDİ: hiçbir test kırmızı yanmaz, lint susar, ekran çalışır —
+ * yalnızca bir ikon yok olur. Yalnızca gerçek tarayıcıda, gerçek bir kayıtlı
+ * parolayla görülebilirdi.
+ *
+ * Doğru çözüm geçiştir: tarayıcının kendi dolgusunu boyamasını sonsuza yakın
+ * bir gecikmeye bağlamak. Böylece bizim `background-color` ve
+ * `background-image`imiz OLDUĞU GİBİ kalır; yalnızca metin rengi ayrıca
+ * zorlanır (onu `-webkit-text-fill-color` dışında hiçbir şey ezemez).
+ */
+[data-surface='auth'] input:-webkit-autofill,
+[data-surface='auth'] input:-webkit-autofill:hover,
+[data-surface='auth'] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--fg);
+  caret-color: var(--fg);
+  transition: background-color 100000s ease-in-out 0s;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * 4.3 BİRİNCİL DÜĞME — ölçülen kusur: TEK DURUMU `opacity: 0.9`DU
+ * ----------------------------------------------------------------------------
+ * Eski hâlde hover'ın tamamı `hover:opacity-90` idi ve `:active` **hiç
+ * yoktu**. Yarı saydamlaşan bir dolgu "basılabilir" hissi vermez; solar.
+ *
+ * Yeni davranış üç durumu ayırır ve üçü de sistemin kendi gölge ailesinden
+ * (`--sh-card` → `--sh-float`) ve tek hareket eğrisinden (`--ease-rise`)
+ * beslenir:
+ *   dinlenme → kart gölgesi
+ *   hover    → 1px yükselir + gölge büyür + mürekkep bir kademe açılır
+ *   basılı   → yere döner + gölge daralır
+ *
+ * ⚠️ Hover mürekkebi `filter: brightness()` ile YAPILMADI: koyu temada
+ * `--accent` neredeyse beyazdır ve parlaklık artırmak onu **kırpar** (fark
+ * görünmez). Bunun yerine her tema kendi `--as-ink-hover` değerini taşır.
+ *
+ * ⚠️ `button[type='submit']` seçilmesi bilinçli: `Button` bileşeni
+ * varsayılan olarak `type='button'` üretir ve auth ekranlarındaki ikincil
+ * düğmeler ("Kodu yeniden gönder") tam olarak odur — bu kural onlara
+ * DOKUNMAZ.
+ */
+[data-surface='auth'] button[type='submit'] {
+  border-radius: var(--radius-field);
+  padding: 0.8125rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  box-shadow: var(--sh-card);
+  transition:
+    transform 140ms var(--ease-rise),
+    box-shadow 140ms var(--ease-rise),
+    background-color 140ms var(--ease-rise);
+}
+
+[data-surface='auth'] button[type='submit']:hover:not(:disabled) {
+  /* ⚠️ Tailwind'in `hover:opacity-90`ı burada GERİ ALINIR. */
+  opacity: 1;
+  background-color: var(--as-ink-hover);
+  box-shadow: var(--sh-float);
+  transform: translateY(-1px);
+}
+
+[data-surface='auth'] button[type='submit']:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--sh-card);
+}
+
+[data-surface='auth'] button[type='submit']:focus-visible {
+  box-shadow:
+    0 0 0 3px var(--as-field-ring),
+    var(--sh-card);
+}
+
+/*
+ * ⚠️ HAREKETİ AZALT tercihi HER ZAMAN kazanır. Yükselme bir bilgi taşımıyor
+ * (gölge ve renk zaten söylüyor), yani kaldırılması hiçbir şey kaybettirmez.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-surface='auth'] input,
+  [data-surface='auth'] button[type='submit'] {
+    transition: none;
+  }
+
+  [data-surface='auth'] button[type='submit']:hover:not(:disabled),
+  [data-surface='auth'] button[type='submit']:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * 4.4 SOSYAL GİRİŞ İKONLARI — alanlarla AYNI yüzey diline girer
+ * ----------------------------------------------------------------------------
+ * ⚠️ Bu kural `social-sign-in.tsx`teki `bg-bg`yi ezer. Alanların dolgusu
+ * `--surface`e çıkınca ikon düğmeleri `--bg`de kalsaydı, aynı sütunda İKİ
+ * FARKLI yüzey seviyesi olurdu ve sosyal satır "eksik boyanmış" görünürdü.
+ *
+ * ⚠️ Markaların KENDİ renkleri bu kuralın dışındadır ve öyle kalmalıdır
+ * (ADR-0053 §9.2): burada boyanan yalnızca düğmenin KABIDIR, işaret değil.
+ */
+[data-surface='auth'] .auth-social-button {
+  background-color: var(--surface);
+  box-shadow: var(--sh-card);
+  transition:
+    transform 140ms var(--ease-rise),
+    box-shadow 140ms var(--ease-rise),
+    background-color 140ms var(--ease-rise);
+}
+
+[data-surface='auth'] .auth-social-button:hover {
+  background-color: var(--raised);
+  box-shadow: var(--sh-float);
+  transform: translateY(-1px);
+}
+
+[data-surface='auth'] .auth-social-button:active {
+  transform: translateY(0);
+  box-shadow: var(--sh-card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-surface='auth'] .auth-social-button {
+    transition: none;
+  }
+
+  [data-surface='auth'] .auth-social-button:hover,
+  [data-surface='auth'] .auth-social-button:active {
+    transform: none;
+  }
+}

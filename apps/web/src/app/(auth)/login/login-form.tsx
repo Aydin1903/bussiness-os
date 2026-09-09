@@ -95,18 +95,33 @@ export function LoginForm({
     }
   }
 
+  /*
+   * ⚠️ BOŞLUK RİTMİ: 6 · 16 · 24 — ve bu üç sayı bir GRUPLAMA anlatır.
+   *
+   * Eski hâl ölçüldü: her şey `gap-5` (20px) ile EŞİT aralıklıydı — başlık ile
+   * ilk alan arası, iki alan arası, alan ile düğme arası, düğme ile sosyal
+   * satır arası, hepsi aynı. ⚠️ Eşit aralık hiçbir şeyin bir arada olmadığını
+   * söyler: göz beş ayrı parça görür, bir form görmez.
+   *
+   *   24 → GRUPLAR arası   (başlık | alanlar+eylem | sosyal | alt satır)
+   *   16 → grup İÇİNDE     (alan ↔ alan)
+   *    6 → BAĞLI parçalar  (etiket ↔ alan — `Field`in kendi aralığı)
+   *
+   * ⚠️ 6'nın 8'lik ölçeğin dışında kalması bilinçlidir: etiket alana AİTTİR
+   * ve ondan "bir adım" uzakta durmamalıdır. Sub-ölçek burada anlam taşır.
+   */
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-6"
       noValidate
     >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">Giriş yap</h1>
-        <p className="text-sm text-fg-muted">Hesabınıza erişmek için giriş yapın.</p>
+      <header className="flex flex-col gap-1.5">
+        <h1>Giriş yap</h1>
+        <p>Hesabınıza erişmek için giriş yapın.</p>
       </header>
 
       {justVerified ? (
@@ -132,37 +147,69 @@ export function LoginForm({
         </Link>
       ) : null}
 
-      <Field label="E-posta" htmlFor="email">
-        <Input
-          id="email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-          }}
-          required
-        />
-      </Field>
+      {/*
+        ⚠️ ALANLAR VE BİRİNCİL EYLEM TEK GRUPTUR (16px içeride, 24px dışarıda).
+        Düğme alanlardan KOPARILMADI: kullanıcının burada yapacağı tam olarak
+        bir şey vardır ve o şey alanları doldurup basmaktır.
+      */}
+      <div className="flex flex-col gap-4">
+        <Field label="E-posta" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+            required
+          />
+        </Field>
 
-      <Field label="Parola" htmlFor="password">
-        <Input
-          id="password"
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
-          }}
-          required
-        />
-      </Field>
+        {/*
+          ⚠️ "Şifreni mi unuttun?" PAROLA ALANININ ALTINA TAŞINDI — ve bu bir
+          yer değişikliğinden fazlasıdır, hiyerarşinin kendisidir.
 
-      <Button type="submit" loading={loading}>
-        Giriş yap
-      </Button>
+          Eski hâlde iki bağlantı formun EN ALTINDA, alt alta, ikisi de 14px
+          ve ortalanmış duruyordu: göz onları EŞİT ÖNEMDE bir çift olarak
+          okuyordu. Oysa ikisi aynı sınıfta değil:
+            · "Hesap oluştur" → BAŞKA BİR AKIŞA geçiştir (ikincil eylem)
+            · "Şifreni mi unuttun?" → BU alanın onarım yoludur (üçüncül,
+              BAĞLAMSAL)
+          Bağlamsal bir bağlantının doğru yeri, ait olduğu alanın yanıdır.
+
+          ⚠️ Sonuç üç kademeli bir hiyerarşidir: birincil düğme (15/600, dolgu)
+          › "Hesap oluştur" (14/500, mürekkep) › "Şifreni mi unuttun?"
+          (12/400, soluk). Artık hangisinin önce okunacağı SÖYLENİYOR.
+        */}
+        <div className="flex flex-col gap-2">
+          <Field label="Parola" htmlFor="password">
+            <Input
+              id="password"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+              }}
+              required
+            />
+          </Field>
+
+          <Link
+            href="/forgot-password"
+            className="self-end text-xs text-fg-3 underline-offset-2 transition-colors hover:text-fg hover:underline"
+          >
+            Şifreni mi unuttun?
+          </Link>
+        </div>
+
+        <Button type="submit" loading={loading}>
+          Giriş yap
+        </Button>
+      </div>
 
       {/*
         ⚠️ SOSYAL GİRİŞ E-POSTA FORMUNUN ALTINDA (ADR-0052 §6.2, ADR-0053 §9.3).
@@ -174,17 +221,21 @@ export function LoginForm({
       */}
       <SocialSignIn next={next} />
 
-      <div className="flex flex-col gap-2 text-center text-sm text-fg-muted">
-        <Link href="/forgot-password" className="underline-offset-2 hover:text-fg hover:underline">
-          Şifreni mi unuttun?
+      {/*
+        ⚠️ ALT SATIR ARTIK TEK BİR CÜMLE — "Şifreni mi unuttun?" yukarı,
+        parola alanının yanına taşındı. Formun kapanışı böylece TEK bir
+        ikincil eylem söyler; iki eşit ağırlıklı bağlantı arasında seçim
+        yapmak zorunda kalmaz.
+      */}
+      <p className="text-center text-sm text-fg-3">
+        Hesabın yok mu?{' '}
+        <Link
+          href="/register"
+          className="font-medium text-fg underline-offset-2 transition-colors hover:underline"
+        >
+          Hesap oluştur
         </Link>
-        <p>
-          Hesabın yok mu?{' '}
-          <Link href="/register" className="font-medium text-fg underline-offset-2 hover:underline">
-            Hesap oluştur
-          </Link>
-        </p>
-      </div>
+      </p>
     </form>
   );
 }

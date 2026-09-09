@@ -108,13 +108,37 @@ async function loadGisScript(): Promise<GisIdApi | null> {
  * betik hic gelmezse kullanici SONSUZA KADAR bir yukleme kutusuna bakardi.
  *
  * ============================================================================
- * ⚠️ GOOGLE IKI KEZ GORUNUR VE BU BILINCLIDIR (§10.2)
+ * ⚠️ ADR-0053 §10.2 DEGISTI — GOOGLE ARTIK IKI KEZ GORUNMEZ (PO, 2026-09-09)
  * ============================================================================
- * Bu kutu gorundugunde ikon siradaki Google dugmesi KAYBOLMAZ. Iki gerekce:
- *   1. ⚠️ Duzenimiz kontrol etmedigimiz bir betige BAGIMLI OLAMAZ — betik gec
- *      yuklenir ya da hic gelmezse sira uzunlugu degisir ve sayfa ZIPLAR.
- *   2. Iki kontrol AYNI SORUYU SORMUYOR: ustteki "bu hesapla", alttaki "bir
- *      Google hesabiyla" (kullanicinin ikinci bir hesabi olabilir).
+ * ⚠️ ESKI KARAR SILINMIYOR, UZERI CIZILIYOR — ne zaman dogru oldugu ve neyin
+ * degistigi ancak yan yana okununca gorulur:
+ *
+ *   ~~Bu kutu gorundugunde ikon siradaki Google dugmesi KAYBOLMAZ. Iki gerekce:
+ *     1. Duzenimiz kontrol etmedigimiz bir betige BAGIMLI OLAMAZ — betik gec
+ *        yuklenir ya da hic gelmezse sira uzunlugu degisir ve sayfa ZIPLAR.
+ *     2. Iki kontrol AYNI SORUYU SORMUYOR: ustteki "bu hesapla", alttaki "bir
+ *        Google hesabiyla" (kullanicinin ikinci bir hesabi olabilir).~~
+ *
+ * ⚠️ PO'nun gerekcesi GORSELDIR ve olculebilir: buyuk "Google ile devam edin"
+ * kutusu ile hemen altindaki ikon sirasindaki Google AYNI ANDA gorununce ekran
+ * **kararsiz** duruyor — ayni saglayici iki kez, iki farkli bicimde teklif
+ * ediliyor.
+ *
+ * ⚠️ Eski 1. gerekce (ZIPLAMA) OLCULEREK zayifladi: kutu mount oldugu an
+ * zaten **~44 px'lik bir blok** ekliyor ve duzen o kaymayi ZATEN yasiyor.
+ * Ikon sirasindan bir 44 px'lik dugmenin cikmasi, ortalanmis bir sirada
+ * yalnizca yatay bir daralmadir — yani bedel **zaten odenmis** bir kaymanin
+ * yanina eklenen kucuk bir farktir, yeni bir kayma degil.
+ *
+ * ⚠️ Eski 2. gerekce (IKINCI HESAP) BIR SINIR olarak KAYDA GECIYOR ve
+ * gizlenmiyor: GIS kutusu tarayicidaki AKTIF Google oturumunu gosterir.
+ * Ikinci bir Google hesabiyla girmek isteyen kullanici artik ikon sirasindan
+ * gidemez — kutunun kendi hesap secicisini kullanmak zorundadir.
+ *
+ * ⚠️ VE YEDEK GERCEKTIR, SUS DEGIL: betik engellenirse `onMountedChange`
+ * HIC `true` almaz, ikon sirasindaki Google **yerinde kalir** ve Google ile
+ * giris kullanilabilir olmaya devam eder. Yani kaybolan sey bir KOPYADIR,
+ * bir YOL degil.
  *
  * ============================================================================
  * ⚠️ FedCM ACIK (§10.3)
@@ -125,10 +149,36 @@ async function loadGisScript(): Promise<GisIdApi | null> {
  * ortaya cikmaz" — bu projenin surekli isaretledigi sessiz bozulma sinifi.
  * ============================================================================
  */
-export function GoogleOneTap({ enabled }: { readonly enabled: boolean }) {
+export function GoogleOneTap({
+  enabled,
+  onMountedChange,
+}: {
+  readonly enabled: boolean;
+  /**
+   * ⚠️ KUTUNUN GERÇEKTEN ÇİZİLDİĞİNİ ÜST BİLEŞENE SÖYLER (2026-09-09).
+   *
+   * `SocialSignIn` bunu ikon sırasındaki Google düğmesini elemek için okur —
+   * yani bu geri çağrı bir "bilgi" değil, bir DÜZEN KARARININ girdisidir.
+   *
+   * ⚠️ `ready` state'i tek başına yetmezdi: o bu bileşenin İÇİNDE yaşıyor ve
+   * kardeşi olan ikon sırası onu göremez.
+   */
+  readonly onMountedChange?: (mounted: boolean) => void;
+}) {
   const [ready, setReady] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const startedRef = useRef(false);
+
+  /*
+   * ⚠️ GERİ ÇAĞRI BİR REF'TE TUTULUR ve effect'in bağımlılığı DEĞİLDİR.
+   *
+   * Bağımlılık olsaydı, çağıranın her render'ında yeni bir fonksiyon kimliği
+   * üretilmesi effect'i yeniden koştururdu: betik yeniden istenir, sunucuya
+   * yeni bir `nonce` çağrısı gider ve çerez yarışa girer — `setup()`in kendi
+   * yorumunda anlatılan tuzağın ta kendisi.
+   */
+  const notifyRef = useRef(onMountedChange);
+  notifyRef.current = onMountedChange;
 
   useEffect(() => {
     if (!enabled || startedRef.current) {
@@ -218,6 +268,9 @@ export function GoogleOneTap({ enabled }: { readonly enabled: boolean }) {
 
       if (!aborted()) {
         setReady(true);
+        // ⚠️ YALNIZCA BURADA `true` — yani "betik geldi" değil, "kutu GERÇEKTEN
+        // çizildi". `renderButton` çağrısından SONRA ve iptal edilmemişken.
+        notifyRef.current?.(true);
       }
     }
 
@@ -225,6 +278,14 @@ export function GoogleOneTap({ enabled }: { readonly enabled: boolean }) {
 
     return () => {
       controller.abort();
+      /*
+       * ⚠️ SÖKÜLÜRKEN ÜST BİLEŞENE "ARTIK YOKUM" DENİR — ve bu satır olmadan
+       * ikon sırasındaki Google KALICI OLARAK kaybolurdu: kutu bir kez
+       * çizilip sonra sökülseydi (rota değişimi, StrictMode'un ikinci turu)
+       * bayrak `true` takılı kalır ve kullanıcıda HİÇBİR Google girişi
+       * kalmazdı. ⚠️ Yani bu, "gerçek yedek" kuralının ikinci yarısıdır.
+       */
+      notifyRef.current?.(false);
       /*
        * ⚠️ BAYRAK SIFIRLANIR — VE BU SATIR OLMADAN BILESEN KALICI OLARAK OLUR.
        *

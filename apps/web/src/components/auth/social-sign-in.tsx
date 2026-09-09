@@ -46,6 +46,17 @@ import { PROVIDER_MARKS } from './provider-marks';
  */
 export function SocialSignIn({ next }: { readonly next?: string | undefined }) {
   const [providers, setProviders] = useState<readonly string[]>([]);
+  /**
+   * ⚠️ GIS KUTUSU GERÇEKTEN ÇİZİLDİ Mİ — ADR-0053 §10.2'nin DEĞİŞTİRİLEN
+   * kararının tek girdisi (PO, 2026-09-09).
+   *
+   * ⚠️ Başlangıç `false` ve bu bir varsayılan değil bir GÜVENLİ TARAFTIR:
+   * betik gelmezse, geç gelirse ya da engellenirse değer `false` KALIR ve
+   * ikon sırasındaki Google yerinde durur. Yani yedek, bir şeyin
+   * OLMAMASIYLA çalışır — çalışması için hiçbir şeyin başarılı olması
+   * gerekmez.
+   */
+  const [oneTapMounted, setOneTapMounted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +85,26 @@ export function SocialSignIn({ next }: { readonly next?: string | undefined }) {
   // sağlayıcı eklerse ekran bozulmaz, yalnızca o düğme görünmez (daralma).
   const drawable = providers.filter((key) => PROVIDER_MARKS[key] !== undefined);
 
+  /*
+   * ⚠️ KİŞİSELLEŞTİRİLMİŞ KUTU ÇİZİLDİYSE İKON SIRASINDAKİ GOOGLE ELENİR
+   * (ADR-0053 §10.2 DEĞİŞTİ — PO, 2026-09-09).
+   *
+   * ⚠️ Elenen YALNIZCA Google'dır; o an yapılandırılmış DİĞER sağlayıcılar
+   * (bugün LinkedIn) sırada KALIR. Aksi halde kutu mount olduğunda kullanıcı
+   * tek bir sağlayıcıya hapsolurdu.
+   *
+   * ⚠️ `oneTapMounted` yalnızca kutu GERÇEKTEN çizilince `true` olur — betik
+   * engellenirse bu satır hiçbir şey elemez ve Google sırada durur. Yani bu
+   * bir "gizle" dalı değil, bir YEDEK: kopya kaybolur, yol kaybolmaz.
+   */
+  const rowKeys = oneTapMounted ? drawable.filter((key) => key !== 'google') : drawable;
+
+  /*
+   * ⚠️ Sıra BOŞ olsa bile (yalnızca Google yapılandırılıyken kutu çizildiğinde
+   * tam olarak bu olur) bileşen `null` DÖNMEZ: kutunun kendisi ekrandadır ve
+   * ayraç ona aittir. `drawable` boşsa hiçbir şey çizilmez — o kontrol
+   * aşağıda, kutudan ÖNCE durur.
+   */
   if (drawable.length === 0) {
     return null;
   }
@@ -105,16 +136,19 @@ export function SocialSignIn({ next }: { readonly next?: string | undefined }) {
 
         ⚠️ Betik engellenirse bileşen HİÇBİR ŞEY çizmez — yer ayrılmaz.
       */}
-      <GoogleOneTap enabled={drawable.includes('google')} />
+      <GoogleOneTap enabled={drawable.includes('google')} onMountedChange={setOneTapMounted} />
 
       {/*
         ⚠️ TEK SIRA, ORTALANMIŞ (ADR-0053 §9.3). Düğmeler 44 px'tir — mobil
         dokunma hedefi alt sınırı; ADR "40 px, mobilde 44" diyordu, tek bir
         ölçüye çekmek iki ayrı boyut tanımının ayrışma riskini kaldırır ve
         erişilebilirlik tarafında GÜVENLİ olan yönü seçer.
+
+        ⚠️ Sıra `rowKeys`ten çizilir, `drawable`dan DEĞİL: kişiselleştirilmiş
+        kutu çizildiyse Google buradan elenmiştir (yukarıdaki blok).
       */}
       <ul className="flex list-none justify-center gap-3 p-0">
-        {drawable.map((key) => {
+        {rowKeys.map((key) => {
           // Yukarıdaki `filter` tanımlı olduğunu garanti eder; okuyucuya da
           // burada söylenir.
           const mark = PROVIDER_MARKS[key];
@@ -135,7 +169,18 @@ export function SocialSignIn({ next }: { readonly next?: string | undefined }) {
                 href={oauthStartUrl(key, next)}
                 aria-label={mark.label}
                 title={mark.label}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-border-strong bg-bg transition-colors hover:bg-fill focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+                /*
+                  ⚠️ `auth-social-button` bir GÖRÜNÜM SINIFI DEĞİL, bir
+                  BAĞLANTI NOKTASIDIR: yüzey, gölge ve hover davranışı
+                  `auth-surface.css` §4.4'te yaşar. Sebebi kapsamdır — dolgu
+                  `--surface`e çıkarken alanlarla AYNI karardan beslenmeli,
+                  iki yerde ayrı ayrı yazılmamalı.
+
+                  ⚠️ `bg-bg` KALDIRILDI: alanların dolgusu `--surface`e
+                  çıkınca burada kalsaydı aynı sütunda İKİ farklı yüzey
+                  seviyesi olurdu ve satır "eksik boyanmış" görünürdü.
+                */
+                className="auth-social-button flex h-11 w-11 items-center justify-center rounded-full border border-border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
               >
                 <mark.Icon size={20} />
               </a>

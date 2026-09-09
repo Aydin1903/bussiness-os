@@ -41,6 +41,12 @@ export default function RegisterPage() {
     }
   }
 
+  /*
+   * ⚠️ Boşluk ritmi `login-form.tsx` ile BİREBİR aynıdır (6 · 16 · 24) ve
+   * gerekçesi orada yazılıdır. İki ekran zincirin aynı halkasıdır; farklı
+   * ritimler kullanmaları, kullanıcının kayıttan girişe geçerken düzenin
+   * "kaydığını" hissetmesi demek olurdu (ADR-0052 §1.2).
+   */
   return (
     <AuthScreen screen="register">
       <form
@@ -48,47 +54,49 @@ export default function RegisterPage() {
           event.preventDefault();
           void submit();
         }}
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-6"
         noValidate
       >
-        <header className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold">Hesap oluştur</h1>
-          <p className="text-sm text-fg-muted">Başlamak için e-posta ve parola belirleyin.</p>
+        <header className="flex flex-col gap-1.5">
+          <h1>Hesap oluştur</h1>
+          <p>Başlamak için e-posta ve parola belirleyin.</p>
         </header>
 
         <FormError message={error} />
 
-        <Field label="E-posta" htmlFor="email">
-          <Input
-            id="email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-            }}
-            required
-          />
-        </Field>
+        <div className="flex flex-col gap-4">
+          <Field label="E-posta" htmlFor="email">
+            <Input
+              id="email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+              }}
+              required
+            />
+          </Field>
 
-        <Field label="Parola" htmlFor="password">
-          <Input
-            id="password"
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-            }}
-            required
-          />
-        </Field>
+          <Field label="Parola" htmlFor="password">
+            <Input
+              id="password"
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+              }}
+              required
+            />
+          </Field>
 
-        <Button type="submit" loading={loading}>
-          Hesap oluştur
-        </Button>
+          <Button type="submit" loading={loading}>
+            Hesap oluştur
+          </Button>
+        </div>
 
         {/*
           ⚠️ AYNI UÇ, FARKLI METİN. Ayrı bir "kayıt" ucu YOKTUR: akış
@@ -101,9 +109,12 @@ export default function RegisterPage() {
         */}
         <SocialSignIn />
 
-        <p className="text-center text-sm text-fg-muted">
+        <p className="text-center text-sm text-fg-3">
           Zaten hesabın var mı?{' '}
-          <Link href="/login" className="font-medium text-fg underline-offset-2 hover:underline">
+          <Link
+            href="/login"
+            className="font-medium text-fg underline-offset-2 transition-colors hover:underline"
+          >
             Giriş yap
           </Link>
         </p>
