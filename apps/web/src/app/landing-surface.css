@@ -366,10 +366,58 @@ html:has([data-surface='landing']) {
     gap: 24px;
   }
 
-  /* Logo yazılı markadır — koridordaki en büyük tek marka işareti odur. */
+  /*
+   * Logo yazılı markadır — koridordaki en büyük tek marka işareti odur.
+   *
+   * ⚠️ ARTIK BİR KİLİTLENMEDİR (lockup): logo + altında sloganın imzası.
+   * Bağlantı bu yüzden dikey bir sütun olur; hizalama `flex-start`tır çünkü
+   * iki satırın SOL kenarı ortak eksendir — ortalanırsa slogan logodan
+   * uzunken logo kayık görünür.
+   */
+  .ust-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
   .ust-logo img {
     height: 44px;
     width: auto;
+  }
+
+  /*
+   * ⚠️ SLOGANIN İMZASI — auth'taki "BUSINESS OS" descriptor'ının karşılığı.
+   *
+   * Mono + geniş harf aralığı, bu yüzeyin `.etiket` imzasıyla aynı ailedendir;
+   * yeni bir tipografik ses İCAT EDİLMEDİ.
+   *
+   * ⚠️ `white-space: nowrap` ZORUNLU: sarmasına izin verilseydi dar bir üst
+   * çubukta iki satıra düşer ve logo sütunu aniden uzayarak gezinmeyi aşağı
+   * iterdi — düzen sessizce bozulurdu.
+   */
+  .ust-slogan {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    line-height: 1;
+    text-transform: none;
+    white-space: nowrap;
+    color: var(--lp-ink-3);
+  }
+
+  /*
+   * ⚠️ DAR EKRANDA İMZA GİZLENİR — VE BU BİR ÖLÇÜMÜN SONUCUDUR.
+   *
+   * 1080 px altında gezinme ve iki eylem düğmesi üst çubuğun neredeyse
+   * tamamını kullanır; logo sütununun ~185 px'e çıkması onları taşırır.
+   * ⚠️ Kaybedilen şey bir BİLGİ değil bir TEKRARDIR: slogan hero'da `<h1>`
+   * olarak zaten duruyor ve orada her genişlikte görünür.
+   */
+  @media (width <= 1080px) {
+    .ust-slogan {
+      display: none;
+    }
   }
 
   .ust-nav {
@@ -553,8 +601,89 @@ html:has([data-surface='landing']) {
   }
 
   /* Metin sütunu — kabın yalnızca sol yarısını kullanır. */
+  /*
+   * ⚠️ 680 px'TE KALIR — VE BU SAYI KEYFİ DEĞİL, MASKOTUN SINIRIDIR.
+   *
+   * Bu iş sırasında sütun önce 900 px'e çıkarıldı (başlığı büyütmek için) ve
+   * ⚠️ GERÇEK TARAYICIDA ÖLÇÜLÜNCE bir kural çiğnendiği görüldü: sloganın
+   * ikinci yarımı **812 px**'de bitiyordu, maskotun sol sınırı ise **784 px** —
+   * yani metin maskotun kulaklığının üzerine **28 px** taşıyordu.
+   *
+   * ⚠️ Kural yazılıydı ve aşağıdaki blokta duruyor: _"maskotun üzerinde slogan
+   * olmasın"_. Hesap da 680'i doğruluyor: h1 sol kenarı 108 px'te başlıyor ve
+   * maskot 784'te; güvenli genişlik **676 px**. Yani ilk yazan kişi bu sayıyı
+   * ölçerek koymuş.
+   *
+   * ⚠️ Sonuç: başlık büyüyecekse sütun değil PUNTO ve SATIR SAYISI değişir
+   * (hemen aşağıda).
+   */
   .hero-ic {
     width: min(100%, 680px);
+  }
+
+  /*
+   * ==========================================================================
+   * ⚠️ HERO BAŞLIĞI SAYFANIN KAHRAMANIDIR — VE DEĞİLDİ (ölçüldü, 2026-09-09)
+   * ==========================================================================
+   * ⚠️ ÖLÇÜM: 1280 px'te başlık **44.8 px** puntoydu ve kutusu **95 px**
+   * yüksekliğindeydi; yanındaki fotoğraf kabı **794 px**. Yani sayfanın
+   * vaadini söyleyen cümle, hero'nun dikey uzamının **%12'sini** kaplıyordu.
+   * "Orantısız küçük" bir izlenim değil, bir orandı.
+   *
+   * ⚠️ Sebep `.d1`in GENEL bir ölçek olmasıydı: aynı sınıf oda sayfalarının
+   * başlıklarında da kullanılıyor (`room-header.tsx`) ve orada 48 px tavanı
+   * doğrudur — bir alt sayfa başlığı sayfanın kahramanı değildir.
+   *
+   * ⚠️ BU YÜZDEN `.d1` DEĞİŞTİRİLMEDİ, HERO KAPSAMINDA EZİLDİ. Genel ölçeği
+   * büyütmek beş sayfanın başlıklarını birden şişirirdi; kahraman olan
+   * yalnızca bu birdir.
+   *
+   * ⚠️ TAVAN 72 DEĞİL 62 px — VE FARKI MASKOT BELİRLEDİ. 72 px'te sloganın
+   * birinci yarımı tek satırda 884 px ister; güvenli genişlik 676 px'tir
+   * (yukarıdaki blok). Yani 72 px'e çıkmak ya metni maskotun üzerine taşırdı
+   * ya da sütunu maskotun içine sokardı. 62 px'te birinci yarım İKİ dengeli
+   * satıra, ikinci yarım TEK satıra sığar ve hepsi 676 px'in solunda kalır.
+   *
+   * Kazanç ölçülü: punto 44.8 → ~62 px (**%38**), başlık kutusu 95 → ~198 px,
+   * fotoğrafa göre oran **%12 → %23** (iki katı). Taban 34 px'tir.
+   */
+  .hero-ic .d1 {
+    font-size: clamp(34px, 4.6vw, 62px);
+    /*
+     * ⚠️ `balance` OLMADAN kırılma çirkin: "Hiç unutmayan bir / asistan." gibi
+     * isim tamlamasını ortadan böler. `balance` iki satırı eşitler ve doğal
+     * duraklama noktasını seçer ("Hiç unutmayan / bir asistan.").
+     *
+     * ⚠️ Desteklemeyen tarayıcıda kural SESSİZCE yok sayılır ve metin normal
+     * sarar — yani geri düşüş bozulma değil, yalnızca daha az zarif bir kırılma.
+     */
+    text-wrap: balance;
+  }
+
+  /*
+   * ⚠️ İKİNCİ YARIM KENDİ SATIRINDA BAŞLAR — VE BU ŞANSA BIRAKILMAZ.
+   *
+   * Eski başlık da iki cümleydi ve 44.8 px'te tesadüfen temiz kırılıyordu.
+   * ⚠️ Tesadüf bir düzen kararı değildir: punto büyüyünce aynı işaretleme
+   * "bir asistan. Siz" diye kırıldı — ikinci cümle satırın ORTASINDA başladı.
+   *
+   * `display: block` kırılmayı GARANTİ eder ve dar ekranda da doğru davranır:
+   * her yarım kendi içinde sarar, ama biri ötekinin satırına TAŞMAZ. Sloganın
+   * iki yarımı okurun gözünde de iki yarım kalır.
+   */
+  .hero-ic .d1 i {
+    display: block;
+  }
+
+  /*
+   * ⚠️ ALT METİN DE ORANTILI BÜYÜR — ama başlığın büyüme oranından DAHA AZ.
+   * Aynı oranda büyüseydi hiyerarşi korunur ama kazanılmazdı: asıl istenen
+   * şey ikisinin ARASINDAKİ farkın açılmasıdır (başlık 44.8 → ~66, alt metin
+   * 15.5 → ~18.5).
+   */
+  .hero-ic .alt {
+    font-size: clamp(16.5px, 1.45vw, 20px);
+    max-width: 58ch;
   }
 
   /*
@@ -1370,6 +1499,23 @@ html:has([data-surface='landing']) {
     color: var(--lp-ink-2);
   }
 
+  /*
+   * ⚠️ YAZILMAMIŞ SATIRLAR BAĞLANTILARDAN BİR KADEME SOLUK — VE BU KURAL
+   * PAYLAŞILAN BLOĞUN DIŞINDA DURMAK ZORUNDA.
+   *
+   * ⚠️ İlk yazımda renk yukarıdaki `.foot a, .foot .yok` bloğunun İÇİNDE
+   * değiştirildi ve gerçek tarayıcıda ölçülünce görüldü ki footer'ın TÜM
+   * bağlantıları da solmuştu — ikisi aynı rengi okuyordu. Yani bu işin
+   * kapsamı dışındaki öğeler sessizce değişmişti.
+   *
+   * Ayrı kural bunu imkânsız kılar: solan yalnızca yazılmamış üç satırdır.
+   * Gerekçe de kozmetik değil — aynı renkte olsalardı göz onları tıklanabilir
+   * sanır, tıklar ve hiçbir şey olmayınca bunu bir ARIZA olarak okurdu.
+   */
+  .foot .yok {
+    color: var(--lp-ink-3);
+  }
+
   .foot a:hover {
     color: var(--lp-ink);
   }
@@ -1385,9 +1531,31 @@ html:has([data-surface='landing']) {
    * taşıyordu; üretimde ölü bir bağlantı, tıklayan kullanıcıyı hiçbir yere
    * götürmeyip sayfanın başına atardı — bir hata gibi okunur.
    */
+  /*
+   * ⚠️ `[yazılacak]` → `Yakında` ROZETİ (Product Owner, 2026-09-09).
+   *
+   * Köşeli parantez bir GELİŞTİRİCİ NOTUYDU ve canlı sayfada müşterinin
+   * gözünde duruyordu; söylediği şey "eksik" değil "yarım bırakılmış"tı.
+   *
+   * ⚠️ Rozet biçimi seçildi çünkü metnin YANINDA duran serbest bir kelime
+   * ("KVKK Yakında") bir başlık gibi okunabilirdi. Kapalı bir kap, onu
+   * satırın kendisinden AYIRIR ve bir DURUM etiketi yapar.
+   *
+   * Değerler bu yüzeyin kendi ailesinden: mono + geniş aralık (`.etiket`,
+   * `.foot h4`) ve `--pill` yarıçapı. Yeni bir şey icat edilmedi.
+   */
   .yz {
+    display: inline-block;
+    margin-left: 2px;
+    padding: 2px 8px;
+    border: 1px solid var(--lp-gri-2);
+    border-radius: var(--pill);
+    background: var(--lp-gri);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    vertical-align: 1px;
     color: var(--lp-ink-3);
   }
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { accentStyle } from '@/components/landing/accent-style';
 import { MascotBox } from '@/components/landing/mascot-box';
 import { LANDING_MODULES, moduleNo } from '@/components/landing/modules';
+import { SLOGAN_BAS, SLOGAN_SON } from '@/components/landing/slogan';
 
 /**
  * `/` — LANDING PAGE (ADR-0054).
@@ -34,7 +35,15 @@ import { LANDING_MODULES, moduleNo } from '@/components/landing/modules';
  * içeri girer.
  */
 export const metadata: Metadata = {
-  title: { absolute: 'KobiWise — Şirketiniz artık unutmuyor' },
+  /*
+   * ⚠️ BAŞLIK SLOGANDAN TÜRETİLİR, ELLE YAZILMAZ (2026-09-09).
+   *
+   * Eskiden burada sloganın bir kopyası dururdu (`Şirketiniz artık
+   * unutmuyor`). Slogan değişince arama sonucunda ve sekme başlığında ESKİ
+   * cümle kalırdı — ve bu, gözle görülmesi en zor ayrışmadır: ekranda doğru
+   * slogan, sekmede yanlış slogan.
+   */
+  title: { absolute: `KobiWise — ${SLOGAN_BAS}` },
   description:
     'On iki modül tek bir hafızada birleşir. Sorduğunuzda cevap tahminden değil, kendi kayıtlarınızdan gelir.',
 };
@@ -70,8 +79,22 @@ export default function LandingPage() {
 
           <div className="hero-ic">
             <span className="etiket">YAPAY ZEKÂ İŞLETİM SİSTEMİ</span>
+            {/*
+              ⚠️ SLOGAN BURADAN OKUNUR, ELLE YAZILMAZ (`slogan.ts`) — üst
+              çubuktaki tekrarla sessizce ayrışmasın.
+
+              ⚠️ İKİ YARIM İKİ SATIRDIR, ` / ` AYRACI BURADA KULLANILMAZ:
+              ayraç sloganın imza biçimidir (auth panellerinin dördünde de
+              öyle) ama 68 px'lik bir puntoda eğik çizgi bir satır sonu gibi
+              değil, bir NOKTALAMA HATASI gibi okunur. Ayracın işini burada
+              satır sonu görür; imza biçimi `SLOGAN` sabitinde ve `metadata`da
+              yaşamaya devam eder.
+
+              ⚠️ `<i>` bir vurgu değil, mevcut hero deseninin İKİNCİ SESİDİR
+              (soluk + eğik) — eski başlıkta da öyleydi ve dokunulmadı.
+            */}
             <h1 className="d1">
-              Şirketiniz artık unutmuyor. <i>Sorduğunuzda hatırlıyor.</i>
+              {SLOGAN_BAS}. <i>{SLOGAN_SON}.</i>
             </h1>
             <p className="alt">
               Müşteriniz, paranız, ekibiniz, belgeleriniz — on iki modül tek bir hafızada birleşir.
@@ -89,6 +112,37 @@ export default function LandingPage() {
           </div>
         </div>
 
+        {/*
+          ⚠️ ŞERİT DÖRTTEN ÜÇE İNDİ — İKİ İSTATİSTİK JARGON OLDUĞU İÇİN
+          KALDIRILDI (Product Owner, 2026-09-09).
+
+          Kaldırılanlar ve sebepleri:
+          · ~~"13 ŞEMADA SATIR BAZLI İZOLASYON"~~ — doğru bir cümledir ama
+            muhatabı bir MÜHENDİSTİR. Bir KOBİ sahibi "şema" ve "satır bazlı
+            izolasyon" kelimelerinden bir FAYDA çıkaramaz; anlamadığı bir
+            rakam güven vermez, ⚠️ mesafe koyar.
+          · ~~"0 SAĞLAYICI KİLİDİ"~~ — aynı sorunun daha ağır hâli: okuyan
+            kişi "sağlayıcı kilidi" diye bir SORUNU olduğunu bilmiyorsa,
+            olmadığının söylenmesi ona hiçbir şey ifade etmez.
+
+          ⚠️ İZOLASYON KALDIRILMADI, ÇEVRİLDİ: "13 şemada satır bazlı
+          izolasyon"un kullanıcı tarafındaki karşılığı tam olarak
+          "verileriniz yalnızca sizin"dir. Yani kaybolan şey GÜVENCE değil,
+          onun mühendislik dilidir. (Teknik hâli `moduller` ve `sorular`
+          sayfalarında duruyor — orada muhatap zaten soruyu sormuş oluyor.)
+
+          ⚠️ ÜÇÜNCÜ KALEMDE RAKAM YOK VE UYDURULMADI. "%100" gibi bir sayı
+          yazmak şeridin görsel ritmini korurdu ama ⚠️ ÖLÇÜLMEMİŞ bir rakam
+          uydurmak olurdu — bu şeritteki diğer iki sayı gerçek sayımlardır
+          (on iki modül, on sekiz kaynak) ve yanlarına sahte bir yüzde koymak
+          ikisini de zayıflatırdı. Bunun yerine cümlenin TAMAMI `<b>` ile
+          mürekkep rengine alınır: göz onu bir istatistik değil bir TAAHHÜT
+          olarak okur.
+
+          ⚠️ Metin ELLE büyük harf yazılır (`.etiket`in kaydettiği tuzak):
+          `text-transform: uppercase` bu belgede (`lang="tr"`) "i" harfini
+          "I" yapardı, "İ" değil.
+        */}
         <div className="serit">
           <span>
             <b>12</b> MODÜL
@@ -97,10 +151,7 @@ export default function LandingPage() {
             <b>18</b> HAFIZA KAYNAĞI
           </span>
           <span>
-            <b>13</b> ŞEMADA SATIR BAZLI İZOLASYON
-          </span>
-          <span>
-            <b>0</b> SAĞLAYICI KİLİDİ
+            <b>VERİLERİNİZ YALNIZCA SİZİN</b>
           </span>
         </div>
       </section>

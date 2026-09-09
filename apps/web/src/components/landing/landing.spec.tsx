@@ -12,6 +12,7 @@ import LandingPage from '@/app/(landing)/page';
 import QuestionsPage from '@/app/(landing)/sorular/page';
 
 import { LANDING_MODULES, moduleNo } from './modules';
+import { SLOGAN_BAS, SLOGAN_SON } from './slogan';
 
 /**
  * ADR-0054'ÜN ZORUNLU TESTLERİ.
@@ -359,7 +360,37 @@ describe('ADR-0054 · 5. bağlantılar', () => {
     );
 
     expect(container.querySelectorAll('.foot .yok')).toHaveLength(3);
-    expect(screen.getAllByText('[yazılacak]')).toHaveLength(3);
+    /*
+     * ⚠️ ASIL İDDİA SAYI DEĞİL, `<a>` OLMAMASIDIR. `href="#"` tıklandığında
+     * sayfayı başa atar ve kullanıcı bunu bir arıza olarak okur; bu satırın
+     * koruduğu şey o davranıştır, metnin kendisi değil.
+     */
+    for (const yok of container.querySelectorAll('.foot .yok')) {
+      expect(yok.tagName).toBe('SPAN');
+      expect(yok.querySelector('a')).toBeNull();
+    }
+  });
+
+  /**
+   * ⚠️ `[yazılacak]` → `Yakında` (Product Owner, 2026-09-09).
+   *
+   * Eski test `[yazılacak]` metnini kilitliyordu. ⚠️ Köşeli parantez bir
+   * GELİŞTİRİCİ NOTUDUR ve canlı bir pazarlama sayfasında müşterinin gözünde
+   * duruyordu — söylediği şey "eksik" değil "yarım bırakılmış"tı.
+   *
+   * ⚠️ Bu test köşeli parantezin GERİ GELMEMESİNİ de iddia eder: yalnızca
+   * "Yakında"yı saymak, birinin yanına tekrar bir `[…]` eklemesini
+   * yakalamazdı.
+   */
+  it('⚠️ yasal satırlar "Yakında" der — köşeli parantez GERİ GELMEZ', () => {
+    const { container } = render(
+      <LandingLayout>
+        <span />
+      </LandingLayout>,
+    );
+
+    expect(screen.getAllByText('Yakında')).toHaveLength(3);
+    expect(container.querySelector('.foot')?.textContent).not.toContain('[');
   });
 });
 
@@ -491,5 +522,164 @@ describe('ADR-0054 · 7. varlıklar', () => {
     expect(statSync(join(BRAND, 'mascot-loop-2x.webm')).size).toBeLessThanOrEqual(700 * 1024);
     expect(statSync(join(BRAND, 'mascot-wave.webp')).size).toBeLessThanOrEqual(120 * 1024);
     expect(statSync(join(BRAND, 'wordmark.webp')).size).toBeLessThanOrEqual(120 * 1024);
+  });
+});
+
+/**
+ * ============================================================================
+ * ⚠️ 8. SLOGAN — MARKANIN İMZASI, TEK KAYNAKTAN (Product Owner, 2026-09-09)
+ * ============================================================================
+ * Slogan iki yüzeyde birden görünür: hero'da büyük, üst çubukta logonun
+ * altında küçük. ⚠️ Bu testlerin koruduğu şey sloganın METNİ değil, **tek
+ * kaynaktan geldiğidir**.
+ *
+ * Sebep bu projede ölçülerek yaşandı: yazılı logonun auth'ta metin,
+ * landing'de görsel olan iki uygulaması ADR-0054'te _"bugün kabul edilen,
+ * ölçülmüş bir borç"_ diye kayda geçti — iki kopya, biri değişince öteki
+ * sessizce eskiyor. Slogan için aynı borç açılmadı ve bu testler onu kapalı
+ * tutar.
+ */
+describe('ADR-0054 · 8. slogan tek kaynaktan gelir', () => {
+  const SRC_DIR = join(process.cwd(), 'src');
+
+  it('hero başlığı sloganın İKİ YARIMINI da çizer', () => {
+    render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    const h1 = screen.getByRole('heading', { level: 1 });
+
+    expect(h1.textContent).toContain(SLOGAN_BAS);
+    expect(h1.textContent).toContain(SLOGAN_SON);
+  });
+
+  /**
+   * ⚠️ Üst çubuk yalnızca BİRİNCİ YARIMI taşır ve bu ölçülmüş bir kısıttır
+   * (`slogan.ts`): tam slogan 1280 px'lik bir üst çubukta taşar.
+   */
+  it('üst çubuk logonun altında sloganın imzasını tekrarlar', () => {
+    const { container } = render(
+      <LandingLayout>
+        <span />
+      </LandingLayout>,
+    );
+
+    const imza = container.querySelector('.ust-logo .ust-slogan');
+
+    expect(imza).not.toBeNull();
+    expect(imza?.textContent).toBe(SLOGAN_BAS);
+  });
+
+  /**
+   * ⚠️ İMZA EKRAN OKUYUCUYA OKUNMAZ. Bağlantının erişilebilir adı logonun
+   * `alt` metnidir; imza da okunsaydı ad "KobiWise — ana sayfa Hiç unutmayan
+   * bir asistan" olurdu. Slogan zaten hero'da `<h1>` olarak okunuyor — yani
+   * burada tekrar etmek bilgi değil GÜRÜLTÜ olurdu.
+   */
+  it('⚠️ üst çubuktaki imza erişilebilirlik ağacında GÜRÜLTÜ YAPMAZ', () => {
+    const { container } = render(
+      <LandingLayout>
+        <span />
+      </LandingLayout>,
+    );
+
+    expect(container.querySelector('.ust-slogan')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  /**
+   * ⚠️ EN ÖNEMLİ TEST: slogan metni HİÇBİR YERE ELLE YAZILMAZ.
+   *
+   * `slogan.ts` dışında bir dosyada aynı cümle geçiyorsa, orada bir KOPYA
+   * var demektir ve o kopya bir gün sessizce eskir. Test kaynağı tarar —
+   * bir iddiayı tekrarlanabilir kılmanın tek yolu budur (ADR-0043 Slice 1b'nin
+   * cümlesi).
+   */
+  it('⚠️ slogan metni `slogan.ts` DIŞINDA hiçbir dosyada elle yazılmamış', () => {
+    const kopyalar: string[] = [];
+
+    for (const dosya of walk(SRC_DIR)) {
+      if (dosya.endsWith(join('landing', 'slogan.ts')) || dosya.endsWith('landing.spec.tsx')) {
+        continue;
+      }
+      /*
+       * ⚠️ YORUMLAR ELENİR — VE BU BİR GEVŞETME DEĞİL, İDDİANIN DOĞRU
+       * EKSENE OTURTULMASIDIR.
+       *
+       * İlk yazımda ham metin taranıyordu ve test `site-header.tsx`i
+       * yakaladı: orada slogan bir KOD DEĞİL, `aria-hidden` kararını
+       * anlatan bir yorumun içindeydi. ⚠️ Yani test doğru çalıştı ama
+       * yanlış şeyi ölçtü — korumak istediğimiz şey "slogan metni ikinci
+       * kez RENDER EDİLMESİN", "hiçbir yerde ANILMASIN" değil.
+       *
+       * (Yorumdaki alıntı yine de kaldırıldı: bir yorum da eskir.)
+       */
+      const kod = readFileSync(dosya, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+
+      if (kod.includes(SLOGAN_BAS)) {
+        kopyalar.push(dosya.slice(SRC_DIR.length + 1));
+      }
+    }
+
+    expect(kopyalar, `slogan kopyasi: ${kopyalar.join(', ')}`).toEqual([]);
+  });
+});
+
+/**
+ * ============================================================================
+ * ⚠️ 9. İSTATİSTİK ŞERİDİ — JARGON GERİ GELMEZ (Product Owner, 2026-09-09)
+ * ============================================================================
+ * Şeritten iki kalem kaldırıldı: _"13 şemada satır bazlı izolasyon"_ ve
+ * _"0 sağlayıcı kilidi"_. İkisi de DOĞRU cümlelerdi ama muhatapları bir
+ * MÜHENDİSTİ; bir KOBİ sahibi o kelimelerden bir fayda çıkaramaz.
+ *
+ * ⚠️ Test metni değil, **jargonun geri gelmemesini** kilitler.
+ */
+describe('ADR-0054 · 9. istatistik şeridi KOBİ dilinde', () => {
+  it('şerit üç kalem taşır', () => {
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    expect(container.querySelectorAll('.serit span')).toHaveLength(3);
+  });
+
+  it('⚠️ teknik jargon GERİ GELMEZ', () => {
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    const serit = container.querySelector('.serit')?.textContent ?? '';
+
+    expect(serit).not.toContain('ŞEMA');
+    expect(serit).not.toContain('İZOLASYON');
+    expect(serit).not.toContain('SAĞLAYICI KİLİDİ');
+  });
+
+  /**
+   * ⚠️ ÜÇÜNCÜ KALEMDE UYDURULMUŞ BİR RAKAM YOKTUR. Diğer iki sayı gerçek
+   * sayımlardır (on iki modül, on sekiz kaynak); yanlarına "%100" gibi
+   * ölçülmemiş bir yüzde koymak ikisini de zayıflatırdı.
+   */
+  it('⚠️ fayda cümlesi SAHTE bir rakam taşımaz', () => {
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    // ⚠️ `?? []` YAZILMAZ: `querySelectorAll` hiçbir zaman `null` dönmez ve
+    // lint gereksiz koşulu HATA sayar (`no-unnecessary-condition`).
+    const sonuncu = [...container.querySelectorAll('.serit span')].at(-1);
+
+    expect(sonuncu?.textContent).toBe('VERİLERİNİZ YALNIZCA SİZİN');
+    expect(sonuncu?.textContent).not.toMatch(/\d|%/u);
   });
 });

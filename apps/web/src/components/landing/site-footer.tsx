@@ -15,8 +15,22 @@ import Link from 'next/link';
  * bunu bir ARIZA olarak okur. "Yakında" demenin dürüst yolu, tıklanabilir bir
  * şey GÖSTERMEMEKTİR.
  *
- * ⚠️ `[yazılacak]` işareti KORUNUR: kullanıcıya eksiği söyler, bize de bu
- * satırların bir gün gerçek rotaya bağlanacağını hatırlatır.
+ * ============================================================================
+ * ⚠️ `[yazılacak]` → `Yakında` (Product Owner, 2026-09-09)
+ * ============================================================================
+ * ⚠️ ESKİ KARAR YANLIŞ DEĞİLDİ, MUHATABI YANLIŞTI. `[yazılacak]` bir
+ * GELİŞTİRİCİ NOTUDUR: köşeli parantez, ekipteki birine "burası bitmedi"
+ * der. Ama bu satır **canlı bir pazarlama sayfasında, müşterinin gözünde**
+ * duruyor ve orada söylediği şey "bu ürün yarım" oluyor.
+ *
+ * ⚠️ DEĞİŞEN YALNIZCA TON — davranış aynen korunuyor: satırlar hâlâ
+ * BAĞLANTI DEĞİL, çünkü `href="#"` tıklandığında sayfayı başa atar ve
+ * kullanıcı bunu bir ARIZA olarak okur. "Yakında" demenin dürüst yolu
+ * tıklanabilir bir şey göstermemektir.
+ *
+ * ⚠️ Ve içerik HÂLÂ YAZILMADI: KVKK/Gizlilik hukuki incelemeye, Fiyatlandırma
+ * Faz 6'nın plan/kota kararına bağlı. Bu iş o üç metni yazmaz — yalnızca
+ * eksikliğin nasıl söylendiğini düzeltir.
  */
 const YAZILACAK: readonly string[] = ['KVKK', 'Gizlilik', 'Fiyatlandırma'];
 
@@ -51,7 +65,7 @@ export function SiteFooter() {
           <h4>YASAL</h4>
           {YAZILACAK.map((ad) => (
             <span className="yok" key={ad}>
-              {ad} <span className="yz">[yazılacak]</span>
+              {ad} <span className="yz">Yakında</span>
             </span>
           ))}
         </div>
