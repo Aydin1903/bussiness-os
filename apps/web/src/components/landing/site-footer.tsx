@@ -42,7 +42,7 @@ export function SiteFooter() {
           {/* Alt bilgideki logo dekoratiftir — sayfanın tepesinde zaten bir tane var. */}
           <img src="/brand/wordmark.webp" alt="KobiWise" width={880} height={246} />
           <p className="kucuk ozet">
-            Şirketler için yapay zekâ işletim sistemi. Modüller ürün değil, hafızadır.
+            Şirketler için yapay zeka işletim sistemi. Modüller ürün değil, hafızadır.
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export function SiteFooter() {
 
       <div className="kap foot-alt">
         <span>© 2026 KOBIWISE</span>
-        <span>ŞİRKETLER İÇİN YAPAY ZEKÂ İŞLETİM SİSTEMİ</span>
+        <span>ŞİRKETLER İÇİN YAPAY ZEKA İŞLETİM SİSTEMİ</span>
         <span className="sag">app.kobiwise.com</span>
       </div>
     </footer>

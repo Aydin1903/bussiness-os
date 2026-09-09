@@ -295,7 +295,7 @@ function EmptyContent({
       hint={
         readOnly
           ? 'Ekibinizden biri proje açtığında burada görünecek.'
-          : 'İlk projenizi açın. Görevlerinizi ve ilerleme notlarınızı ona bağlarsınız; yazdığınız her notu yapay zekâ okur ve sorularınızda kullanır.'
+          : 'İlk projenizi açın. Görevlerinizi ve ilerleme notlarınızı ona bağlarsınız; yazdığınız her notu yapay zeka okur ve sorularınızda kullanır.'
       }
       {...(readOnly ? {} : { action: <PillButton onClick={onCreate}>İlk projeyi aç</PillButton> })}
     />
@@ -331,7 +331,7 @@ function ProjectCard({
             <ConfirmDelete
               pending={deleting}
               ariaLabel={`${project.name} projesini sil`}
-              question={`"${project.name}" ve ona bağlı tüm görevler ile ilerleme notları kalıcı olarak silinecek. Notlar yapay zekânın hafızasından da çıkar.`}
+              question={`"${project.name}" ve ona bağlı tüm görevler ile ilerleme notları kalıcı olarak silinecek. Notlar yapay zekanın hafızasından da çıkar.`}
               onConfirm={onDelete}
             />
           </CardActions>

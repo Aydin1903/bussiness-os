@@ -85,10 +85,10 @@ export function CrmReindexBanner({
         <div className="flex flex-col items-start gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="text-[13.5px] font-semibold tracking-[-0.008em] text-fg">
-              {count} görüşmeyi yapay zekâ okuyamıyor
+              {count} görüşmeyi yapay zeka okuyamıyor
             </h2>
             <p className="max-w-[52ch] text-[12.5px] leading-[1.6] text-fg-2">
-              Bu görüşmeler kaydedildi ama yapay zekâ henüz okuyamadı; sorularınızı cevaplarken
+              Bu görüşmeler kaydedildi ama yapay zeka henüz okuyamadı; sorularınızı cevaplarken
               bunları kullanamaz.
               {readOnly
                 ? ' Bunu ekibinizden bir yönetici veya üye düzeltebilir.'

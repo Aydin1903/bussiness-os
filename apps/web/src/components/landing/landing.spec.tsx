@@ -556,36 +556,21 @@ describe('ADR-0054 · 8. slogan tek kaynaktan gelir', () => {
   });
 
   /**
-   * ⚠️ Üst çubuk yalnızca BİRİNCİ YARIMI taşır ve bu ölçülmüş bir kısıttır
-   * (`slogan.ts`): tam slogan 1280 px'lik bir üst çubukta taşar.
+   * ⚠️ ÜST ÇUBUKTA SLOGAN YOKTUR — denendi ve GERİ ALINDI (PO, 2026-09-09).
+   *
+   * Kısa süreliğine logonun altına sloganın imzası konmuştu. Bu test onun
+   * GERİ GELMEMESİNİ kilitler: yazılı logo zaten kendi alt satırını görselin
+   * içinde taşıyor ve üçüncü bir satır marka kilitlenmesini kalabalıklaştırdı.
    */
-  it('üst çubuk logonun altında sloganın imzasını tekrarlar', () => {
+  it('⚠️ üst çubukta logonun altında slogan YOKTUR', () => {
     const { container } = render(
       <LandingLayout>
         <span />
       </LandingLayout>,
     );
 
-    const imza = container.querySelector('.ust-logo .ust-slogan');
-
-    expect(imza).not.toBeNull();
-    expect(imza?.textContent).toBe(SLOGAN_BAS);
-  });
-
-  /**
-   * ⚠️ İMZA EKRAN OKUYUCUYA OKUNMAZ. Bağlantının erişilebilir adı logonun
-   * `alt` metnidir; imza da okunsaydı ad "KobiWise — ana sayfa Hiç unutmayan
-   * bir asistan" olurdu. Slogan zaten hero'da `<h1>` olarak okunuyor — yani
-   * burada tekrar etmek bilgi değil GÜRÜLTÜ olurdu.
-   */
-  it('⚠️ üst çubuktaki imza erişilebilirlik ağacında GÜRÜLTÜ YAPMAZ', () => {
-    const { container } = render(
-      <LandingLayout>
-        <span />
-      </LandingLayout>,
-    );
-
-    expect(container.querySelector('.ust-slogan')?.getAttribute('aria-hidden')).toBe('true');
+    expect(container.querySelector('.ust-slogan')).toBeNull();
+    expect(container.querySelector('.ust-logo')?.textContent.trim()).toBe('');
   });
 
   /**
@@ -681,5 +666,32 @@ describe('ADR-0054 · 9. istatistik şeridi KOBİ dilinde', () => {
 
     expect(sonuncu?.textContent).toBe('VERİLERİNİZ YALNIZCA SİZİN');
     expect(sonuncu?.textContent).not.toMatch(/\d|%/u);
+  });
+});
+
+/**
+ * ============================================================================
+ * ⚠️ 10. ŞAPKALI "â" KULLANILMAZ (Product Owner, 2026-09-09)
+ * ============================================================================
+ * Marka dilinde düzeltme işareti taşıyan "â" kullanılmaz — "yapay zekâ" değil
+ * **"yapay zeka"**. Kural yazımsaldır ve tek bir yerde unutulunca ürün aynı
+ * kelimeyi iki türlü yazar; hata SESSİZDİR çünkü hiçbir şey kırılmaz.
+ *
+ * ⚠️ Test RENDER EDİLEN metni tarar, kaynağı değil: kod yorumlarındaki "hâlâ"
+ * gibi kelimeler kullanıcıya ULAŞMAZ ve bu kuralın konusu değildir. Sınırı
+ * doğru yere koymak, testin kapsam dışı dosyaları zorlamasını da engeller.
+ */
+describe('ADR-0054 · 10. şapkalı "â" ekranda GEÇMEZ', () => {
+  it.each(SAYFALAR)('%s sayfasında düzeltme işareti yok', (_yol, Sayfa) => {
+    const { container } = render(
+      <LandingLayout>
+        <Sayfa />
+      </LandingLayout>,
+    );
+
+    const metin = container.textContent;
+
+    expect(metin.length).toBeGreaterThan(100);
+    expect(metin).not.toMatch(/[âÂ]/u);
   });
 });

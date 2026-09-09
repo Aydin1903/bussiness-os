@@ -113,7 +113,7 @@ export function TaskSection({
           hint={
             readOnly
               ? 'Ekibinizden biri görev eklediğinde burada görünecek.'
-              : 'Bu projede yapılacak işleri buraya ekleyin. Son tarihi geçen görevler yapay zekânın uyarılarına girer.'
+              : 'Bu projede yapılacak işleri buraya ekleyin. Son tarihi geçen görevler yapay zekanın uyarılarına girer.'
           }
         />
       ) : (

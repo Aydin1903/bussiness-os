@@ -267,6 +267,6 @@ describe('CompanyDetailScreen — yetki ve silme', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Kuzey Mimarlık müşterisini sil' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent('yapay zekânın hafızasından da çıkar');
+    expect(screen.getByRole('alert')).toHaveTextContent('yapay zekanın hafızasından da çıkar');
   });
 });

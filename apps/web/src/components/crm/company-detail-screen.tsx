@@ -112,7 +112,7 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
       // anlayamaması demekti. Onarım yolu banner'da.
       if (result.chunkCount === 0) {
         setLogError(
-          'Görüşme kaydedildi ama yapay zekâ henüz okuyamadı — sorularınızı cevaplarken bu görüşmeyi kullanamaz. Yukarıdaki düğmeyle okunur hale getirebilirsiniz.',
+          'Görüşme kaydedildi ama yapay zeka henüz okuyamadı — sorularınızı cevaplarken bu görüşmeyi kullanamaz. Yukarıdaki düğmeyle okunur hale getirebilirsiniz.',
         );
       }
 
@@ -159,7 +159,7 @@ export function CompanyDetailScreen({ companyId }: { companyId: string }) {
                 <ConfirmDelete
                   pending={deleting}
                   ariaLabel={`${company.name} müşterisini sil`}
-                  question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekânın hafızasından da çıkar.`}
+                  question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekanın hafızasından da çıkar.`}
                   onConfirm={() => {
                     void remove();
                   }}

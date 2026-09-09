@@ -115,7 +115,7 @@ export function InteractionComposer({
           error={errors.body ?? null}
           disabled={pending}
           placeholder="Ne konuşuldu, ne karara bağlandı?"
-          hint="Kaydettiğiniz görüşmeyi yapay zekâ okur ve sorularınızı cevaplarken kullanır."
+          hint="Kaydettiğiniz görüşmeyi yapay zeka okur ve sorularınızı cevaplarken kullanır."
         />
 
         <FieldGrid>

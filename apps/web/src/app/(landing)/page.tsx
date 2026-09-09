@@ -78,10 +78,12 @@ export default function LandingPage() {
           </div>
 
           <div className="hero-ic">
-            <span className="etiket">YAPAY ZEKÂ İŞLETİM SİSTEMİ</span>
+            <span className="etiket">YAPAY ZEKA İŞLETİM SİSTEMİ</span>
             {/*
-              ⚠️ SLOGAN BURADAN OKUNUR, ELLE YAZILMAZ (`slogan.ts`) — üst
-              çubuktaki tekrarla sessizce ayrışmasın.
+              ⚠️ SLOGAN BURADAN OKUNUR, ELLE YAZILMAZ (`slogan.ts`) — sayfa
+              başlığındaki (`metadata`) kullanımla sessizce ayrışmasın.
+              ⚠️ Ayrışmanın en sinsi hâli tam olarak odur: ekranda doğru
+              slogan, tarayıcı sekmesinde eskisi.
 
               ⚠️ İKİ YARIM İKİ SATIRDIR, ` / ` AYRACI BURADA KULLANILMAZ:
               ayraç sloganın imza biçimidir (auth panellerinin dördünde de
@@ -287,7 +289,7 @@ export default function LandingPage() {
       <section className="bolum kap" id="fark">
         <div className="bolum-bas">
           <span className="etiket">FARK</span>
-          <h2 className="d2">İçinde yapay zekâ olan bir yazılım değil</h2>
+          <h2 className="d2">İçinde yapay zeka olan bir yazılım değil</h2>
           <p className="alt">
             Aynı modeli herkes çağırabilir. Farkı yaratan model değil, modele verilen bağlamdır — ve
             o bağlam sizin verinizdir.

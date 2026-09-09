@@ -5,7 +5,7 @@ import { RoomHeader } from '@/components/landing/room-header';
 
 export const metadata: Metadata = {
   title: 'Blog',
-  description: 'Kurumsal hafıza, yapay zekâ ve küçük şirketlerin gerçek sorunları üzerine yazılar.',
+  description: 'Kurumsal hafıza, yapay zeka ve küçük şirketlerin gerçek sorunları üzerine yazılar.',
 };
 
 /**
@@ -53,8 +53,8 @@ const YAZILAR: readonly Yazi[] = [
     one: true,
   },
   {
-    baslik: '“Yapay zekâ kullanıyoruz” demek neden bir şey anlatmıyor?',
-    kategori: 'YAPAY ZEKÂ',
+    baslik: '“Yapay zeka kullanıyoruz” demek neden bir şey anlatmıyor?',
+    kategori: 'YAPAY ZEKA',
     sure: '6 DK',
     ozet: 'Aynı modeli herkes çağırabilir. Farkı yaratan model değil, modele verilen bağlamdır — ve bağlam sizin verinizdir.',
     kunye: '26 AĞUSTOS 2026',
@@ -100,7 +100,7 @@ export default function BlogPage() {
   return (
     <>
       <RoomHeader renk="#5c6cab" etiket="ODA 03 · BLOG" baslik="Yukarıdan bakınca.">
-        Kurumsal hafıza, yapay zekâ ve küçük şirketlerin gerçek sorunları üzerine yazılar. Ürün
+        Kurumsal hafıza, yapay zeka ve küçük şirketlerin gerçek sorunları üzerine yazılar. Ürün
         duyurusu değil — işin kendisi üzerine.
       </RoomHeader>
 

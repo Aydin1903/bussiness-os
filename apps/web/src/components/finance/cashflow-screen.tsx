@@ -44,7 +44,7 @@ const FORBIDDEN = 'Nakit akışını yalnızca şirket sahibi veya yönetici gö
  * BU EKRAN İKİ FARKLI ŞEYİ YAN YANA KOYAR — VE AYRIMI KORUR
  * ============================================================================
  * Üstte RAKAMLAR (türetilmiş, deterministik), altta YORUMLAR (anlatısal, yapay
- * zekânın okuduğu tek Finans yüzeyi). İkisi ayrı bölümdür çünkü ayrı şeylerdir:
+ * zekanın okuduğu tek Finans yüzeyi). İkisi ayrı bölümdür çünkü ayrı şeylerdir:
  * rakam "ne oldu", yorum "neden oldu" der.
  *
  * ⚠️ AI'IN SESİ BU EKRANDA GÖRÜNMEZ. Yorumlar KULLANICININ yazdığı metindir,
@@ -150,7 +150,7 @@ export function CashflowScreen() {
       reload();
 
       // ⚠️ `chunkCount: 0` SESSİZ bir hatadır: yorum kaydedildi ama ARANABİLİR
-      // DEĞİL. Kullanıcı bunu bilmezse yapay zekâya sorduğunda "neden bilmiyor"
+      // DEĞİL. Kullanıcı bunu bilmezse yapay zekaya sorduğunda "neden bilmiyor"
       // diye düşünür. Onarım banner'ı zaten bir sonraki yüklemede görünecek,
       // ama burada da açıkça söylenir.
       if (result.chunkCount === 0) {
@@ -223,7 +223,7 @@ export function CashflowScreen() {
                   rows={3}
                   disabled={saving}
                   placeholder="Mart'ta nakit sıkıştı çünkü X müşterisi ödemeyi geciktirdi."
-                  hint="⚠️ Yapay zekânın okuduğu TEK finans yüzeyi burasıdır. İşlem açıklamaları gömülmez — rakamlar zaten tabloda, buraya NEDENİ yazılır."
+                  hint="⚠️ Yapay zekanın okuduğu TEK finans yüzeyi burasıdır. İşlem açıklamaları gömülmez — rakamlar zaten tabloda, buraya NEDENİ yazılır."
                 />
                 <FormError message={formError} />
                 <div className="mt-4 flex justify-end">
@@ -242,7 +242,7 @@ export function CashflowScreen() {
                 loading ? null : (
                   <EmptyState
                     title="Henüz yorum yok"
-                    hint="Rakamlar bir dönemin ne olduğunu söyler, nedenini söylemez. Buraya yazdığınız her cümleyi yapay zekâ okur ve sorularınızda kullanır."
+                    hint="Rakamlar bir dönemin ne olduğunu söyler, nedenini söylemez. Buraya yazdığınız her cümleyi yapay zeka okur ve sorularınızda kullanır."
                   />
                 )
               ) : (

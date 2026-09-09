@@ -4,30 +4,30 @@
  * ============================================================================
  * ⚠️ NEDEN BİR DOSYA — VE NEDEN İKİ PARÇA HÂLİNDE
  * ============================================================================
- * Slogan iki yerde birden görünür: hero'da büyük (markanın vaadi) ve üst
- * çubukta logonun altında küçük (markanın imzası). ⚠️ İki yere ayrı ayrı
+ * Slogan bugün İKİ yerde tüketilir: hero'nun `<h1>`i (iki yarım, iki satır) ve
+ * sayfa başlığı (`metadata` — yalnızca birinci yarım). ⚠️ İki yere ayrı ayrı
  * yazılsaydı **sessizce ayrışırlardı** — biri güncellenir, öteki eski kalır ve
- * hiçbir test kırmızı yanmaz. Bu projede aynı hata ölçülerek yaşandı: yazılı
- * logonun auth'ta metin, landing'de görsel olan iki uygulaması ADR-0054'te
- * "bugün kabul edilen, ölçülmüş bir borç" olarak kayda geçti. Aynı borcu
- * slogan için açmıyoruz.
+ * hiçbir test kırmızı yanmaz. ⚠️ Ve bu ayrışmanın en sinsi hâli `metadata`dır:
+ * ekranda doğru slogan, tarayıcı sekmesinde ve arama sonucunda eskisi.
  *
- * ⚠️ İKİ YARIM AYRI AYRI DIŞA AÇILIR çünkü iki yüzey **farklı miktarını**
- * kullanır ve bu bir tercih değil, ÖLÇÜLMÜŞ bir kısıttır (aşağıda).
+ * Bu projede aynı sınıf hata ölçülerek yaşandı: yazılı logonun auth'ta metin,
+ * landing'de görsel olan iki uygulaması ADR-0054'te "bugün kabul edilen,
+ * ölçülmüş bir borç" olarak kayda geçti. Aynı borcu slogan için açmıyoruz ve
+ * bir test kaynağı tarayıp kopya olmadığını kilitliyor.
+ *
+ * ⚠️ İKİ YARIM AYRI AYRI DIŞA AÇILIR çünkü iki tüketici **farklı miktarını**
+ * kullanır.
  */
 
 /**
- * ⚠️ Birinci yarım TEK BAŞINA da bir descriptor'dır — üst çubuk yalnızca bunu
- * taşır.
+ * Birinci yarım — hero'nun ilk satırı ve sayfa başlığının (`metadata`) taşıdığı
+ * parça.
  *
- * ⚠️ SEBEP ÖLÇÜLDÜ, tahmin edilmedi: tam slogan (49 karakter) mono 10px ve
- * `0.14em` harf aralığıyla ~370 px yer kaplar. Üst çubukta logo sütunu bugün
- * ~157 px; gezinme ve iki eylem düğmesi 1280 px'te ~970 px kullanıyor.
- * 370 + 970 = **1340 px > 1280 px** — yani tam slogan üst çubukta TAŞARDI.
- * Birinci yarım (25 karakter) ~185 px'tir ve sütunu yalnızca ~28 px büyütür.
- *
- * ⚠️ Bu, "kısaltmak daha güzel duruyor" değil, **sığmıyor** demektir; biri
- * ileride tam sloganı oraya koymak isterse önce bu hesabı çürütmelidir.
+ * ⚠️ TEK BAŞINA DA BİR DESCRIPTOR'DIR ve bir ara üst çubukta logonun altında
+ * kullanıldı. ⚠️ O deneme GERİ ALINDI (Product Owner, 2026-09-09): yazılı logo
+ * zaten kendi alt satırını görselin içinde taşıyor ve üçüncü bir satır marka
+ * kilitlenmesini kalabalıklaştırıyordu. ⚠️ Bir imza her yerde tekrarlanınca
+ * güçlenmiyor, seyreliyor.
  */
 export const SLOGAN_BAS = 'Hiç unutmayan bir asistan';
 

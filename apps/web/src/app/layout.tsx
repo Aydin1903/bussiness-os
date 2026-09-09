@@ -74,7 +74,7 @@ const jetbrains = JetBrains_Mono({
  */
 export const metadata: Metadata = {
   title: 'KobiWise',
-  description: 'İşletmeniz için yapay zekâ işletim sistemi',
+  description: 'İşletmeniz için yapay zeka işletim sistemi',
 };
 
 /**

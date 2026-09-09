@@ -317,7 +317,7 @@ function EmptyContent({
     return (
       <EmptyState
         title="Geciken iş yok"
-        hint="Son tarihi geçmiş ve hâlâ açık bir görev bulunmuyor. Yapay zekâ da bu tabloyu okuyor; burası boşken uyarı üretmez."
+        hint="Son tarihi geçmiş ve hala açık bir görev bulunmuyor. Yapay zeka da bu tabloyu okuyor; burası boşken uyarı üretmez."
       />
     );
   }
@@ -481,7 +481,7 @@ function InlineTaskForm({
               setForm((previous) => ({ ...previous, dueOn: value }));
             }}
             error={errors.dueOn ?? null}
-            hint="Son tarihi geçen görevler yapay zekânın uyarılarına girer."
+            hint="Son tarihi geçen görevler yapay zekanın uyarılarına girer."
             disabled={pending}
           />
         </div>

@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { SLOGAN_BAS } from './slogan';
-
 /**
  * LANDING ÜST ÇUBUĞU — üç kademe, üç farklı muamele (ADR-0054).
  *
@@ -75,30 +73,21 @@ export function SiteHeader() {
             kuralını CSS verir. Oran yanlış yazılsaydı yükleme sırasında düzen
             KAYARDI (CLS) ve hata yalnızca yavaş bağlantıda görünürdü.
           */}
-          <img src="/brand/wordmark.webp" alt="KobiWise — ana sayfa" width={880} height={246} />
           {/*
-            ⚠️ LOGONUN ALTINDA SLOGANIN İMZASI (Product Owner, 2026-09-09).
+            ⚠️ LOGONUN ALTINA SLOGAN YAZILMAZ — denendi ve GERİ ALINDI
+            (Product Owner, 2026-09-09).
 
-            Desen auth ekranlarından geliyor: `KobiWiseWordmark descriptor`
-            orada logonun altına "BUSINESS OS" yazar. Buradaki de aynı işi
-            görür — fark, yazılan şeyin bir KATEGORİ değil markanın VAADİ
-            olmasıdır.
+            Kısa süreliğine buraya sloganın imzası konmuştu (auth ekranlarındaki
+            "BUSINESS OS" alt satırının deseniyle). Gerçek ekranda görülünce PO
+            kaldırılmasını istedi: yazılı logo zaten kendi alt satırını görselin
+            İÇİNDE taşıyor, altına üçüncü bir satır koymak marka kilitlenmesini
+            kalabalıklaştırıyordu.
 
-            ⚠️ `aria-hidden`: bağlantının erişilebilir adı zaten logonun
-            `alt` metnidir ("KobiWise — ana sayfa"). Bu satır da okunsaydı
-            bağlantının adı logo metni + sloganın tamamı olurdu; ekran okuyucu
-            kullanıcısı için bu bir bilgi değil GÜRÜLTÜ. Slogan zaten hero'da
-            `<h1>` olarak okunuyor.
-
-            ⚠️ Slogan bu yorumda ALINTILANMAZ: `slogan.ts` dışında geçen her
-            kopya bir gün sessizce eskir ve bunu bir test tarar.
-
-            ⚠️ TAM SLOGAN DEĞİL, BİRİNCİ YARIM — ve sebebi ölçülmüştür
-            (`slogan.ts`): tam slogan üst çubukta 1280 px'te TAŞAR.
+            ⚠️ Slogan kaybolmadı, YERİ NETLEŞTİ: hero'da `<h1>` olarak, tek
+            sefer ve büyük. Bir imza her yerde tekrarlanınca güçlenmiyor,
+            seyreliyor.
           */}
-          <span className="ust-slogan" aria-hidden="true">
-            {SLOGAN_BAS}
-          </span>
+          <img src="/brand/wordmark.webp" alt="KobiWise — ana sayfa" width={880} height={246} />
         </Link>
 
         <nav className="ust-nav" aria-label="Ana gezinme">

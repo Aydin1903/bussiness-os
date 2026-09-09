@@ -89,7 +89,7 @@ export function ProgressNoteSection({
             onChange={setDraft}
             error={error}
             placeholder="Örn. Tasarım onaylandı, kodlamaya geçildi."
-            hint="Yazdığınız her notu yapay zekâ okur ve sorularınızda kullanır."
+            hint="Yazdığınız her notu yapay zeka okur ve sorularınızda kullanır."
             disabled={busy}
           />
 
@@ -116,7 +116,7 @@ export function ProgressNoteSection({
           hint={
             readOnly
               ? 'Ekibinizden biri not yazdığında burada görünecek.'
-              : 'Projede ne olduğunu buraya yazın. Notlar yapay zekânın hafızasına girer; "bu projede ne oldu?" diye sorabilirsiniz.'
+              : 'Projede ne olduğunu buraya yazın. Notlar yapay zekanın hafızasına girer; "bu projede ne oldu?" diye sorabilirsiniz.'
           }
         />
       ) : (

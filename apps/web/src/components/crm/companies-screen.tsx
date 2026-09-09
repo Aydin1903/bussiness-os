@@ -326,7 +326,7 @@ function EmptyContent({
       hint={
         readOnly
           ? 'Ekibinizden biri müşteri eklediğinde burada görünecek.'
-          : 'İlk müşterinizi ekleyin. Yetkililerini ve görüşmelerinizi ona bağlarsınız; kaydettiğiniz her görüşmeyi yapay zekâ okur ve sorularınızda kullanır.'
+          : 'İlk müşterinizi ekleyin. Yetkililerini ve görüşmelerinizi ona bağlarsınız; kaydettiğiniz her görüşmeyi yapay zeka okur ve sorularınızda kullanır.'
       }
       {...(readOnly
         ? {}
@@ -361,7 +361,7 @@ function CompanyCard({
             <ConfirmDelete
               pending={deleting}
               ariaLabel={`${company.name} müşterisini sil`}
-              question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekânın hafızasından da çıkar.`}
+              question={`"${company.name}" ve ona bağlı tüm yetkililer ile görüşmeler kalıcı olarak silinecek. Görüşmeler yapay zekanın hafızasından da çıkar.`}
               onConfirm={onDelete}
             />
           </CardActions>

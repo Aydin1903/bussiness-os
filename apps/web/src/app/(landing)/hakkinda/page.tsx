@@ -70,7 +70,7 @@ export default function AboutPage() {
           </div>
           <div className="tas">
             <span className="no">SORU 03</span>
-            <h3>“Yapay zekâ neden hiçbir şey bilmiyor?”</h3>
+            <h3>“Yapay zeka neden hiçbir şey bilmiyor?”</h3>
             <p>
               Genel bir sohbet motoru şirketin geçen çeyrekte ne yaşadığını bilmez. Eksik olan model
               değil, <b>bağlamdı</b>.
@@ -98,7 +98,7 @@ export default function AboutPage() {
         <div className="ikili gir">
           <div className="tas">
             <span className="no">01</span>
-            <h3>Yapay zekâ merkezdedir, modüller onun etrafında</h3>
+            <h3>Yapay zeka merkezdedir, modüller onun etrafında</h3>
             <p>
               Bir modül tasarlanırken sorulan soru “kullanıcı bu ekranda ne yapar” değil,{' '}
               <b>“bu modül asistana hangi bağlamı kazandırır”</b>dır.

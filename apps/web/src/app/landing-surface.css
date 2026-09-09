@@ -366,58 +366,10 @@ html:has([data-surface='landing']) {
     gap: 24px;
   }
 
-  /*
-   * Logo yazılı markadır — koridordaki en büyük tek marka işareti odur.
-   *
-   * ⚠️ ARTIK BİR KİLİTLENMEDİR (lockup): logo + altında sloganın imzası.
-   * Bağlantı bu yüzden dikey bir sütun olur; hizalama `flex-start`tır çünkü
-   * iki satırın SOL kenarı ortak eksendir — ortalanırsa slogan logodan
-   * uzunken logo kayık görünür.
-   */
-  .ust-logo {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-  }
-
+  /* Logo yazılı markadır — koridordaki en büyük tek marka işareti odur. */
   .ust-logo img {
     height: 44px;
     width: auto;
-  }
-
-  /*
-   * ⚠️ SLOGANIN İMZASI — auth'taki "BUSINESS OS" descriptor'ının karşılığı.
-   *
-   * Mono + geniş harf aralığı, bu yüzeyin `.etiket` imzasıyla aynı ailedendir;
-   * yeni bir tipografik ses İCAT EDİLMEDİ.
-   *
-   * ⚠️ `white-space: nowrap` ZORUNLU: sarmasına izin verilseydi dar bir üst
-   * çubukta iki satıra düşer ve logo sütunu aniden uzayarak gezinmeyi aşağı
-   * iterdi — düzen sessizce bozulurdu.
-   */
-  .ust-slogan {
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.16em;
-    line-height: 1;
-    text-transform: none;
-    white-space: nowrap;
-    color: var(--lp-ink-3);
-  }
-
-  /*
-   * ⚠️ DAR EKRANDA İMZA GİZLENİR — VE BU BİR ÖLÇÜMÜN SONUCUDUR.
-   *
-   * 1080 px altında gezinme ve iki eylem düğmesi üst çubuğun neredeyse
-   * tamamını kullanır; logo sütununun ~185 px'e çıkması onları taşırır.
-   * ⚠️ Kaybedilen şey bir BİLGİ değil bir TEKRARDIR: slogan hero'da `<h1>`
-   * olarak zaten duruyor ve orada her genişlikte görünür.
-   */
-  @media (width <= 1080px) {
-    .ust-slogan {
-      display: none;
-    }
   }
 
   .ust-nav {

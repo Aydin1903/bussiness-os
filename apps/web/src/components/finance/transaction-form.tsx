@@ -172,7 +172,7 @@ export function TransactionForm({
         rows={3}
         disabled={pending}
         error={errors.description ?? null}
-        hint="Listede görünür. Yapay zekâ bu alanı OKUMAZ — dönem yorumları için Nakit akışı sekmesini kullanın."
+        hint="Listede görünür. Yapay zeka bu alanı OKUMAZ — dönem yorumları için Nakit akışı sekmesini kullanın."
       />
 
       <FormError message={error} />

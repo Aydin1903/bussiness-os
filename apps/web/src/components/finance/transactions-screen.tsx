@@ -370,7 +370,7 @@ function EmptyContent({
   return (
     <EmptyState
       title="Henüz kayıt yok"
-      hint="İlk gelir ya da gider kaydınızı girin. Nakit akışı özeti bu kayıtlardan türetilir; yapay zekâya sorduğunuzda da aynı rakamları kullanır."
+      hint="İlk gelir ya da gider kaydınızı girin. Nakit akışı özeti bu kayıtlardan türetilir; yapay zekaya sorduğunuzda da aynı rakamları kullanır."
       action={<PillButton onClick={onCreate}>İlk kaydı gir</PillButton>}
     />
   );

@@ -44,7 +44,7 @@ const SORULAR: readonly Soru[] = [
     ),
   },
   {
-    soru: 'Hangi yapay zekâ modelini kullanıyorsunuz?',
+    soru: 'Hangi yapay zeka modelini kullanıyorsunuz?',
     cevap: (
       <>
         Tek bir sağlayıcıya bağlı değiliz ve bu bir pazarlama cümlesi değil, mimari bir kısıt: iş

@@ -175,7 +175,7 @@ export function CompanySummaryPanel({
 
   return (
     <section
-      aria-label="Yapay zekâ özeti"
+      aria-label="Yapay zeka özeti"
       className="border-b border-border px-5 pt-7 pb-8 md:px-10"
     >
       {text === null ? (
