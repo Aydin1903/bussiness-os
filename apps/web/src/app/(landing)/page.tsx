@@ -146,15 +146,52 @@ export default function LandingPage() {
           "I" yapardı, "İ" değil.
         */}
         <div className="serit">
-          <span>
-            <b>12</b> MODÜL
-          </span>
-          <span>
-            <b>18</b> HAFIZA KAYNAĞI
-          </span>
-          <span>
-            <b>VERİLERİNİZ YALNIZCA SİZİN</b>
-          </span>
+          <div className="olcum">
+            <b className="deger">12</b>
+            <span className="ad">MODÜL</span>
+          </div>
+          <div className="olcum">
+            <b className="deger">18</b>
+            <span className="ad">HAFIZA KAYNAĞI</span>
+          </div>
+          {/*
+            ⚠️ DÖRDÜNCÜ ÖLÇÜM — VE SEÇİMİ BİR ÖLÇÜMDEN SONRA YAPILDI.
+
+            Elenen adaylar ve sebepleri:
+            · ~~"0 KURULUM"~~ ve ~~"2 DAKİKADA İLK KAYDINIZ"~~ — ikisi de
+              DOĞRU ama hemen ÜSTTEKİ satırda zaten yazılı ("KURULUM YOK ·
+              KART YOK · İKİ DAKİKADA İLK KAYDINIZ"). Bir sayfada iki komşu
+              öğenin aynı şeyi söylemesi, ikisini de zayıflatır.
+            · ~~"HER CEVAP KAYNAĞIYLA"~~ — doğru, ama hemen ALTTAKİ bento
+              kartının cümlesi ("hangi kaynaktan geldiği yazılır").
+
+            Kalan: DİL. Sayfada başka hiçbir yerde söylenmiyor ve yabancı
+            SaaS'lara karşı gerçek bir farktır.
+
+            ⚠️ İDDİANIN İKİ YARIMI AYRI AYRI DOĞRULANDI, "herhalde öyledir"
+            denmedi: arayüz baştan sona Türkçedir; cevaplar ise sunucudaki
+            prompt'ların yazdığı gibi ŞİRKETİN KENDİ DİLİNDE üretilir
+            (`daily-report-prompt.ts` / `company-summary-prompt.ts`:
+            _"Sirketin kendi dilinde yaz"_). ⚠️ Yani "Türkçe" SABİT KODLU
+            DEĞİLDİR — Türkçe not yazan bir şirket Türkçe cevap alır, ki bu
+            sayfayı okuyan HERKES odur. İddia kimseye fazlasını vaat etmiyor:
+            İngilizce yazan bir şirket İngilizce cevap alır.
+          */}
+          <div className="olcum">
+            <b className="deger kelime">TÜRKÇE</b>
+            <span className="ad">ARAYÜZ VE CEVAPLAR</span>
+          </div>
+          {/*
+            ⚠️ SONUNCU BLOK ŞERİDİN TEK TAAHHÜDÜ VE RAKAM TAŞIMAZ — 2026-09-09'un
+            kararı burada AYNEN duruyor: diğer üç değerin ikisi gerçek sayım,
+            biri doğrulanmış bir olgu; yanlarına "%100" gibi ÖLÇÜLMEMİŞ bir
+            yüzde koymak üçünü birden zayıflatırdı. Cümle bölünürken sırası
+            korundu: yukarıdan aşağı okunduğunda hâlâ tek bir cümledir.
+          */}
+          <div className="olcum">
+            <b className="deger kelime">VERİLERİNİZ</b>
+            <span className="ad">YALNIZCA SİZİN</span>
+          </div>
         </div>
       </section>
 

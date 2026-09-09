@@ -623,49 +623,90 @@ describe('ADR-0054 · 8. slogan tek kaynaktan gelir', () => {
  *
  * ⚠️ Test metni değil, **jargonun geri gelmemesini** kilitler.
  */
-describe('ADR-0054 · 9. istatistik şeridi KOBİ dilinde', () => {
-  it('şerit üç kalem taşır', () => {
+describe('ADR-0054 · 9. istatistik şeridi KOBİ dilinde ve ÖLÇÜM BLOĞU', () => {
+  function serit(): HTMLElement | null {
     const { container } = render(
       <LandingLayout>
         <LandingPage />
       </LandingLayout>,
     );
 
-    expect(container.querySelectorAll('.serit span')).toHaveLength(3);
-  });
+    return container.querySelector('.serit');
+  }
 
-  it('⚠️ teknik jargon GERİ GELMEZ', () => {
-    const { container } = render(
-      <LandingLayout>
-        <LandingPage />
-      </LandingLayout>,
-    );
-
-    const serit = container.querySelector('.serit')?.textContent ?? '';
-
-    expect(serit).not.toContain('ŞEMA');
-    expect(serit).not.toContain('İZOLASYON');
-    expect(serit).not.toContain('SAĞLAYICI KİLİDİ');
+  /**
+   * ⚠️ ÜÇTEN DÖRDE ÇIKTI (2026-09-09, ikinci tur): şerit tek satırlık çıplak
+   * bir metinken dört bloklu bir ölçüm paneline dönüştü ve dördüncü ölçüm
+   * (dil) eklendi. ⚠️ ÜST SINIR DA İDDİANIN PARÇASIDIR: Product Owner
+   * "dörtten fazla ekleme, şerit kalabalıklaşmasın" dedi — beşinci bir blok
+   * eklendiği gün bu test kırmızı yanar.
+   */
+  it('şerit TAM DÖRT ölçüm bloğu taşır', () => {
+    expect(serit()?.querySelectorAll('.olcum')).toHaveLength(4);
   });
 
   /**
-   * ⚠️ ÜÇÜNCÜ KALEMDE UYDURULMUŞ BİR RAKAM YOKTUR. Diğer iki sayı gerçek
-   * sayımlardır (on iki modül, on sekiz kaynak); yanlarına "%100" gibi
-   * ölçülmemiş bir yüzde koymak ikisini de zayıflatırdı.
+   * ⚠️ HER BLOK BİR DEĞER VE BİR ETİKET TAŞIR — "stat card" düzeninin kendisi
+   * budur. Biri eksik kalırsa ekran çalışır, blok yalnızca yarım görünür.
    */
-  it('⚠️ fayda cümlesi SAHTE bir rakam taşımaz', () => {
-    const { container } = render(
-      <LandingLayout>
-        <LandingPage />
-      </LandingLayout>,
-    );
+  it('her blokta bir değer ve bir etiket vardır', () => {
+    const bloklar = [...(serit()?.querySelectorAll('.olcum') ?? [])];
 
-    // ⚠️ `?? []` YAZILMAZ: `querySelectorAll` hiçbir zaman `null` dönmez ve
-    // lint gereksiz koşulu HATA sayar (`no-unnecessary-condition`).
-    const sonuncu = [...container.querySelectorAll('.serit span')].at(-1);
+    expect(bloklar).toHaveLength(4);
 
-    expect(sonuncu?.textContent).toBe('VERİLERİNİZ YALNIZCA SİZİN');
+    for (const blok of bloklar) {
+      // `textContent` burada `string`tir; ikinci bir `?.` lint HATASI olur
+      // (`no-unnecessary-condition` — 9. ve 11. blokların aynı dersi).
+      expect(blok.querySelector('.deger')?.textContent.trim()).toBeTruthy();
+      expect(blok.querySelector('.ad')?.textContent.trim()).toBeTruthy();
+    }
+  });
+
+  it('⚠️ teknik jargon GERİ GELMEZ', () => {
+    const metin = (serit()?.textContent ?? '').toLocaleUpperCase('tr-TR');
+
+    expect(metin.length).toBeGreaterThan(20);
+    expect(metin).not.toContain('ŞEMA');
+    expect(metin).not.toContain('İZOLASYON');
+    expect(metin).not.toContain('SAĞLAYICI KİLİDİ');
+  });
+
+  /**
+   * ⚠️ ÜÇÜNCÜ VE DÖRDÜNCÜ BLOKTA UYDURULMUŞ BİR RAKAM YOKTUR. İlk ikisi
+   * gerçek sayımdır (on iki modül, on sekiz kaynak); yanlarına "%100" gibi
+   * ölçülmemiş bir yüzde koymak ikisini de zayıflatırdı.
+   *
+   * ⚠️ İDDİA METNİN KENDİSİNİ DE KİLİTLER ve bunun sebebi şudur: bu cümle
+   * "13 şemada satır bazlı izolasyon"un KOBİ dilindeki karşılığıdır — yani
+   * bir süsleme değil, bir GÜVENCENİN taşıyıcısı. Blok ikiye bölündü ama
+   * cümle bölünmedi: yukarıdan aşağı okunduğunda hâlâ aynı cümledir.
+   */
+  it('⚠️ son blok SAHTE bir rakam taşımaz ve güvence AYNEN durur', () => {
+    const sonuncu = [...(serit()?.querySelectorAll('.olcum') ?? [])].at(-1);
+    const deger = sonuncu?.querySelector('.deger')?.textContent ?? '';
+    const ad = sonuncu?.querySelector('.ad')?.textContent ?? '';
+
+    expect(`${deger} ${ad}`).toBe('VERİLERİNİZ YALNIZCA SİZİN');
     expect(sonuncu?.textContent).not.toMatch(/\d|%/u);
+  });
+
+  /**
+   * ⚠️ RENK TEK BAŞINA BİLGİ TAŞIMAZ (FRONTEND §4.8) — ama şeridin rakamları
+   * artık renklidir ve o rengin dosyanın KENDİ token'ından gelmesi gerekir.
+   * ⚠️ `--mars-*` paleti yalnızca `auth-surface.css`te yaşar ve `--mars-ink`
+   * **#fff6ef**tir: beyaz zeminde kullanılsaydı rakamlar GÖRÜNMEZ olurdu ve
+   * hata sessiz kalırdı — markup doğru, metin yerinde, ekran boş.
+   */
+  it('⚠️ şerit rakamları landing’in kendi token’ından boyanır', () => {
+    const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    const kural = /\.serit \.deger\s*\{[^}]*\}/u.exec(css);
+
+    expect(kural, 'serit deger kurali bulunamadi').not.toBeNull();
+    expect(kural?.[0]).toMatch(/color:\s*var\(--lp-toprak\)/u);
+    expect(kural?.[0]).not.toMatch(/--mars-/u);
   });
 });
 

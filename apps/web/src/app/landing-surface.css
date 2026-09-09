@@ -90,6 +90,31 @@ html:has([data-surface='landing']) {
   --nane-koyu: #0d5740;
   --lila: #bda6ec;
 
+  /*
+   * ==========================================================================
+   * ⚠️ TOPRAK — YENİ BİR RENK DEĞİL, İKİ YERDE TEKRAR EDEN BİR DEĞERİN ADI
+   * ==========================================================================
+   * Bu değer dosyada zaten VARDI ve İKİ KEZ yazılıydı (`.hero` ve `.sahne`
+   * zeminleri) — fotoğraf yüklenene kadar görünen Mars zemini. Üçüncü bir
+   * kullanıcı çıkınca (ölçü şeridinin rakamları) adı kondu: iki literal
+   * sessizce ayrışabilir, bir token ayrışamaz.
+   *
+   * ⚠️ ADI NEDEN `--mars-*` DEĞİL — VE BU BİR TEST TARAFINDAN KORUNUYOR.
+   * `--mars-*` paleti YALNIZCA `auth-surface.css`te yaşar (ADR-0052 §3.2) ve
+   * bu dosyada bir `--mars-` tanımı arayan bir test var. Daha önemlisi:
+   * `--mars-ink` **#fff6ef**tır — yani KOYU Mars panelinin üzerine yazılan
+   * beyaza yakın MÜREKKEPTİR, bir vurgu rengi değil. Landing'in BEYAZ
+   * zemininde kullanılsaydı rakamlar görünmez olurdu ve hata sessiz olurdu:
+   * markup doğru, metin yerinde, ekran boş.
+   *
+   * ⚠️ Doygunluğu ÖLÇÜLDÜ: bu değer ~%51 doygunluktadır, `--mars-core`
+   * (#d9491a) ise ~%79. Yani şerit Mars ailesinde kalır ama hero'nun
+   * şiddetini TAŞIMAZ — bölümün sakin olması gereken yerinde doğru olanı budur.
+   * Beyaz üzerinde kontrastı **4.32:1**; şerit rakamları 30–44 px olduğu için
+   * WCAG'ın büyük metin eşiğini (3:1) geçer.
+   */
+  --lp-toprak: #b4653a;
+
   --lp-bg: #ffffff;
   --lp-gri: #f2f2f2;
   --lp-gri-2: #e2e2e2;
@@ -510,7 +535,7 @@ html:has([data-surface='landing']) {
     position: relative;
     border-radius: var(--r-l);
     overflow: hidden;
-    background: #b4653a;
+    background: var(--lp-toprak);
     padding: clamp(56px, 7vw, 104px) clamp(24px, 4vw, 64px) clamp(40px, 5vw, 72px);
     color: #fff;
     /*
@@ -828,40 +853,118 @@ html:has([data-surface='landing']) {
     color: rgb(255 255 255 / 62%);
   }
 
-  /* -------------------------------------------------------------- ölçü şeridi */
+  /*
+   * -------------------------------------------------------------- ölçü şeridi
+   * ⚠️ ESKİDEN TEK SATIRLIK ÇIPLAK BİR METİN ŞERİDİYDİ ve hero'dan sonra
+   * marka kişiliği burada kesiliyordu (Product Owner, 2026-09-09). Artık
+   * dört ölçüm bloğu: üstte ağırlıklı DEĞER, altında sönük mono ETİKET.
+   *
+   * ⚠️ AYIRICI YATAY DEĞİL DİKEY — ve bu bir süs değil bir OKUMA yönü
+   * kararıdır: tam genişlik iki çizgi şeridi tek bir BANT gibi gösteriyordu;
+   * dikey çizgiler onu DÖRT AYRI ÖLÇÜME böler. Üst/alt kılcal çizgiler
+   * korundu, çünkü bandın sayfadan ayrıldığı yeri onlar söylüyor.
+   */
   .serit {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 14px 46px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     margin-top: 40px;
-    padding: 26px 0;
     border-top: 1px solid var(--lp-gri-2);
     border-bottom: 1px solid var(--lp-gri-2);
   }
 
-  .serit span {
+  /*
+   * ⚠️ DOLGU BLOĞUN KENDİSİNDE, ŞERİTTE DEĞİL: dikey ayırıcı bloğun kenarıdır
+   * ve şeride dolgu verilseydi çizgi bandın tepesine/dibine değmez, ortada
+   * asılı kalırdı.
+   */
+  .serit .olcum {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 16px 30px;
+    text-align: center;
+  }
+
+  .serit .olcum + .olcum {
+    border-left: 1px solid var(--lp-gri-2);
+  }
+
+  /*
+   * ⚠️ RENK `--lp-toprak` — YENİ İCAT DEĞİL, dosyanın kendi Mars zemini
+   * (yukarıdaki token bloğu gerekçeyi taşıyor). Sayı tamamen nötr kalsaydı
+   * şerit yine bir tablo gibi okunurdu; doygun Mars turuncusuna kaçsaydı
+   * hero'nun şiddetini sakin bölüme taşırdı.
+   */
+  .serit .deger {
+    font-size: clamp(30px, 3vw, 44px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--lp-toprak);
+    /*
+     * ⚠️ DEĞER YUVASININ YÜKSEKLİĞİ SABİTLENİR — VE BU BİR HİZA KUSURUNDAN
+     * SONRA BÖYLE (gerçek tarayıcıda ölçüldü, 2026-09-09).
+     *
+     * Sayı taşıyan bloklar 38.4 px, kelime taşıyanlar 21.8 px puntodaydı;
+     * yuva serbest bırakılınca dört etiket İKİ AYRI yükseklikte oturdu
+     * (386 px'e karşı 366 px) ve şerit bir "panel" değil, iki farklı satır
+     * gibi okundu. ⚠️ Kusur ancak sayı ve kelime YAN YANA gelince doğar —
+     * yani tam olarak dördüncü ölçüm eklendiğinde.
+     *
+     * `flex-end`, kelimeyi sayının TABANINA oturtur: dört değer aynı
+     * çizgiden hizalanır, dört etiket aynı hizada başlar.
+     */
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: clamp(30px, 3vw, 44px);
+  }
+
+  /*
+   * ⚠️ HER DEĞER BİR SAYI DEĞİLDİR — ve sahte bir sayı UYDURULMADI (şeridin
+   * kendi kuralı, 2026-09-09). Kelime taşıyan bloklar aynı puntoda yazılsaydı
+   * ya sütundan taşar ya da sayıların ağırlığını çalardı; bu yüzden kelimenin
+   * kendi ölçeği var. Görsel ağırlık sırası korunur: sayı > kelime > etiket.
+   */
+  .serit .deger.kelime {
+    font-size: clamp(17px, 1.7vw, 24px);
+    letter-spacing: -0.01em;
+  }
+
+  .serit .ad {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     letter-spacing: 0.14em;
+    line-height: 1.4;
     color: var(--lp-ink-3);
   }
 
-  .serit b {
-    color: var(--lp-ink);
-    font-weight: 500;
-  }
-
+  /*
+   * ⚠️ DAR EKRANDA İKİ SÜTUN — ve ayırıcılar YENİDEN KURULUR. `+ .olcum`
+   * kuralı ikiye bölünen ızgarada ikinci satırın İLK bloğuna da sol çizgi
+   * koyardı: ızgaranın dışına asılı duran bir çizgi. Hata sessiz olurdu —
+   * hiçbir test, hiçbir lint bir çizginin yanlış yerde durduğunu söylemez.
+   */
   @media (width <= 700px) {
     .serit {
-      display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 16px 20px;
-      justify-content: stretch;
     }
 
-    .serit span {
-      font-size: 11px;
+    .serit .olcum:nth-child(odd) {
+      border-left: 0;
+    }
+
+    .serit .olcum:nth-child(n + 3) {
+      border-top: 1px solid var(--lp-gri-2);
+    }
+
+    .serit .olcum {
+      padding: 22px 12px 24px;
+    }
+
+    .serit .ad {
+      font-size: 10px;
     }
   }
 
@@ -1399,7 +1502,7 @@ html:has([data-surface='landing']) {
     border-radius: var(--r-m);
     overflow: hidden;
     aspect-ratio: 4/5;
-    background: #b4653a;
+    background: var(--lp-toprak);
   }
 
   .sahne-genis {
