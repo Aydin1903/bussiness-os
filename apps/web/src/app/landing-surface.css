@@ -202,7 +202,24 @@ html:has([data-surface='landing']) {
     margin: 0;
     font-weight: 500;
     letter-spacing: -0.03em;
-    line-height: 1.06;
+    /*
+     * ⚠️ 1.06 İDİ VE TEK BİR SAYIYDI — ÖLÇÜLDÜ, 2026-09-09.
+     *
+     * Ölçüm: sayfadaki ON BİR başlığın on birinde de oran tam **1.060**
+     * çıktı — 58.9 px'lik hero başlığında da, 20.5 px'lik adım başlığında
+     * da. Yani satır yüksekliği puntoyla birlikte HİÇ değişmiyordu; tek
+     * bir sabit, bütün ölçeklere uygulanıyordu.
+     *
+     * ⚠️ Hata ancak İKİ SATIRA SARAN başlıklarda görünür ve tam olarak
+     * orada görünmesi onu sinsi yapar: tek satırlık başlıkta 1.06 ile 1.12
+     * arasında GÖZLE FARK YOKTUR (kutu birkaç piksel değişir), iki satırlı
+     * başlıkta ise satırlar birbirine yapışır. Bu yüzden punto büyütülürken
+     * (hero başlığı 44.8 → 58.9 px) kusur da onunla birlikte büyümüş ama
+     * hiçbir test ve hiçbir lint bunu söylememiştir.
+     *
+     * 1.12 tek bir yerde ezilir: hero'nun kahraman başlığı (aşağıda, 1.14).
+     */
+    line-height: 1.12;
   }
 
   p {
@@ -496,7 +513,43 @@ html:has([data-surface='landing']) {
     background: #b4653a;
     padding: clamp(56px, 7vw, 104px) clamp(24px, 4vw, 64px) clamp(40px, 5vw, 72px);
     color: #fff;
-    min-height: clamp(600px, 62vw, 860px);
+    /*
+     * ==========================================================================
+     * ⚠️ KABIN YÜKSEKLİĞİ BİR KADRAJ KARARIDIR — ÖLÇÜLDÜ, 2026-09-09
+     * ==========================================================================
+     * Eski değer `clamp(600px, 62vw, 860px)` idi ve sahnenin "ortada dar bir
+     * şerit" gibi durmasının sebebi tam olarak buydu.
+     *
+     * ⚠️ Önce YANLIŞ TEŞHİS ELENDİ: `object-fit`/`object-position` KUSURSUZ
+     * çalışıyordu. Ölçüm: `.hero-foto`, `img` ve `.hero` kutularının üçü de
+     * 1178×794 ile BİREBİR AYNI (top 88 / bottom 882) — yani `cover` kutuyu
+     * köşeden köşeye zaten dolduruyordu ve bir letterbox YOKTU.
+     *
+     * ⚠️ GERÇEK SEBEP KAYNAK GÖRSELİN KENDİ KOMPOZİSYONU: fotoğraf KAREdir
+     * (1254×1254) ve tarayıcıda bant bant ölçüldüğünde üst %38'inin DÜZ
+     * GÖKYÜZÜ olduğu görüldü (detay/standart sapma 7–18), özne bandı ise
+     * %38–%63 (detay 35–51). 1.48:1'lik bir kap, kare kaynağın yüksekliğinin
+     * **%67'sini** gösterir — yani hero'nun yaklaşık **%28'i** zorunlu olarak
+     * boş gökyüzü oluyordu. Hiçbir `object-position` değeri bunu
+     * kurtaramazdı: pencere öylesine yüksek ki, özne bandı (%25) onu tek
+     * başına dolduramıyor.
+     *
+     * ⚠️ ZOOM DA ELENDİ ve gerekçesi ölçümdür: `scale(1.25)` gerçek
+     * tarayıcıda denendi, maskotun AYAKLARINI ve durduğu kayayı kesti —
+     * ayrıca kaynak 1254 px ve kap zaten 1178 px × dpr, yani görsel bugün bile
+     * büyütülerek çiziliyor; üzerine zoom koymak maskotun yüzünü
+     * yumuşatırdı.
+     *
+     * ✅ Kalan tek doğru kaldıraç KABIN ORANI: kap kısalınca pencere kaynağın
+     * daha AZını görür, yani ölü gökyüzü kadrajın dışında kalır ve özne
+     * büyür. 52vw'de oran ~1.75, görünen alan %67 → **%57**.
+     *
+     * ⚠️ TABAN 560 px BOŞUNA DEĞİL: metin bloğu (etiket + iki satırlık
+     * başlık + paragraf + iki düğme + not) dolgusuyla birlikte ~536 px ister;
+     * kap bunun altına inerse `min-height` değil İÇERİK yükseklik verir ve
+     * oran sessizce geri bozulur.
+     */
+    min-height: clamp(560px, 52vw, 760px);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -613,6 +666,13 @@ html:has([data-surface='landing']) {
   .hero-ic .d1 {
     font-size: clamp(34px, 4.6vw, 62px);
     /*
+     * ⚠️ SATIR YÜKSEKLİĞİ PUNTOYLA BİRLİKTE AÇILIR. Ortak kural 1.12'ye
+     * çekildi (yukarıda); kahraman başlık ondan da bir tık açık durur,
+     * çünkü iki RENKLİ blok üst üste yığılıyor ve göz onları ayrı iki
+     * cümle olarak okumalı.
+     */
+    line-height: 1.14;
+    /*
      * ⚠️ `balance` OLMADAN kırılma çirkin: "Hiç unutmayan bir / asistan." gibi
      * isim tamlamasını ortadan böler. `balance` iki satırı eşitler ve doğal
      * duraklama noktasını seçer ("Hiç unutmayan / bir asistan.").
@@ -636,6 +696,18 @@ html:has([data-surface='landing']) {
    */
   .hero-ic .d1 i {
     display: block;
+    /*
+     * ⚠️ SATIR YÜKSEKLİĞİ TEK BAŞINA YETMEZ — VE FARK KAVRAMSALDIR.
+     * `line-height` bir bloğun İÇİNDEKİ satırları eşit aralıklar; burada
+     * ise iki AYRI cümle (beyaz + sönük) alt alta duruyor ve aralarındaki
+     * boşluğun, kendi iç satır aralıklarından FAZLA olması gerekir —
+     * yoksa dört satırlık düz bir yığın gibi okunur.
+     *
+     * ⚠️ Birim `em`dir, px değil: başlık `clamp` ile 34 → 62 px arasında
+     * ölçekleniyor ve sabit bir px, küçük ekranda kocaman, büyük ekranda
+     * yetersiz kalırdı — kusurun ta kendisi budur.
+     */
+    margin-top: 0.16em;
   }
 
   /*
@@ -731,7 +803,12 @@ html:has([data-surface='landing']) {
   }
 
   .hero .alt {
-    margin-top: 22px;
+    /*
+     * ⚠️ 22 px SABİTTİ ve başlık 44.8 → 58.9 px büyürken YERİNDE KALDI:
+     * başlık kutusu 95 → 141 px'e çıkarken altındaki nefes hiç açılmadı.
+     * Artık başlıkla birlikte ölçeklenir.
+     */
+    margin-top: clamp(24px, 2.4vw, 34px);
     max-width: 46ch;
     color: rgb(255 255 255 / 84%);
   }

@@ -832,3 +832,52 @@ describe('ADR-0054 · 12. kart hareketi `prefers-reduced-motion` kapısında', (
     expect(icerisi).not.toMatch(/box-shadow:\s*var\(--lp-kalk\)/u);
   });
 });
+
+/**
+ * ============================================================================
+ * ⚠️ 13. SATIR YÜKSEKLİĞİ TEK BİR SABİT DEĞİLDİR (ölçüldü, 2026-09-09)
+ * ============================================================================
+ * Ölçüm: sayfadaki on bir başlığın on birinde de `line-height / font-size`
+ * oranı tam **1.060** çıkıyordu — 58.9 px'lik hero başlığında da, 20.5 px'lik
+ * adım başlığında da. Punto büyütüldükçe (44.8 → 58.9 px) satırlar birbirine
+ * yapıştı.
+ *
+ * ⚠️ Bu testler DEĞERİ değil, KUSUR SINIFINI kilitler. İkisi de yalnızca
+ * İKİ SATIRA SARAN başlıkta görünen, tek satırlıkta hiç fark edilmeyen
+ * sessiz bir bozulmayı kapatır.
+ */
+describe('ADR-0054 · 13. başlık satır yüksekliği', () => {
+  const CSS = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  it('⚠️ ortak başlık kuralı 1.10’un altına inmez', () => {
+    const kural = /h1,\s*h2,\s*h3\s*\{[^}]*\}/u.exec(CSS);
+
+    expect(kural, 'ortak baslik kurali bulunamadi').not.toBeNull();
+
+    const lh = /line-height:\s*([\d.]+)/u.exec(kural?.[0] ?? '');
+
+    expect(lh, 'ortak baslik kuralinda line-height yok').not.toBeNull();
+    expect(Number(lh?.[1])).toBeGreaterThanOrEqual(1.1);
+  });
+
+  /**
+   * ⚠️ `em` BİR ÜSLUP TERCİHİ DEĞİL: hero başlığı `clamp` ile 34 → 62 px
+   * arasında ölçekleniyor. Buraya sabit bir px yazılırsa boşluk küçük ekranda
+   * kocaman, büyük ekranda yetersiz kalır — yani düzeltilen kusurun ta
+   * kendisi geri gelir, üstelik SESSİZCE: masaüstünde doğru görünür.
+   */
+  it('⚠️ sloganın iki yarımı arasındaki boşluk PUNTOYA BAĞLIDIR (em)', () => {
+    const kural = /\.hero-ic \.d1 i\s*\{[^}]*\}/u.exec(CSS);
+
+    expect(kural, 'ikinci yarim kurali bulunamadi').not.toBeNull();
+
+    const mt = /margin-top:\s*([\d.]+)(em|rem|px)/u.exec(kural?.[0] ?? '');
+
+    expect(mt, 'iki yarim arasinda bosluk tanimli degil').not.toBeNull();
+    expect(mt?.[2], 'sabit birim kullanilmis').toBe('em');
+    expect(Number(mt?.[1])).toBeGreaterThan(0);
+  });
+});
