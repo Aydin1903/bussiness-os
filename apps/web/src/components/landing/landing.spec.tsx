@@ -697,6 +697,32 @@ describe('ADR-0054 · 9. istatistik şeridi KOBİ dilinde ve ÖLÇÜM BLOĞU', (
    * **#fff6ef**tir: beyaz zeminde kullanılsaydı rakamlar GÖRÜNMEZ olurdu ve
    * hata sessiz kalırdı — markup doğru, metin yerinde, ekran boş.
    */
+  /**
+   * ⚠️ HİZA METİN UZUNLUĞUNA BAĞLI OLAMAZ — VE BU KUSUR İKİ KEZ YAŞANDI.
+   *
+   * İlk çözüm `.deger`e bir `min-height` koymaktı ve tek satırlık değerlerde
+   * çalışıyordu. Sonra değerin METNİ değişti ("TÜRKÇE" → "KENDİ DİLİNİZDE")
+   * ve kusur geri geldi: gerçek tarayıcıda 780 px'in altında — henüz DÖRT
+   * sütunken — uzun değer iki satıra sarıyor, kutusu 38 → 44 px büyüyor ve o
+   * bloğun etiketi tek başına aşağı kayıyordu.
+   *
+   * ⚠️ Tetikleyici bir KOD değişikliği değil, BİR KELİME değişikliğidir —
+   * yani bu testin koruduğu şey tam olarak "birinin metni uzatması"dır.
+   * `subgrid` düşerse hiza sessizce metne bağımlı hale geri döner.
+   */
+  it('⚠️ hiza `subgrid` ile kurulur, `min-height` ile DEĞİL', () => {
+    const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    const kural = /\.serit \.olcum\s*\{[^}]*\}/gu;
+    const govdeler = [...css.matchAll(kural)].map((m) => m[0]).join('\n');
+
+    expect(govdeler, 'olcum kurali bulunamadi').not.toBe('');
+    expect(govdeler).toMatch(/grid-template-rows:\s*subgrid/u);
+    expect(govdeler).toMatch(/grid-row:\s*span 2/u);
+  });
+
   it('⚠️ şerit rakamları landing’in kendi token’ından boyanır', () => {
     const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
       /\/\*[\s\S]*?\*\//g,

@@ -873,14 +873,40 @@ html:has([data-surface='landing']) {
   }
 
   /*
+   * ==========================================================================
+   * ⚠️ HİZA METİN UZUNLUĞUNA BAĞLI OLAMAZ — `subgrid` TAM OLARAK BUNUN İÇİN
+   * ==========================================================================
+   * İlk çözüm `.deger`e bir `min-height` koymaktı ve TEK SATIRLIK değerlerde
+   * çalışıyordu. ⚠️ Sonra değerin metni değişti ("TÜRKÇE" → "KENDİ
+   * DİLİNİZDE") ve kusur GERİ GELDİ: gerçek tarayıcıda 780 px'in altında —
+   * henüz DÖRT sütunken — uzun değer iki satıra sarıyor, kutusu 38 → 44 px
+   * büyüyor ve o bloğun etişeti tek başına aşağı kayıyordu.
+   *
+   * ⚠️ DERS: `min-height` bir TABANDIR, bir HİZA DEĞİLDİR. İçerik onu
+   * aştığı anda garanti ortadan kalkar — ve bunu bir kod değişikliği değil,
+   * BİR KELİME değişikliği tetikler. Yani hiçbir test, hiçbir lint
+   * uyarmaz; yalnızca dar bir masaüstü penceresinde görünür.
+   *
+   * `subgrid` ile değer satırı ve etiket satırı DÖRT BLOĞUN ORTAKIDIR: bir
+   * değer iki satıra sararsa DÖRDÜNÜN de değer satırı büyür ve etiketler
+   * yine aynı hizada kalır. Hiza artık metnin uzunluğuna BAĞLI DEĞİL.
+   *
+   * ⚠️ Desteklemeyen tarayıcıda kural sessizce yok sayılır ve blok normal
+   * bir ızgara olur — yani geri düşüş bozulma değil, yalnızca eski
+   * davranıştır; `.deger`deki `min-height` orada hâlâ bir taban olarak durur.
+   */
+  .serit .olcum {
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+  }
+
+  /*
    * ⚠️ DOLGU BLOĞUN KENDİSİNDE, ŞERİTTE DEĞİL: dikey ayırıcı bloğun kenarıdır
    * ve şeride dolgu verilseydi çizgi bandın tepesine/dibine değmez, ortada
    * asılı kalırdı.
    */
   .serit .olcum {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
     gap: 10px;
     padding: 28px 16px 30px;
     text-align: center;
@@ -903,21 +929,17 @@ html:has([data-surface='landing']) {
     line-height: 1;
     color: var(--lp-toprak);
     /*
-     * ⚠️ DEĞER YUVASININ YÜKSEKLİĞİ SABİTLENİR — VE BU BİR HİZA KUSURUNDAN
-     * SONRA BÖYLE (gerçek tarayıcıda ölçüldü, 2026-09-09).
+     * ⚠️ DEĞER SATIRIN DİBİNE OTURUR. Sayı taşıyan bloklar 38.4 px, kelime
+     * taşıyanlar 21.8 px puntodadır; hizalanmasalardı dört etiket İKİ AYRI
+     * yükseklikte otururdu (ölçüldü: 386 px'e karşı 366 px) ve şerit bir
+     * "panel" değil iki ayrı satır gibi okunurdu. ⚠️ Kusur ancak sayı ve
+     * kelime YAN YANA gelince doğar.
      *
-     * Sayı taşıyan bloklar 38.4 px, kelime taşıyanlar 21.8 px puntodaydı;
-     * yuva serbest bırakılınca dört etiket İKİ AYRI yükseklikte oturdu
-     * (386 px'e karşı 366 px) ve şerit bir "panel" değil, iki farklı satır
-     * gibi okundu. ⚠️ Kusur ancak sayı ve kelime YAN YANA gelince doğar —
-     * yani tam olarak dördüncü ölçüm eklendiğinde.
-     *
-     * `flex-end`, kelimeyi sayının TABANINA oturtur: dört değer aynı
-     * çizgiden hizalanır, dört etiket aynı hizada başlar.
+     * ⚠️ `min-height` burada yalnızca BİR TABANDIR (ve `subgrid`i
+     * desteklemeyen tarayıcı için geri düşüş); hizayı kuran şey yukarıdaki
+     * `subgrid`dir — sebebi orada yazılı.
      */
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    align-self: end;
     min-height: clamp(30px, 3vw, 44px);
   }
 

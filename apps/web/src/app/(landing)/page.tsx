@@ -168,17 +168,30 @@ export default function LandingPage() {
             Kalan: DİL. Sayfada başka hiçbir yerde söylenmiyor ve yabancı
             SaaS'lara karşı gerçek bir farktır.
 
-            ⚠️ İDDİANIN İKİ YARIMI AYRI AYRI DOĞRULANDI, "herhalde öyledir"
-            denmedi: arayüz baştan sona Türkçedir; cevaplar ise sunucudaki
-            prompt'ların yazdığı gibi ŞİRKETİN KENDİ DİLİNDE üretilir
-            (`daily-report-prompt.ts` / `company-summary-prompt.ts`:
-            _"Sirketin kendi dilinde yaz"_). ⚠️ Yani "Türkçe" SABİT KODLU
-            DEĞİLDİR — Türkçe not yazan bir şirket Türkçe cevap alır, ki bu
-            sayfayı okuyan HERKES odur. İddia kimseye fazlasını vaat etmiyor:
-            İngilizce yazan bir şirket İngilizce cevap alır.
+            ⚠️ DEĞER "TÜRKÇE" DEĞİL "KENDİ DİLİNİZDE" — Product Owner kararı,
+            2026-09-09: ürün ileride global olacak ve şeride bir ülke adı
+            yazmak, o gün değiştirilmesi gereken bir taahhüt bırakırdı.
+
+            ⚠️ İDDİANIN İKİ YARIMI AYRI AYRI BAKILDI, "herhalde öyledir"
+            denmedi ve ikisi AYNI ŞEY DEĞİL:
+            · CEVAPLAR — gerçekten kullanıcının dilindedir ve bu SABİT KODLU
+              DEĞİLDİR: sunucudaki prompt'lar açıkça öyle yazıyor
+              (`daily-report-prompt.ts` / `company-summary-prompt.ts`:
+              _"Sirketin kendi dilinde yaz"_). Türkçe not yazan Türkçe,
+              İngilizce yazan İngilizce cevap alır.
+            · ARAYÜZ — bugün YALNIZCA TÜRKÇEDİR. Yani bu yarım, ürünün
+              bugünkü halinden bir adım ÖNDEDİR ve bilinçli olarak öyle
+              yazılmıştır (hedef global).
+
+            ⚠️ BUGÜN ZARARSIZ OLMASININ SEBEBİ ÖLÇÜLEBİLİR: sayfanın tamamı
+            Türkçedir, yani bu cümleyi okuyan herkes zaten Türkçe arayüz
+            alıyor. ⚠️ AMA SESSİZ BİR BORÇ BIRAKIR: İngilizce bir landing
+            açıldığı gün arayüz çevrilmemişse iddia açıkta kalır — ve o gün
+            kırmızı yanacak bir test YOKTUR, çünkü bu bir kod değil bir ÜRÜN
+            sözüdür. İkinci dil eklenirken bu blok yeniden okunmalıdır.
           */}
           <div className="olcum">
-            <b className="deger kelime">TÜRKÇE</b>
+            <b className="deger kelime">KENDİ DİLİNİZDE</b>
             <span className="ad">ARAYÜZ VE CEVAPLAR</span>
           </div>
           {/*
