@@ -1094,6 +1094,51 @@ html:has([data-surface='landing']) {
   }
 
   /*
+   * ==========================================================================
+   * ⚠️ HİYERARŞİ — HİZA KORUNARAK ZENGİNLİK GERİ GELDİ (PO, 2026-09-10)
+   * ==========================================================================
+   * Tek kalıp hizayı çözdü ama dört kartı dört EŞİT gri kutuya çevirdi:
+   * "hepsi aynı önemde" demek, hiçbirinin önemli olmadığını söylemektir.
+   * Hiyerarşi artık KALIBI DEĞİŞTİRMEDEN, yalnızca yüzeyle kurulur — dolgu,
+   * rakam boyu, ızgara yerinde durur, yani hiza bozulamaz:
+   *
+   *   1. VURGU — "13" (verileriniz yalnızca sizin): mürekkep zemin, toprak
+   *      rakam. Setin en güçlü yüzeyi.
+   *   2. FOTOĞRAF — "12": zenginliği görselin kendisinden gelir.
+   *   3. SESSİZ — "18" ve "0": gri yüzey, destekleyen kartlar.
+   *
+   * ⚠️ VURGU NEDEN "13": KOBİ sahibinin en çok sorduğu soru "verim
+   * güvende mi"dir; ve hemen üstteki şeridin SON bloğu aynı sözü söylüyor
+   * ("VERİLERİNİZ YALNIZCA SİZİN"). Göz iki bölümü birbirine bağlar: şerit
+   * sözü verir, bento onu açıklar. Izgaradaki yeri de ritim kurar:
+   * foto · sessiz · VURGU · sessiz.
+   *
+   * ⚠️ TOPRAK NEDEN ZEMİNDE DEĞİL RAKAMDA — ÖLÇÜLDÜ:
+   *   · düz toprak zemin + beyaz gövde metni     → 4.32:1  ✗ (AA gövde 4.5)
+   *   · düz toprak zemin + mürekkep gövde metni  → 4.30:1  ✗
+   *   · mürekkep zemin + toprak rakam            → 4.30:1  ✓ (büyük metin 3.0)
+   *   · mürekkep zemin + %76 beyaz gövde metni   → 10.88:1 ✓
+   * Toprak zemin iki yönde de eşiği birkaç yüzde kaçırıyor — yani düz
+   * turuncu kart göze iyi gelirdi ama metni okunaksız sayılırdı. Toprak
+   * vurguyu yine taşır, yalnızca doğru yerde: kartın EN BÜYÜK öğesinde.
+   *
+   * ⚠️ GÖLGE KULLANILMADI: `--lp-kalk` bilinçli olarak YALNIZCA hover'a
+   * ayrılmış (token bloğundaki gerekçe) ve paletin "gölge pratikte yok"
+   * ölçümü duruyor. Durağan bir gölge iki kararı birden gevşetirdi.
+   */
+  .kart-vurgu {
+    background: var(--lp-ink);
+  }
+
+  .kart-vurgu .rakam {
+    color: var(--lp-toprak);
+  }
+
+  .kart-vurgu p {
+    color: rgb(255 255 255 / 76%);
+  }
+
+  /*
    * ⚠️ FOTOĞRAF KARTIN KENDİ ALANINDA, METNİN ÜSTÜNDE DEĞİL.
    *
    * Rakam ve metin diğer üç kartla AYNI yerde durur (aynı üst dolgu), yani

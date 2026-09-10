@@ -276,7 +276,12 @@ export default function LandingPage() {
             <p className="dip">10 YAZDIKLARINIZDAN &nbsp;·&nbsp; 8 GÜNCEL DURUMDAN</p>
           </div>
 
-          <div className="kart">
+          {/*
+            ⚠️ VURGU KARTI — setin tek mürekkep yüzeyi, rakamı toprak.
+            Gerekçe ve kontrast ölçümü `landing-surface.css`teki
+            "HİYERARŞİ" bloğunda.
+          */}
+          <div className="kart kart-vurgu">
             <div className="rakam">13</div>
             <p>
               Kayıtlarınızın durduğu on üç bölümün hepsinde aynı kilit var: verilerinize başka

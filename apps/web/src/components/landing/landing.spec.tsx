@@ -1019,7 +1019,11 @@ describe('ADR-0054 · 14. bento tek ızgara', () => {
       /\/\*[\s\S]*?\*\//g,
       '',
     );
-    const kurallar = [...css.matchAll(/([^{}]*\.rakam)\s*\{/gu)]
+    // ⚠️ Yalnızca BOYUT yazan kurallar sayılır: vurgu kartının rakamı
+    // (`.kart-vurgu .rakam`) meşru olarak kendi RENGİNİ taşır — testin
+    // konusu dört rakamın aynı BOYUTTA olmasıdır, aynı renkte değil.
+    const kurallar = [...css.matchAll(/([^{}]*\.rakam)\s*\{([^}]*)\}/gu)]
+      .filter((m) => (m[2] ?? '').includes('font-size'))
       .map((m) => (m[1] ?? '').trim())
       .filter((secici) => secici.includes('.kart') || secici.includes('.k-'));
 
@@ -1036,5 +1040,24 @@ describe('ADR-0054 · 14. bento tek ızgara', () => {
     const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8');
 
     expect(css).toMatch(/\.bento\s*\{[^}]*grid-auto-rows:\s*1fr/u);
+  });
+
+  /**
+   * ⚠️ TAM OLARAK BİR VURGU KARTI — hiyerarşinin kendisi budur. İki vurgu
+   * kartı olsaydı hiyerarşi yine düzleşirdi ("hepsi eşit" yerine "ikisi
+   * eşit"). ⚠️ Toprak ZEMİNDE değil RAKAMDA durur: düz toprak zemin gövde
+   * metni için AA'yı iki yönde de kaçırıyor (ölçüldü: 4.32 ve 4.30 < 4.5).
+   */
+  it('⚠️ tek vurgu kartı: mürekkep zemin, toprak rakam', () => {
+    expect(bentoEl()?.querySelectorAll('.kart-vurgu')).toHaveLength(1);
+
+    const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+
+    expect(css).toMatch(/\.kart-vurgu\s*\{[^}]*background:\s*var\(--lp-ink\)/u);
+    expect(css).toMatch(/\.kart-vurgu \.rakam\s*\{[^}]*color:\s*var\(--lp-toprak\)/u);
+    expect(css).not.toMatch(/\.kart-vurgu\s*\{[^}]*background:\s*var\(--lp-toprak\)/u);
   });
 });
