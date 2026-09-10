@@ -1061,3 +1061,60 @@ describe('ADR-0054 · 14. bento tek ızgara', () => {
     expect(css).not.toMatch(/\.kart-vurgu\s*\{[^}]*background:\s*var\(--lp-toprak\)/u);
   });
 });
+
+/**
+ * ============================================================================
+ * ⚠️ 15. /hakkinda — "DEĞİŞMEYEN DÖRT KARAR" KOBİ DİLİNDE (PO, 2026-09-10)
+ * ============================================================================
+ * Bölüm bir mühendise yazılmıştı ("port", "adaptör", "izolasyon", "şema",
+ * "merge") ve hikâye anlatan sayfanın ortasında aniden ton kırıyordu. Dört
+ * kural artık faydasıyla anlatılıyor — ana sayfadaki şeridin ve bentonun
+ * jargon temizliğiyle AYNI mantık, aynı kilit.
+ */
+describe('ADR-0054 · 15. hakkında sayfası KOBİ dilinde', () => {
+  function ilkeler(): HTMLElement | null {
+    const { container } = render(
+      <LandingLayout>
+        <HakkindaPage />
+      </LandingLayout>,
+    );
+    const baslik = [...container.querySelectorAll('h2')].find((h) =>
+      h.textContent.includes('Değişmeyen dört karar'),
+    );
+
+    return baslik?.closest('section') ?? null;
+  }
+
+  it('⚠️ mühendis sözlüğü ilkeler bölümüne GERİ GELMEZ', () => {
+    const bolum = ilkeler();
+
+    expect(bolum, 'ilkeler bolumu bulunamadi').not.toBeNull();
+
+    const metin = (bolum?.textContent ?? '').toLocaleLowerCase('tr-TR');
+
+    expect(metin.length).toBeGreaterThan(200);
+    for (const jargon of ['port ', 'adaptör', 'izolasyon', 'şema', 'merge', 'sorgu', 'kapsam']) {
+      expect(metin, `ilkelerde jargon: ${jargon}`).not.toContain(jargon);
+    }
+  });
+
+  /**
+   * ⚠️ DÖRT KARAR DÖRT KALIR — çeviri bir kuralı düşürmemeli. Kartlar
+   * `CLAUDE.md`nin Mutlak Kurallarından türer (dosya yorumu); biri sessizce
+   * silinirse sayfa artık o kuralları anlatmaz ama kimse fark etmez.
+   */
+  it('dört karar da yerinde', () => {
+    expect(ilkeler()?.querySelectorAll('.tas')).toHaveLength(4);
+  });
+
+  /**
+   * ⚠️ KÖPRÜ: bölümün giriş cümlesi önceki bölüme ("Üç soru, üç yıl") GERİ
+   * bakmak zorundadır. Yoksa okur "üç soru sorduk" ile "dört karar aldık"
+   * arasında boşlukta kalır — PO'nun bildirdiği kusurun kendisi.
+   */
+  it('⚠️ giriş cümlesi üç soruya köprü kurar', () => {
+    const giris = (ilkeler()?.querySelector('.alt')?.textContent ?? '').toLocaleLowerCase('tr-TR');
+
+    expect(giris).toContain('üç soru');
+  });
+});

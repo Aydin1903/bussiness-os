@@ -18,6 +18,20 @@ export const metadata: Metadata = {
  * da değişmek zorundadır — ⚠️ ve bu bağ bugün YALNIZCA bu yorumla tutuluyor,
  * bir testle değil: metin serbest cümledir, makinece karşılaştırılabilir bir
  * karşılığı yok.
+ *
+ * ⚠️ DİL DEĞİŞTİ, EŞLEME DEĞİŞMEDİ (Product Owner, 2026-09-10). Bölüm bir
+ * mühendise yazılmıştı ("port", "adaptör", "izolasyon", "şema", "merge") ve
+ * hikâye anlatan sayfanın ortasında aniden ton kırıyordu. Dört kural artık
+ * KOBİ sahibinin tarafından, yani FAYDASIYLA anlatılıyor — ana sayfadaki ölçü
+ * şeridinin jargon temizliğiyle aynı mantık. Hangi cümlenin hangi kurala
+ * karşılık geldiği her kartın yanında yazılı.
+ *
+ * ⚠️ ÇEVİRİDE İKİ İDDİA BİLİNÇLİ OLARAK YUMUŞATILMADI AMA GENİŞLETİLMEDİ DE:
+ * · "istediğimiz AN değiştirebiliriz" YAZILMADI: embedding sağlayıcısı
+ *   değişince saklanan vektörler yeniden üretilir (ADR-0029 §3) — anlık
+ *   değildir. Doğru olan "kaybetmezsiniz"dir: kayıtlar bizim veritabanımızda.
+ * · "bir hata olsa bile göremez" YAZILMADI: RLS her hatayı değil, KAPSAM
+ *   FİLTRESİNİN UNUTULMASINI yakalar. Cümle tam olarak o garantiyi söylüyor.
  */
 export default function AboutPage() {
   return (
@@ -90,8 +104,17 @@ export default function AboutPage() {
         <div className="bolum-bas">
           <span className="etiket">02 — İLKELER</span>
           <h2 className="d2">Değişmeyen dört karar</h2>
+          {/*
+            ⚠️ KÖPRÜ: "üç soru sorduk" ile "dört karar aldık" arasında bağ yoktu
+            ve okur "peki sonra ne yaptınız" sorusunda boşlukta kalıyordu. Giriş
+            cümlesi artık önceki bölüme GERİ bakar. Eski ikinci cümle ("ihlali
+            merge edilmeyen kısıtlar") aynı anlamla, yazılımcı sözlüğü olmadan
+            duruyor.
+          */}
           <p className="alt">
-            Bunlar pazarlama cümlesi değil; koda yazılmış, ihlali merge edilmeyen kısıtlar.
+            Bu üç soruya cevap ararken, ürün ne kadar büyürse büyüsün dört şeyi hiç değiştirmemeye
+            karar verdik. Bunlar bir pazarlama cümlesi değil; yazdığımız her satırın uymak zorunda
+            olduğu kurallar.
           </p>
         </div>
 
@@ -106,26 +129,32 @@ export default function AboutPage() {
           </div>
           <div className="tas">
             <span className="no">02</span>
-            <h3>Hiçbir sağlayıcıya bağlanmayız</h3>
+            {/* Kural: iş mantığı hiçbir LLM sağlayıcısına bağımlı olamaz (port/adaptör). */}
+            <h3>Tek bir yapay zeka şirketine bağlı değiliz</h3>
             <p>
-              İş mantığı bir port üzerinden konuşur. Sağlayıcı değişir, adaptör değişir;{' '}
-              <b>ürün tek satır değişmez</b>.
+              Asistanın arkasındaki yapay zekayı, daha iyisi ya da daha uygunu çıktığında
+              değiştirebiliriz. Kayıtlarınız, ekranlarınız, alışkanlıklarınız olduğu gibi kalır —{' '}
+              <b>siz hiçbir şey kaybetmezsiniz</b>.
             </p>
           </div>
           <div className="tas">
             <span className="no">03</span>
-            <h3>Her sorgu şirket kapsamında çalışır</h3>
+            {/* Kural: her sorgu tenant kapsamında çalışır (RLS + FORCE, fail-closed). */}
+            <h3>Başka hiçbir şirket verinizi göremez</h3>
             <p>
-              İzolasyon uygulamada değil <b>veritabanının kendisinde</b> zorlanır. Kapsamsız veri
-              erişimi yazılamaz.
+              Her şirketin kayıtları birbirinden ayrı kilitlenir — ve bu kilit programın içinde
+              değil, <b>kayıtların saklandığı yerin kendisinde</b>. Programın bir yerinde bu kontrol
+              unutulsa bile ne başkasının verisi size gelir, ne sizinki başkasına.
             </p>
           </div>
           <div className="tas">
             <span className="no">04</span>
-            <h3>Modüller birbirinin verisine dokunamaz</h3>
+            {/* Kural: modüller birbirinin şemasına/iç koduna erişemez. */}
+            <h3>Modüller birbirine karışmaz</h3>
             <p>
-              Her modülün kendi şeması vardır. Haberleşme yalnızca açık arayüz ya da olay üzerinden
-              olur — <b>birleşme yalnızca cevap anında</b>.
+              Müşteri, finans, stok — her modül kendi kayıtlarını kendi köşesinde tutar; hiçbiri
+              diğerininkine doğrudan dokunamaz. Bir modülü kullanmasanız da diğerleri çalışır. Hepsi{' '}
+              <b>yalnızca siz soru sorduğunuzda</b> bir araya gelir.
             </p>
           </div>
         </div>
