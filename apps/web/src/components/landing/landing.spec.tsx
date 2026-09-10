@@ -1156,7 +1156,7 @@ describe('ADR-0054 · 16. hakkında sayfasının yeni bölümleri', () => {
       'Üç soru, üç yıl',
       'Değişmeyen dört karar',
       'Bir soru sorduğunuzda ne olur',
-      'Neyi bilerek yapmıyoruz',
+      'Neden bir program daha değil',
       'Kimin için yaptık',
       'Sırada ne var',
       'Diğer odalar',
@@ -1205,15 +1205,51 @@ describe('ADR-0054 · 16. hakkında sayfasının yeni bölümleri', () => {
   });
 
   /**
-   * ⚠️ E-FATURA UYARISI SAYFADAN DÜŞMEZ. ADR-0041'in "en çok yanlış
-   * anlaşılacak sınır" dediği cümledir: üretilen fatura bir PDF'tir, resmi
-   * e-fatura DEĞİLDİR. Bir düzenlemede kısalıp kaybolursa sayfa, ürünün
-   * yapmadığı bir şeyi yapıyormuş gibi okunur.
+   * ⚠️ KARŞILAŞTIRMA MADDE MADDE KARŞILIKLIDIR: soldaki N. madde sağdaki N.
+   * maddenin cevabıdır. Bir tarafa madde eklenip öteki unutulursa satırlar
+   * kayar ve karşılaştırma bir karşılaştırma olmaktan çıkar — sessizce.
+   *
+   * ⚠️ Eski "Neyi bilerek yapmıyoruz" bölümü PO kararıyla kaldırıldı
+   * (2026-09-10). E-fatura uyarısı bu sayfadan çıktı ama ÜRÜNDE duruyor:
+   * faturanın kendisinde ve uygulama ekranında yazılı (ADR-0041 §1).
    */
-  it('⚠️ sınırlar bölümü e-faturanın resmi olmadığını söyler', () => {
-    const metin = bolum('Neyi bilerek yapmıyoruz')?.textContent ?? '';
+  it('⚠️ karşılaştırmanın iki tarafı aynı uzunlukta', () => {
+    const fark = bolum('Neden bir program daha değil');
 
-    expect(metin).toContain('resmi e-fatura değildir');
-    expect(bolum('Neyi bilerek yapmıyoruz')?.querySelectorAll('.satir')).toHaveLength(4);
+    expect(fark, 'fark bolumu bulunamadi').not.toBeNull();
+
+    const sol = fark?.querySelectorAll('.hayir li').length ?? 0;
+    const sag = fark?.querySelectorAll('.evet li').length ?? 0;
+
+    expect(sol).toBeGreaterThan(2);
+    expect(sag).toBe(sol);
+  });
+
+  /**
+   * ⚠️ HİÇBİR RAKİP İSİMLE ANILMAZ. Kamuya açık bir sayfada belirli bir firmayı
+   * olumsuz anmak haksız rekabet ve karşılaştırmalı reklam kurallarına
+   * takılır. Karşılaştırma bir YÖNTEMLE yapılır ("her iş için ayrı program"),
+   * bir firmayla değil. Liste eksiksiz olamaz — ama en olası isimlerin bir
+   * gün "etkili olur" diye eklenmesini yakalar.
+   */
+  it('⚠️ sayfada hiçbir rakip markası geçmez', () => {
+    const metin = sayfa().textContent.toLocaleLowerCase('tr-TR');
+    const markalar = [
+      'logo yazılım',
+      'mikro yazılım',
+      'paraşüt',
+      'netsis',
+      'hubspot',
+      'salesforce',
+      'zoho',
+      'bitrix',
+      'chatgpt',
+      'microsoft dynamics',
+    ];
+
+    for (const marka of markalar) {
+      expect(metin, `rakip markasi: ${marka}`).not.toContain(marka);
+    }
+    expect(metin).not.toMatch(/\bsap\b/u);
   });
 });

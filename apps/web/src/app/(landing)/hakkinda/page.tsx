@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { Corridor } from '@/components/landing/corridor';
 import { RoomHeader } from '@/components/landing/room-header';
@@ -6,8 +7,90 @@ import { RoomHeader } from '@/components/landing/room-header';
 export const metadata: Metadata = {
   title: 'Hakkında',
   description:
-    'Ürün üç sorudan doğdu. Değişmeyen dört karar, asistanın bir soruyu nasıl cevapladığı, neyi bilerek yapmadığımız ve sırada ne olduğu.',
+    'Ürün üç sorudan doğdu. Değişmeyen dört karar, asistanın bir soruyu nasıl cevapladığı, alışılmış yazılımlardan farkımız ve sırada ne olduğu.',
 };
+
+/**
+ * "Neden bir program daha değil" karşılaştırmasının maddeleri — ⚠️ İKİ TARAF
+ * TEK DİZİDEN ÜRETİLİR. İlk yazımda iki ayrı `<ul>` elle yazılmıştı ve gerçek
+ * tarayıcıda ölçüldüğünde beş çiftten yalnızca BİRİ aynı hizadaydı: sağdaki
+ * metinler farklı yerlerde sarıyor, eşleşen maddeler dikeyde kayıyordu. Tek
+ * dizi, bir tarafa madde eklenip ötekinin unutulmasını YAPISAL olarak imkânsız
+ * kılar; hizayı `.karsit-hizali`nin `subgrid`i kurar.
+ */
+const FARK: readonly { readonly eski: ReactNode; readonly yeni: ReactNode }[] = [
+  {
+    eski: (
+      <>
+        Bilgi programlar arasında <b>taşınmaz</b>; her biri kendi kutusunda kalır.
+      </>
+    ),
+    yeni: (
+      <>
+        On iki modül <b>tek bir hafızada</b>; yazdığınız her kayıt diğerlerine bağlam olur.
+      </>
+    ),
+  },
+  {
+    eski: (
+      <>
+        Tek bir soru için üç ekran açar, tabloları <b>yan yana koyarsınız</b>.
+      </>
+    ),
+    yeni: (
+      <>
+        Tek bir soru sorarsınız; cevap <b>on sekiz kaynaktan birlikte</b> gelir.
+      </>
+    ),
+  },
+  {
+    eski: (
+      <>
+        Yapay zeka eklenmişse bile yalnızca <b>kendi kutusunu</b> görür.
+      </>
+    ),
+    yeni: (
+      <>
+        Asistan şirketin tamamını görür — ama <b>yalnızca sizin görebildiğiniz</b> kadarını.
+      </>
+    ),
+  },
+  {
+    eski: (
+      <>
+        Bilen kişi izne çıktığında bilgi de <b>onunla gider</b>.
+      </>
+    ),
+    yeni: (
+      <>
+        Bilgi kişide değil şirkette kalır; biri izne çıksa da <b>hafıza yerinde</b>.
+      </>
+    ),
+  },
+  {
+    eski: (
+      <>
+        Kurulum, eğitim ve veri aktarımı için <b>ayrıca zaman</b> ister.
+      </>
+    ),
+    yeni: (
+      <>
+        Tarayıcıdan açılır; <b>kurulum yok, kart yok</b>.
+      </>
+    ),
+  },
+];
+
+/**
+ * `--madde` (karşılaştırmanın satır sayısı) için TİP ONAYSIZ `style` nesnesi —
+ * `accent-style.ts`in deseni: tip onayı bu projede yasaktır, arayüzü
+ * genişletmek aynı işi tip güvenli yapar.
+ */
+interface MaddeStyle extends CSSProperties {
+  readonly '--madde': string;
+}
+
+const MADDE_STYLE: MaddeStyle = { '--madde': String(FARK.length) };
 
 /**
  * `/hakkinda` — ürünün neden var olduğu (ADR-0054).
@@ -166,7 +249,7 @@ export default function AboutPage() {
         ⚠️ DÖRT YENİ BÖLÜM — "SAYFA DAHA DETAYLI OLMALI" (Product Owner, 2026-09-10)
         ============================================================================
         Bölüm listesi PO ile tek tek onaylandı. Her bölüm FARKLI bir kalıp
-        kullanır (adımlar · satırlar · üçlü kart · ikili kart): dört ardışık
+        kullanır (adımlar · karşıtlık · üçlü kart · ikili kart): dört ardışık
         kart yığını, uzun bir sayfayı tekdüze bir ızgaraya çevirirdi.
 
         ⚠️ HİÇBİR İDDİA UYDURULMADI. Bu sayfa şirket adına kamuya açık bir
@@ -223,76 +306,65 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ===================== 04 — SINIRLAR ===================== */}
+      {/* ===================== 04 — FARK ===================== */}
+      {/*
+        ⚠️ "NEYİ BİLEREK YAPMIYORUZ" KALDIRILDI (Product Owner, 2026-09-10):
+        sınırları tek tek saymak ziyaretçide "eksik bir ürün" izlenimi
+        bırakıyordu. Yerine bizi ÖNE ÇIKARAN bir karşılaştırma geldi.
+
+        ⚠️ HİÇBİR RAKİP İSİMLE ANILMAZ — VE BU BİR TESTLE KİLİTLİ. Kamuya açık
+        bir sayfada belirli bir firmayı olumsuz anmak haksız rekabet ve
+        karşılaştırmalı reklam kurallarına takılır; her iddianın kanıtlanması
+        gerekir. Karşılaştırma bir FİRMAYLA değil, bir YÖNTEMLE yapılır ("her iş
+        için ayrı program") — ana sayfadaki "FARK" bölümünün ("bir sohbet
+        asistanı") aynı kalıbı. Soldaki her madde bu kategorinin genel ve
+        savunulabilir bir özelliğidir, belirli bir ürün hakkında iddia değildir.
+
+        ⚠️ KALDIRILAN SINIRLAR ÜRÜNDE AÇIKLANMAYA DEVAM EDİYOR — yani kimse
+        yanıltılmıyor: "resmi e-fatura değildir" uyarısı hem faturanın kendisinde
+        hem uygulama ekranında yazılı (ADR-0041 §1). Bu sayfadan çıkan şey
+        bilgi değil, onun reklamı.
+
+        ⚠️ Soldaki "fatura" kelimesi BİLİNÇLİ OLARAK kullanılmadı: "faturayı ayrı
+        programda kesiyorsunuz" demek, e-fatura programının yerini aldığımızı
+        ima ederdi — almıyoruz.
+
+        Sıra karşılıklıdır: soldaki N. madde sağdaki N. maddenin cevabıdır ve bir
+        test iki listenin aynı uzunlukta kalmasını kilitler.
+      */}
       <section className="bolum kap">
         <div className="bolum-bas">
-          <span className="etiket">04 — SINIRLAR</span>
-          <h2 className="d2">Neyi bilerek yapmıyoruz</h2>
+          <span className="etiket">04 — FARK</span>
+          <h2 className="d2">Neden bir program daha değil</h2>
           <p className="alt">
-            Bir ürünü tanımanın en dürüst yolu, neyi yapmadığını bilmektir. Aşağıdakiler eksik
-            değil; her birinin arkasında verilmiş bir karar var.
+            Çoğu işletme bugün müşteriyi bir programda, parayı başka birinde, ekibi üçüncüsünde
+            tutuyor. Her biri kendi işini iyi yapıyor — ama hiçbiri diğerini duymuyor.
           </p>
         </div>
 
-        <div className="satirlar gir">
-          {/* Dayanak: ADR-0041 §1 — yasal e-fatura bir aşama değil bir SINIR. */}
-          <div className="satir">
-            <span className="no">01</span>
-            <h3>Resmi e-fatura kesmiyoruz</h3>
-            <div>
-              <p className="soru">
-                Teklif ve faturalarınızı PDF olarak hazırlarız — bu belge resmi e-fatura değildir ve
-                üzerinde de bunu yazarız.
-              </p>
-              <p className="kucuk aciklama">
-                Resmi e-fatura mevzuata bağlıdır; yarım yapılmış bir e-fatura sizi yasal olarak zor
-                durumda bırakırdı. Kullandığınız e-fatura sistemi olduğu gibi devam eder.
-              </p>
-            </div>
-            <span className="rol">MEVZUAT</span>
+        {/*
+          Dayanaklar (sağ taraf): on iki modül tek `POST /ask` havuzu
+          (ADR-0031) · on sekiz katkıcı · izin filtresi (ADR-0031 §5.3) ·
+          kayıtlar veritabanında, kişide değil · web uygulaması, kurulum yok.
+        */}
+        <div className="karsit karsit-hizali gir" style={MADDE_STYLE}>
+          <div className="hayir">
+            <span className="bas">ALIŞILMIŞ YOL</span>
+            <h3>Her iş için ayrı bir program</h3>
+            <ul>
+              {FARK.map((madde, i) => (
+                <li key={i}>{madde.eski}</li>
+              ))}
+            </ul>
           </div>
-          {/* Dayanak: ADR-0043 — bordro yok; ücret ekleme-yalnız bir geçmiştir. */}
-          <div className="satir">
-            <span className="no">02</span>
-            <h3>Bordro hesaplamıyoruz</h3>
-            <div>
-              <p className="soru">Çalışanın sözleşme ücretini ve geçmişini kaydederiz.</p>
-              <p className="kucuk aciklama">
-                SGK, vergi dilimi ve kesintiler mevzuata bağlıdır ve sık değişir; bu hesabı
-                muhasebenizin sistemine bırakıyoruz.
-              </p>
-            </div>
-            <span className="rol">MEVZUAT</span>
-          </div>
-          {/* Dayanak: ADR-0043 §1 + ADR-0044 §2 — `sick` türü ve serbest not alanı YOK. */}
-          <div className="satir">
-            <span className="no">03</span>
-            <h3>Sağlık bilgisi tutmuyoruz</h3>
-            <div>
-              <p className="soru">İzin türleri arasında “raporlu” bile yoktur.</p>
-              <p className="kucuk aciklama">
-                Rapor, hastalık izni, sağlık durumu yasada özel olarak korunan bilgilerdir. Serbest
-                bir not kutusu da bırakmadık, çünkü oraya ilk yazılacak şey o olurdu.
-              </p>
-            </div>
-            <span className="rol">KİŞİSEL VERİ</span>
-          </div>
-          {/*
-            Dayanak: ADR-0043 §2 — maaş üç katmanla izole: ayrı tablo, ayrı
-            izin (`compensation:read` yalnızca sahip/yönetici), SIFIR katkıcı;
-            maaşa göre sıralama 422.
-          */}
-          <div className="satir">
-            <span className="no">04</span>
-            <h3>Maaşları asistana göstermiyoruz</h3>
-            <div>
-              <p className="soru">Ücreti yalnızca şirket sahibi ve yöneticiler görür.</p>
-              <p className="kucuk aciklama">
-                Asistan maaşları hiç okumaz; bir soruya cevap verirken hesaba katılmaz, çalışanları
-                maaşa göre sıralamak bile mümkün değildir.
-              </p>
-            </div>
-            <span className="rol">KİŞİSEL VERİ</span>
+          <div className="evet">
+            <span className="bas">KOBIWISE</span>
+            <h3>Tek hafıza, tek soru</h3>
+            <ul>
+              {FARK.map((madde, i) => (
+                <li key={i}>{madde.yeni}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

@@ -2344,6 +2344,50 @@ html:has([data-surface='landing']) {
 
   /*
    * ==========================================================================
+   * ⚠️ HİZALI KARŞITLIK — madde madde karşılaştırma (/hakkinda, 2026-09-10)
+   * ==========================================================================
+   * Ana sayfadaki `.karsit` iki BAĞIMSIZ listedir ve orada doğrudur: iki taraf
+   * aynı konuyu farklı açılardan anlatır. /hakkinda'daki karşılaştırmada ise
+   * soldaki N. madde sağdaki N. maddenin CEVABIDIR — ve gerçek tarayıcıda
+   * ölçüldüğünde beş çiftten yalnızca BİRİ aynı hizadaydı: metinler farklı
+   * yerlerde sarıyor, eşleşen maddeler dikeyde kayıyordu.
+   *
+   * `subgrid` iki kutunun satırlarını ORTAK yapar: rozet · başlık · N madde.
+   * Bir madde iki satıra sararsa KARŞISI da o yüksekliği alır. ⚠️ İç içe iki
+   * subgrid kullanılır (kutu → liste), `display: contents` DEĞİL: o, `<ul>`
+   * öğesini bazı tarayıcılarda erişilebilirlik ağacından siler ve ekran
+   * okuyucu "beş maddelik liste" demeyi bırakırdı.
+   *
+   * ⚠️ Madde sayısı CSS'e elle yazılmaz — `--madde` JSX'ten, maddelerin
+   * üretildiği dizinin UZUNLUĞUNDAN gelir. Elle yazılsaydı bir madde
+   * eklendiğinde ızgara sessizce bir satır eksik kalırdı.
+   *
+   * Kural yalnızca iki sütunlu düzende çalışır; tek sütunda kutular alt alta
+   * durur ve karşı taraf olmadığı için hizalanacak bir şey yoktur.
+   */
+  @media (width >= 860px) {
+    .karsit-hizali {
+      grid-template-rows: repeat(calc(var(--madde) + 2), auto);
+      row-gap: 0;
+    }
+
+    .karsit-hizali > div {
+      display: grid;
+      grid-row: span calc(var(--madde) + 2);
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+
+    .karsit-hizali ul {
+      display: grid;
+      grid-row: span var(--madde);
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+  }
+
+  /*
+   * ==========================================================================
    * KART HAREKETİ — imleç üzerindeyken hafif eğim + büyüme
    * ==========================================================================
    * ⚠️ SAF CSS, JS YOK — VE BU BİR KOLAYLIK DEĞİL, `reveal.tsx`İN YAZILI
