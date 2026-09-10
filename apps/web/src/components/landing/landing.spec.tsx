@@ -1394,6 +1394,47 @@ describe('ADR-0054 · 17. blog yazıları, sitemap ve robots', () => {
   });
 
   /**
+   * ⚠️ META AÇIKLAMA GOOGLE'IN KESME SINIRININ İÇİNDE (≤ 155) — ve girişten
+   * AYRI bir metin. İlk yazımda giriş kullanılıyordu (~210–250 karakter) ve
+   * arama sonucunda cümle ortasında kesiliyordu. Alt sınır (120), sınıra
+   * sığsın diye anlamını yitirecek kadar kısaltılmış bir özeti yakalar.
+   */
+  it.each(HER_YAZI)('%s — meta açıklama 120–155 karakter, girişten ayrı', (_slug, yazi) => {
+    // Türkçe harflerin hepsi tek UTF-16 birimidir; `.length` karakter sayısıdır.
+    const uzunluk = yazi.metaAciklama.length;
+
+    expect(uzunluk).toBeGreaterThanOrEqual(120);
+    expect(uzunluk).toBeLessThanOrEqual(155);
+    expect(yazi.metaAciklama).not.toBe(yazi.giris);
+    expect(yazi.metaAciklama).not.toMatch(/[âÂ]/u);
+  });
+
+  /**
+   * ⚠️ BÜLTEN VAADİ GERİ GELMEZ (PO, 2026-09-10). "Ayda iki yazı. Abone
+   * olanlara e-postayla gider" ve "ABONE OL" kaldırıldı: gerçek bir bülten
+   * sistemi yok. Bir gün bülten gerçekten kurulursa bu test o işle birlikte
+   * — bilinçli olarak — değişir.
+   */
+  it('⚠️ blog sayfası var olmayan bir bülten vaat etmez', () => {
+    const { container } = render(
+      <LandingLayout>
+        <BlogPage />
+      </LandingLayout>,
+    );
+    const metin = container.textContent.toLocaleLowerCase('tr-TR');
+
+    for (const vaat of [
+      'abone',
+      'bülten',
+      'e-postayla gider',
+      'ayda iki yazı',
+      'haber veriyoruz',
+    ]) {
+      expect(metin, `vaat geri geldi: ${vaat}`).not.toContain(vaat);
+    }
+  });
+
+  /**
    * ⚠️ SITEMAP ELLE YAZILMAZ: odalar koridordan, yazılar `BLOG_YAZILARI`ndan
    * türer. Bu test ikisinin de TAMAMININ sitemap'te olduğunu kilitler.
    */

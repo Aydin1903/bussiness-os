@@ -47,7 +47,14 @@ export default function BlogPage() {
         <div className="bolum-bas bolum-bas-sik">
           <span className="etiket">ÖNE ÇIKAN</span>
           <h2 className="d2">Bu ay ne yazdık?</h2>
-          <p className="alt">Ayda iki yazı. Abone olanlara e-postayla gider, kimseye satılmaz.</p>
+          {/*
+            ⚠️ BÜLTEN VAADİ KALDIRILDI (Product Owner, 2026-09-10). Burada "Ayda
+            iki yazı. Abone olanlara e-postayla gider, kimseye satılmaz."
+            yazıyordu — ama gerçek bir bülten sistemi YOK ve "ayda iki yazı"
+            tutulmamış bir takvimdi. Sayfanın altındaki "ABONE OL" bloğu da
+            aynı sebeple kaldırıldı (bkz. aşağı). Bir test bu vaatlerin geri
+            gelmesini engeller.
+          */}
         </div>
 
         <div className="yazilar gir">
@@ -77,21 +84,17 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <section className="bolum kap">
-        <div className="kapanis gir">
-          <span className="etiket">AYDA İKİ YAZI</span>
-          <h2 className="d2">Hafızaya bir şey eklemek ister misiniz?</h2>
-          <p className="alt">
-            Yeni yazılar çıktığında haber veriyoruz. Reklam yok, tek tıkla çıkarsınız.
-          </p>
-          <p>
-            <a className="dg dg-koyu" href="mailto:merhaba@kobiwise.com">
-              ABONE OL
-            </a>
-          </p>
-        </div>
-      </section>
+      {/*
+        ⚠️ "ABONE OL" BLOĞU KALDIRILDI — ÇEVRİLMEDİ (Product Owner, 2026-09-10).
+        Blok "Yeni yazılar çıktığında haber veriyoruz" diyordu ve düğmesi
+        yalnızca bir `mailto:` açıyordu: bir abonelik listesi, bir gönderim
+        sistemi, bir "tek tıkla çık" bağlantısı YOKTU. Tutulamayan bir vaat,
+        kaldırılır.
 
+        ⚠️ "Sorunuz mu var?" diye `merhaba@kobiwise.com`a bağlı bir bloğa
+        ÇEVRİLMEDİ: aynı adres her sayfanın alt bilgisinde zaten "İletişim"
+        olarak duruyor; aynı sayfada ikinci kez vermek yalnızca tekrar olurdu.
+      */}
       <Corridor haric="blog" />
     </>
   );

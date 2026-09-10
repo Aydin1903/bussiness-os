@@ -50,8 +50,19 @@ export interface BlogYazisi {
   readonly kategori: string;
   /** Yayın tarihi, ISO (YYYY-AA-GG) — şemanın `datePublished`ı. */
   readonly tarih: string;
-  /** Giriş paragrafı — meta açıklama olarak da kullanılır (PO talimatı). */
+  /** Sayfada görünen giriş paragrafı — Product Owner'ın metni, DEĞİŞTİRİLMEZ. */
   readonly giris: string;
+  /**
+   * ⚠️ ARAMA SONUCU İÇİN AYRI, KISA ÖZET — `<meta name="description">` ve
+   * `og:description` (Product Owner, 2026-09-10).
+   *
+   * İlk yazımda meta açıklama olarak girişin kendisi kullanılıyordu ve ölçüldü:
+   * girişler ~210–250 karakterdi, Google ise ~155 karakterden sonrasını KESER —
+   * arama sonucunda cümle ortasında "…" ile biten bir özet görünürdü. Giriş
+   * sayfada okura yazılmıştır ve kısaltılmaz; arama sonucu için ayrı bir metin
+   * yazılır. Bir test uzunluğunu (≤ 155) ve girişten FARKLI olduğunu kilitler.
+   */
+  readonly metaAciklama: string;
   /**
    * Kart özeti — girişin KISALTILMIŞI (PO talimatı), yani girişin ilk
    * cümlesi. Bir test onun girişin ÖNEKİ olduğunu kilitler: özet ayrı bir
@@ -70,6 +81,8 @@ export const BLOG_YAZILARI: readonly BlogYazisi[] = [
     tarih: '2026-09-10',
     giris:
       "Çünkü her araç kendi kutusunda çalışıyor — CRM'de müşteri notu, Excel'de fiyat, WhatsApp'ta teslimat detayı. Hiçbiri diğerini görmüyor, tek bağlantı noktası hafızanızdaki insan oluyor. O kişi izne çıkınca ya da işten ayrılınca, bilgi de onunla gidiyor.",
+    metaAciklama:
+      'Bilgi neden hep bir kişide kalıyor? Araçlar birbirini görmüyor, tek bağlantı insan oluyor. Sorunun kaynağını ve tek hafızanın ne demek olduğunu yazdık.',
     ozet: "Çünkü her araç kendi kutusunda çalışıyor — CRM'de müşteri notu, Excel'de fiyat, WhatsApp'ta teslimat detayı.",
     bolumler: [
       {
@@ -107,6 +120,8 @@ export const BLOG_YAZILARI: readonly BlogYazisi[] = [
     tarih: '2026-09-10',
     giris:
       "Çünkü bilmediğini söylemeyen bir yapay zeka, bilmediği bir şeyi uydurur — ve iş kararı bu uydurmaya dayanırsa, hata müşteriye kadar gider. Bir asistanın en değerli özelliği bazen 'elimde yeterli veri yok' diyebilmesidir.",
+    metaAciklama:
+      'Bilmediğini söylemeyen yapay zeka uydurur ve hata müşteriye kadar gider. Güvenilir bir asistan kaynağını gösterir, yeterli veri yoksa bunu açıkça söyler.',
     ozet: 'Çünkü bilmediğini söylemeyen bir yapay zeka, bilmediği bir şeyi uydurur — ve iş kararı bu uydurmaya dayanırsa, hata müşteriye kadar gider.',
     bolumler: [
       {
@@ -144,6 +159,8 @@ export const BLOG_YAZILARI: readonly BlogYazisi[] = [
     tarih: '2026-09-10',
     giris:
       'Dijitalleşme büyük bir yatırımla değil, tek bir alışkanlıkla başlar: her şeyi yazılı hale getirmek. Hangi aracı seçtiğiniz ikinci soru; önce nereye yazdığınızın tutarlı olması gerekir.',
+    metaAciklama:
+      "Dijitalleşme büyük bir yatırımla değil, tek bir alışkanlıkla başlar. Nerede olduğunuzu görün, küçük başlayın: KOBİ'ler için dört adımda nereden başlamalı?",
     ozet: 'Dijitalleşme büyük bir yatırımla değil, tek bir alışkanlıkla başlar: her şeyi yazılı hale getirmek.',
     bolumler: [
       {

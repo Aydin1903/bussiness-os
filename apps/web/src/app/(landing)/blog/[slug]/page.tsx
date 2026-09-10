@@ -26,9 +26,13 @@ export function generateStaticParams(): { slug: string }[] {
 }
 
 /**
- * ⚠️ Açıklama = giriş paragrafı (PO talimatı: "SEO meta-description olarak da
- * kullanılabilir"). Kanonik adres göreli yazılır; `(landing)/layout.tsx`in
- * `metadataBase`i onu `SITE_URL`e mutlaklaştırır.
+ * ⚠️ Açıklama = `metaAciklama`, giriş paragrafı DEĞİL (2026-09-10). İlk
+ * yazımda giriş kullanılıyordu; girişler ~210–250 karakterdi ve Google ~155'ten
+ * sonrasını keser. Sayfada görünen giriş değişmedi — arama sonucu için ayrı,
+ * kısa bir metin yazıldı (gerekçe `blog-posts.ts`te).
+ *
+ * Kanonik adres göreli yazılır; `(landing)/layout.tsx`in `metadataBase`i onu
+ * `SITE_URL`e mutlaklaştırır.
  */
 export async function generateMetadata({ params }: Parametre): Promise<Metadata> {
   const { slug } = await params;
@@ -40,12 +44,12 @@ export async function generateMetadata({ params }: Parametre): Promise<Metadata>
 
   return {
     title: yazi.baslik,
-    description: yazi.giris,
+    description: yazi.metaAciklama,
     alternates: { canonical: `/blog/${yazi.slug}` },
     openGraph: {
       type: 'article',
       title: yazi.baslik,
-      description: yazi.giris,
+      description: yazi.metaAciklama,
       url: `/blog/${yazi.slug}`,
       siteName: 'KobiWise',
       locale: 'tr_TR',
