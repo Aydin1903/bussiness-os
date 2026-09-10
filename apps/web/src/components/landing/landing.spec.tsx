@@ -1118,3 +1118,102 @@ describe('ADR-0054 · 15. hakkında sayfası KOBİ dilinde', () => {
     expect(giris).toContain('üç soru');
   });
 });
+
+/**
+ * ============================================================================
+ * ⚠️ 16. /hakkinda — DÖRT YENİ BÖLÜM VE DÜRÜSTLÜK KİLİTLERİ (PO, 2026-09-10)
+ * ============================================================================
+ * Sayfa "daha detaylı" hale getirildi; bölüm listesi PO ile tek tek
+ * onaylandı. Bu sayfa şirket adına KAMUYA AÇIK bir metindir — aşağıdaki
+ * testler görünüşü değil, sayfanın söz verdiği ve vermediği şeyleri kilitler.
+ */
+describe('ADR-0054 · 16. hakkında sayfasının yeni bölümleri', () => {
+  function sayfa(): HTMLElement {
+    const { container } = render(
+      <LandingLayout>
+        <HakkindaPage />
+      </LandingLayout>,
+    );
+
+    return container;
+  }
+
+  function bolum(baslik: string): HTMLElement | null {
+    const h2 = [...sayfa().querySelectorAll('h2')].find((h) => h.textContent.includes(baslik));
+
+    return h2?.closest('section') ?? null;
+  }
+
+  /**
+   * Son başlık sayfanın değil KORİDORUN başlığıdır (`corridor.tsx`, her oda
+   * sayfasında ortak) — altı hikâye bölümünden SONRA gelmesi de iddianın
+   * parçasıdır: yeni bir bölüm koridorun altına eklenirse sıra bozulur.
+   */
+  it('altı bölüm hikâye sırasıyla durur, koridor en sonda', () => {
+    const basliklar = [...sayfa().querySelectorAll('h2')].map((h) => h.textContent);
+
+    expect(basliklar).toEqual([
+      'Üç soru, üç yıl',
+      'Değişmeyen dört karar',
+      'Bir soru sorduğunuzda ne olur',
+      'Neyi bilerek yapmıyoruz',
+      'Kimin için yaptık',
+      'Sırada ne var',
+      'Diğer odalar',
+    ]);
+  });
+
+  /**
+   * ⚠️ JARGON SAYFANIN HİÇBİR YERİNE DÖNMEZ — 15. blok yalnızca ilkeler
+   * bölümünü tarıyordu; yeni bölümler de aynı kurala tabidir.
+   */
+  it('⚠️ mühendis sözlüğü sayfanın hiçbir yerinde yok', () => {
+    const metin = sayfa().textContent.toLocaleLowerCase('tr-TR');
+
+    for (const jargon of ['port ', 'adaptör', 'izolasyon', 'şema', 'merge', 'sorgu', 'kapsam']) {
+      expect(metin, `sayfada jargon: ${jargon}`).not.toContain(jargon);
+    }
+  });
+
+  /**
+   * ⚠️ YOL HARİTASINDA TARİH YOK — ve bu bölümün kendi cümlesidir ("tarih
+   * vermiyoruz — bir tarih bir sözdür"). Bir yıl, bir ay ya da bir çeyrek
+   * yazıldığı an ürün o tarihe borçlanır ve sayfa kendi sözünü çiğner.
+   */
+  it('⚠️ "Sırada ne var" hiçbir tarih vermez', () => {
+    const metin = (bolum('Sırada ne var')?.textContent ?? '').toLocaleLowerCase('tr-TR');
+
+    expect(metin.length).toBeGreaterThan(100);
+    expect(metin).not.toMatch(/\b20\d\d\b/u);
+    expect(metin).not.toMatch(/\bq[1-4]\b|çeyrek/u);
+    for (const ay of [
+      'ocak',
+      'şubat',
+      'mart',
+      'nisan',
+      'mayıs',
+      'haziran',
+      'temmuz',
+      'ağustos',
+      'eylül',
+      'ekim',
+      'kasım',
+      'aralık',
+    ]) {
+      expect(metin, `yol haritasinda ay adi: ${ay}`).not.toContain(ay);
+    }
+  });
+
+  /**
+   * ⚠️ E-FATURA UYARISI SAYFADAN DÜŞMEZ. ADR-0041'in "en çok yanlış
+   * anlaşılacak sınır" dediği cümledir: üretilen fatura bir PDF'tir, resmi
+   * e-fatura DEĞİLDİR. Bir düzenlemede kısalıp kaybolursa sayfa, ürünün
+   * yapmadığı bir şeyi yapıyormuş gibi okunur.
+   */
+  it('⚠️ sınırlar bölümü e-faturanın resmi olmadığını söyler', () => {
+    const metin = bolum('Neyi bilerek yapmıyoruz')?.textContent ?? '';
+
+    expect(metin).toContain('resmi e-fatura değildir');
+    expect(bolum('Neyi bilerek yapmıyoruz')?.querySelectorAll('.satir')).toHaveLength(4);
+  });
+});
