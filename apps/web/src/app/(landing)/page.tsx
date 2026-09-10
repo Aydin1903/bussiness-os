@@ -237,23 +237,37 @@ export default function LandingPage() {
         kelimelere yapılır; rakamı "yumuşatmak" onu uydurmak olurdu.
       */}
       <section className="kap">
+        {/*
+          ⚠️ DÖRT KART `.bento`nun DOĞRUDAN ÇOCUĞUDUR — sarmalayıcı YOK
+          (Product Owner, 2026-09-10). Eski düzende "13" ve "0" kartları
+          `.yigin` adlı iç içe bir ızgaradaydı; "0" kartı bu yüzden
+          ızgaranın satır hesabının DIŞINDA kalıyor ve 760–1080 px arasında
+          ikinci satıra tek başına düşüyordu. Dört kart aynı kalıptır:
+          RAKAM · METİN · (varsa) DİP ya da FOTOĞRAF.
+        */}
         <div className="bento gir">
-          <div className="kart k-foto">
-            <img
-              src="/brand/mascot-scene-stage.webp"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              width={1254}
-              height={1254}
-            />
-            <div className="ic">
-              <div className="rakam">12</div>
-              <p>Müşteriden faturaya, randevudan stoğa — on iki modülün hepsi ilk günden açık.</p>
+          <div className="kart kart-foto">
+            <div className="rakam">12</div>
+            <p>Müşteriden faturaya, randevudan stoğa — on iki modülün hepsi ilk günden açık.</p>
+            {/*
+              ⚠️ FOTOĞRAF METNİN ALTINDA, ÜSTÜNDE DEĞİL: eskiden rakam ve
+              metin görselin üzerine mutlak konumlu beyaz bir kutuyla
+              yazılıyordu. Artık diğer üç kartla aynı yerde durur ve görsel
+              kartın dibini doldurur.
+            */}
+            <div className="foto">
+              <img
+                src="/brand/mascot-scene-stage.webp"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width={1254}
+                height={1254}
+              />
             </div>
           </div>
 
-          <div className="kart k-gri">
+          <div className="kart">
             <div className="rakam">18</div>
             <p>
               Tek bir soru sorulduğunda on sekiz hafıza kaynağı aynı anda taranır; en alakalı
@@ -262,18 +276,23 @@ export default function LandingPage() {
             <p className="dip">10 YAZDIKLARINIZDAN &nbsp;·&nbsp; 8 GÜNCEL DURUMDAN</p>
           </div>
 
-          <div className="yigin">
-            <div className="kart k-nane">
-              <div className="rakam">13</div>
-              <p>
-                Kayıtlarınızın durduğu on üç bölümün hepsinde aynı kilit var: verilerinize başka
-                hiçbir şirket erişemez. Bu bir vaat değil, sistemin kendi kuralı.
-              </p>
-            </div>
-            <div className="kart k-koyu k-satir">
-              <span className="ad">Tek bir yapay zeka firmasına bağımlılık</span>
-              <span className="rakam">0</span>
-            </div>
+          <div className="kart">
+            <div className="rakam">13</div>
+            <p>
+              Kayıtlarınızın durduğu on üç bölümün hepsinde aynı kilit var: verilerinize başka
+              hiçbir şirket erişemez. Bu bir vaat değil, sistemin kendi kuralı.
+            </p>
+          </div>
+
+          {/*
+            ⚠️ "0" ARTIK DİĞER ÜÇÜYLE AYNI KALIPTA: önce rakam, altında metin.
+            Eskiden tek satırlık bir kartta metin solda, rakam SAĞDA ve daha
+            küçük puntodaydı (38.4 px'e karşı 58.9 px) — dördüncü kart kendi
+            başına ayrı bir bileşen gibi okunuyordu.
+          */}
+          <div className="kart">
+            <div className="rakam">0</div>
+            <p>Tek bir yapay zeka firmasına bağımlılık.</p>
           </div>
         </div>
       </section>

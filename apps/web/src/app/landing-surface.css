@@ -992,8 +992,27 @@ html:has([data-surface='landing']) {
 
   /*
    * ==========================================================================
-   * BENTO — farklı işlemli kartlar bir arada (referansın deseni)
+   * BENTO — DÖRT KART, TEK IZGARA, TEK KALIP (Product Owner, 2026-09-10)
    * ==========================================================================
+   * ⚠️ ESKİ DÜZEN ÖLÇÜLDÜ VE DÖRT AYRI KUSUR TAŞIYORDU (1280 px):
+   *   1. yükseklikler 345 / 345 / 241 / 90 — dört kart dört ayrı boy;
+   *   2. "0" kartı `.yigin` adlı İÇ İÇE bir ızgaradaydı ve diğer üçü 120'de
+   *      başlarken o 375'te başlıyordu — 760–1080 px arasında ise ikinci
+   *      satıra TEK BAŞINA düşüyordu;
+   *   3. fotoğraflı kartın metni görselin ÜSTÜNE mutlak konumlu beyaz bir
+   *      kutuydu ("yapıştırma" izlenimi);
+   *   4. "0" rakamı 38.4 px ve sağa yaslıydı, diğer üçü 58.9 px ve solda.
+   *
+   * ⚠️ DÖRDÜNÜN ORTAK KÖKÜ TEKTİ: kartların HER BİRİ ayrı bir kalıptı
+   * (`k-foto`, `k-gri`, `k-nane`, `k-koyu k-satir`) ve her kalıp kendi
+   * dolgusunu, rengini, rakam boyunu yazıyordu. Tek tek düzeltmek dört
+   * kalıbı hizalamaya çalışmak olurdu; doğru çözüm KALIBI TEKE İNDİRMEK:
+   * her kart aynı üç parçadır — RAKAM · METİN · (varsa) DİP.
+   *
+   * ⚠️ İÇ İÇE IZGARA KALDIRILDI: dört kart artık `.bento`nun DOĞRUDAN
+   * çocuğudur. Bir kartı ayrı bir sarmalayıcıya koymak, onu ızgaranın
+   * satır/sütun hesabının DIŞINA çıkarmaktı — "0"ın kopmasının mekanik
+   * sebebi tam olarak buydu.
    */
   .bento {
     display: grid;
@@ -1002,132 +1021,120 @@ html:has([data-surface='landing']) {
     margin-top: 26px;
   }
 
+  /*
+   * ⚠️ `grid-auto-rows: 1fr` — İKİ SATIRA BÖLÜNDÜĞÜNDE İKİ SATIR DA AYNI BOY.
+   * Yalnızca `stretch` bir satırın İÇİNİ eşitler; 2×2 düzende üst ve alt
+   * satır yine farklı boyda kalırdı ve "dört kart tutarlı yükseklikte"
+   * iddiası yalnızca geniş ekranda doğru olurdu.
+   */
   @media (width >= 760px) {
     .bento {
       grid-template-columns: repeat(2, 1fr);
+      grid-auto-rows: 1fr;
     }
   }
 
   @media (width >= 1080px) {
     .bento {
-      grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: minmax(0, auto);
+      grid-template-columns: repeat(4, 1fr);
     }
   }
 
+  /*
+   * ⚠️ TEK YÜZEY, TEK MÜREKKEP — RENK MANTIĞI SADELEŞTİRİLDİ.
+   *
+   * Eski bölümde dört kart dört ayrı zemindeydi (fotoğraf üstünde beyaz ·
+   * gri · nane · siyah) ve bu bir hiyerarşi değil bir KARIŞIMDI: hangi kartın
+   * neden farklı renkte olduğunu söyleyen bir kural yoktu. Artık dördü de
+   * aynı gri yüzeydir ve aynı mürekkeple yazılır; bölümdeki TEK renk
+   * fotoğraftan gelir.
+   *
+   * ⚠️ Rakamlar bilinçli olarak `--lp-toprak` DEĞİL: hemen üstteki ölçü
+   * şeridi o rengi taşıyor. İki komşu bölüm aynı vurguyu kullansaydı ikisi
+   * de sıradanlaşırdı; şerit renkli ve küçük, bento nötr ve büyük.
+   */
   .kart {
+    display: flex;
+    flex-direction: column;
     border-radius: var(--r-m);
-    padding: 34px 32px 36px;
+    background: var(--lp-gri);
+    padding: 30px 28px 32px;
+    overflow: hidden;
   }
 
+  /*
+   * ⚠️ DÖRT RAKAM TEK KURAL — hiçbir kartın kendi rakam boyu YOK. Eski
+   * `.k-satir .rakam` istisnası (38.4 px) kaldırıldı; bir test artık dört
+   * rakamın computed değil KAYNAK kuralını tek tutuyor.
+   */
   .kart .rakam {
-    font-size: clamp(46px, 4.6vw, 68px);
+    font-size: clamp(46px, 4.2vw, 64px);
     font-weight: 300;
     letter-spacing: -0.04em;
     line-height: 1;
+    color: var(--lp-ink);
   }
 
   .kart p {
-    margin-top: 16px;
-    font-size: 15.5px;
+    margin-top: 14px;
+    font-size: 15px;
     line-height: 1.55;
+    color: var(--lp-ink-2);
   }
 
-  /* Gri kart bir sütundur; ölçü satırı DİBE yapışır, altta ölü boşluk kalmaz. */
-  .k-gri {
-    display: flex;
-    flex-direction: column;
-    background: var(--lp-gri);
-  }
-
-  .k-gri .dip {
+  /* Dip satırı kartın TABANINA yapışır — kart uzasa da ortada asılı kalmaz. */
+  .kart .dip {
     margin-top: auto;
-    padding-top: 28px;
+    padding-top: 22px;
     font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.14em;
+    line-height: 1.6;
     color: var(--lp-ink-3);
   }
 
-  .k-foto {
+  /*
+   * ⚠️ FOTOĞRAF KARTIN KENDİ ALANINDA, METNİN ÜSTÜNDE DEĞİL.
+   *
+   * Rakam ve metin diğer üç kartla AYNI yerde durur (aynı üst dolgu), yani
+   * dört rakam tek bir çizgiden başlar. Görsel kartın ALT kısmındaki boşluğu
+   * doldurur — diğer kartlarda o boşluğu dip satırı ya da yalnızca nefes
+   * taşır.
+   *
+   * ⚠️ Negatif kenar boşluğu dolgunun İÇİNDEN taşmak içindir: görsel kartın
+   * iki yanına ve dibine KADAR uzanır, köşeleri kartın `overflow: hidden`
+   * yarıçapıyla kırpılır. Dolgulu bırakılsaydı görsel kartın içinde ikinci
+   * bir kart gibi dururdu — eski "yapıştırma" izleniminin başka bir hâli.
+   */
+  .kart-foto .foto {
     position: relative;
+    flex: 1 1 auto;
+    min-height: 150px;
+    margin: 24px -28px -32px;
     overflow: hidden;
-    padding: 0;
-    min-height: 300px;
   }
 
-  .k-foto img {
+  /*
+   * ⚠️ GÖRSEL AKIŞTAN ÇIKARILIR — yoksa KARTIN BOYUNU O BELİRLER (ölçüldü).
+   *
+   * İlk yazımda görsel akıştaydı (`height: 100%`). Ama kabın yüksekliği
+   * `flex: 1` ile BELİRSİZ olduğu için yüzde çözülemedi ve tarayıcı görselin
+   * kendi oranına düştü: 1254×1254 kare → 284 px genişlikte 284 px boy. Dört
+   * kart da ona eşitlendi ve bento **475 px** oldu — metnin gerektirdiğinin
+   * çok üstünde. Hata sessizdi: dört kart yine eşit, yine hizalı; yalnızca
+   * gereksiz uzun.
+   *
+   * Mutlak konumla görsel yalnızca kendisine AYRILAN boşluğu doldurur;
+   * kartın boyunu artık en uzun METİN belirler (fotoğraflı kartın tabanı
+   * `min-height: 150px`).
+   */
+  .kart-foto .foto img {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  .k-foto .ic {
-    position: absolute;
-    left: 22px;
-    right: 22px;
-    top: 22px;
-    background: #fff;
-    border-radius: var(--r-s);
-    padding: 26px 24px 28px;
-  }
-
-  /*
-   * ⚠️ Beyaz kutu fotoğrafın üstündedir ve `.kart`ın rengini MİRAS ALMAZ olması
-   * gerekir: prototipte bu iki satır `style="color:var(--ink)"` diye satır içi
-   * yazılıydı. Satır içi kalsaydı token adı (`--ink-2`) uygulamanın kök
-   * kümesinde bulunmadığı için SESSİZCE çözülemez olurdu — metin miras alınan
-   * beyaz renkte, beyaz kutunun üstünde görünmez kalırdı.
-   */
-  .k-foto .ic .rakam {
-    color: var(--lp-ink);
-  }
-
-  .k-foto .ic p {
-    color: var(--lp-ink-2);
-  }
-
-  .k-nane {
-    background: var(--nane);
-    color: #06301e;
-  }
-
-  .k-koyu {
-    background: var(--lp-ink);
-    color: #fff;
-  }
-
-  .k-gri p {
-    color: var(--lp-ink-2);
-  }
-
-  .k-koyu p {
-    color: rgb(255 255 255 / 66%);
-  }
-
-  .k-satir {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 26px 32px;
-  }
-
-  .k-satir .ad {
-    font-size: 15.5px;
-    font-weight: 500;
-  }
-
-  .k-satir .rakam {
-    font-size: clamp(34px, 3vw, 44px);
-  }
-
-  .yigin {
-    display: grid;
-    gap: 14px;
-    grid-template-rows: 1fr auto;
+    object-position: 50% 42%;
   }
 
   /*
@@ -2363,30 +2370,21 @@ html:has([data-surface='landing']) {
    *   dokunuştan sonra ÜZERİNDE KALIR; kart eğik donardı.
    */
   @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
-    /* Fotoğraflı ve gri kart — bento'nun iki geniş yüzeyi. */
-    .k-foto:hover {
-      transform: rotate(-1.6deg) scale(1.018);
-      z-index: 2;
-    }
-
-    .k-gri:hover {
-      transform: rotate(1.5deg) scale(1.018);
-      z-index: 2;
-    }
-
-    /* Nane kart daha KISA (genişliği aynı) — açı yalnızca bir tık büyür. */
-    .k-nane:hover {
-      transform: rotate(1.8deg) scale(1.022);
-      z-index: 2;
-    }
-
     /*
-     * ⚠️ Tek satırlık koyu kart setin en KISASI ama en DARI DEĞİL — yukarıdaki
-     * ölçümün kaynağı bu kart. Nane kartla aynı açıyı paylaşır.
+     * ⚠️ BENTO ARTIK DÖRT EŞİT KARTTIR ve oda kartlarının deseniyle eğilir:
+     * dönüşümlü, tek açı. Eski düzende dört kartın dört ayrı boyu vardı ve
+     * her birine ayrı bir açı hesaplanmıştı (en uzun kenar kuralı, yukarıda);
+     * kartlar eşitlendiğinde ayrı açıların gerekçesi de ortadan kalktı.
+     * 1280 px'te kart ~284 px genişliğinde — oda kartından (~317 px) biraz
+     * dar ama daha uzun, bu yüzden açı bir tık düşük: 1.8°.
      */
-    .k-satir:hover {
-      transform: rotate(-1.8deg) scale(1.03);
+    .bento .kart:hover {
+      transform: rotate(-1.8deg) scale(1.022);
       z-index: 2;
+    }
+
+    .bento .kart:nth-child(even):hover {
+      transform: rotate(1.8deg) scale(1.022);
     }
 
     /*

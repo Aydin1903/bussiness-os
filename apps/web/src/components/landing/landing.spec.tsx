@@ -948,3 +948,93 @@ describe('ADR-0054 · 13. başlık satır yüksekliği', () => {
     expect(Number(mt?.[1])).toBeGreaterThan(0);
   });
 });
+
+/**
+ * ============================================================================
+ * ⚠️ 14. BENTO TEK IZGARA, TEK KALIP (Product Owner, 2026-09-10)
+ * ============================================================================
+ * Eski bento dört AYRI kalıptı ve dört kusuru gerçek tarayıcıda ölçüldü
+ * (1280 px): yükseklikler 345/345/241/90 · "0" kartı iç içe bir ızgarada,
+ * diğerleri 120'de başlarken o 375'te · fotoğraflı kartın metni görselin
+ * ÜSTÜNDE mutlak konumlu bir kutu · "0" rakamı 38.4 px ve sağda, diğerleri
+ * 58.9 px ve solda.
+ *
+ * ⚠️ Bu testler DÜZENİN KENDİSİNİ kilitler, çünkü dördü de sessiz kusurdu:
+ * ekran çalışıyordu, lint susuyordu, hiçbir test kırmızı yanmıyordu.
+ */
+describe('ADR-0054 · 14. bento tek ızgara', () => {
+  function bentoEl(): HTMLElement | null {
+    const { container } = render(
+      <LandingLayout>
+        <LandingPage />
+      </LandingLayout>,
+    );
+
+    return container.querySelector('.bento');
+  }
+
+  /**
+   * ⚠️ "0" KARTININ KOPMASININ MEKANİK SEBEBİ BİR SARMALAYICIYDI (`.yigin`):
+   * iç içe ızgaradaki kart, dış ızgaranın satır/sütun hesabına girmez. Dört
+   * kart `.bento`nun DOĞRUDAN çocuğu olmalıdır.
+   */
+  it('⚠️ dört kart da ızgaranın DOĞRUDAN çocuğudur — sarmalayıcı yok', () => {
+    const cocuklar = [...(bentoEl()?.children ?? [])];
+
+    expect(cocuklar).toHaveLength(4);
+    for (const kart of cocuklar) {
+      expect(kart.classList.contains('kart')).toBe(true);
+    }
+  });
+
+  /**
+   * ⚠️ FOTOĞRAF METNİN ALTINDADIR — üstüne bindirilmiş bir kutu değil. DOM
+   * sırası bunu söyler: rakam ve metin önce, görsel sonra. Eski düzende
+   * metin görselin ÜZERİNE mutlak konumlu bir `.ic` kutusuyla yazılıyordu.
+   */
+  it('⚠️ fotoğraflı kartta metin görselin ÜSTÜNE yazılmaz', () => {
+    const kart = bentoEl()?.querySelector('.kart-foto');
+
+    expect(kart).not.toBeNull();
+    expect(kart?.querySelector('.ic')).toBeNull();
+
+    const sira = [...(kart?.children ?? [])].map((el) =>
+      el.classList.contains('rakam')
+        ? 'rakam'
+        : el.classList.contains('foto')
+          ? 'foto'
+          : el.tagName,
+    );
+
+    expect(sira).toEqual(['rakam', 'P', 'foto']);
+  });
+
+  /**
+   * ⚠️ DÖRT RAKAM TEK KURALDAN BOYANIR. Eski `.k-satir .rakam` istisnası
+   * "0"ı 38.4 px'e düşürüyordu. Kaynakta `.kart .rakam` DIŞINDA bir rakam
+   * boyu kuralı olursa dört rakam yeniden ayrışır.
+   */
+  it('⚠️ kart rakamlarının TEK bir boyut kuralı vardır', () => {
+    const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    const kurallar = [...css.matchAll(/([^{}]*\.rakam)\s*\{/gu)]
+      .map((m) => (m[1] ?? '').trim())
+      .filter((secici) => secici.includes('.kart') || secici.includes('.k-'));
+
+    expect(kurallar).toEqual(['.kart .rakam']);
+  });
+
+  /**
+   * ⚠️ 2×2 DÜZENDE İKİ SATIR DA AYNI BOY. Yalnızca `stretch` bir satırın
+   * İÇİNİ eşitler; `grid-auto-rows: 1fr` olmadan üst ve alt satır farklı
+   * boyda kalırdı ve "dört kart tutarlı yükseklikte" iddiası yalnızca geniş
+   * ekranda doğru olurdu.
+   */
+  it('⚠️ iki sütunlu düzende satırlar eşit boy (`grid-auto-rows: 1fr`)', () => {
+    const css = readFileSync(join(SRC, 'app', 'landing-surface.css'), 'utf8');
+
+    expect(css).toMatch(/\.bento\s*\{[^}]*grid-auto-rows:\s*1fr/u);
+  });
+});
