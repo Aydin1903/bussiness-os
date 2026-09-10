@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-import { BLOG_YAZILARI } from '@/components/landing/blog-posts';
+import { BLOG_YAZILARI, sonDegisiklik } from '@/components/landing/blog-posts';
 import { DOORS } from '@/components/landing/corridor';
 import { SITE_URL } from '@/components/landing/site-url';
 
@@ -17,9 +17,14 @@ import { SITE_URL } from '@/components/landing/site-url';
  * · yazılar `BLOG_YAZILARI`ndan gelir — yeni bir yazı eklendiği an girer.
  *
  * ⚠️ `lastModified` YALNIZCA yazılarda vardır, çünkü yalnızca onların
- * ÖLÇÜLMÜŞ bir tarihi var (yayın tarihi). Oda sayfalarına derleme zamanını
- * yazmak her deploy'da "bu sayfa değişti" demek olurdu — arama motoruna
- * doğru olmayan bir bilgi.
+ * ÖLÇÜLMÜŞ bir tarihi var. Oda sayfalarına derleme zamanını yazmak her
+ * deploy'da "bu sayfa değişti" demek olurdu — arama motoruna doğru olmayan
+ * bir bilgi.
+ *
+ * ⚠️ Değer yayın tarihi değil GERÇEK SON DEĞİŞİKLİKTİR (`sonDegisiklik`):
+ * bazı yazıların yayın tarihi Product Owner kararıyla editoryal olarak
+ * geçmişe atıldı (bkz. `blog-posts.ts`); `lastmod` onların gerçek tarihini
+ * söyler.
  *
  * `/app` ve kimlik akışları BURADA YOKTUR: onlar pazarlama sayfası değil;
  * `robots.ts` de onları taramadan çıkarır.
@@ -28,7 +33,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const odalar = DOORS.map((kapi) => ({ url: `${SITE_URL}${kapi.href}` }));
   const yazilar = BLOG_YAZILARI.map((yazi) => ({
     url: `${SITE_URL}/blog/${yazi.slug}`,
-    lastModified: yazi.tarih,
+    lastModified: sonDegisiklik(yazi),
   }));
 
   return [...odalar, ...yazilar];

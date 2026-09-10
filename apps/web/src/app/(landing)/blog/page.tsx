@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import {
   BLOG_RENGI,
-  BLOG_YAZILARI,
+  YAZILAR_YENIDEN_ESKIYE,
   okumaSuresi,
   tarihEtiketi,
 } from '@/components/landing/blog-posts';
@@ -45,8 +45,13 @@ export default function BlogPage() {
 
       <section className="kap">
         <div className="bolum-bas bolum-bas-sik">
-          <span className="etiket">ÖNE ÇIKAN</span>
-          <h2 className="d2">Bu ay ne yazdık?</h2>
+          {/*
+            ⚠️ BAŞLIK "BU AY NE YAZDIK?" İDİ — ağustos tarihli yazılar listeye
+            girince doğru olmaktan çıktı ve bir takvim iddiası olarak
+            yanlışlaşırdı. Tarihten bağımsız bir başlık seçildi.
+          */}
+          <span className="etiket">YAZILAR</span>
+          <h2 className="d2">Son yazılar</h2>
           {/*
             ⚠️ BÜLTEN VAADİ KALDIRILDI (Product Owner, 2026-09-10). Burada "Ayda
             iki yazı. Abone olanlara e-postayla gider, kimseye satılmaz."
@@ -58,8 +63,8 @@ export default function BlogPage() {
         </div>
 
         <div className="yazilar gir">
-          {BLOG_YAZILARI.map((yazi, sira) => {
-            /* İlk yazı öne çıkar: koyu yüzey + "YAZIYI OKU →" daveti. */
+          {YAZILAR_YENIDEN_ESKIYE.map((yazi, sira) => {
+            /* En yeni yazı öne çıkar: koyu yüzey + "YAZIYI OKU →" daveti. */
             const one = sira === 0;
 
             return (

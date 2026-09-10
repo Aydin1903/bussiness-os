@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { BLOG_YAZILARI, yaziBul } from '@/components/landing/blog-posts';
+import { BLOG_YAZILARI, sonDegisiklik, yaziBul } from '@/components/landing/blog-posts';
 import { Makale } from '@/components/landing/makale';
 
 /**
@@ -54,6 +54,8 @@ export async function generateMetadata({ params }: Parametre): Promise<Metadata>
       siteName: 'KobiWise',
       locale: 'tr_TR',
       publishedTime: yazi.tarih,
+      // Gerçek son değişiklik — editoryal olarak geçmişe atılmış yayın tarihinden ayrı.
+      modifiedTime: sonDegisiklik(yazi),
       images: [{ url: yazi.gorsel.src, width: 1254, height: 1254, alt: yazi.gorsel.alt }],
     },
   };

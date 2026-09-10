@@ -14,7 +14,13 @@ import QuestionsPage from '@/app/(landing)/sorular/page';
 import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 
-import { BLOG_YAZILARI, makaleSemasi, yaziBul } from './blog-posts';
+import {
+  BLOG_YAZILARI,
+  YAZILAR_YENIDEN_ESKIYE,
+  makaleSemasi,
+  sonDegisiklik,
+  yaziBul,
+} from './blog-posts';
 import { DOORS } from './corridor';
 import { Makale } from './makale';
 import { LANDING_MODULES, moduleNo } from './modules';
@@ -1297,8 +1303,36 @@ describe('ADR-0054 · 17. blog yazıları, sitemap ve robots', () => {
     return container;
   }
 
-  it('üç yazı var', () => {
-    expect(BLOG_YAZILARI).toHaveLength(3);
+  it('altı yazı var', () => {
+    expect(BLOG_YAZILARI).toHaveLength(6);
+  });
+
+  /**
+   * ⚠️ LİSTE YENİDEN ESKİYE SIRALANIR ve öne çıkan kart EN YENİ yazıdır. Dizi
+   * sırasına güvenilseydi yazılar eklendikçe "öne çıkan" sessizce eski bir
+   * yazıya dönüşürdü.
+   */
+  it('⚠️ blog listesi yeniden eskiye, öne çıkan en yeni yazı', () => {
+    const { container } = render(
+      <LandingLayout>
+        <BlogPage />
+      </LandingLayout>,
+    );
+    const hrefler = [...container.querySelectorAll('.yazi')].map((k) => k.getAttribute('href'));
+    const tarihler = YAZILAR_YENIDEN_ESKIYE.map((y) => y.tarih);
+
+    expect(hrefler).toEqual(YAZILAR_YENIDEN_ESKIYE.map((y) => `/blog/${y.slug}`));
+    expect(tarihler).toEqual([...tarihler].sort().reverse());
+    expect(container.querySelector('.yazi-one')?.getAttribute('href')).toBe(hrefler[0]);
+  });
+
+  /**
+   * ⚠️ Bazı yayın tarihleri editoryaldir (PO kararı, `blog-posts.ts`); gerçek
+   * tarih `guncelleme`de durur. Bir değişiklik yayından ÖNCE olamaz — tersi,
+   * şemada ve sitemap'te kendi kendisiyle çelişen bir tarih çifti olurdu.
+   */
+  it.each(HER_YAZI)('%s — son değişiklik yayın tarihinden önce değil', (_slug, yazi) => {
+    expect(sonDegisiklik(yazi) >= yazi.tarih).toBe(true);
   });
 
   /**
@@ -1358,6 +1392,7 @@ describe('ADR-0054 · 17. blog yazıları, sitemap ve robots', () => {
       '@type': 'Article',
       headline: yazi.baslik,
       datePublished: yazi.tarih,
+      dateModified: sonDegisiklik(yazi),
       author: { '@type': 'Organization', name: 'KobiWise' },
       image: [`${SITE_URL}${yazi.gorsel.src}`],
       mainEntityOfPage: { '@id': `${SITE_URL}/blog/${yazi.slug}` },
@@ -1449,7 +1484,8 @@ describe('ADR-0054 · 17. blog yazıları, sitemap ve robots', () => {
       const girdi = girdiler.find((g) => g.url === `${SITE_URL}/blog/${yazi.slug}`);
 
       expect(girdi, `sitemapte yok: ${yazi.slug}`).toBeDefined();
-      expect(girdi?.lastModified).toBe(yazi.tarih);
+      // ⚠️ Yayın tarihi değil GERÇEK son değişiklik — bazı yayın tarihleri editoryal.
+      expect(girdi?.lastModified).toBe(sonDegisiklik(yazi));
     }
     expect(adresler.every((adres) => adres.startsWith(SITE_URL))).toBe(true);
     expect(new Set(adresler).size).toBe(adresler.length);
