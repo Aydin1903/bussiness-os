@@ -2094,6 +2094,23 @@ html:has([data-surface='landing']) {
     border-radius: var(--r-m);
     background: var(--lp-gri);
     padding: 28px 26px 30px;
+    transition:
+      background 0.25s var(--lp-ease),
+      box-shadow 0.42s var(--lp-ease);
+  }
+
+  /*
+   * ⚠️ HOVER GERİ GELDİ — ÇÜNKÜ KARTLAR ARTIK GERÇEKTEN BİR YERE GİDİYOR
+   * (2026-09-10). Kural, detay sayfası yokken bilerek ÇIKARILMIŞTI: imleç
+   * üzerine gelince kart değişir, kullanıcı tıklanabilir sanır, tıklar ve
+   * hiçbir şey olmazdı. Görsel bir vaat bir vaattir; artık tutuluyor.
+   *
+   * Hareket (eğim) yok, yalnızca yüzey ve kalkış gölgesi: bu kartlar bir
+   * listedir ve okunmak için vardır — bento'nun oyunbazlığı burada fazla olurdu.
+   */
+  .yazi:hover {
+    background: var(--lp-gri-2);
+    box-shadow: var(--lp-kalk);
   }
 
   .yazi .ust-sat {
@@ -2132,14 +2149,30 @@ html:has([data-surface='landing']) {
     color: var(--lp-ink-3);
   }
 
-  /* Öne çıkan yazı — koyu, iki sütun genişliğinde. */
+  /*
+   * Öne çıkan yazı — koyu yüzey. ⚠️ ARTIK İKİ SÜTUN KAPLAMAZ: o kural yedi
+   * yer tutucu kart içindi. Üç gerçek yazıda üç sütunlu ızgarada öne çıkan
+   * iki sütun kaplasaydı üçüncü yazı ikinci satıra TEK BAŞINA düşerdi.
+   * Öne çıkma artık yalnızca yüzeyle kurulur (bento'daki vurgu kartının aynı
+   * mantığı) — genişlikle değil.
+   */
   .yazi-one {
     background: var(--lp-ink);
     color: #fff;
   }
 
-  @media (width >= 760px) {
-    .yazi-one {
+  /* `.yazi:hover`in gri yüzeyi koyu kartı SİLMESİN — yalnızca gölge alır. */
+  .yazi-one:hover {
+    background: var(--lp-ink);
+  }
+
+  /*
+   * ⚠️ İKİ SÜTUNLU DÜZENDE YETİM KART: tek sayıda yazı iki sütuna dizilince
+   * sonuncusu satırda tek başına kalır ve yanında boş bir delik bırakır.
+   * Sonuncu kart TEK SIRADAYSA (yani yetimse) satırın tamamını alır.
+   */
+  @media (760px <= width < 1080px) {
+    .yazi:last-child:nth-child(odd) {
       grid-column: span 2;
     }
   }
@@ -2156,6 +2189,82 @@ html:has([data-surface='landing']) {
   .yazi-one h3 {
     font-size: clamp(22px, 2.4vw, 32px);
     font-weight: 500;
+  }
+
+  /*
+   * ==========================================================================
+   * BLOG YAZISI — `/blog/[slug]` (Product Owner, 2026-09-10)
+   * ==========================================================================
+   * ⚠️ OKUMA SÜTUNU DARDIR (760 px ≈ 68 karakter) AMA SOLA YASLIDIR: oda
+   * başlığı (H1 + giriş) kabın sol kenarından başlıyor; gövde ortalansaydı
+   * başlık solda, metin ortada iki ayrı hizada dururdu. Tek sol kenar, tek
+   * okuma çizgisi.
+   */
+  .makale .makale-kunye,
+  .makale-gorsel,
+  .makale-bolum {
+    max-width: 760px;
+  }
+
+  /*
+   * ⚠️ Oda başlığının H1'i `15ch` ile sınırlıdır — oda adları kısadır
+   * ("Uzun yolu tek başına yürümek."). Yazı başlıkları 47 karaktere kadar
+   * çıkıyor ve 15ch'de DÖRT satıra bölünürdü. Genişletme YALNIZCA başlığın
+   * hemen ardından bir makale geldiğinde uygulanır; dört oda sayfası etkilenmez.
+   */
+  .oda-bas:has(+ .makale) h1 {
+    max-width: 24ch;
+  }
+
+  .oda-bas:has(+ .makale) .alt {
+    max-width: 62ch;
+  }
+
+  /* ⚠️ `.makale p`nin (0,1,1) boyutunu ve rengini ezmek için (0,2,0). */
+  .makale .makale-kunye {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    margin-top: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    line-height: 1.6;
+    color: var(--lp-ink-3);
+  }
+
+  .makale-gorsel {
+    margin: 26px 0 0;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-m);
+    overflow: hidden;
+    background: var(--lp-toprak);
+  }
+
+  .makale-gorsel img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .makale-bolum {
+    margin-top: clamp(44px, 5vw, 64px);
+  }
+
+  .makale h2 {
+    font-size: clamp(24px, 2.4vw, 32px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .makale p {
+    margin-top: 18px;
+    font-size: clamp(16.5px, 1.25vw, 18px);
+    line-height: 1.75;
+    color: var(--lp-ink-2);
+    text-wrap: pretty;
   }
 
   /* --------------------------------------------------------------- koridor */

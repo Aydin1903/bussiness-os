@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { render, screen } from '@testing-library/react';
@@ -11,7 +11,14 @@ import ModulesPage from '@/app/(landing)/moduller/page';
 import LandingPage from '@/app/(landing)/page';
 import QuestionsPage from '@/app/(landing)/sorular/page';
 
+import robots from '@/app/robots';
+import sitemap from '@/app/sitemap';
+
+import { BLOG_YAZILARI, makaleSemasi, yaziBul } from './blog-posts';
+import { DOORS } from './corridor';
+import { Makale } from './makale';
 import { LANDING_MODULES, moduleNo } from './modules';
+import { SITE_URL } from './site-url';
 import { SLOGAN_BAS, SLOGAN_SON } from './slogan';
 
 /**
@@ -332,11 +339,17 @@ describe('ADR-0054 · 5. bağlantılar', () => {
     expect(hedefler).toEqual(['/login', '/register']);
   });
 
-  it('⚠️ blog kartları BAĞLANTI DEĞİLDİR — detay sayfası henüz yok', () => {
+  it('⚠️ blog kartları GERÇEK bir yazıya bağlanır — ölü kart yok', () => {
     /*
-     * ⚠️ Bu test "yarısı yapıldı" hâlinin sessizce yaşamasını engeller: biri
-     * kartları `<Link>`e çevirirse ve detay rotası hâlâ yoksa test kırmızı
-     * yanar. Detay sayfası yazıldığı gün bu test TERSİNE ÇEVRİLİR — silinmez.
+     * ⚠️ TERSİNE ÇEVRİLDİ, SİLİNMEDİ (2026-09-10) — bu testin eski hâli
+     * _"kartlar BAĞLANTI DEĞİLDİR, detay sayfası henüz yok"_ diyordu ve kendi
+     * yorumu bugünü öngörmüştü: _"Detay sayfası yazıldığı gün bu test TERSİNE
+     * ÇEVRİLİR."_ Detay sayfası yazıldı.
+     *
+     * Korunan niyet aynı: "yarısı yapıldı" hâli sessizce yaşamasın. Eskiden
+     * bu, bağlantının VAR OLMAMASI demekti; bugün her bağlantının VAR OLAN bir
+     * yazıya gitmesi demek. Kart sayısı yazı sayısına eşittir — var olmayan
+     * bir yazının kartı (eski yedi yer tutucu gibi) listeye giremez.
      */
     const { container } = render(
       <LandingLayout>
@@ -344,11 +357,16 @@ describe('ADR-0054 · 5. bağlantılar', () => {
       </LandingLayout>,
     );
 
-    const kartlar = container.querySelectorAll('.yazi');
+    const kartlar = [...container.querySelectorAll('.yazi')];
+    const sluglar = new Set(BLOG_YAZILARI.map((yazi) => `/blog/${yazi.slug}`));
 
-    expect(kartlar.length).toBeGreaterThan(0);
+    expect(kartlar).toHaveLength(BLOG_YAZILARI.length);
     for (const kart of kartlar) {
-      expect(kart.tagName).toBe('ARTICLE');
+      expect(kart.tagName).toBe('A');
+      expect(
+        sluglar.has(kart.getAttribute('href') ?? ''),
+        'kart var olmayan bir yaziya gidiyor',
+      ).toBe(true);
     }
   });
 
@@ -1251,5 +1269,175 @@ describe('ADR-0054 · 16. hakkında sayfasının yeni bölümleri', () => {
       expect(metin, `rakip markasi: ${marka}`).not.toContain(marka);
     }
     expect(metin).not.toMatch(/\bsap\b/u);
+  });
+});
+
+/**
+ * ============================================================================
+ * ⚠️ 17. BLOG YAZILARI · SITEMAP · ROBOTS (Product Owner, 2026-09-10)
+ * ============================================================================
+ * Üç yazı `/blog/[slug]` altında yayında. ⚠️ `robots.txt` ve `sitemap.xml`
+ * BU İŞTE İLK KEZ yazıldı: görev "önceki işte kurulan altyapı" diyordu, ama
+ * ölçüldüğünde ikisi de prod'da 404'tü ve git geçmişinde hiç yoktu.
+ *
+ * Testler görünüşü değil, arama motoruna ve okura verilen SÖZLERİ kilitler:
+ * tek H1, giriş birebir, şema alanları, her yazının sitemap'te olması ve
+ * robots'un blogu kapatmaması.
+ */
+describe('ADR-0054 · 17. blog yazıları, sitemap ve robots', () => {
+  const HER_YAZI = BLOG_YAZILARI.map((yazi) => [yazi.slug, yazi] as const);
+
+  function ciz(yazi: (typeof BLOG_YAZILARI)[number]): HTMLElement {
+    const { container } = render(
+      <LandingLayout>
+        <Makale yazi={yazi} nonce="test-nonce" />
+      </LandingLayout>,
+    );
+
+    return container;
+  }
+
+  it('üç yazı var', () => {
+    expect(BLOG_YAZILARI).toHaveLength(3);
+  });
+
+  /**
+   * ⚠️ Slug bir URL'dir: Türkçe karakter ("ş", "ı") ya da büyük harf taşısaydı
+   * tarayıcı onu yüzde kodlamasıyla (`%C5%9F`) gösterir, paylaşılan bağlantı
+   * okunmaz olurdu.
+   */
+  it.each(HER_YAZI)('%s — slug yalnızca küçük ASCII harf, rakam ve tire', (slug) => {
+    expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+  });
+
+  /** Kart özeti girişin KISALTILMIŞIDIR (PO talimatı) — ayrı bir metin değil. */
+  it.each(HER_YAZI)('%s — özet girişin önekidir', (_slug, yazi) => {
+    expect(yazi.giris.startsWith(yazi.ozet)).toBe(true);
+    expect(yazi.ozet.length).toBeLessThan(yazi.giris.length);
+  });
+
+  it.each(HER_YAZI)('%s — tek H1 = başlık, makalenin H2leri = bölümler', (_slug, yazi) => {
+    const kap = ciz(yazi);
+    const h1 = [...kap.querySelectorAll('h1')];
+
+    expect(h1).toHaveLength(1);
+    expect(h1[0]?.textContent).toBe(yazi.baslik);
+    expect([...kap.querySelectorAll('article h2')].map((h) => h.textContent)).toEqual(
+      yazi.bolumler.map((bolum) => bolum.baslik),
+    );
+  });
+
+  /** ⚠️ PO: giriş paragrafı "değiştirme". Karakterine kadar kilitli. */
+  it.each(HER_YAZI)('%s — giriş paragrafı BİREBİR görünür', (_slug, yazi) => {
+    expect(ciz(yazi).querySelector('.oda-bas .alt')?.textContent).toBe(yazi.giris);
+  });
+
+  it.each(HER_YAZI)('%s — "Ücretsiz Başla" kayda gider, şapkalı "â" yok', (_slug, yazi) => {
+    const kap = ciz(yazi);
+
+    expect(kap.querySelector('.kapanis a[href="/register"]')).not.toBeNull();
+    expect(kap.textContent).not.toMatch(/[âÂ]/u);
+  });
+
+  /**
+   * ⚠️ Article şeması — Google'ın Article rich result alanları. Görsel adresi
+   * MUTLAK olmalıdır: göreli yazılsaydı doğrulayıcı hata vermez, görsel
+   * sessizce yok sayılırdı.
+   */
+  it.each(HER_YAZI)('%s — Article JSON-LD eksiksiz ve nonce taşıyor', (_slug, yazi) => {
+    const betik = ciz(yazi).querySelector('script[type="application/ld+json"]');
+
+    expect(betik, 'JSON-LD etiketi yok').not.toBeNull();
+    expect(betik?.getAttribute('nonce')).toBe('test-nonce');
+
+    // ⚠️ Tip onayı (`as`) bu projede yasak — yapı `toMatchObject` ile denetlenir.
+    const sema: unknown = JSON.parse(betik?.textContent ?? '{}');
+
+    expect(sema).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: yazi.baslik,
+      datePublished: yazi.tarih,
+      author: { '@type': 'Organization', name: 'KobiWise' },
+      image: [`${SITE_URL}${yazi.gorsel.src}`],
+      mainEntityOfPage: { '@id': `${SITE_URL}/blog/${yazi.slug}` },
+    });
+  });
+
+  /**
+   * ⚠️ JSON bir `<script>` etiketinin içine yazılır; metinde "</script>" geçerse
+   * etiket orada kapanırdı. Kaçırma bugünkü metinler için gereksiz görünür —
+   * bu test, veri değiştiği gün kaçırmanın hâlâ orada olduğunu kanıtlar.
+   */
+  it('⚠️ JSON-LD metnine `</script>` sızamaz', () => {
+    const ilk = BLOG_YAZILARI[0];
+
+    expect(ilk).toBeDefined();
+    if (ilk === undefined) return;
+
+    const kotu = { ...ilk, baslik: 'Kapanış </script><b>sızıntı</b>' };
+    const betik = ciz(kotu).querySelector('script[type="application/ld+json"]');
+
+    expect(betik?.innerHTML).not.toContain('</script>');
+    expect(JSON.parse(betik?.textContent ?? '{}')).toMatchObject({ headline: kotu.baslik });
+    expect(makaleSemasi(kotu).headline).toBe(kotu.baslik);
+  });
+
+  /** Görsel mevcut dört maskot sahnesinden biri ve dosya GERÇEKTEN var. */
+  it.each(HER_YAZI)('%s — görsel bir maskot sahnesi ve dosyası var', (_slug, yazi) => {
+    expect(yazi.gorsel.src).toMatch(/^\/brand\/mascot-scene-(path|stage|orbit|walk)\.webp$/u);
+    expect(existsSync(join(SRC, '..', 'public', yazi.gorsel.src))).toBe(true);
+  });
+
+  it('var olmayan bir slug için yazı yoktur (sayfa 404 döner)', () => {
+    expect(yaziBul('boyle-bir-yazi-yok')).toBeUndefined();
+  });
+
+  /**
+   * ⚠️ SITEMAP ELLE YAZILMAZ: odalar koridordan, yazılar `BLOG_YAZILARI`ndan
+   * türer. Bu test ikisinin de TAMAMININ sitemap'te olduğunu kilitler.
+   */
+  it('sitemap her odayı ve her yazıyı mutlak adresle içerir', () => {
+    const girdiler = sitemap();
+    const adresler = girdiler.map((girdi) => girdi.url);
+
+    for (const kapi of DOORS) {
+      expect(adresler).toContain(`${SITE_URL}${kapi.href}`);
+    }
+    for (const yazi of BLOG_YAZILARI) {
+      const girdi = girdiler.find((g) => g.url === `${SITE_URL}/blog/${yazi.slug}`);
+
+      expect(girdi, `sitemapte yok: ${yazi.slug}`).toBeDefined();
+      expect(girdi?.lastModified).toBe(yazi.tarih);
+    }
+    expect(adresler.every((adres) => adres.startsWith(SITE_URL))).toBe(true);
+    expect(new Set(adresler).size).toBe(adresler.length);
+  });
+
+  /**
+   * ⚠️ robots.txt kuralları ÖNEKTİR: "/b" gibi masum görünen bir satır blogun
+   * tamamını kapatırdı. Her yayın adresi her `Disallow` satırına karşı
+   * önek eşleşmesiyle denetlenir.
+   */
+  it('⚠️ robots hiçbir yayın sayfasını kapatmaz, /app kapalı, sitemap bildirilir', () => {
+    const kural = robots();
+    const kurallar = Array.isArray(kural.rules) ? kural.rules : [kural.rules];
+    const kapali = kurallar.flatMap((k) =>
+      k.disallow === undefined ? [] : Array.isArray(k.disallow) ? k.disallow : [k.disallow],
+    );
+    const yayinda = [
+      ...DOORS.map((kapi) => kapi.href),
+      ...BLOG_YAZILARI.map((yazi) => `/blog/${yazi.slug}`),
+      '/login',
+      '/register',
+    ];
+
+    for (const yol of yayinda) {
+      for (const onek of kapali) {
+        expect(yol.startsWith(onek), `"${onek}" kurali "${yol}" sayfasini kapatiyor`).toBe(false);
+      }
+    }
+    expect(kapali).toContain('/app');
+    expect(kural.sitemap).toBe(`${SITE_URL}/sitemap.xml`);
   });
 });

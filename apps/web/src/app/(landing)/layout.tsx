@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Reveal } from '@/components/landing/reveal';
 import { SiteFooter } from '@/components/landing/site-footer';
 import { SiteHeader } from '@/components/landing/site-header';
+import { SITE_URL } from '@/components/landing/site-url';
 
 import '../landing-surface.css';
 
@@ -68,7 +69,7 @@ const jakarta = Plus_Jakarta_Sans({
  * yapılandırma kazasıyla önizleme adresine düşmemelidir.
  */
 export const metadata: Metadata = {
-  metadataBase: new URL('https://app.kobiwise.com'),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'KobiWise',
     template: '%s — KobiWise',

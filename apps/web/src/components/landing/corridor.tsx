@@ -40,7 +40,13 @@ interface Door {
  * birbirinden ayırır ve TEK bilgi taşıyıcısı değildir — her kapının ayrıca
  * başlığı ve özeti vardır.
  */
-const DOORS: readonly Door[] = [
+/**
+ * ⚠️ DIŞA AKTARILIR — koridor landing'in ODA KAYIT DEFTERİDİR ve `sitemap.ts`
+ * sayfa listesini buradan türetir. Ayrı bir liste yazılsaydı yeni bir oda
+ * koridora eklenip sitemap'e eklenmeyi unuturdu ve arama motoru o sayfayı
+ * sessizce hiç görmezdi.
+ */
+export const DOORS: readonly Door[] = [
   {
     key: 'ana',
     href: '/',
@@ -78,8 +84,13 @@ const DOORS: readonly Door[] = [
   },
 ];
 
-export function Corridor({ haric }: { readonly haric: string }) {
-  const doors = DOORS.filter((door) => door.key !== haric);
+/**
+ * `haric` verilmezse hiçbir kapı elenmez — bir blog yazısı gibi, kendisi bir
+ * oda OLMAYAN bir sayfa için doğru davranış budur (oradan "Blog" kapısı da
+ * geçerli bir hedeftir).
+ */
+export function Corridor({ haric }: { readonly haric?: string }) {
+  const doors = haric === undefined ? DOORS : DOORS.filter((door) => door.key !== haric);
 
   return (
     <section className="bolum kap">
