@@ -33,3 +33,8 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Ham marka varliklari (ADR-0052 §5.5)
+# Uretilmis AVIF/WebP/WebM ciktilari apps/web/public/brand/ altinda IZLENIR;
+# ham JPEG'ler ve 1 MB'lik mp4 repoya GIRMEZ. Video hicbir ekranda kullanilmaz (§6.4).
+logo ve fotoğraflar/
